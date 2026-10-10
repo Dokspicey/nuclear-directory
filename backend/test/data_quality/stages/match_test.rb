@@ -243,6 +243,24 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
     assert link.verified?
   end
 
+  test "matching an existing pending link defers candidate attributes until publication" do
+    link = FacilityRelationship.create!(organization: organizations(:terrapower), facility: facilities(:vogtle),
+      relationship_type: "owns", description: "Curated description", ownership_pct: 40)
+    c = candidate("facility_relationship", {
+      "organization" => { "name" => "TerraPower" },
+      "facility" => { "name" => "Vogtle Electric Generating Plant" },
+      "relationship_type" => "owns",
+      "description" => "Candidate description",
+      "ownership_pct" => 75
+    })
+
+    match!
+
+    assert c.reload.status_matched?
+    assert_equal link.id, c.subject_id
+    assert_equal [ "Curated description", 40 ], link.reload.slice(:description, :ownership_pct).values
+  end
+
   test "a link to a record that needs review waits in review too" do
     vogtle_site!
     candidate("facility", facility_payload("Vogtle 1", "05000424"))
@@ -305,17 +323,29 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
     assert_equal 1, run.stats["matched"]
   end
 
-  test "a second match run for the same source refuses to start while one is running" do
+  test "a match run refuses to overlap another match run" do
     # A separate Postgres session plays the other run (tests share one pooled connection).
     config = ActiveRecord::Base.connection_db_config.configuration_hash
     other = PG.connect(host: config[:host], port: config[:port], user: config[:username], password: config[:password],
       dbname: config[:database])
-    other.exec("SELECT pg_advisory_lock(#{Zlib.crc32('data_quality:match:dummy')})")
+    other.exec("SELECT pg_advisory_lock(#{Zlib.crc32('data_quality:match')})")
 
     error = assert_raises(RuntimeError) { match! }
-    assert_match "already in progress", error.message
+    assert_equal "Another match run is already in progress", error.message
   ensure
     other&.close
+  end
+
+  test "an explicit nil domain prevents website matching" do
+    c = candidate("organization", { "name" => "Lumen Fission", "domain" => nil,
+      "website" => "https://www.terrapower.com" })
+
+    match!
+
+    record = Organization.find(c.reload.subject_id)
+    assert_not_equal organizations(:terrapower).id, record.id
+    assert_nil record.domain
+    assert_equal "https://www.terrapower.com", record.website
   end
 
   test "rerunning leaves candidates that already moved on alone" do

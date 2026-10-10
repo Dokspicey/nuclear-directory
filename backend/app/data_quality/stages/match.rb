@@ -29,6 +29,12 @@ class DataQuality::Stages::Match < DataQuality::Stage
     "relationship" => { "from_organization" => :organization, "to_organization" => :organization },
     "facility_relationship" => { "organization" => :organization, "facility" => :facility }
   }.freeze
+  LINK_KEYS = {
+    "organization_role" => %w[role],
+    "organization_technology" => %w[technology],
+    "relationship" => %w[relationship_type],
+    "facility_relationship" => %w[relationship_type]
+  }.freeze
 
   Found = Data.define(:record, :by)
   Review = Data.define(:reason)
@@ -49,14 +55,14 @@ class DataQuality::Stages::Match < DataQuality::Stage
       @stats
     end
 
-    # Two match runs over the same source kind would race on the same new
-    # candidates (and could both insert a record), so a second one refuses to
-    # start. A Postgres advisory lock, released when the run ends.
+    # Match runs can race when inserting similar records even across source
+    # kinds, so only one runs at a time. A Postgres advisory lock, released
+    # when the run ends.
     def one_run_at_a_time
       connection = Candidate.connection
-      key = Zlib.crc32("data_quality:match:#{plugin.source_kind}")
+      key = Zlib.crc32("data_quality:match")
       locked = connection.select_value("SELECT pg_try_advisory_lock(#{key})")
-      raise "Another match run for #{plugin.source_kind} is already in progress" unless locked
+      raise "Another match run is already in progress" unless locked
 
       yield
     ensure
@@ -91,7 +97,7 @@ class DataQuality::Stages::Match < DataQuality::Stage
     end
 
     def match_link(candidate, payload)
-      attributes = payload.except(*LINK_ENDS.fetch(candidate.kind).keys).symbolize_keys
+      attributes = payload.slice(*LINK_KEYS.fetch(candidate.kind)).symbolize_keys
 
       LINK_ENDS.fetch(candidate.kind).each do |key, type|
         unless payload.key?(key)
@@ -118,8 +124,8 @@ class DataQuality::Stages::Match < DataQuality::Stage
 
     def resolve_organization(payload)
       name = payload["name"].presence
-      # FactWriter derives a domain from the website, so match on it too.
-      domain = payload["domain"].presence || payload["website"].presence
+      # FactWriter derives a domain from the website unless domain was supplied.
+      domain = payload.key?("domain") ? payload["domain"].presence : payload["website"].presence
       by_name = directory.organization(name:) if name
       by_domain = directory.organization(domain:) if domain
 

@@ -11,7 +11,7 @@ class DataQuality::DirectoryClient
   # type is what candidates store in subject_type.
   Ref = Data.define(:type, :id)
   # What a lookup found: enough to match on and to explain a match.
-  Record = Data.define(:type, :id, :name, :nrc_docket, :parent_id) do
+  Record = Data.define(:type, :id, :name, :nrc_docket, :parent_id, :facility_type, :status, :state, :country_code) do
     def ref = Ref.new(type:, id:)
   end
   WriteResult = Data.define(:ref, :errors, :created) do
@@ -34,8 +34,8 @@ class DataQuality::DirectoryClient
     record("Organization", lookup.organization(name:, domain:))
   end
 
-  def facility(name: nil, nrc_docket: nil)
-    record("Facility", lookup.facility(name:, nrc_docket:))
+  def facility(id: nil, name: nil, nrc_docket: nil)
+    record("Facility", lookup.facility(id:, name:, nrc_docket:))
   end
 
   # Likely duplicates an exact lookup misses. Returns Records.
@@ -111,7 +111,9 @@ class DataQuality::DirectoryClient
     def fact_writer = @fact_writer ||= "Directory::FactWriter".constantize
 
     def record(type, ref)
-      Record.new(type:, id: ref.id, name: ref.name, nrc_docket: ref.try(:nrc_docket), parent_id: ref.try(:parent_id)) if ref
+      Record.new(type:, id: ref.id, name: ref.name, nrc_docket: ref.try(:nrc_docket), parent_id: ref.try(:parent_id),
+        facility_type: ref.try(:facility_type), status: ref.try(:status), state: ref.try(:state),
+        country_code: ref.try(:country_code)) if ref
     end
 
     def write_result(result)
