@@ -59,7 +59,8 @@ class DataQuality::Fetcher
   private
     # nil when robots.txt allows the URL, else the Response to return.
     def robots_verdict(uri)
-      robots = @robots[uri.host] ||= fetch_robots(uri)
+      origin = [ uri.scheme, uri.host, uri.port ]
+      robots = @robots[origin] ||= fetch_robots(uri)
       return robots if robots.is_a?(Response)
       return if robots.allowed?(uri.to_s, agent: AGENT_TOKEN)
 
@@ -70,7 +71,7 @@ class DataQuality::Fetcher
     # Per RFC 9309: missing (4xx) means everything is allowed; unreachable
     # (5xx, network) means nothing is. A 401/403 is a block, not "missing".
     def fetch_robots(uri)
-      robots_uri = URI.join("#{uri.scheme}://#{uri.host}", "/robots.txt")
+      robots_uri = uri.dup.tap { |copy| copy.path = "/robots.txt"; copy.query = copy.fragment = nil }
       http = request(robots_uri, {})
       status = http.code.to_i
 
