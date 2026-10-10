@@ -286,6 +286,16 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
     assert_match "brand of Dominion Energy but domain matches TerraPower", c.notes
   end
 
+  test "a per-plant name whose brand isn't in the directory yet must agree with the domain" do
+    Facility.create!(name: "Seabrook Station")
+    c = candidate("organization", { "name" => "NextEra Energy Seabrook, LLC", "domain" => "terrapower.com" })
+
+    match!
+
+    assert c.reload.status_needs_review?
+    assert_match "name is a NextEra Energy company but domain matches TerraPower", c.notes
+  end
+
   test "a brand shared by two companies goes to review" do
     Directory::FactWriter.write(:organization, { name: "Urenco" })
     Directory::FactWriter.write(:organization, { name: "Urenco USA" })

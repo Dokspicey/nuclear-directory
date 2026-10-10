@@ -57,6 +57,9 @@ class DataQuality::DirectoryClient
   # ("NextEra Energy Seabrook, LLC" => "NextEra Energy"), or nil.
   def brand_name(name) = lookup.brand_name(name, plants: plant_names)
 
+  # The brand a name reduces to ("NextEra Energy Seabrook, LLC" => "nextera"), or nil.
+  def brand_key(name) = lookup.brand_key(name, plants: plant_names)
+
   def similar_facilities(name)
     lookup.similar_facilities(name).map { |ref| record("Facility", ref) }
   end
