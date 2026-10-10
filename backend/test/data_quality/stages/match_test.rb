@@ -321,6 +321,19 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
       crawl_run: Struct.new(:id).new(nil))
     assert_equal "NextEra Energy", client.brand_name("NextEra Energy Seabrook, LLC"), "Seabrook is now a known plant"
     assert_equal 2, reads
+    client.write_pending("organization", { name: "Seabrook Holdings" }, candidate: candidate("organization", {}),
+      crawl_run: Struct.new(:id).new(nil))
+    client.brand_name("NextEra Energy Seabrook, LLC")
+    assert_equal 3, reads, "company names change which short forms count as plants"
+  end
+
+  test "a plant proposed in the same run is known when companies are matched" do
+    candidate("organization", { "name" => "Acme Power Fernhill, LLC" })
+    candidate("facility", { "name" => "Fernhill Generating Station", "facility_type" => "power_reactor" })
+
+    match!
+
+    assert Organization.exists?(name: "Acme Power"), "proposed under its brand, since Fernhill is a plant"
   end
 
   test "an organization listed on many rows is proposed once, then matched" do

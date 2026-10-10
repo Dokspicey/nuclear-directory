@@ -7,10 +7,13 @@ class Seed::OrganizationLoaderTest < ActiveSupport::TestCase
     @dir = Dir.mktmpdir
   end
 
-  teardown { FileUtils.remove_entry(@dir) }
+  teardown do
+    FileUtils.remove_entry(@dir)
+    FileUtils.remove_entry(@facilities_dir) if @facilities_dir
+  end
 
   # Kept out of @dir, which holds only organization files.
-  def facilities_file = @facilities_file ||= File.join(Dir.mktmpdir, "facilities.yml")
+  def facilities_file = File.join(@facilities_dir ||= Dir.mktmpdir, "facilities.yml")
 
   def write_file(slug, doc)
     File.write(File.join(@dir, "#{slug}.yml"), doc.deep_stringify_keys.to_yaml)
