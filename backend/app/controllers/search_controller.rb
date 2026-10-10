@@ -15,7 +15,7 @@ class SearchController < ApplicationController
     if @query
       @companies = listing.companies.limit(COMPANY_LIMIT).to_a
       @plants = listing.plants.limit(PLANT_LIMIT).to_a
-      @roles = OrganizationRole.verified.where(organization_id: @companies.map(&:id)).includes(:role).group_by(&:organization_id)
+      @roles = OrganizationRole.published.where(organization_id: @companies.map(&:id)).includes(:role).group_by(&:organization_id)
     end
 
     @frame_id = frame_id
