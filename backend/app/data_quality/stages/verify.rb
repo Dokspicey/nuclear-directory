@@ -16,19 +16,44 @@ class DataQuality::Stages::Verify < DataQuality::Stage
         next if candidate.status_new? && directory.enrichment?(candidate)
 
         stats["candidates"] += 1
+        next if closed_since_match?(candidate, stats)
+
         verdict = @verifier.call(candidate)
+        # Asked again once the verifier has answered: it can take a while, and
+        # a human may have decided meanwhile. (A publish is also refused by
+        # FactWriter, under the row's lock, if the fact is closed by then.)
+        next if closed_since_match?(candidate, stats)
 
         case verdict.outcome
         when :publish then publish(candidate, verdict, run, stats)
         when :review then send_to_review(candidate, verdict.reason, stats)
         when :reject
-          candidate.update!(status: "rejected", notes: verdict.reason)
-          stats["rejected"] += 1
-          retire_proposal(candidate, run)
+          # Rejected only while the fact is still open, under its lock.
+          closed = directory.unless_closed(candidate) do
+            candidate.update!(status: "rejected", notes: verdict.reason)
+            stats["rejected"] += 1
+            retire_proposal(candidate, run)
+          end
+          send_closed_to_review(candidate, closed, stats) if closed
         end
       end
 
       stats
+    end
+
+    # A human may have rejected or unpublished the record since match attached
+    # this candidate to it; that decision goes to review, named.
+    def closed_since_match?(candidate, stats)
+      subject = directory.attached_record(candidate)
+      return false unless subject&.closed?
+
+      send_closed_to_review(candidate, subject, stats)
+      true
+    end
+
+    def send_closed_to_review(candidate, subject, stats)
+      send_to_review(candidate, "#{subject.name.upcase_first} was #{subject.decision} after this was matched to it. " \
+        "The same thing again, or a new record?", stats)
     end
 
     def publish(candidate, verdict, run, stats)

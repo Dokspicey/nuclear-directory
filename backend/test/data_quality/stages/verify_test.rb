@@ -76,9 +76,51 @@ class DataQuality::Stages::VerifyTest < ActiveSupport::TestCase
     verify = run_stage("verify", verifier: PublishEverything.new)
 
     assert c.reload.status_needs_review?
-    assert_match "rejected by human:tosin", c.notes
-    assert_equal 1, verify.stats["write_errors"]
+    assert_match "TerraPower was rejected by human:tosin", c.notes
+    assert_equal [ 0, 1 ], verify.stats.values_at("write_errors", "needs_review"), "caught before the verifier is asked"
     assert_nil Directory::Lookup.organization(name: "TP Nuclear Holdings")
+  end
+
+  test "a record unpublished after match sends its candidate to review, even with a review-only verifier" do
+    c = candidate("organization", { "name" => "TP Nuclear Holdings", "domain" => "terrapower.com" })
+    run_stage("match")
+    organizations(:terrapower).tap { |o| o.verify!(by: "human:tosin") }.unpublish!(by: "human:tosin")
+
+    run_stage("verify")
+
+    assert c.reload.status_needs_review?
+    assert_match(/TerraPower was unpublished by human:tosin on \d{4}-\d{2}-\d{2} after this was matched/, c.notes)
+  end
+
+  test "a decision made while the verifier is thinking still wins" do
+    c = candidate("organization", { "name" => "TP Nuclear Holdings", "domain" => "terrapower.com" })
+    run_stage("match")
+    terrapower = organizations(:terrapower)
+    slow = Object.new
+    slow.define_singleton_method(:call) do |_candidate|
+      terrapower.tap { |o| o.verify!(by: "human:tosin") }.unpublish!(by: "human:tosin")
+      DataQuality::Verdict.new(outcome: :reject, reason: "not a real company")
+    end
+
+    run_stage("verify", verifier: slow)
+
+    assert c.reload.status_needs_review?, "sent to review, not rejected"
+    assert_match "TerraPower was unpublished by human:tosin", c.notes
+  end
+
+  test "a link unpublished after match sends its candidate to review too" do
+    link = FacilityRelationship.create!(organization: organizations(:terrapower), facility: facilities(:vogtle),
+      relationship_type: "owns")
+    c = candidate("facility_relationship", { "organization" => { "name" => "TerraPower" },
+      "facility" => { "name" => facilities(:vogtle).name }, "relationship_type" => "owns" })
+    run_stage("match")
+    link.verify!(by: "human:tosin")
+    link.unpublish!(by: "human:tosin")
+
+    run_stage("verify", verifier: RejectEverything.new)
+
+    assert c.reload.status_needs_review?, "not rejected by the verifier"
+    assert_match "The fact “TerraPower owns #{facilities(:vogtle).name}” was unpublished by human:tosin", c.notes
   end
 
   test "publishing a match keeps the company's own name, adding the candidate's as an alias" do

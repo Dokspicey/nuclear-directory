@@ -12,9 +12,13 @@ class DataQuality::DirectoryClient
   Ref = Data.define(:type, :id)
   # What a lookup found: enough to match on and to explain a match.
   Record = Data.define(:type, :id, :name, :nrc_docket, :parent_id, :facility_type, :status, :state, :country_code,
-    :verification_status) do
+    :verification_status, :verified_by, :verified_at) do
     def ref = Ref.new(type:, id:)
     def rejected? = verification_status == "rejected"
+    def unpublished? = verification_status == "unpublished"
+    # Rejected or unpublished: a decision the pipeline never reopens on its own.
+    def closed? = rejected? || unpublished?
+    def decision = "#{verification_status} by #{verified_by || 'review'}#{" on #{verified_at.to_date}" if verified_at}"
   end
   # conflicts: { "state" => [stored, incoming] } when the write disagreed with
   # a human-verified fact; nothing was written, and ref points at that fact.
@@ -43,6 +47,23 @@ class DataQuality::DirectoryClient
     record("Facility", lookup.facility(id:, name:, nrc_docket:))
   end
 
+  # Runs the block with the candidate's attached fact locked, unless it was
+  # rejected or unpublished meanwhile: then returns that fact's Record and
+  # doesn't run the block. A candidate with no fact just runs the block.
+  def unless_closed(candidate, &)
+    return yield.then { nil } unless candidate.subject_id
+
+    record(candidate.subject_type, fact_writer.while_open(type: candidate.subject_type, id: candidate.subject_id, &))
+  end
+
+  # The fact a candidate is attached to (any kind, links included), with its
+  # current decision, or nil when it has none.
+  def attached_record(candidate)
+    return unless candidate.subject_id
+
+    record(candidate.subject_type, lookup.fact_state(type: candidate.subject_type, id: candidate.subject_id))
+  end
+
   # Likely duplicates an exact lookup misses. Returns Records.
   def similar_organizations(name)
     lookup.similar_organizations(name).map { |ref| record("Organization", ref) }
@@ -61,8 +82,8 @@ class DataQuality::DirectoryClient
   # Writes a fact the match stage found or proposed, with the candidate's
   # source as evidence (found_by: crawler). Verification is left alone, so a
   # new fact starts pending and an existing one keeps its status. A fact a
-  # human has verified only gets its blanks filled; one a human rejected
-  # isn't changed (the result has an error).
+  # human has verified only gets its blanks filled; one a human rejected or
+  # unpublished isn't changed (the result has an error).
   # evidence: false writes only the record (a link that may already exist
   # gets its evidence on publish, so nothing unverified lands on it early).
   def write_pending(kind, attributes, candidate:, crawl_run:, evidence: true)
@@ -76,11 +97,11 @@ class DataQuality::DirectoryClient
   # link kinds the ends were resolved by match, so the rest of the payload is
   # sent. A fact a human has verified is never overwritten: only its blank
   # attributes are filled and its verification stays. A fact a human rejected
-  # isn't changed at all; the result has an error instead (FactWriter
-  # protect_human_verified). An enrichment candidate (see enrichment?) sets
-  # only its values and leaves the record's verification alone, since it
-  # doesn't vouch for the record itself. Returns a WriteResult; never raises
-  # on validation problems.
+  # or unpublished isn't changed at all; the result has an error instead
+  # (FactWriter protect_human_verified). An enrichment candidate (see
+  # enrichment?) sets only its values and leaves the record's verification
+  # alone, since it doesn't vouch for the record itself. Returns a
+  # WriteResult; never raises on validation problems.
   def write_fact(candidate, confidence:, crawl_run:)
     attributes = candidate.payload.except(*LINK_ENDS, ENRICHMENT_KEY).symbolize_keys
     attributes[:id] = candidate.subject_id if candidate.subject_id
@@ -159,7 +180,8 @@ class DataQuality::DirectoryClient
     def record(type, ref)
       Record.new(type:, id: ref.id, name: ref.name, nrc_docket: ref.try(:nrc_docket), parent_id: ref.try(:parent_id),
         facility_type: ref.try(:facility_type), status: ref.try(:status), state: ref.try(:state),
-        country_code: ref.try(:country_code), verification_status: ref.verification_status) if ref
+        country_code: ref.try(:country_code), verification_status: ref.verification_status,
+        verified_by: ref.try(:verified_by), verified_at: ref.try(:verified_at)) if ref
     end
 
     def write_result(result)

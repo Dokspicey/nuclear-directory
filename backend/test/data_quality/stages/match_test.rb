@@ -188,6 +188,16 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
     assert_equal organizations(:terrapower).id, Directory::Lookup.organization(name: "TP Nuclear Holdings").id
   end
 
+  test "an unpublished record is a human decision: never attached to, and the note says who and when" do
+    organizations(:terrapower).unpublish!(by: "human:tosin")
+    c = candidate("organization", { "name" => "TerraPower, Inc." })
+
+    match!
+
+    assert c.reload.status_needs_review?
+    assert_match(/which was unpublished by human:tosin on \d{4}-\d{2}-\d{2}/, c.notes)
+  end
+
   test "a record that was rejected is never attached to" do
     rejected = Directory::FactWriter.write(:organization, { name: "Imaginary Fission Co" }).id
     Organization.find(rejected).reject!(by: "agent:verifier/x")
