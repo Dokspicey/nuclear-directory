@@ -15,6 +15,7 @@ class CompanyPageTest < ActionDispatch::IntegrationTest
     @google = company("Google", roles: [ role("data_center_offtaker") ])
     @doe = company("US Department of Energy")
     @ghost = company("Ghost Partner", verified: false)
+    cite!(@kairos, @google, @doe, source: @press)
 
     deal = link(@google, "offtake_with", @kairos)
     deal.update!(description: "500 MW by 2035.", verified_at: Time.zone.parse("2026-10-09"))
@@ -86,15 +87,15 @@ class CompanyPageTest < ActionDispatch::IntegrationTest
 
     assert_select ".nd-overview dt", text: "Website"
     assert_select ".nd-overview dd a[href='https://kairospower.com']", "kairospower.com"
-    assert_select ".nd-overview dd", text: "Kairos"
-    assert_select ".nd-overview dd", text: "Alameda, CA"
+    assert_select ".nd-overview dd", text: /\AKairos\s*1\z/
+    assert_select ".nd-overview dd", text: /\AAlameda, CA\s*1\z/
     assert_select ".nd-overview dt", text: "Founded", count: 0
     assert_select ".nd-overview__foot", /checked 2026-10-09/
   end
 
   test "a parent company shows in the key facts, not as a deal" do
     parent = company("Southern Company")
-    link(@kairos, "subsidiary_of", parent)
+    cite!(link(@kairos, "subsidiary_of", parent))
     get company_path(slug: "kairos-power")
 
     assert_select ".nd-overview dt", "Parent company"
@@ -105,7 +106,7 @@ class CompanyPageTest < ActionDispatch::IntegrationTest
   test "a general role is left out when a more specific one under it is there" do
     coolant = role("coolant")
     [ coolant, role("molten_salt", parent: coolant) ].each do |r|
-      OrganizationRole.create!(organization: @kairos, role: r, verification_status: "verified")
+      cite!(OrganizationRole.create!(organization: @kairos, role: r, verification_status: "verified"))
     end
     get company_path(slug: "kairos-power")
 
@@ -137,6 +138,26 @@ class CompanyPageTest < ActionDispatch::IntegrationTest
     assert_select ".nd-columns--profile > :first-child.nd-columns__side"
   end
 
+  test "facts without a source aren't shown" do
+    bare = company("Bare Co", city: "Austin", state: "TX", roles: [ role("utility") ], website: "https://bare.example", description: "Runs plants.")
+    link(bare, "supplies", @kairos)
+    get company_path(slug: "bare-co")
+
+    assert_response :success
+    assert_select "body", text: /Runs plants|Austin|bare\.example|Kairos/, count: 0
+    assert_select ".nd-tag", count: 0
+    assert_select ".nd-gaps li", text: "One-line description"
+    assert_select ".nd-gaps li", text: "Headquarters"
+  end
+
+  test "a company with only an invests-in deal gets the Investors breadcrumb" do
+    backer = cite!(company("Backer Fund"))
+    cite!(link(backer, "invests_in", @kairos))
+    get company_path(slug: "backer-fund")
+
+    assert_select ".nd-crumbs a[href=?]", "/companies?category=investors", text: "Investors"
+  end
+
   test "missing must-have fields are listed, not guessed" do
     get company_path(slug: "google")
 
@@ -147,7 +168,7 @@ class CompanyPageTest < ActionDispatch::IntegrationTest
 
   test "long lists collapse behind Show all" do
     (CompanyProfile::VISIBLE_ITEMS + 1).times do |i|
-      link(company("Supplier #{i}"), "supplies", @kairos)
+      cite!(link(company("Supplier #{i}"), "supplies", @kairos))
     end
     get company_path(slug: "kairos-power")
 
