@@ -575,3 +575,9 @@ facilities:
     source_url: https://newsroom.kiewit.com/?p=10882
     quote: near Richland, WA
     confidence: 1.0
+- name: Crane Clean Energy Center
+  other_names:
+  - Crane Clean Energy Center (Three Mile Island Unit 1)
+- name: Plant Vogtle
+  other_names:
+  - Plant Vogtle Units 3 & 4

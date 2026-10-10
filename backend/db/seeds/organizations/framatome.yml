@@ -5,11 +5,10 @@ aliases:
 website: https://www.framatome.com
 hq:
   city: Courbevoie
-  country: France
   source_url: https://www.framatome.com/en/contact-us
   quote: Framatome head office 1 Place Jean Millier – Tour Areva 92400 Courbevoie France
   confidence: 1.0
-country_code: null
+country_code: FR
 status: active
 roles:
 - key: reactor_services

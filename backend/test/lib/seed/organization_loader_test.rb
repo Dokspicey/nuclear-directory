@@ -77,6 +77,19 @@ class Seed::OrganizationLoaderTest < ActiveSupport::TestCase
     assert_equal 40, acme.facility_relationships.sole.ownership_pct
   end
 
+  test "a description's other quotes back the rest of its text" do
+    write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com",
+      description: { "text" => "Makes fuel and vanadium.", "source_url" => "https://example.com/about", "quote" => "We make fuel.",
+        "also" => [ { "quote" => "We also make vanadium." },
+          { "quote" => "Acme's vanadium plant opened.", "source_url" => "https://example.com/news" } ] }))
+
+    Seed::OrganizationLoader.new(@dir).load!
+
+    evidence = Organization.find_by!(slug: "acme-fuel").evidence.includes(:source)
+    assert_equal [ [ "We make fuel.", "https://example.com/about" ], [ "We also make vanadium.", "https://example.com/about" ],
+      [ "Acme's vanadium plant opened.", "https://example.com/news" ] ].sort, evidence.map { |e| [ e.quote, e.source.url ] }.sort
+  end
+
   test "facilities.yml details are written field by field, each with its own quote" do
     write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com", facilities: [ item(name: "Acme Plant", type: "owns") ]))
     File.write(facilities_file, { "facilities" => [ {

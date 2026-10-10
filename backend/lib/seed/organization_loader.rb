@@ -63,8 +63,15 @@ module Seed
       end
 
       def evidence_items(doc)
-        [ *hq_entries(doc), doc["description"], *doc["roles"], *doc["technologies"], *doc["relationships"],
+        [ *hq_entries(doc), *description_items(doc), *doc["roles"], *doc["technologies"], *doc["relationships"],
           *doc["facilities"] ].compact.select { |item| item["source_url"] }
+      end
+
+      # The description's quote, plus any "also" quotes that support the rest
+      # of its text (from the same page unless they name their own source_url).
+      def description_items(doc)
+        description = doc["description"] or return []
+        [ description, *Array(description["also"]).map { |extra| { "source_url" => description["source_url"] }.merge(extra) } ]
       end
 
       def read(path) = YAML.safe_load_file(path, permitted_classes: [ Date ])
@@ -90,7 +97,7 @@ module Seed
         }
         attributes[:domain] = nil if shared.include?(Organization.domain_from(doc["website"]))
 
-        write(slug, :organization, attributes, [ *hq, description ].filter_map { |item| evidence(item, sources) })
+        write(slug, :organization, attributes, [ *hq, *description_items(doc) ].filter_map { |item| evidence(item, sources) })
       end
 
       def write_facts(slug, doc, sources)

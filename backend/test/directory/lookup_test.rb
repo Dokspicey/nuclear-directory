@@ -105,6 +105,7 @@ class Directory::LookupTest < ActiveSupport::TestCase
 
     assert_equal "nextera", Directory::Lookup.brand_key("NextEra Energy Seabrook, LLC")
     assert_equal "NextEra Energy", Directory::Lookup.brand_name("NextEra Energy Seabrook, LLC")
+    assert_equal "NextEra Energy", Directory::Lookup.brand_name("NextEra Energy Seabrook, L.L.C."), "dotted LLC"
     assert_equal "duke", Directory::Lookup.brand_key("Duke Energy Carolinas, LLC")
     assert_equal "Duke Energy", Directory::Lookup.brand_name("Duke Energy Carolinas, LLC")
     assert_equal "duke", Directory::Lookup.brand_key("Duke Energy Progress, LLC"), "Progress is a legacy brand of Duke"

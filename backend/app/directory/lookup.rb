@@ -134,7 +134,9 @@ module Directory
       # Only for a brand key we'd trust ("X-Energy Seabrook" reduces to "x": no).
       return unless brand_key(name, plants:)
 
-      tokens = name.to_s.gsub("&", " and ").scan(/[[:alnum:]]+/)
+      # "L.L.C." is one word ("LLC"), as the alias normalizer reads it.
+      tokens = name.to_s.gsub("&", " and ").gsub(/\b(?:[[:alpha:]]\.){2,}/) { |initials| initials.delete(".") }
+        .scan(/[[:alnum:]]+/)
       base = strip_entities(tokens.map(&:downcase))
       place = place_words_at_end(base, plants) or return
 

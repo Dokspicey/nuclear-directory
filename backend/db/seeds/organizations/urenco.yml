@@ -51,3 +51,5 @@ description:
   text: Company that supplies uranium enrichment for nuclear power, with plants in Germany, the Netherlands, the UK and the U.S.
   source_url: https://www.urenco.com/about-us
   quote: Urenco supplies uranium enrichment services and fuel cycle products to customers around the world, helping to provide reliable, low-carbon electricity through nuclear energy.
+  also:
+  - quote: 'These are located in Germany, the Netherlands, the UK and the USA.'
