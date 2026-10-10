@@ -30,7 +30,7 @@ def subset_to_woff2(font, path):
     buffer = io.BytesIO()
     font.save(buffer)
     buffer.seek(0)
-    font = TTFont(buffer)
+    font = TTFont(buffer, recalcTimestamp=False)
     options = subset.Options()
     options.flavor = "woff2"
     options.layout_features = ["kern", "liga", "calt", "tnum", "lnum", "pnum", "onum", "case", "ccmp", "locl", "mark", "mkmk"]
@@ -45,17 +45,17 @@ def subset_to_woff2(font, path):
 
 # Roboto Serif: weights 400-700 stay variable; optical size is fixed at 14 (body text), grade
 # and width are fixed at their defaults.
-serif = TTFont(f"{src}/RobotoSerif.ttf")
+serif = TTFont(f"{src}/RobotoSerif.ttf", recalcTimestamp=False)
 serif = instancer.instantiateVariableFont(serif, {"wght": (400, 700), "opsz": 14, "GRAD": 0, "wdth": 100})
 subset_to_woff2(serif, f"{out}/roboto-serif-latin.woff2")
 
 # Roboto Mono: 400-500.
-mono = TTFont(f"{src}/RobotoMono.ttf")
+mono = TTFont(f"{src}/RobotoMono.ttf", recalcTimestamp=False)
 mono = instancer.instantiateVariableFont(mono, {"wght": (400, 500)})
 subset_to_woff2(mono, f"{out}/roboto-mono-latin.woff2")
 
 # Anton: one weight.
-subset_to_woff2(TTFont(f"{src}/Anton-Regular.ttf"), f"{out}/anton-latin.woff2")
+subset_to_woff2(TTFont(f"{src}/Anton-Regular.ttf", recalcTimestamp=False), f"{out}/anton-latin.woff2")
 
 # The wordmark: "NUCLEAR DIRECTORY" in Anton with 0.01em tracking, cropped
 # to cap height so it lines up with text set beside it.
