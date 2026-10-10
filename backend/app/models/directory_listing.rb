@@ -74,27 +74,37 @@ class DirectoryListing
   # Filter choices that actually occur in verified data.
   # Technologies used by verified companies, plants or units, plus their
   # parents (SMR in use offers Fission); then coolant types, which only
-  # apply to companies and so aren't offered on the plants list.
+  # apply to companies. Only from the kinds of record this listing can show,
+  # so every option can match something.
   def technology_options
     @technology_options ||= begin
       companies = Organization.verified.select(:id)
-      used = Technology.where(id: OrganizationTechnology.verified.where(organization_id: companies).select(:technology_id))
-        .or(Technology.where(id: public_facilities.where.not(technology_id: nil).select(:technology_id)))
+      used = [
+        (Technology.where(id: OrganizationTechnology.verified.where(organization_id: companies).select(:technology_id)) if lists_companies?),
+        (Technology.where(id: public_facilities.where.not(technology_id: nil).select(:technology_id)) if lists_plants?)
+      ].compact.reduce { |all, one| all.or(one) } || Technology.none
       techs = Technology.where(id: used.select(:id)).or(Technology.where(id: used.select(:parent_id)))
         .order(:name).map { |t| [ t.name, t.key ] }
       coolants = Role.where(parent: Role.find_by(key: "coolant"))
         .where(id: OrganizationRole.verified.where(organization_id: companies).select(:role_id))
         .order(:name).map { |r| [ "#{r.name} coolant", r.key ] }
-      category&.plants ? techs : techs + coolants
+      lists_companies? ? techs + coolants : techs
     end
   end
 
   # States of verified companies and of verified sites (a pending site's own
-  # place isn't public, and units aren't checked), so every option can match.
+  # place isn't public, and units aren't checked), from the kinds of record
+  # this listing can show, so every option can match.
   def state_options
-    @state_options ||= (Organization.verified.distinct.pluck(:hq_state) + public_sites.verified.distinct.pluck(:state))
-      .compact_blank.uniq.sort
+    @state_options ||= [ (Organization.verified.distinct.pluck(:hq_state) if lists_companies?),
+                         (public_sites.verified.distinct.pluck(:state) if lists_plants?) ]
+      .compact.flatten.compact_blank.uniq.sort
   end
+
+  # Companies show unless the Plants and sites category is chosen; plants
+  # show in that category and alongside companies in search results.
+  def lists_companies? = !category&.plants
+  def lists_plants? = category ? category.plants : query.present?
 
   # Sites the public can see: verified ones, and pending ones with at least
   # one verified unit (#73). A rejected site never shows.

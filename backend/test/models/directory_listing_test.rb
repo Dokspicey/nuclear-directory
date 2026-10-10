@@ -95,7 +95,7 @@ class DirectoryListingTest < ActiveSupport::TestCase
     pending_site = plant("Pending Station", verified: false, state: "OR")
     plant("Pending Unit 1", parent: pending_site)
 
-    options = DirectoryListing.new.state_options
+    options = DirectoryListing.new(category: "plants").state_options
     assert_not_includes options, "NV"
     assert_not_includes options, "OR"
     assert_includes options, "GA"
@@ -121,7 +121,7 @@ class DirectoryListingTest < ActiveSupport::TestCase
   test "technologies used only by plants are filter options, and coolants aren't offered for plants" do
     plant("Orion", technology: technology("fusion_magnetic", "Magnetic confinement"))
 
-    assert_includes DirectoryListing.new.technology_options.map(&:last), "fusion_magnetic"
+    assert_includes DirectoryListing.new(category: "plants").technology_options.map(&:last), "fusion_magnetic"
     assert_equal "fusion_magnetic", DirectoryListing.new(category: "plants", technology: "fusion_magnetic").technology
     assert_not_includes DirectoryListing.new(category: "plants").technology_options.map(&:last), "molten_salt"
   end
@@ -147,6 +147,23 @@ class DirectoryListingTest < ActiveSupport::TestCase
     end
 
     assert_equal [ "Clinch River", site.name ], DirectoryListing.new(q: "SMR").plants.map(&:name).sort
+  end
+
+  test "filter options come only from the kinds of record the listing shows" do
+    plant("Orion", state: "NM", technology: technology("fusion_magnetic", "Magnetic confinement"))
+
+    companies_page = DirectoryListing.new
+    assert_not_includes companies_page.technology_options.map(&:last), "fusion_magnetic"
+    assert_not_includes companies_page.state_options, "NM"
+
+    plants_page = DirectoryListing.new(category: "plants")
+    assert_includes plants_page.technology_options.map(&:last), "fusion_magnetic"
+    assert_not_includes plants_page.technology_options.map(&:last), "smr"
+    assert_not_includes plants_page.state_options, "CA"
+
+    search = DirectoryListing.new(q: "o")
+    assert_includes search.technology_options.map(&:last), "fusion_magnetic"
+    assert_includes search.state_options, "CA"
   end
 
   test "a parent technology filter includes its sub-technologies" do
@@ -246,6 +263,6 @@ class DirectoryListingTest < ActiveSupport::TestCase
 
     assert_equal [ [ "Small modular reactor", "smr" ], [ "Molten salt coolant", "molten_salt" ] ],
       listing.technology_options.select { |_, key| %w[smr molten_salt].include?(key) }
-    assert_equal %w[CA GA MD], listing.state_options
+    assert_equal %w[CA MD], listing.state_options
   end
 end
