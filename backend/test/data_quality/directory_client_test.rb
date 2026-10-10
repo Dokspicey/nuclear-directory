@@ -86,6 +86,46 @@ class DataQuality::DirectoryClientTest < ActiveSupport::TestCase
     assert_equal "verified", vogtle.verification_status
   end
 
+  test "publishing fills a human-verified record's blanks, e.g. the NRC docket of a seed plant" do
+    columbia = Facility.create!(name: "Columbia Generating Station")
+    columbia.verify!(by: "human:tosin")
+    matched = candidate("facility", { "name" => "Columbia Generating Station", "nrc_docket" => "05000397",
+      "facility_type" => "power_reactor" })
+    matched.update!(status: "matched", subject_type: "Facility", subject_id: columbia.id)
+
+    assert @client.write_fact(matched, confidence: 0.9, crawl_run: @run).success?
+
+    columbia.reload
+    assert_equal [ "05000397", "power_reactor" ], [ columbia.nrc_docket, columbia.facility_type ]
+    assert_equal "human:tosin", columbia.verified_by
+  end
+
+  test "publishing never changes a human-verified link" do
+    link = FacilityRelationship.create!(organization: organizations(:terrapower), facility: facilities(:vogtle),
+      relationship_type: "owns", description: "Curated description", ownership_pct: 40)
+    link.verify!(by: "human:tosin")
+    matched = candidate("facility_relationship", { "organization" => { "name" => "TerraPower" },
+      "facility" => { "name" => "Vogtle Electric Generating Plant" }, "relationship_type" => "owns",
+      "description" => "Candidate description", "ownership_pct" => 75 })
+    matched.update!(status: "matched", subject_type: "FacilityRelationship", subject_id: link.id)
+
+    assert @client.write_fact(matched, confidence: 0.8, crawl_run: @run).success?
+
+    link.reload
+    assert_equal [ "Curated description", 40 ], link.slice(:description, :ownership_pct).values
+    assert_equal [ "verified", "human:tosin" ], [ link.verification_status, link.verified_by ]
+  end
+
+  test "an agent never overturns a human's rejection" do
+    terrapower = organizations(:terrapower)
+    terrapower.reject!(by: "human:tosin")
+    matched = candidate("organization", { "name" => "TerraPower" })
+    matched.update!(status: "matched", subject_type: "Organization", subject_id: terrapower.id)
+
+    assert @client.write_fact(matched, confidence: 0.9, crawl_run: @run).success?
+    assert terrapower.reload.rejected?
+  end
+
   test "publishing a matched link applies its payload attributes" do
     link = FacilityRelationship.create!(organization: organizations(:terrapower), facility: facilities(:vogtle),
       relationship_type: "owns", description: "Curated description", ownership_pct: 40)

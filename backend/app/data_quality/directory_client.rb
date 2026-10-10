@@ -49,33 +49,24 @@ class DataQuality::DirectoryClient
 
   # Writes a fact the match stage found or proposed, with the candidate's
   # source as evidence (found_by: crawler). Verification is left alone, so a
-  # new fact starts pending and an existing one keeps its status.
+  # new fact starts pending and an existing one keeps its status. A fact a
+  # human has verified or rejected only gets its blanks filled.
   def write_pending(kind, attributes, candidate:, crawl_run:)
-    result = fact_writer.write(kind, attributes,
+    result = fact_writer.write(kind, attributes, protect_human_verified: true,
       evidence: [ { source_id: candidate.source_id, quote: candidate.quote, found_by: "crawler", crawl_run_id: crawl_run.id } ])
     write_result(result)
   end
 
   # Writes a candidate as a verified fact, with the source it came from as
-  # evidence. Matched records are identified by id without reapplying their
-  # attributes; non-pending records keep their verification. Link attributes
-  # are applied here, after verification. Returns a WriteResult; never raises
-  # on validation problems.
+  # evidence. A matched candidate updates its record (attributes id:); for
+  # link kinds the ends were resolved by match, so the rest of the payload is
+  # sent. A fact a human has verified or rejected is never overwritten: only
+  # its blank attributes are filled and its verification stays (FactWriter
+  # protect_human_verified). Returns a WriteResult; never raises on
+  # validation problems.
   def write_fact(candidate, confidence:, crawl_run:)
-    attributes =
-      if LINK_KINDS.include?(candidate.kind)
-        candidate.payload.except(*LINK_ENDS).symbolize_keys
-      elsif candidate.subject_id
-        {}
-      else
-        candidate.payload.symbolize_keys
-      end
+    attributes = candidate.payload.except(*LINK_ENDS).symbolize_keys
     attributes[:id] = candidate.subject_id if candidate.subject_id
-    existing_record = case candidate.kind
-    when "organization" then lookup.organization(id: candidate.subject_id) if candidate.subject_id
-    when "facility" then lookup.facility(id: candidate.subject_id) if candidate.subject_id
-    end
-    preserve_verification = existing_record && existing_record.verification_status != "pending"
 
     result = fact_writer.write(
       candidate.kind,
@@ -87,9 +78,8 @@ class DataQuality::DirectoryClient
         confidence: confidence,
         crawl_run_id: crawl_run.id
       } ],
-      verification: unless preserve_verification
-        { status: "verified", by: "agent:verifier/#{crawl_run.model || 'unknown'}" }
-      end
+      verification: { status: "verified", by: "agent:verifier/#{crawl_run.model || 'unknown'}" },
+      protect_human_verified: true
     )
     write_result(result)
   end

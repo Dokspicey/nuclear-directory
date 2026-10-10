@@ -57,7 +57,11 @@ module Directory
     # verification: { status: "pending" | "verified" | "rejected", by: "human:tosin" }
     # fill_blank: true sets only attributes that are blank on an existing row,
     # so new data can complete a record without overwriting anything.
-    def write(kind, attributes, evidence: [], verification: nil, fill_blank: false)
+    # protect_human_verified: true treats a row a human has verified (or
+    # rejected) as curated: only its blank attributes are filled and its
+    # verification is left alone (evidence is still added). Automated writers
+    # pass this, so a human's decision is never overwritten.
+    def write(kind, attributes, evidence: [], verification: nil, fill_blank: false, protect_human_verified: false)
       kind = kind.to_sym
       spec = KINDS[kind] or return failure(kind, "unknown kind #{kind.inspect}")
       attributes = attributes.to_h.symbolize_keys
@@ -69,14 +73,15 @@ module Directory
       ActiveRecord::Base.transaction(requires_new: true) do
         record = find(kind, spec[:model], attributes) || spec[:model].new
         created = record.new_record?
+        curated = protect_human_verified && !created && record.human_reviewed?
         changes = model_attributes(kind, attributes)
-        changes = changes.select { |name, _| record.public_send(name).blank? } if fill_blank && !created
+        changes = changes.select { |name, _| record.public_send(name).blank? } if (fill_blank || curated) && !created
         record.assign_attributes(changes)
         record.save!
 
         write_aliases(record, [ record.name, *attributes[:aliases] ]) if kind == :organization
         Array(evidence).each { |item| write_evidence(record, item) }
-        apply_verification(record, verification) if verification
+        apply_verification(record, verification) if verification && !curated
         record.recompute_confidence!
       end
 

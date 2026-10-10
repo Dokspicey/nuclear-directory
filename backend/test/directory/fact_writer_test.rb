@@ -116,6 +116,29 @@ class Directory::FactWriterTest < ActiveSupport::TestCase
     assert_equal [ "GA", "operating" ], [ site.state, site.status ]
   end
 
+  test "protect_human_verified fills only blanks and keeps a human's decision" do
+    site = facilities(:vogtle)
+    site.update!(state: "GA")
+    site.verify!(by: "human:tosin")
+
+    result = write(:facility, { id: site.id, state: "AL", status: "operating" }, protect_human_verified: true,
+      verification: { status: "verified", by: "agent:verifier/x" })
+
+    assert result.ok?
+    site.reload
+    assert_equal [ "GA", "operating" ], [ site.state, site.status ]
+    assert_equal "human:tosin", site.verified_by
+  end
+
+  test "protect_human_verified doesn't hold back records no human has reviewed" do
+    site = facilities(:vogtle)
+    site.update!(state: "GA")
+
+    write(:facility, { id: site.id, state: "AL" }, protect_human_verified: true, verification: { status: "verified", by: "agent:verifier/x" })
+
+    assert_equal [ "AL", "agent:verifier/x" ], [ site.reload.state, site.verified_by ]
+  end
+
   test "returns errors instead of raising" do
     org_id = organizations(:terrapower).id
 
