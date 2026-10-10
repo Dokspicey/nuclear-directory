@@ -77,8 +77,11 @@ class DataQuality::Stages::Match < DataQuality::Stage
       attributes = payload.except(*LINK_ENDS.fetch(candidate.kind).keys).symbolize_keys
 
       LINK_ENDS.fetch(candidate.kind).each do |key, type|
-        unless payload[key].is_a?(Hash)
+        unless payload.key?(key)
           return review(candidate, "payload has no #{key}")
+        end
+        unless payload[key].is_a?(Hash)
+          return review(candidate, "payload #{key} must be an object")
         end
 
         case (found = resolve(type, payload[key]))
