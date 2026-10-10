@@ -99,9 +99,10 @@ class DataQuality::Verifiers::Agent
         return DataQuality::Verdict.new(outcome: :review, reason: "The verifier gave an invalid confidence (#{raw.inspect}): #{reason}")
       end
 
-      # The threshold is checked before rounding, so 0.795 stays below 80%.
+      # The threshold is checked on the raw value, and the stored value (two
+      # decimals) is rounded down, so 0.795 is below 80% and stored as 0.79.
       sure_enough = raw >= PUBLISH_AT
-      confidence = raw.to_f.round(2)
+      confidence = BigDecimal(raw.to_s).floor(2).to_f # exact: 0.95 stays 0.95
 
       case answer["verdict"]
       when "supported"

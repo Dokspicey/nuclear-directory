@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_11_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_11_000500) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -34,6 +34,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_000000) do
     t.string "ai_model"
     t.datetime "ai_checked_at"
     t.bigint "verify_run_id"
+    t.string "ai_source_sha256"
     t.index ["ai_recommendation", "verify_run_id"], name: "index_candidates_on_ai_recommendation_and_verify_run_id"
     t.index ["crawl_run_id"], name: "index_candidates_on_crawl_run_id"
     t.index ["source_id"], name: "index_candidates_on_source_id"

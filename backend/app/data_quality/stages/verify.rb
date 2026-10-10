@@ -160,7 +160,8 @@ class DataQuality::Stages::Verify < DataQuality::Stage
     end
 
     def recommend(candidate, verdict, run, stats, model: run.model)
-      candidate.update!(ai_fields("recommend_publish", verdict.reason, verdict.confidence, run, model:))
+      candidate.update!(ai_fields("recommend_publish", verdict.reason, verdict.confidence, run, model:)
+        .merge(ai_source_sha256: candidate.source.content_sha256))
       stats["recommended"] += 1
     end
 
@@ -176,7 +177,10 @@ class DataQuality::Stages::Verify < DataQuality::Stage
       directory.retire(candidate, crawl_run: run)
     end
 
-    def recommended?(candidate) = candidate.ai_recommendation == "recommend_publish"
+    # Recommended against the source as stored now; a changed source is asked again.
+    def recommended?(candidate)
+      candidate.ai_recommendation == "recommend_publish" && candidate.ai_source_sha256 == candidate.source.content_sha256
+    end
 
     # model: nil for a code check, which asked no model.
     def send_to_review(candidate, reason, run, stats, confidence: nil, model: run.model)
@@ -186,6 +190,7 @@ class DataQuality::Stages::Verify < DataQuality::Stage
 
     def ai_fields(recommendation, reason, confidence, run, model: run.model)
       { ai_recommendation: recommendation, ai_reason: reason, ai_confidence: confidence,
-        ai_model: model, ai_checked_at: Time.current, verify_run: run }
+        ai_model: model, ai_checked_at: Time.current, verify_run: run,
+        ai_source_sha256: nil }
     end
 end
