@@ -61,9 +61,7 @@ class DirectoryListing
     return Facility.none if category && !category.plants
     return Facility.none if category.nil? && query.nil?
 
-    sites = Facility.where(parent_id: nil)
-    # Only a pending site gets the unit fallback; a rejected site never shows.
-    scope = sites.verified.or(sites.pending.where(id: Facility.verified.where.not(parent_id: nil).select(:parent_id)))
+    scope = public_sites
     scope = matching_plants(scope) if query
     scope = scope.where(state:) if state
     scope = plants_with_technology(scope) if technology
@@ -89,9 +87,18 @@ class DirectoryListing
     end
   end
 
+  # States of verified companies and of the public sites the filter checks
+  # (not units), so every option can match something.
   def state_options
-    @state_options ||= (Organization.verified.distinct.pluck(:hq_state) + Facility.verified.distinct.pluck(:state))
+    @state_options ||= (Organization.verified.distinct.pluck(:hq_state) + public_sites.distinct.pluck(:state))
       .compact_blank.uniq.sort
+  end
+
+  # Sites the public can see: verified ones, and pending ones with at least
+  # one verified unit (#73). A rejected site never shows.
+  def public_sites
+    sites = Facility.where(parent_id: nil)
+    sites.verified.or(sites.pending.where(id: Facility.verified.where.not(parent_id: nil).select(:parent_id)))
   end
 
   private
