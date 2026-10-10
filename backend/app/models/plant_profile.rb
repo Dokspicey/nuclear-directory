@@ -7,7 +7,7 @@
 # Sources are numbered once, in reading order (the site, its companies,
 # then its units), so chips and the source list agree.
 class PlantProfile
-  # Owners first, then the operator, the reactor vendor and power buyers.
+  # Owners first, then the operator, the reactor developer and power buyers.
   LINK_ORDER = %w[owns operates vendor_for offtakes_from].freeze
 
   attr_reader :site, :citations
@@ -31,7 +31,7 @@ class PlantProfile
   def citations_for(fact) = @cited.fetch(fact) { [] }
 
   # The site's own fields show once the site is verified and sourced.
-  def site_facts? = site.verified? && site.evidence.any?
+  def site_facts? = defined?(@site_facts) ? @site_facts : (@site_facts = site.verified? && site.evidence.any?)
   def facility_type = (site.facility_type if site_facts?)
   def status = (site.status if site_facts?)
   def city = (site.city if site_facts?)
