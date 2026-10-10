@@ -39,7 +39,8 @@ organizations, one YAML file each in `backend/db/seeds/organizations/`, and
 plant details in `backend/db/seeds/facilities.yml`. Every fact in them is
 loaded with its source and quote as evidence, and is verified (public) unless
 its file marks it `pending: true`. Three plant links are pending because their
-quote doesn't state ownership directly; they wait in the admin review queue.
+quote doesn't state ownership directly; they stay off the site until a human approves them
+(the admin review queue will list pending facts, #92).
 After changing `backend/db/seeds.rb` or those files, reload the seeds (safe to
 re-run):
 

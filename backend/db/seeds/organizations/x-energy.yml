@@ -44,6 +44,8 @@ facilities:
   confidence: 1.0
 notes: 'Publicly listed as of 2026 (Nasdaq: XE per Aug 2026 release). Parent of TRISO-X, LLC (subsidiary relationship not modelled in relationship types). Dow Inc. is the Seadrift site host/customer, not added as an org. #63: Xe-100 named in same release ("X-energy’s Xe-100 advanced small modular nuclear reactors"). HQ already in seed.'
 description:
-  text: Reactor developer designing the Xe-100 small modular reactor and its own TRISO-X fuel.
+  text: Developer of the Xe-100 small modular reactor and of nuclear fuel technology.
   source_url: https://x-energy.com/media/news-releases/amazon-invests-in-x-energy-to-support-advanced-small-modular-nuclear-reactors-and-expand-carbon-free-power
   quote: X-Energy Reactor Company, LLC, is a leading developer of advanced small modular nuclear reactors and fuel technology for clean energy generation
+  also:
+  - quote: 'X-energy’s Xe-100 advanced small modular nuclear reactors'
