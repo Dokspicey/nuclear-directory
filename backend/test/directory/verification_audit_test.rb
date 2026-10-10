@@ -88,6 +88,18 @@ class Directory::VerificationAuditTest < ActiveSupport::TestCase
     assert_match "unknown verification keys: because", result.errors.join
   end
 
+  test "only a human unpublishes, or reopens a closed decision" do
+    assert_raises(ActiveRecord::RecordInvalid) { @org.unpublish!(by: "agent:verifier/x") }
+
+    @org.reject!(by: "agent:verifier/x") # the pipeline retiring its own proposal
+    assert_raises(ActiveRecord::RecordInvalid) { @org.verify!(by: "agent:verifier/x") }
+    unprotected = write(:organization, { id: @org.id }, verification: { status: "verified", by: "agent:verifier/x" })
+    assert_match "only a human can change it", unprotected.errors.join
+
+    @org.reload.verify!(by: "human:tosin")
+    assert @org.reload.verified?
+  end
+
   test "events can't be edited" do
     @org.verify!(by: "human:tosin")
     event = @org.verification_events.sole
