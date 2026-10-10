@@ -103,6 +103,14 @@ class DataQuality::Plugins::EiaGeneratorsTest < ActiveSupport::TestCase
     assert_nothing_raised { Workbook.allocate.send(:check_numbers!, row.merge("latitude" => "-81.76", "longitude" => nil)) }
   end
 
+  test "a nuclear row missing its plant, state or generator is reported, not skipped" do
+    row = { "eia_plant_id" => "649", "plant_name" => "Vogtle", "state" => nil, "generator_id" => nil }
+
+    error = assert_raises(Workbook::Unreadable) { Workbook.allocate.send(:check_identity!, row) }
+    assert_equal "A nuclear row has no Plant State, Generator ID (plant 649)", error.message
+    assert Workbook.allocate.send(:check_identity!, row.merge("state" => "GA", "generator_id" => "1"))
+  end
+
   test "extract quotes each generator's row verbatim and rounds the values" do
     crawl!
     candidates = plugin.extract(source, nil)

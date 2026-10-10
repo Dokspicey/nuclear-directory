@@ -31,6 +31,9 @@ class DataQuality::Plugins::EiaGenerators::Workbook
   # "N/A") means the layout changed, and is reported rather than read as 0.
   NUMERIC = %w[net_summer_capacity_mw nameplate_capacity_mw latitude longitude].freeze
   NUMBER = /\A-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?\z/
+  # What identifies a generator. A nuclear row without one of these can't be
+  # matched to its unit, so it means the data changed: reported, not skipped.
+  IDENTITY = %w[eia_plant_id plant_name state generator_id].freeze
 
   # Returns an array of hashes keyed by COLUMNS' names. Raises Unreadable
   # when the file isn't a workbook, the sheet or a column is missing, a
@@ -62,7 +65,8 @@ class DataQuality::Plugins::EiaGenerators::Workbook
       end
       next unless cells[header[TECHNOLOGY]].to_s.strip == NUCLEAR
 
-      generators << COLUMNS.transform_values { |title| cells[header[title]]&.strip.presence }.tap { |row| check_numbers!(row) }
+      generators << COLUMNS.transform_values { |title| cells[header[title]]&.strip.presence }
+        .tap { |row| check_identity!(row) && check_numbers!(row) }
     end
 
     raise Unreadable, "No header row with #{COLUMNS['eia_plant_id'].inspect} on the #{SHEET} sheet" unless header
@@ -76,6 +80,14 @@ class DataQuality::Plugins::EiaGenerators::Workbook
   # Namespaces are dropped throughout: a row read from the stream on its
   # own doesn't carry the sheet's namespace declarations.
   private
+    def check_identity!(row)
+      missing = IDENTITY.select { |column| row[column].nil? }
+      return true if missing.empty?
+
+      raise Unreadable, "A nuclear row has no #{missing.map { |column| COLUMNS[column] }.join(', ')} " \
+        "(plant #{row['eia_plant_id'] || row['plant_name'] || 'unknown'})"
+    end
+
     def check_numbers!(row)
       NUMERIC.each do |column|
         value = row[column]
