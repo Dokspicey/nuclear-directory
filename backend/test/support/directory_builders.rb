@@ -1,5 +1,5 @@
 # Small builders for directory records in tests. Records are verified unless
-# told otherwise, since the public pages only show verified facts. A
+# told otherwise, since public pages read the .published scopes. A
 # verification names who decided, as every audit event must.
 module DirectoryBuilders
   def verification(verified) = verified ? { verification_status: "verified", verified_by: "human:test" } : { verification_status: "pending" }

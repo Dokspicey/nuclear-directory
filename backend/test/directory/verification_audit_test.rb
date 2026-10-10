@@ -126,6 +126,18 @@ class Directory::VerificationAuditTest < ActiveSupport::TestCase
     assert_equal({ "hq_city" => [ nil, "Bellevue" ] }, history(@org).first.changed_values)
   end
 
+  test "while_open runs only while the fact is open, under its lock" do
+    ran = false
+    assert_nil Directory::FactWriter.while_open(type: "Organization", id: @org.id) { ran = true }
+    assert ran
+
+    @org.unpublish!(by: "human:tosin")
+    ran = false
+    closed = Directory::FactWriter.while_open(type: "Organization", id: @org.id) { ran = true }
+    assert_not ran
+    assert_equal [ "unpublished", "human:tosin" ], [ closed.verification_status, closed.verified_by ]
+  end
+
   test "an automated link isn't written to a company or plant closed since match" do
     plant = facilities(:vogtle)
     @org.unpublish!(by: "human:tosin")

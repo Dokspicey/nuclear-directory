@@ -71,6 +71,23 @@ module Directory
     EVIDENCE_ATTRIBUTES = %i[source_id quote found_by confidence crawl_run_id].freeze
 
     def self.write(...) = new.write(...)
+
+    # Runs the block while holding a lock on the fact, unless a human has
+    # closed it (rejected or unpublished): then the block doesn't run and the
+    # fact's Directory::FactStateRef is returned. nil otherwise. For callers
+    # that act on a fact staying open, e.g. rejecting a candidate attached to
+    # it, so a human's decision made meanwhile is never missed.
+    def self.while_open(type:, id:)
+      raise ArgumentError, "not a fact type: #{type.inspect}" unless Lookup::FACT_TYPES.include?(type.to_s)
+
+      ActiveRecord::Base.transaction(requires_new: true) do
+        record = type.to_s.constantize.lock.find_by(id:)
+        next Lookup.fact_state(type:, id:) if record&.closed?
+
+        yield
+        nil
+      end
+    end
     def self.fill_site_from_unit(...) = new.fill_site_from_unit(...)
 
     # Fills a site's blank fields (from fields:) with its unit's stored
