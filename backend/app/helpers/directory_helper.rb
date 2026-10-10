@@ -107,6 +107,12 @@ module DirectoryHelper
     [ city.presence, state.presence ].compact.join(", ").presence
   end
 
+  # Two sentences, with a full stop between them unless the first has one.
+  def sentence_join(first, second)
+    first = first.to_s.strip
+    first.match?(/[.!?]\z/) ? "#{first} #{second}" : "#{first}. #{second}"
+  end
+
   # Dates in data contexts are ISO; prose uses "October 2024".
   def data_date(date) = date&.to_date&.iso8601
   def prose_month(date) = date&.to_date&.strftime("%B %Y")

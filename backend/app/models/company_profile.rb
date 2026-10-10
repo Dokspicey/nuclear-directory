@@ -2,8 +2,8 @@
 # only when the other company is verified too; plant links only when the
 # plant is public (DirectoryListing#public_sites, or a verified unit).
 #
-# Sources are numbered once, in reading order (description, deals, plants,
-# then the key facts), so chips and the source list agree.
+# Sources are numbered once, in reading order (description, key facts, deals,
+# then plants), so chips and the source list agree.
 class CompanyProfile
   # Lists longer than this collapse behind "Show all" (#90).
   VISIBLE_ITEMS = 6
@@ -66,9 +66,8 @@ class CompanyProfile
 
   def plant_links
     @plant_links ||= begin
-      public_ids = DirectoryListing.new.public_sites.select(:id)
       organization.facility_relationships.verified
-        .joins(:facility).merge(Facility.where(id: public_ids).or(Facility.where(verification_status: "verified")))
+        .where(facility_id: DirectoryListing.new.public_facilities.select(:id))
         .includes(facility: :parent, evidence: :source).to_a
         .sort_by { |link| [ link.relationship_type, link.facility.name ] }
     end
@@ -96,13 +95,16 @@ class CompanyProfile
   def description_citations = description.present? ? citations_for(organization) : []
 
   private
+    # The company record's own evidence backs its description and the key
+    # facts stored on it (website, aliases, licensee, headquarters, founded).
     def number_sources
-      cite(organization) if description.present? || hq_city.present? || hq_state.present?
+      cite(organization) if description.present? || website.present? || aliases.any? || legal_name.present?
+      shown_roles.each { |role| cite(role) }
+      technologies.each { |technology| cite(technology) }
+      cite(organization) if hq_city.present? || hq_state.present? || founded_year.present?
+      (parents + subsidiaries).each { |link| cite(link) }
       deals.each { |deal| cite(deal) }
       plant_links.each { |link| cite(link) }
-      (parents + subsidiaries).each { |link| cite(link) }
-      roles.each { |role| cite(role) }
-      technologies.each { |technology| cite(technology) }
     end
 
     def cite(fact)

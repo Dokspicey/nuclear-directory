@@ -5,7 +5,7 @@
 <ul class="nd-list"><%= safe_join(rows.first(visible)) %></ul>
 <% if rows.size > visible %>
   <details class="nd-more">
-    <summary>Show all <%= rows.size %> <%= label %></summary>
+    <summary><span class="nd-more__open">Show all <%= rows.size %> <%= label %></span><span class="nd-more__close">Show fewer <%= label %></span></summary>
     <ul class="nd-list"><%= safe_join(rows.drop(visible)) %></ul>
   </details>
 <% end %>
