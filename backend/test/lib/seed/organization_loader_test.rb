@@ -68,7 +68,7 @@ class Seed::OrganizationLoaderTest < ActiveSupport::TestCase
   test "loads brand names, descriptions, an HQ in two entries, and ownership stakes" do
     write_file("acme-fuel", org("Acme Fuel, Inc.", website: "https://acmefuel.com",
       legal_name: "Acme Fuel, Inc.",
-      description: { "text" => "Makes fuel.", "source_url" => "https://example.com/about", "quote" => "We make fuel." },
+      description: { "text" => "Makes fuel.", "source_url" => "https://example.com/about", "quote" => "Acme Fuel, Inc. makes fuel." },
       hq: [ { "state" => "TN" }, item(city: "Oak Ridge", source_url: "https://example.com/hq", quote: "Based in Oak Ridge.") ],
       facilities: [ item(name: "Acme Plant", type: "owns", ownership_pct: 40.0) ]))
 
@@ -78,6 +78,15 @@ class Seed::OrganizationLoaderTest < ActiveSupport::TestCase
     assert_equal [ "Acme Fuel, Inc.", "Makes fuel.", "Oak Ridge", "TN" ], [ acme.legal_name, acme.description, acme.hq_city, acme.hq_state ]
     assert_equal 2, acme.evidence.count, "the description and the sourced HQ entry"
     assert_equal 40, acme.facility_relationships.sole.ownership_pct
+  end
+
+  test "a legal name no quote states is left blank" do
+    write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com", legal_name: "Acme Fuel, Inc.",
+      description: { "text" => "Makes fuel.", "source_url" => "https://example.com/about", "quote" => "We make fuel." }))
+
+    Seed::OrganizationLoader.new(@dir).load!
+
+    assert_nil Organization.find_by!(slug: "acme-fuel").legal_name
   end
 
   test "a description's other quotes back the rest of its text" do
@@ -136,7 +145,7 @@ class Seed::OrganizationLoaderTest < ActiveSupport::TestCase
     Seed::OrganizationLoader.new(@dir, facilities: facilities_file).load!
 
     assert_equal [ old.id ], Facility.where("name LIKE ?", "Acme Plant%").pluck(:id)
-    assert_equal "Acme Plant", old.reload.name
+    assert_equal [ "Acme Plant", "acme-plant" ], [ old.reload.name, old.slug ], "the slug a fresh seed would give it"
     assert_equal 1, old.facility_relationships.count
   end
 

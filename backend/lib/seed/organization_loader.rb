@@ -80,6 +80,14 @@ module Seed
         [ description, *Array(description["also"]).map { |extra| { "source_url" => description["source_url"] }.merge(extra) } ]
       end
 
+      # A legal name is public only when one of the file's quotes states it
+      # word for word; otherwise it's left blank rather than shown unsourced.
+      def quoted_legal_name(doc)
+        name = doc["legal_name"].presence or return
+        quotes = evidence_items(doc).flat_map { |item| [ item["quote"], *Array(item["also"]).map { |extra| extra["quote"] } ] }
+        name if quotes.compact.any? { |quote| quote.include?(name) }
+      end
+
       def read(path) = YAML.safe_load_file(path, permitted_classes: [ Date ])
 
       # hq is one entry, or a list when research added to what the seed had
@@ -97,7 +105,7 @@ module Seed
         hq = hq_entries(doc)
         description = doc["description"] || {}
         attributes = {
-          name: doc["name"], slug: slug, legal_name: doc["legal_name"], website: doc["website"], aliases: doc["aliases"],
+          name: doc["name"], slug: slug, legal_name: quoted_legal_name(doc), website: doc["website"], aliases: doc["aliases"],
           country_code: doc["country_code"], status: doc["status"], description: description["text"],
           hq_city: hq.filter_map { |entry| entry["city"].presence }.last, hq_state: hq.filter_map { |entry| entry["state"].presence }.last
         }
@@ -145,12 +153,16 @@ module Seed
 
       # A plant loaded by an earlier seed under one of its other_names takes
       # its current name, keeping its links, unless the current name is
-      # already taken.
+      # already taken. It takes the slug a fresh seed would give it too, so
+      # its URL doesn't depend on which seed loaded it first.
       def rename_from_former_name(entry)
         return if Directory::Lookup.facility(name: entry["name"])
 
         former = Array(entry["other_names"]).lazy.filter_map { |name| Directory::Lookup.facility(name:) }.first or return
-        write("facilities.yml", :facility, { id: former.id, name: entry["name"] }, [])
+        attributes = { id: former.id, name: entry["name"] }
+        slug = entry["name"].parameterize
+        attributes[:slug] = slug unless Directory::Lookup.facility(slug:)
+        write("facilities.yml", :facility, attributes, [])
       end
 
       # Plant details from facilities.yml: each field has its own source, so

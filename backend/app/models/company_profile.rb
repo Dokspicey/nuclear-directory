@@ -127,7 +127,7 @@ class CompanyProfile
 
   private
     # The company record's own evidence backs its description and the key
-    # facts stored on it (website, aliases, licensee, headquarters, founded).
+    # facts stored on it (website, aliases, legal name, headquarters, founded).
     def number_sources
       cite(organization) if description.present? || website.present? || aliases.any? || legal_name.present?
       shown_roles.each { |role| cite(role) }
