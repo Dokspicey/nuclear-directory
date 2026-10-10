@@ -37,7 +37,9 @@ the seed data. Rerun it after pulling new migrations.
 The seed data is the roles and technologies lists plus 50 hand-checked
 organizations, one YAML file each in `backend/db/seeds/organizations/`, and
 plant details in `backend/db/seeds/facilities.yml`. Every fact in them is
-loaded as verified, with its source and quote as evidence.
+loaded with its source and quote as evidence, and is verified (public) unless
+its file marks it `pending: true`. Three plant links are pending because their
+quote doesn't state ownership directly; they wait in the admin review queue.
 After changing `backend/db/seeds.rb` or those files, reload the seeds (safe to
 re-run):
 
