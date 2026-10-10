@@ -5,13 +5,12 @@
 #   DataQuality::Snapshot.take(source, fetcher: fetcher)
 #   # => :changed, :unchanged, :skipped_recent, :blocked, :disallowed or :error
 class DataQuality::Snapshot
-  # "At most once a day", with slack so a daily schedule never skips a day.
-  MIN_INTERVAL = 20.hours
+  # Fetch each source at most once per calendar day.
   # Blocked this many fetches in a row: stop treating it as temporary.
   BLOCKED_STREAK_LIMIT = 3
 
   def self.take(source, fetcher:)
-    return :skipped_recent if source.fetched_at&.after?(MIN_INTERVAL.ago)
+    return :skipped_recent if source.fetched_at&.to_date == Date.current
 
     response = fetcher.get(source.url, etag: source.etag, last_modified: source.last_modified)
     attempt = { fetched_at: Time.current, http_status: response.status }
