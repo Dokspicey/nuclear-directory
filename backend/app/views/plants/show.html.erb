@@ -8,6 +8,8 @@
   summary = kind ? [ kind, (where && "in #{where}") ].compact.join(" ") : where
   company_links = ->(orgs) { safe_join(orgs.map { |o| link_to(o.name, company_url_for(o), class: "nd-link") }, ", ") if orgs.any? }
   cited = ->(type) { p.links.select { |l| l.relationship_type == type }.flat_map { |l| p.citations_for(l) }.uniq(&:first) }
+  # Technology, reactor type and capacity come from the site and its units.
+  details_cited = (p.site_citations + p.units.flat_map { |u| p.citations_for(u) }).uniq(&:first)
   capacity = "#{number_with_precision(p.capacity_mw, precision: 2, strip_insignificant_zeros: true, delimiter: ",")} MWe" if p.capacity_mw
   content_for :title, "#{p.name} · Nuclear Directory"
 %>
@@ -28,7 +30,24 @@
 
   <%= render "shared/profile_header", name: p.name, kind: :plant, tags: %>
 
+  <%# Key facts come first in reading and focus order; wide screens place them on the right. %>
   <div class="nd-columns nd-columns--profile">
+    <div class="nd-columns__side">
+      <%= render "shared/overview_panel", verified_at: p.verified_at, rows: [
+            [ "Type", facility_type_label(p.facility_type), p.site_citations ],
+            [ "Status", facility_status_label(p.status), p.site_citations ],
+            [ "Location", where, p.site_citations ],
+            [ owners.size > 1 ? "Owners" : "Owner", company_links.(owners), cited.("owns") ],
+            [ operators.size > 1 ? "Operators" : "Operator", company_links.(operators), cited.("operates") ],
+            [ vendors.size > 1 ? "Reactor vendors" : "Reactor vendor", company_links.(vendors), cited.("vendor_for") ],
+            [ buyers.size > 1 ? "Power buyers" : "Power buyer", company_links.(buyers), cited.("offtakes_from") ],
+            [ "Technology", p.technologies.join(", ").presence, details_cited ],
+            [ p.reactor_types.size > 1 ? "Reactor types" : "Reactor type", p.reactor_types.join(", ").presence, details_cited ],
+            [ "Capacity", capacity, details_cited ],
+            [ "NRC docket", p.nrc_docket, p.site_citations ]
+          ] %>
+    </div>
+
     <div class="nd-columns__main">
       <% if p.links.any? %>
         <section aria-labelledby="companies-heading">
@@ -53,22 +72,6 @@
           <%= render "shared/sources_list", sources: p.citations.sources %>
         </section>
       <% end %>
-    </div>
-
-    <div class="nd-columns__side">
-      <%= render "shared/overview_panel", verified_at: p.verified_at, rows: [
-            [ "Type", facility_type_label(p.facility_type), p.site_citations ],
-            [ "Status", facility_status_label(p.status), p.site_citations ],
-            [ "Location", where, p.site_citations ],
-            [ owners.size > 1 ? "Owners" : "Owner", company_links.(owners), cited.("owns") ],
-            [ operators.size > 1 ? "Operators" : "Operator", company_links.(operators), cited.("operates") ],
-            [ vendors.size > 1 ? "Reactor vendors" : "Reactor vendor", company_links.(vendors), cited.("vendor_for") ],
-            [ buyers.size > 1 ? "Power buyers" : "Power buyer", company_links.(buyers), cited.("offtakes_from") ],
-            [ "Technology", p.technologies.join(", ").presence, nil ],
-            [ p.reactor_types.size > 1 ? "Reactor types" : "Reactor type", p.reactor_types.join(", ").presence, nil ],
-            [ "Capacity", capacity, nil ],
-            [ "NRC docket", p.nrc_docket, p.site_citations ]
-          ] %>
     </div>
   </div>
 </main>

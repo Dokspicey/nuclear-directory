@@ -90,9 +90,9 @@ class PlantPageTest < ActionDispatch::IntegrationTest
     assert_select ".nd-overview dd a[href='/companies/georgia-power']", "Georgia Power"
     assert_select ".nd-overview dt", "Operator"
     assert_select ".nd-overview dt", "Reactor vendor"
-    assert_select ".nd-overview dd", "Fission"
-    assert_select ".nd-overview dd", "AP1000"
-    assert_select ".nd-overview dd", "2,228 MWe"
+    assert_select ".nd-overview dd", text: /\AFission/
+    assert_select ".nd-overview dd", text: /\AAP1000/
+    assert_select ".nd-overview dd", text: /\A2,228 MWe/
     assert_select ".nd-overview dt", text: "Power buyer", count: 0
     assert_select ".nd-overview__foot", /checked 2026-10-09/
   end

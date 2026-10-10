@@ -63,7 +63,7 @@ class DirectoryListing
 
     scope = public_sites
     scope = matching_plants(scope) if query
-    scope = scope.where(state:) if state
+    scope = scope.verified.where(state:) if state
     scope = plants_with_technology(scope) if technology
     scope
   end
@@ -89,10 +89,10 @@ class DirectoryListing
     end
   end
 
-  # States of verified companies and of the public sites the filter checks
-  # (not units), so every option can match something.
+  # States of verified companies and of verified sites (a pending site's own
+  # place isn't public, and units aren't checked), so every option can match.
   def state_options
-    @state_options ||= (Organization.verified.distinct.pluck(:hq_state) + public_sites.distinct.pluck(:state))
+    @state_options ||= (Organization.verified.distinct.pluck(:hq_state) + public_sites.verified.distinct.pluck(:state))
       .compact_blank.uniq.sort
   end
 
@@ -148,8 +148,8 @@ class DirectoryListing
     end
 
     # The site's name, a verified unit's name ("Vogtle Unit 3" finds Plant
-    # Vogtle), a technology of the site or a verified unit ("SMR"), or a
-    # verified link to the site or a unit whose description matches.
+    # Vogtle), a technology of a verified site or unit ("SMR"), or a verified
+    # link to the site or a unit whose description matches.
     def matching_plants(scope)
       units = Facility.verified.where.not(parent_id: nil).where("facilities.name ILIKE ?", like(query)).select(:parent_id)
       linked = Facility.where(id: FacilityRelationship.verified.where("facility_relationships.description ILIKE ?", like(query)).select(:facility_id))
@@ -158,19 +158,19 @@ class DirectoryListing
       tech_units = Facility.verified.where.not(parent_id: nil).where(technology_id: techs).select(:parent_id)
 
       scope.where("facilities.name ILIKE ?", like(query)).or(scope.where(id: units)).or(scope.where(id: linked_sites))
-        .or(scope.where(technology_id: techs)).or(scope.where(id: tech_units))
+        .or(scope.verified.where(technology_id: techs)).or(scope.where(id: tech_units))
     end
 
     # A technology key (fission, smr) or a coolant sub-role key (molten_salt).
-    # Sites whose own technology, or a verified unit's, is the chosen one or a
-    # sub-technology of it. Coolant is a company role, so it hides plants.
+    # Verified sites whose own technology, or any public site whose verified
+    # unit's, is the chosen one or a sub-technology of it. Coolant is a company role, so it hides plants.
     def plants_with_technology(scope)
       technology_record = Technology.find_by(key: technology)
       return scope.none unless technology_record
 
       tech_ids = Technology.where(id: technology_record.id).or(Technology.where(parent_id: technology_record.id)).select(:id)
       units = Facility.verified.where.not(parent_id: nil).where(technology_id: tech_ids).select(:parent_id)
-      scope.where(technology_id: tech_ids).or(scope.where(id: units))
+      scope.verified.where(technology_id: tech_ids).or(scope.where(id: units))
     end
 
     # A technology includes its sub-technologies: Fission includes SMR.

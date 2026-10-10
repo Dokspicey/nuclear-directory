@@ -90,15 +90,25 @@ class DirectoryListingTest < ActiveSupport::TestCase
     assert_nil DirectoryListing.new(category: "plants", technology: "molten_salt").technology
   end
 
-  test "state options come from companies and public sites, not units" do
+  test "state options come from companies and verified sites, not units or a pending site's own place" do
     plant("Unit In Nevada", parent: @vogtle, state: "NV")
     pending_site = plant("Pending Station", verified: false, state: "OR")
     plant("Pending Unit 1", parent: pending_site)
 
     options = DirectoryListing.new.state_options
     assert_not_includes options, "NV"
-    assert_includes options, "OR"
-    assert_equal [ "Pending Station" ], DirectoryListing.new(category: "plants", state: "OR").plants.map(&:name)
+    assert_not_includes options, "OR"
+    assert_includes options, "GA"
+    assert_nil DirectoryListing.new(category: "plants", state: "OR").state
+  end
+
+  test "a pending site's own technology doesn't match; its verified unit's does" do
+    fusion = technology("fusion_magnetic", "Magnetic confinement")
+    plant("Pending Fusion", verified: false, technology: fusion).tap { |site| plant("Pending Fusion Unit", parent: site) }
+    shown = plant("Shown Site", verified: false).tap { |site| plant("Shown Unit", parent: site, technology: fusion) }
+
+    assert_equal [ shown.name ], DirectoryListing.new(category: "plants", technology: "fusion_magnetic").plants.map(&:name)
+    assert_equal [ shown.name ], DirectoryListing.new(q: "magnetic").plants.map(&:name)
   end
 
   test "a rejected site never appears, even with a verified unit" do

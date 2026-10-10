@@ -13,6 +13,17 @@ class DirectoryTest < ActionDispatch::IntegrationTest
     plant("Plant Vogtle", state: "GA", facility_type: "power_reactor", status: "operating")
   end
 
+  test "a pending site's row shows its name and verified units, not its own type or place" do
+    site = Facility.create!(name: "Quiet Station", verification_status: "pending", facility_type: "power_reactor", status: "planned", city: "Nowhere", state: "OR")
+    Facility.create!(name: "Quiet Unit 1", parent: site, verification_status: "verified", capacity_mw: 300)
+    get companies_path(category: "plants")
+
+    assert_select ".nd-listrow", text: /Quiet Station/ do
+      assert_select ".nd-listrow__desc", "1 unit · 300 MWe"
+    end
+    assert_select "body", text: /Nowhere|Planned/, count: 0
+  end
+
   test "a category lists its verified companies" do
     get companies_path(category: "reactor-developers")
 
