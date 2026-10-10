@@ -47,6 +47,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_010002) do
     t.check_constraint "status::text = ANY (ARRAY['new'::character varying::text, 'matched'::character varying::text, 'merged'::character varying::text, 'rejected'::character varying::text, 'needs_review'::character varying::text])", name: "candidates_status_check"
   end
 
+  create_table "correction_reports", force: :cascade do |t|
+    t.string "subject", null: false
+    t.string "page_path", null: false
+    t.text "message", null: false
+    t.string "contact"
+    t.string "status", default: "open", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["status"], name: "index_correction_reports_on_status"
+    t.check_constraint "status::text = ANY (ARRAY['open'::character varying::text, 'reviewed'::character varying::text, 'closed'::character varying::text])", name: "correction_reports_status_check"
+  end
+
   create_table "crawl_runs", force: :cascade do |t|
     t.string "stage", null: false
     t.string "source_kind"
