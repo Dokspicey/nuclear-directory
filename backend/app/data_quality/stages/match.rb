@@ -122,9 +122,9 @@ class DataQuality::Stages::Match < DataQuality::Stage
       write(candidate, attributes, evidence: false)
     end
 
-    # Found, Review or nil (nothing like it exists). A record that was rejected
-    # (a retired proposal, or one a human turned down) is never attached to:
-    # the candidate goes to review instead.
+    # Found, Review or nil (nothing like it exists). A closed record, one that
+    # was rejected (a retired proposal, or one a human turned down) or that a
+    # human unpublished, is never attached to: the candidate goes to review.
     def resolve(type, payload)
       found = type == :organization ? resolve_organization(payload) : resolve_facility(payload)
       if found.is_a?(Found) && found.record.closed?

@@ -15,7 +15,7 @@ class AddUnpublishedAndVerificationEvents < ActiveRecord::Migration[8.1]
       t.references :subject, polymorphic: true, null: false, index: false
       t.string :from_status
       t.string :to_status, null: false
-      t.string :by
+      t.string :by, null: false
       t.text :reason
       # e.g. { "candidate_id" => 12, "crawl_run_id" => 4 } for an approval; no
       # foreign keys, since candidates belong to the data quality module.
@@ -28,9 +28,14 @@ class AddUnpublishedAndVerificationEvents < ActiveRecord::Migration[8.1]
     end
   end
 
+  # The old statuses have no "unpublished"; those facts become rejected,
+  # which is also hidden and closed to automated writers.
   def down
     drop_table :verification_events
-    FACT_TABLES.each { |table| replace_check(table, OLD) }
+    FACT_TABLES.each do |table|
+      execute "UPDATE #{table} SET verification_status = 'rejected' WHERE verification_status = 'unpublished'"
+      replace_check(table, OLD)
+    end
   end
 
   private

@@ -101,8 +101,8 @@ and quote, so writing the same item again updates it and never duplicates it.
 ### Verification
 
 `verification: { status: "verified", by: "human:tosin", reason: "…", context: { … } }`.
-Status is `pending`, `verified`, `rejected` or `unpublished`. `by` names who
-decided: `human:<name>` or `agent:verifier/<model>`. `reason` and `context`
+Status is `pending`, `verified`, `rejected` or `unpublished`. `by` (required)
+names who decided: `human:<name>` or `agent:verifier/<model>`. `reason` and `context`
 (e.g. `{ "candidate_id" => 12, "crawl_run_id" => 4 }`) are optional and go
 into the audit trail. Re-applying the same decision keeps the original
 `verified_at` and records nothing new. Only verified facts are public.
@@ -135,8 +135,11 @@ write, in order. Each write is audited as usual.
 
 Every change of a fact's verification is recorded in `verification_events`
 (who, when, from → to, reason, context, and the attribute values the same
-write changed, before → after), append-only. A human editing values without
-changing the decision is recorded too. Read it with:
+write changed, before → after), append-only: events can't be edited or
+deleted, and they outlive their fact. A human editing values without changing
+the decision is recorded too. Decisions on one fact are made one at a time
+(the row is locked), so the history is in the order they happened. Read it
+with:
 
 ```ruby
 Directory::Lookup.verification_history(type: "Organization", id: 12)

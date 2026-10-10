@@ -14,7 +14,8 @@ module Verifiable
     enum :verification_status, VERIFICATION_STATUSES.index_by(&:itself), default: "pending", validate: true
 
     has_many :evidence, as: :subject, dependent: :destroy
-    has_many :verification_events, as: :subject, dependent: :destroy
+    # Append-only: deleting a fact leaves its history in place.
+    has_many :verification_events, as: :subject, dependent: nil
 
     validates :confidence, numericality: { in: 0..1 }, allow_nil: true
 
@@ -79,10 +80,17 @@ module Verifiable
   end
 
   private
+    # Locked, so two decisions at once are recorded in the order they happen.
+    # The same decision again changes nothing, not even verified_at, so the
+    # date shown always matches the audit trail.
     def change_verification!(status, by:, reason:)
-      self.verification_reason = reason
-      update!(verification_status: status, verified_at: Time.current, verified_by: by)
-      recompute_confidence!
+      with_lock do
+        next if verification_status == status && verified_by == by
+
+        self.verification_reason = reason
+        update!(verification_status: status, verified_at: Time.current, verified_by: by)
+        recompute_confidence!
+      end
     end
 
     def record_verification_event

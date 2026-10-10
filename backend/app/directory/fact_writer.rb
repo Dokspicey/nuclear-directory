@@ -113,8 +113,9 @@ module Directory
       ActiveRecord::Base.transaction(requires_new: true) do
         record = find(kind, spec[:model], attributes) || spec[:model].new
         created = record.new_record?
-        # Locked, so a human's decision made while this write runs is seen.
-        record.lock! if protect_human_verified && !created
+        # Locked, so a human's decision made while this write runs is seen, and
+        # two decisions at once are recorded in the order they happen.
+        record.lock! if (protect_human_verified || verification) && !created
         # A rejected or unpublished fact only changes by a human's hand.
         if protect_human_verified && !created && record.closed?
           raise Invalid, "#{record.model_name.human} was #{record.verification_status} by #{record.verified_by || 'review'}" \
@@ -252,6 +253,7 @@ module Directory
         raise Invalid, "unknown verification keys: #{unknown.join(", ")}" if unknown.any?
 
         status, by = verification.values_at(:status, :by)
+        raise Invalid, "verification needs by: (who decided)" if by.blank?
         record.verification_reason = verification[:reason]
         record.verification_context = verification[:context]
         record.audited_changes = edited.presence

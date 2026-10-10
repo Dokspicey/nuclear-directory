@@ -91,7 +91,7 @@ Extract writes `candidates` (`kind`, `payload`, `quote`, `source_id`). Match
 
 | Outcome | When | Candidate becomes |
 |---|---|---|
-| **Found** | exact NRC docket, domain, or name/alias (normalized) | `matched`, subject = that record. Nothing is written yet: when verify publishes it, the quote is added as evidence and an organization gains the name as an alias (its own name is kept). A human-verified record only gets its blanks filled; a disagreement goes to review, and a rejected record is never changed. |
+| **Found** | exact NRC docket, domain, or name/alias (normalized) | `matched`, subject = that record. Nothing is written yet: when verify publishes it, the quote is added as evidence and an organization gains the name as an alias (its own name is kept). A human-verified record only gets its blanks filled; a disagreement goes to review. A record that was rejected or unpublished is never changed or attached to: the candidate goes to review, with who decided and when. |
 | **Not found** | nothing exact and nothing similar | `matched`, subject = a new **pending** record with the quote as evidence |
 | **New unit of a known site** | an NRC unit (has a docket) whose only similar record is a site (no docket, no parent) that covers it | `matched`, subject = a new **pending** unit with `parent_id` = the site |
 | **Ambiguous** | identifiers point at different records, or a similar record exists | `needs_review`, with the reason in `notes`. Never merged automatically. |

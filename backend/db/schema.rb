@@ -438,7 +438,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_10_220000) do
     t.bigint "subject_id", null: false
     t.string "from_status"
     t.string "to_status", null: false
-    t.string "by"
+    t.string "by", null: false
     t.text "reason"
     t.jsonb "context", default: {}, null: false
     t.jsonb "changed_values", default: {}, null: false

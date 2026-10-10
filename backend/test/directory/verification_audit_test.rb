@@ -94,6 +94,37 @@ class Directory::VerificationAuditTest < ActiveSupport::TestCase
     assert_raises(ActiveRecord::ReadOnlyRecord) { event.update!(reason: "rewritten") }
   end
 
+  test "a decision must say who made it" do
+    result = write(:organization, { id: @org.id }, verification: { status: "verified" })
+
+    assert_match "verification needs by:", result.errors.join
+    assert @org.reload.pending?
+    assert_raises(ActiveRecord::NotNullViolation) do
+      VerificationEvent.insert!({ subject_type: "Organization", subject_id: @org.id, to_status: "verified", created_at: Time.current })
+    end
+  end
+
+  test "the same decision again keeps its date, so the date matches the history" do
+    @org.verify!(by: "human:tosin")
+    decided_at = @org.reload.verified_at
+
+    travel 1.day do
+      @org.verify!(by: "human:tosin")
+    end
+
+    assert_equal decided_at, @org.reload.verified_at
+    assert_equal 1, history(@org).size
+  end
+
+  test "deleting a fact keeps its history" do
+    @org.verify!(by: "human:tosin")
+    id = @org.id
+    @org.destroy!
+
+    assert_equal [ "verified" ], VerificationEvent.where(subject_type: "Organization", subject_id: id).pluck(:to_status)
+    assert_raises(ActiveRecord::ReadOnlyRecord) { VerificationEvent.find_by!(subject_id: id).destroy! }
+  end
+
   test "history is only for fact types" do
     assert_raises(ArgumentError) { Directory::Lookup.verification_history(type: "Source", id: 1) }
   end
