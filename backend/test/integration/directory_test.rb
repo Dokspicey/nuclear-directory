@@ -79,11 +79,11 @@ class DirectoryTest < ActionDispatch::IntegrationTest
   test "a site row shows its verified units and their total capacity" do
     vogtle = Facility.find_by!(name: "Plant Vogtle")
     plant("Vogtle Unit 3", parent: vogtle, capacity_mw: 1117)
-    plant("Vogtle Unit 4", parent: vogtle, capacity_mw: 1117)
+    plant("Vogtle Unit 4", parent: vogtle, capacity_mw: 1117.5)
     plant("Vogtle Unit 5", parent: vogtle, capacity_mw: 999, verified: false)
     get companies_path(category: "plants")
 
-    assert_select "a.nd-listrow[href='/plants/plant-vogtle'] .nd-listrow__desc", "Power plant · Operating · 2 units · 2,234 MWe"
+    assert_select "a.nd-listrow[href='/plants/plant-vogtle'] .nd-listrow__desc", "Power plant · Operating · 2 units · 2,234.5 MWe"
   end
 
   test "an unknown filter value is ignored, not applied behind an Any control" do
