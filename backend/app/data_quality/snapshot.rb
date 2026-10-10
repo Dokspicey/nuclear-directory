@@ -13,12 +13,11 @@ class DataQuality::Snapshot
   # into the text that's stored (e.g. the rows of a spreadsheet that matter),
   # and the hash is of that text, so unrelated changes to the file don't
   # count as changes.
-  # same_origin: don't follow a redirect to another site (see Fetcher#get).
-  def self.take(source, fetcher:, binary: false, same_origin: false, &to_text)
+  def self.take(source, fetcher:, binary: false, &to_text)
     # At most one fetch per source per calendar day (in the app's time zone).
     return :skipped_recent if source.fetched_at&.to_date == Date.current
 
-    response = fetcher.get(source.url, etag: source.etag, last_modified: source.last_modified, binary:, same_origin:)
+    response = fetcher.get(source.url, etag: source.etag, last_modified: source.last_modified, binary:)
     attempt = { fetched_at: Time.current, http_status: response.status }
 
     case response.kind
