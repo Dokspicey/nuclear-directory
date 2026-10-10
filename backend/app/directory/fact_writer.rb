@@ -56,7 +56,7 @@ module Directory
       facility: {
         model: Facility,
         attributes: %i[name slug parent_id facility_type status technology reactor_type capacity_mw nrc_docket
-          city state country_code latitude longitude]
+          city state country_code latitude longitude aliases]
       },
       relationship: {
         model: Relationship,
@@ -113,6 +113,7 @@ module Directory
         record.save!
 
         write_aliases(record, [ record.name, *attributes[:aliases] ]) if kind == :organization
+        write_facility_aliases(record, attributes[:aliases]) if kind == :facility
         Array(evidence).each { |item| write_evidence(record, item) }
         apply_verification(record, verification) if verification && !curated
         record.recompute_confidence!
@@ -170,7 +171,7 @@ module Directory
           Organization.find(ref.id) if ref
         when :facility
           ref = Lookup.facility(nrc_docket: attrs[:nrc_docket]) if attrs[:nrc_docket].present?
-          ref ||= Lookup.facility(name: attrs[:name]) if attrs[:name].present?
+          ref ||= [ attrs[:name], *attrs[:aliases] ].compact_blank.lazy.filter_map { |name| Lookup.facility(name:) }.first
           Facility.find(ref.id) if ref
         when :organization_role
           model.find_by(organization_id: attrs[:organization_id], role: lookup_row(Role, attrs[:role]))
@@ -209,6 +210,25 @@ module Directory
           elsif existing.organization_id != organization.id
             raise Invalid, "alias #{name.inspect} already belongs to #{existing.organization.name}"
           end
+        end
+      end
+
+      # A facility's other names. Its own name isn't stored (facility names
+      # aren't unique), so a name that is another facility's is an error, as
+      # is an alias another facility already has.
+      def write_facility_aliases(facility, names)
+        names.to_a.compact_blank.uniq.each do |name|
+          normalized = FacilityAlias.normalize(name)
+          next if FacilityAlias.normalize(facility.name) == normalized
+
+          existing = FacilityAlias.find_by(normalized_alias: normalized)
+          raise Invalid, "alias #{name.inspect} already belongs to #{existing.facility.name}" if existing && existing.facility_id != facility.id
+          next if existing
+
+          named = Facility.where.not(id: facility.id).find_by("lower(name) = ?", name.strip.downcase)
+          raise Invalid, "alias #{name.inspect} is the name of another facility" if named
+
+          facility.aliases.create!(alias: name)
         end
       end
 

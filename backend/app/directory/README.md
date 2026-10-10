@@ -10,7 +10,7 @@ issue #32.
 
 | Directory owns | DataQuality owns |
 |---|---|
-| organizations, organization_aliases, roles, technologies, organization_roles, organization_technologies, facilities, relationships, facility_relationships, evidence | sources, crawl_runs, candidates |
+| organizations, organization_aliases, facility_aliases, roles, technologies, organization_roles, organization_technologies, facilities, relationships, facility_relationships, evidence | sources, crawl_runs, candidates |
 
 `evidence.source_id` is the one foreign key that crosses the line. Outside the
 directory, don't use the directory's models (`Organization`, `Facility`, …)
@@ -30,6 +30,7 @@ Directory::Lookup.organization(id: 12)
 
 Directory::Lookup.facility(nrc_docket: "05000424")
 Directory::Lookup.facility(name: "Plant Vogtle")  # case-insensitive
+Directory::Lookup.facility(name: "Three Mile Island Unit 1")  # or any alias: Crane Clean Energy Center
 ```
 
 - `OrganizationRef`: `id, slug, name, domain, verification_status`
@@ -71,13 +72,19 @@ A failed write changes nothing and returns errors. It does not raise.
 | `organization` | `name slug legal_name website domain description hq_city hq_state country_code founded_year status aliases` | name or any alias (normalized), then domain |
 | `organization_role` | `organization_id role` (role **key**) | organization + role |
 | `organization_technology` | `organization_id technology` (technology **key**) | organization + technology |
-| `facility` | `name slug parent_id facility_type status technology reactor_type capacity_mw nrc_docket city state country_code latitude longitude` | NRC docket, then name |
+| `facility` | `name slug parent_id facility_type status technology reactor_type capacity_mw nrc_docket city state country_code latitude longitude aliases` | NRC docket, then name or any alias |
 | `relationship` | `from_organization_id to_organization_id relationship_type description started_on ended_on` | from + to + type |
 | `facility_relationship` | `organization_id facility_id relationship_type ownership_pct description started_on ended_on` | organization + facility + type |
 
 Pass `id:` to update a fact you already know. Get ids for other records from
 `Directory::Lookup`.
 
+- **Facilities**: `aliases:` are other names the plant goes by ("Three Mile
+  Island Unit 1", "TMI-1"), compared after `FacilityAlias.normalize`
+  (lowercased, punctuation dropped, no words dropped). Lookups and search
+  should find a plant under them. Its own name isn't stored as an alias, since
+  facility names aren't unique. An alias another facility has, or that is
+  another facility's name, is an error.
 - **Organizations**: the name is stored as an alias as well, along with
   `aliases:`. An alias already used by another organization is an error.
   `domain` defaults to the website's; pass `domain: nil` to leave it blank,

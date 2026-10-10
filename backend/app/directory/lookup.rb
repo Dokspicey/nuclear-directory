@@ -32,6 +32,9 @@ module Directory
     end
 
     # Pass exactly one of id, slug, name or nrc_docket.
+    # name matches the facility's name (case-insensitive), or else one of its
+    # aliases, compared after FacilityAlias.normalize ("Three Mile Island
+    # Unit 1" finds Crane Clean Energy Center).
     # name is matched case-insensitively; names aren't unique, so the oldest
     # match wins.
     def facility(id: nil, slug: nil, name: nil, nrc_docket: nil)
@@ -39,7 +42,14 @@ module Directory
         case one_of!(id:, slug:, name:, nrc_docket:)
         in [ :id, value ] then Facility.where(id: value)
         in [ :slug, value ] then Facility.where(slug: value)
-        in [ :name, value ] then Facility.where("lower(name) = ?", value.to_s.strip.downcase)
+        in [ :name, value ]
+          # Its own name first, then the names it also goes by (#65).
+          by_name = Facility.where("lower(name) = ?", value.to_s.strip.downcase)
+          if by_name.exists?
+            by_name
+          else
+            Facility.where(id: FacilityAlias.where(normalized_alias: FacilityAlias.normalize(value)).select(:facility_id))
+          end
         in [ :nrc_docket, value ]
           # A blank docket must match nothing, not every facility without one.
           docket = value.to_s.strip.presence or return

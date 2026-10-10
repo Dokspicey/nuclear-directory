@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_10_210000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_10_230000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -98,6 +98,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_10_210000) do
     t.check_constraint "facility_type::text = ANY (ARRAY['power_reactor'::character varying::text, 'research_reactor'::character varying::text, 'fuel_facility'::character varying::text, 'enrichment'::character varying::text, 'fusion_facility'::character varying::text, 'other'::character varying::text, 'uranium_mine'::character varying::text, 'mill'::character varying::text])", name: "facilities_facility_type_check"
     t.check_constraint "status::text = ANY (ARRAY['operating'::character varying::text, 'under_construction'::character varying::text, 'planned'::character varying::text, 'shut_down'::character varying::text, 'decommissioning'::character varying::text])", name: "facilities_status_check"
     t.check_constraint "verification_status::text = ANY (ARRAY['pending'::character varying::text, 'verified'::character varying::text, 'rejected'::character varying::text])", name: "facilities_verification_status_check"
+  end
+
+  create_table "facility_aliases", force: :cascade do |t|
+    t.bigint "facility_id", null: false
+    t.string "alias", null: false
+    t.string "normalized_alias", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["facility_id"], name: "index_facility_aliases_on_facility_id"
+    t.index ["normalized_alias"], name: "index_facility_aliases_on_normalized_alias", unique: true
   end
 
   create_table "facility_relationships", force: :cascade do |t|
@@ -439,6 +449,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_10_210000) do
   add_foreign_key "evidence", "sources"
   add_foreign_key "facilities", "facilities", column: "parent_id"
   add_foreign_key "facilities", "technologies"
+  add_foreign_key "facility_aliases", "facilities"
   add_foreign_key "facility_relationships", "facilities"
   add_foreign_key "facility_relationships", "organizations"
   add_foreign_key "organization_aliases", "organizations"

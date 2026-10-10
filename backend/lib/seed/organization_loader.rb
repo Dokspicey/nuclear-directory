@@ -11,9 +11,9 @@ module Seed
   # All or nothing: if any fact fails, nothing is written and Error lists why.
   #
   # Not loaded: each file's `notes` (research notes, kept in the YAML).
-  # facilities.yml's other_names (facility aliases are #65) are only used to
-  # find a plant still stored under a former name, so a rerun renames it
-  # rather than creating it again.
+  # facilities.yml's other_names become facility aliases (#65); they also
+  # find a plant an earlier seed stored under a former name, so a rerun
+  # renames it rather than creating it again.
   class OrganizationLoader
     class Error < StandardError; end
 
@@ -162,6 +162,9 @@ module Seed
           next unless detail.is_a?(Hash) && detail["value"].present?
 
           write("facilities.yml", :facility, { id: facility.id, field.to_sym => detail["value"] }, evidence(detail, sources))
+        end
+        if entry["other_names"].present?
+          write("facilities.yml", :facility, { id: facility.id, aliases: entry["other_names"] }, [])
         end
       end
 
