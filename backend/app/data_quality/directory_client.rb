@@ -33,6 +33,8 @@ class DataQuality::DirectoryClient
   # the match stage resolves those names to ids and writes the fact.
   LINK_KINDS = %w[organization_role organization_technology relationship facility_relationship].freeze
   LINK_ENDS = %w[organization facility from_organization to_organization].freeze
+  # Never taken from a payload: which record, which ends, and the slug.
+  PAYLOAD_LOCKED = %w[id slug organization_id facility_id from_organization_id to_organization_id].freeze
 
   def initialize(lookup: nil, fact_writer: nil)
     @lookup = lookup
@@ -120,8 +122,9 @@ class DataQuality::DirectoryClient
   # itself; even when a human approves it, it doesn't overwrite a
   # human-verified value (that comes back as a conflict).
   def write_fact(candidate, confidence:, crawl_run:, by: nil, reason: nil)
-    # The record written is the one match attached, never an id in the payload.
-    attributes = candidate.payload.except(*LINK_ENDS, ENRICHMENT_KEY, "id").symbolize_keys
+    # The record written is the one match attached, never an id, a link end or
+    # a slug in the payload (payloads aren't validated; Review locks these too).
+    attributes = candidate.payload.except(*LINK_ENDS, *PAYLOAD_LOCKED, ENRICHMENT_KEY).symbolize_keys
     attributes[:id] = candidate.subject_id if candidate.subject_id
     if candidate.kind == "organization"
       # The name it was found under becomes an alias only once a verdict accepts

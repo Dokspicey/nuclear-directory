@@ -145,6 +145,31 @@ class DataQuality::ReviewTest < ActiveSupport::TestCase
     assert_not_equal organizations(:terrapower).id, sneaky.reload.subject_id
   end
 
+  test "a link's type and a plant's parent site can't be edited; payload ends and slug are never written" do
+    link = candidate("facility_relationship", { "organization" => { "name" => "TerraPower" }, "facility" => { "name" => "Vogtle" },
+      "relationship_type" => "owns" })
+    unit = candidate("facility", { "name" => "Vogtle 3", "nrc_docket" => "05200025" })
+    assert_match "can't edit relationship_type", Review.edit_and_approve(link.id, attributes: { "relationship_type" => "operates" }, by: BY).errors.join
+    assert_match "can't edit parent_id", Review.edit_and_approve(unit.id, attributes: { "parent_id" => facilities(:vogtle).id }, by: BY).errors.join
+
+    existing = FacilityRelationship.create!(organization: organizations(:terrapower), facility: facilities(:vogtle), relationship_type: "owns")
+    sneaky = candidate("facility_relationship", { "organization" => { "name" => "TerraPower" }, "facility" => { "name" => "Vogtle" },
+      "relationship_type" => "owns", "organization_id" => organizations(:westinghouse).id, "slug" => "hijacked" })
+    sneaky.update!(status: "matched", subject_type: "FacilityRelationship", subject_id: existing.id)
+
+    assert Review.approve([ sneaky.id ], by: BY).sole.ok?
+    assert_equal organizations(:terrapower).id, existing.reload.organization_id, "an organization_id in the payload doesn't move the link"
+  end
+
+  test "the no-reason group lists the candidates with no notes" do
+    blank = Candidate.create!(source: @source, kind: "organization", payload: { "name" => "Blank Co" }, quote: "q", status: "needs_review")
+    Candidate.create!(source: @source, kind: "organization", payload: { "name" => "Noted Co" }, quote: "q", status: "needs_review",
+      notes: 'Looks like "X": same word')
+
+    assert_includes Review.reasons.map(&:first), "no reason"
+    assert_equal [ blank.id ], Review.candidates(queue: :needs_review, reason: "no reason").map(&:candidate_id)
+  end
+
   test "an edited claim doesn't carry the verifier's confidence; an unchanged one does" do
     edited = candidate("facility", { "name" => "Hope Creek 1", "nrc_docket" => "05000354", "state" => "DE" })
     same = candidate("facility", { "name" => "Salem 1", "nrc_docket" => "05000272", "state" => "NJ" })

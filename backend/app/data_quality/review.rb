@@ -44,7 +44,11 @@ module DataQuality::Review
   # matching again. Moving a published link isn't an edit either.
   LINK_ENDS = %w[organization facility from_organization to_organization
     organization_id facility_id from_organization_id to_organization_id].freeze
-  NOT_EDITABLE = (LINK_ENDS + %w[id slug]).freeze
+  # A link's type is part of which link it is, and a plant's parent site is
+  # its place in the hierarchy: changing either means matching again.
+  NOT_EDITABLE = (LINK_ENDS + %w[id slug relationship_type parent_id]).freeze
+  # What reasons() calls candidates with no notes.
+  NO_REASON = "no reason"
   # A company's role or technology is what that fact is (a plant's
   # technology is an ordinary value).
   IDENTIFYING = { "organization_role" => %w[role], "organization_technology" => %w[technology] }.freeze
@@ -57,7 +61,7 @@ module DataQuality::Review
       directory: DataQuality::DirectoryClient.new)
       scope = QUEUES.fetch(queue.to_sym).call.includes(:source).order(:id).limit(limit)
       scope = scope.where(verify_run_id: run_id) if run_id
-      scope = scope.where("candidates.notes ILIKE ?", reason_pattern(reason)) if reason.present?
+      scope = filter_by_reason(scope, reason) if reason.present?
       scope = scope.where("candidates.id > ?", after_id) if after_id
       scope.map { |candidate| item(candidate, directory) }
     end
@@ -68,7 +72,7 @@ module DataQuality::Review
     def reasons(queue: :needs_review, run_id: nil)
       scope = QUEUES.fetch(queue.to_sym).call
       scope = scope.where(verify_run_id: run_id) if run_id
-      scope.pluck(:notes).map { |notes| notes.to_s.split(":").first.to_s.gsub(/"[^"]*"/, '"…"').squish.presence || "no reason" }
+      scope.pluck(:notes).map { |notes| notes.to_s.split(":").first.to_s.gsub(/"[^"]*"/, '"…"').squish.presence || NO_REASON }
         .tally.sort_by { |reason, n| [ -n, reason ] }
     end
 
@@ -101,6 +105,7 @@ module DataQuality::Review
 
       result = nil
       Candidate.transaction do
+        lock_for_decision(candidate) # before the edit, in the same order as everywhere else
         edited = attributes.any? { |name, value| candidate.payload[name] != value }
         candidate.update!(payload: candidate.payload.merge(attributes))
         # The verifier checked the claim as found, not as edited: no confidence carries over.
@@ -195,7 +200,7 @@ module DataQuality::Review
 
       # A recommendation made against an earlier snapshot of its source.
       def lapsed?(candidate)
-        candidate.ai_recommendation == "recommend_publish" && candidate.ai_source_sha256 != candidate.source.content_sha256
+        candidate.ai_recommendation == "recommend_publish" && candidate.ai_source_sha256 != candidate.source.reload.content_sha256
       end
       def already(candidate) = "it's already #{candidate.status.humanize(capitalize: false)}"
 
@@ -204,7 +209,7 @@ module DataQuality::Review
       # fact still waiting for approval.
       def approve_one(candidate, by:, reason:, directory:, edited: false)
         Candidate.transaction do
-          candidate.lock!
+          lock_for_decision(candidate)
           next Result.new(candidate_id: candidate.id, ref: nil, errors: [ already(candidate) ]) unless open?(candidate)
           if lapsed?(candidate)
             next Result.new(candidate_id: candidate.id, ref: nil,
@@ -246,12 +251,33 @@ module DataQuality::Review
       def retire_proposal(candidate, by:, reason:, directory:)
         return [] unless candidate.subject_id
 
-        attached = Candidate.where(subject_type: candidate.subject_type, subject_id: candidate.subject_id)
-        return [] unless attached.where(proposed_subject: true).exists?
-        return [] if attached.where.not(id: candidate.id).where(status: %w[new matched merged needs_review]).exists?
+        errors = []
+        # Under the proposal's lock, so two rejections at once can't each see
+        # the other as still live and leave the proposal behind. Already
+        # closed: nothing to retire.
+        directory.unless_closed(candidate) do
+          attached = Candidate.where(subject_type: candidate.subject_type, subject_id: candidate.subject_id)
+          next unless attached.where(proposed_subject: true).exists?
+          next if attached.where.not(id: candidate.id).where(status: %w[new matched merged needs_review]).exists?
 
-        directory.decide_fact(candidate.subject_type.underscore, id: candidate.subject_id, status: "rejected", by:, reason:,
-          context: { "candidate_id" => candidate.id }).errors
+          errors = directory.decide_fact(candidate.subject_type.underscore, id: candidate.subject_id, status: "rejected", by:,
+            reason:, context: { "candidate_id" => candidate.id }).errors
+        end
+        errors
+      end
+
+      # The source, then the candidate (extract's order, so no deadlock): a new
+      # snapshot can't land between the lapsed? check and the write.
+      def lock_for_decision(candidate)
+        ::Source.lock.find(candidate.source_id)
+        candidate.lock!
+      end
+
+      # A reason from reasons(), back to its candidates; NO_REASON means no notes.
+      def filter_by_reason(scope, reason)
+        return scope.where(notes: [ nil, "" ]) if reason == NO_REASON
+
+        scope.where("candidates.notes ILIKE ?", reason_pattern(reason))
       end
 
       def decide_fact(type, id, status, by:, reason:, attributes: {}, directory:)
