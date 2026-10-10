@@ -163,7 +163,10 @@ module Directory
     def same_brand_organizations(name, plants: plant_names)
       key = brand_key(name, plants:) or return []
 
-      OrganizationAlias.where("organization_aliases.normalized_alias LIKE ?", "#{ActiveRecord::Base.sanitize_sql_like(key)}%")
+      # A leading "the" isn't part of a brand, so "The Acme Company" is found too.
+      prefix = ActiveRecord::Base.sanitize_sql_like(key)
+      OrganizationAlias.where("organization_aliases.normalized_alias LIKE ? OR organization_aliases.normalized_alias LIKE ?",
+        "#{prefix}%", "the #{prefix}%")
         .includes(:organization).select { |a| brand_key(a.alias, plants:) == key }
         .map(&:organization).uniq.first(10).map { |org| OrganizationRef.from(org) }
     end
@@ -191,7 +194,7 @@ module Directory
       # Words are found in the name as written, so the brand keeps its own
       # spelling ("Sargent & Lundy", "Babcock-Wilcox"); "&" counts as "and"
       # only for finding the plant or region at the end.
-      text = join_initials(name)
+      text = join_initials(name).sub(/\A\s*the\s+(?=\S+\s)/i, "")
       words = text.to_enum(:scan, /[[:alnum:]]+|&/).map { [ Regexp.last_match[0], Regexp.last_match.end(0) ] }
       base = strip_entities(words.map { |word, _| word == "&" ? "and" : word.downcase })
       place = place_words_at_end(base, plants) or return
@@ -213,7 +216,10 @@ module Directory
       # Plants are often named after their owner ("Urenco USA enrichment
       # facility", "Kairos Power Salt Production Facility"), so a short form
       # that starts a company's name isn't a plant name on its own.
-      owners = OrganizationAlias.pluck(:normalized_alias).flat_map { |name| [ name.split.first, name.split.first(2).join(" ") ] }.to_set
+      owners = OrganizationAlias.pluck(:normalized_alias).flat_map do |name|
+        words = without_article(name.split)
+        [ words.first, words.first(2).join(" ") ]
+      end.to_set
       Facility.where.not(verification_status: "rejected").pluck(:name).flat_map do |name|
         words = distinctive_words(name).reject { |word| word.length < 3 }
         first = words.first.to_s
@@ -255,15 +261,16 @@ module Directory
     private
       # Dotted initials as one word ("L.L.C." => "LLC", "L.P." => "LP"), so legal
       # suffixes are recognized however they're punctuated.
+      def without_article(words) = words.first == "the" && words.size > 1 ? words.drop(1) : words
+
       def join_initials(name) = name.to_s.gsub(/\b(?:[[:alpha:]]\.){2,}/) { |initials| initials.delete(".") }
 
       # Normalized words of the brand: legal and operating words dropped from
       # the end, then a trailing known plant or region name, then legal words
       # again. Stops at an OWN_BRANDS name.
       def brand_words(name, plants)
-        words = OrganizationAlias.normalize(join_initials(name)).split
         # A leading "the" isn't part of a brand ("The Southern Company" is Southern).
-        words = words.drop(1) if words.first == "the" && words.size > 1
+        words = without_article(OrganizationAlias.normalize(join_initials(name)).split)
         words = strip_entities(words)
         place = place_words_at_end(words, plants)
         words = strip_entities(words.first(words.size - place)) if place
