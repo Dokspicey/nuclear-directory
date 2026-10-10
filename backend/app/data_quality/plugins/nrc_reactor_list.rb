@@ -155,6 +155,9 @@ class DataQuality::Plugins::NrcReactorList < DataQuality::Plugin
       facility = { "name" => unit.name, "nrc_docket" => unit.nrc_docket }
       flags = review ? { status: "needs_review", notes: review } : {}
 
+      # "state" is NRC's, which is the state of the city Location measures
+      # from; near a border that's not the plant's (Salem NJ shows as DE).
+      # It's evidence, and EIA's plant state wins for that field.
       [
         { kind: "facility", quote: line, payload: facility.merge(
           "facility_type" => "power_reactor", "status" => "operating", "reactor_type" => unit.reactor_type,

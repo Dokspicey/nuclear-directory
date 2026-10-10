@@ -88,7 +88,10 @@ against the exact parse of the table, by docket. Candidates always carry the tab
 the model got wrong, misquoted or skipped goes to review with both values in `notes`, and units it
 invents are dropped. The tally is in the extract run's `stats["ai_check"]`, so the model's accuracy
 is measured on a source we can check before it's trusted on messier ones. Per unit: the unit
-(`facility`), its operator (`organization`, one per name) and an `operates` link.
+(`facility`), its operator (`organization`, one per name) and an `operates` link. The unit's `state` is
+evidence, not the final word: NRC's Location measures from a nearby city, which near a border is in
+another state (Salem and Hope Creek are in NJ, listed from "Wilmington, DE"; Catawba SC; Fermi 2 MI).
+EIA's plant state wins for that field (Tosin's decision; the EIA plug-in applies it).
 
 ## Talking to the directory
 
