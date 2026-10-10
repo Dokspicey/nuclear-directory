@@ -11,6 +11,13 @@ class DesignSystemTest < ActionDispatch::IntegrationTest
     assert_select "svg.nd-ic", minimum: 20
   end
 
+  test "ids on the design page are unique" do
+    get design_system_path
+
+    ids = css_select("[id]").map { |node| node["id"] }
+    assert_equal [], ids.tally.select { |_, n| n > 1 }.keys
+  end
+
   test "it renders every shared page part with mock records" do
     get design_system_path
 
