@@ -333,6 +333,27 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
     assert_equal [ 1, 1 ], run.stats.values_at("proposed", "matched")
   end
 
+  test "a new link and its quote are written together, or not at all" do
+    # The quote write fails after the link was created: nothing may be left behind.
+    directory = DataQuality::DirectoryClient.new
+    directory.define_singleton_method(:write_pending) do |kind, attributes, **options|
+      return DataQuality::DirectoryClient::WriteResult.new(ref: nil, errors: [ "disk full" ]) if attributes.keys == [ :id ]
+
+      super(kind, attributes, **options)
+    end
+    link = candidate("facility_relationship", {
+      "organization" => { "name" => "TerraPower" },
+      "facility" => { "name" => "Vogtle Electric Generating Plant" },
+      "relationship_type" => "operates"
+    })
+
+    DataQuality::Stages::Match.call(plugin: DummyPlugin.new, directory:)
+
+    assert link.reload.status_needs_review?
+    assert_match "disk full", link.notes
+    assert_not FacilityRelationship.exists?(relationship_type: "operates"), "the link was rolled back"
+  end
+
   test "an operates link finds records proposed earlier in the same run" do
     candidate("organization", { "name" => "Entergy Nuclear Operations, Inc." })
     candidate("facility", facility_payload("Arkansas Nuclear 1", "05000313"))
