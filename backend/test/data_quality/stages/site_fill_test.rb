@@ -22,7 +22,10 @@ class DataQuality::Stages::SiteFillTest < ActiveSupport::TestCase
 
   def run_stage(stage, **) = DataQuality::Pipeline.run("dummy", plugin: UnitPlugin.new, only: stage, **)
 
+  def agree_on_state! = Candidate.sole.then { |c| c.update!(payload: c.payload.merge("state" => "GA")) }
+
   test "approving a unit fills only its site's blank fields, and keeps the site's verification" do
+    agree_on_state!
     run_stage("match")
     run_stage("verify", verifier: PublishEverything.new)
     approve_recommended
@@ -32,6 +35,19 @@ class DataQuality::Stages::SiteFillTest < ActiveSupport::TestCase
     assert_equal "GA", @site.state, "a field the site already had is kept"
     assert_equal [ true, "human:tosin" ], [ @site.verified?, @site.verified_by ]
     assert_equal [ "crawler" ], @site.evidence.pluck(:found_by)
+  end
+
+  test "an approved unit that disagrees with its human-reviewed site is published, but fills nothing, and says why" do
+    run_stage("match")
+    run_stage("verify", verifier: PublishEverything.new)
+    approve_recommended
+
+    candidate = Candidate.sole
+    assert Facility.find(candidate.subject_id).verified?, "the unit itself is published"
+    assert candidate.status_merged?, "a human already approved it"
+    assert_match "Its site disagrees, so it wasn't filled: human-verified state is GA; this source says TX", candidate.notes
+    assert_nil @site.reload.facility_type
+    assert_empty @site.evidence
   end
 
   test "the site is filled from the unit as stored, not from the candidate" do

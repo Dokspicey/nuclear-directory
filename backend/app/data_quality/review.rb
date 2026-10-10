@@ -178,7 +178,9 @@ module DataQuality::Review
         filled = directory.fill_site_from_unit(unit_id, candidate, crawl_run: run)
         return if filled.nil? || filled.success?
 
-        candidate.update!(notes: [ candidate.notes, "Site not filled: #{filled.errors.join('; ')}" ].compact_blank.join(". "))
+        # A conflict (e.g. NRC's state is a nearby city's) is shown, not applied.
+        why = filled.conflict? ? "Its site disagrees, so it wasn't filled" : "Site not filled"
+        candidate.update!(notes: [ candidate.notes, "#{why}: #{filled.errors.join('; ')}" ].compact_blank.join(". "))
       end
 
       # Returns errors from rejecting the proposal, or [].

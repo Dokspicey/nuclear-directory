@@ -110,8 +110,13 @@ module Verifiable
     # retires its own proposals.
     def closed_decisions_need_a_human
       return unless will_save_change_to_verification_status? || will_save_change_to_verified_by?
-      # The actor of this change, never the stored reviewer: a bare update of
-      # the status names no one, so it can't unpublish or reopen.
+      # A change to an existing fact's decision must say who makes it (the
+      # helpers and FactWriter do), so its audit event is never attributed to
+      # whoever decided last. A new fact may start in any state.
+      if persisted? && decided_by.blank?
+        return errors.add(:verification_status, "needs who decided: use verify!, reject!, unpublish! or FactWriter")
+      end
+      # The actor of this change, never the stored reviewer.
       return if decided_by.to_s.start_with?("human:")
 
       from = verification_status_in_database

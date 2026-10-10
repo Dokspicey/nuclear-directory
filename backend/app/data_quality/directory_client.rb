@@ -47,14 +47,17 @@ class DataQuality::DirectoryClient
     record("Facility", lookup.facility(id:, name:, nrc_docket:))
   end
 
-  # The organization or facility a candidate is attached to, as it is now,
-  # or nil (links, or no subject).
+  # The fact a candidate is attached to (any kind, links included), with its
+  # current decision, or nil when it has none. Organizations and facilities
+  # come with their values, so verify can compare them; a link has only its
+  # decision.
   def attached_record(candidate)
     return unless candidate.subject_id
 
     case candidate.subject_type
     when "Organization" then record("Organization", lookup.organization(id: candidate.subject_id))
     when "Facility" then record("Facility", lookup.facility(id: candidate.subject_id))
+    else record(candidate.subject_type, lookup.fact_state(type: candidate.subject_type, id: candidate.subject_id))
     end
   end
 
@@ -149,19 +152,13 @@ class DataQuality::DirectoryClient
   # (the result has an error).
   # The values come from the unit as stored, not from the candidate, since
   # a curated unit may have kept its own values over the candidate's.
+  # Only a unit that ended up verified speaks for its site (a human may have
+  # kept it rejected); FactWriter checks that, and which fields are blank,
+  # with both records locked.
   def fill_site_from_unit(facility_id, candidate, crawl_run:)
-    unit = lookup.facility(id: facility_id)
-    # Only a unit that ended up verified speaks for its site (a human may have kept it rejected).
-    return unless unit&.parent_id && unit.verification_status == "verified"
-
-    site = lookup.facility(id: unit.parent_id) or return
-    fields = unit.to_h.slice(*SITE_FIELDS_FROM_UNIT.map(&:to_sym)).compact_blank
-      .select { |name, _| site.public_send(name).blank? }
-    return if fields.empty?
-
-    result = fact_writer.write("facility", fields.merge(id: site.id), fill_blank: true, protect_human_verified: true,
+    result = fact_writer.fill_site_from_unit(facility_id, fields: SITE_FIELDS_FROM_UNIT,
       evidence: [ { source_id: candidate.source_id, quote: candidate.quote, found_by: "crawler", crawl_run_id: crawl_run&.id } ])
-    write_result(result)
+    write_result(result) if result
   end
 
   # For the review screens (DataQuality::Review, #85).

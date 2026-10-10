@@ -187,6 +187,30 @@ class Directory::FactWriterTest < ActiveSupport::TestCase
     assert_equal "TerraPower", org.reload.name
   end
 
+  test "values equal once the model normalizes them aren't conflicts" do
+    site = facilities(:vogtle)
+    site.update!(country_code: "US", nrc_docket: "05000424")
+    site.verify!(by: "human:tosin")
+
+    assert write(:facility, { id: site.id, country_code: " us ", nrc_docket: " 05000424 " }, protect_human_verified: true).ok?
+  end
+
+  test "a site fill rechecks the unit and the site's blanks with both locked" do
+    site = facilities(:vogtle)
+    site.update!(state: nil, status: "operating")
+    unit = Facility.create!(name: "Vogtle 3", parent: site, state: "GA", status: "planned")
+    fill = -> { Directory::FactWriter.fill_site_from_unit(unit.id, fields: %w[state status], evidence: [ @evidence ]) }
+
+    unit.reject!(by: "human:tosin")
+    assert_nil fill.call, "a unit that isn't verified (any more) fills nothing"
+
+    unit.verify!(by: "human:tosin")
+    assert fill.call.ok?
+    site.reload
+    assert_equal [ "GA", "operating" ], [ site.state, site.status ], "only the blank field is filled"
+    assert_nil fill.call, "nothing left to fill"
+  end
+
   test "no automated unit under a rejected site, checked inside the write" do
     site = facilities(:vogtle)
     site.reject!(by: "human:tosin")
