@@ -283,8 +283,9 @@ module Directory
           raise Invalid, "alias #{name.inspect} already belongs to #{existing.facility.name}" if existing && existing.facility_id != facility.id
           next if existing
 
-          named = Facility.where.not(id: facility.id).find_by("lower(name) = ?", name.strip.downcase)
-          raise Invalid, "alias #{name.inspect} is the name of another facility" if named
+          # Compared normalized, as aliases are ("Peach-Bottom" is "Peach Bottom").
+          named = Facility.where.not(id: facility.id).pluck(:name).find { |other| FacilityAlias.normalize(other) == normalized }
+          raise Invalid, "alias #{name.inspect} is the name of another facility (#{named})" if named
 
           facility.aliases.create!(alias: name)
         end

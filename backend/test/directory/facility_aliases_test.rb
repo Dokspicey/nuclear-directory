@@ -62,7 +62,9 @@ class Directory::FacilityAliasesTest < ActiveSupport::TestCase
     taken = write(:facility, { id: other.id, aliases: [ "three mile island unit 1" ] })
     assert_match "already belongs to Crane Clean Energy Center", taken.errors.join
     named = write(:facility, { id: @crane.id, aliases: [ "Peach Bottom" ] })
-    assert_match "is the name of another facility", named.errors.join
+    assert_match "is the name of another facility (Peach Bottom)", named.errors.join
+    spelled = write(:facility, { id: @crane.id, aliases: [ "Peach-Bottom" ] })
+    assert_match "is the name of another facility (Peach Bottom)", spelled.errors.join, "compared normalized"
     assert_empty other.aliases
   end
 
