@@ -153,13 +153,21 @@ module Directory
       tokens.first(base.size - place).join(" ")
     end
 
+    # Words that start many place names ("North Anna", "Point Beach"); on its
+    # own, one of these isn't a plant's name, so "Acme North" keeps "North".
+    PLACE_PREFIXES = %w[north south east west new upper lower lake river point fort mount port saint grand great
+      little big old].to_set.freeze
+
     # Distinctive names of known plants ("seabrook", "point beach",
-    # "palisades"), from the facility records, leaving out rejected ones.
+    # "palisades"), from the facility records, leaving out rejected ones: the
+    # full distinctive name, its first two words, and its first word alone
+    # when that is a name in itself (five letters or more, not a place word).
     # One query; read it once and pass it as plants: when checking many names.
     def plant_names
       Facility.where.not(verification_status: "rejected").pluck(:name).flat_map do |name|
         words = distinctive_words(name).reject { |word| word.length < 3 }
-        [ words.join(" "), words.first(2).join(" "), (words.first if words.first.to_s.length >= 5) ]
+        first = words.first.to_s
+        [ words.join(" "), words.first(2).join(" "), (first if first.length >= 5 && !PLACE_PREFIXES.include?(first)) ]
       end.compact_blank.to_set
     end
 

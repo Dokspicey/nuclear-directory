@@ -41,20 +41,29 @@ class DataQuality::OpenRouter::Client
     @sleeper = sleeper
   end
 
-  def structured(role:, messages:, schema:, schema_name: "result", crawl_run: nil, temperature: 0)
+  # temperature and reasoning_effort ("low", "medium", "high") are only sent
+  # when given: every parameter sent must be supported by the model, since
+  # require_parameters makes OpenRouter refuse ("No endpoints found")
+  # rather than drop one. Reasoning models (e.g. gpt-6-luna, claude-haiku-5.5)
+  # don't take temperature.
+  def structured(role:, messages:, schema:, schema_name: "result", crawl_run: nil, temperature: nil, reasoning_effort: nil)
     model = @config.model_for(role)
     body = {
       model: model,
       messages: messages,
       temperature: temperature,
+      reasoning: reasoning_effort && { effort: reasoning_effort },
       response_format: { type: "json_schema", json_schema: { name: schema_name, strict: true, schema: schema } },
-      # Only route to providers that support structured output.
+      # Only route to providers that support everything above, so structured
+      # output is never silently dropped.
       provider: { require_parameters: true },
       usage: { include: true }
-    }
+    }.compact
     validator = JSONSchemer.schema(schema)
 
     with_retries do |attempt|
+      # Before every attempt, retries included; raises Budget::Exceeded.
+      DataQuality::Budget.check!(@config.monthly_budget)
       payload = post(body)
       record_usage(crawl_run, model, payload["usage"], attempt:)
 
@@ -152,12 +161,27 @@ class DataQuality::OpenRouter::Client
       return unless run
 
       llm = run.stats.fetch("llm", {})
+      # A run that recorded calls before by_month existed (in flight across
+      # a deploy) moves those totals into the month it started, so its
+      # earlier spend isn't lost once its first monthly bucket appears.
+      if llm["by_month"].nil? && llm["calls"].to_i.positive?
+        llm["by_month"] = { run.started_at.strftime("%Y-%m") =>
+          { "calls" => llm["calls"].to_i, "total_tokens" => llm["total_tokens"].to_i, "cost" => llm["cost"].to_f } }
+      end
       llm["calls"] = llm.fetch("calls", 0) + 1
       llm["retries"] = llm.fetch("retries", 0) + 1 if attempt > 1
       %w[prompt_tokens completion_tokens total_tokens].each do |key|
         llm[key] = llm.fetch(key, 0) + usage.to_h.fetch(key, 0).to_i
       end
       llm["cost"] = (llm.fetch("cost", 0) + usage["cost"].to_f).round(6) if usage.to_h["cost"]
+
+      # Also by the calendar month of the call, so a run that crosses
+      # midnight at month end is counted in the right month (Budget,
+      # StatusReport): "by_month" => { "2026-10" => { calls, total_tokens, cost } }
+      month = (llm["by_month"] ||= {})[Time.current.strftime("%Y-%m")] ||= { "calls" => 0, "total_tokens" => 0, "cost" => 0 }
+      month["calls"] += 1
+      month["total_tokens"] += usage.to_h.fetch("total_tokens", 0).to_i
+      month["cost"] = (month["cost"] + usage.to_h["cost"].to_f).round(6)
 
       run.update!(stats: run.stats.merge("llm" => llm), model: run.model || model)
     end

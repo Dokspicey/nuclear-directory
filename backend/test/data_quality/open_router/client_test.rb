@@ -45,6 +45,19 @@ class DataQuality::OpenRouter::ClientTest < ActiveSupport::TestCase
     assert_equal "vendor/extractor", @run.model
   end
 
+  test "sends temperature and reasoning effort only when asked, since reasoning models refuse temperature" do
+    bodies = []
+    stub_request(:post, ENDPOINT).with { |request| bodies << JSON.parse(request.body) }.to_return(completion('{"name":"x"}'))
+
+    ask
+    @client.structured(role: :extract, messages: MESSAGES, schema: SCHEMA, temperature: 0, reasoning_effort: "low")
+
+    assert_not bodies.first.key?("temperature"), "not sent by default"
+    assert_not bodies.first.key?("reasoning")
+    assert_equal [ 0, { "effort" => "low" } ], bodies.second.values_at("temperature", "reasoning")
+    assert_equal({ "require_parameters" => true }, bodies.first["provider"])
+  end
+
   test "the verify role uses the verifier model" do
     stub = stub_request(:post, ENDPOINT).with { |request| JSON.parse(request.body)["model"] == "vendor/verifier" }
       .to_return(completion('{"name":"x"}'))

@@ -100,6 +100,15 @@ class Directory::LookupTest < ActiveSupport::TestCase
     assert_nil Directory::Lookup.brand_name("NextEra Energy Imaginary Point, LLC")
   end
 
+  test "a place word that starts a plant's name isn't a plant on its own" do
+    Facility.create!(name: "North Anna Power Station")
+    Facility.create!(name: "Palisades Pioneer Units 1 & 2")
+
+    assert_equal "acme north", Directory::Lookup.brand_key("Acme North, LLC"), "North alone isn't a plant"
+    assert_equal "dominion", Directory::Lookup.brand_key("Dominion Energy North Anna, LLC"), "North Anna is"
+    assert_equal "holtec", Directory::Lookup.brand_key("Holtec Palisades, LLC"), "a plant's own first word still counts"
+  end
+
   test "a trailing known plant or region is dropped from the brand" do
     Facility.create!(name: "Seabrook 1", nrc_docket: "05000443")
 
