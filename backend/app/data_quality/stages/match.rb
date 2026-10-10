@@ -99,7 +99,8 @@ class DataQuality::Stages::Match < DataQuality::Stage
     # Only the fields that identify a link (LINK_KEYS and the resolved ends)
     # are written at match; its description, dates and ownership are applied
     # when it's published, so an existing link never takes on unverified
-    # values. (A new link is pending, so nothing public is missing meanwhile.)
+    # values. (A new link is pending, so nothing public is missing meanwhile;
+    # like any proposal, it gets the quote as evidence.)
     def match_link(candidate, payload)
       attributes = payload.slice(*LINK_KEYS.fetch(candidate.kind)).symbolize_keys
 
@@ -217,6 +218,12 @@ class DataQuality::Stages::Match < DataQuality::Stage
     # evidence: false for links, which may already exist; their quote is added on publish.
     def write(candidate, attributes, existing: nil, note: nil, evidence: true)
       result = directory.write_pending(candidate.kind, attributes, candidate:, crawl_run: @run, evidence:)
+      # A link written without evidence (so an existing one isn't changed) that
+      # turned out to be new is a proposal, and a proposal carries its quote.
+      if result.success? && result.created && !evidence
+        with_quote = directory.write_pending(candidate.kind, { id: result.ref.id }, candidate:, crawl_run: @run)
+        result = with_quote unless with_quote.success?
+      end
       unless result.success?
         return review(candidate, "Directory rejected the write: #{result.errors.join('; ')}", write_error: true)
       end
