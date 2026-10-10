@@ -382,3 +382,24 @@
     .nd-item__meta a::after, .nd-tap::after { content: ""; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); transform: translate(-50%, -50%); }
   }
 }
+
+/* Company and plant pages (#42, #43). */
+@layer components {
+  .nd-more > summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; min-height: 44px; margin-top: var(--nd-space-2); font: 500 14px/20px var(--font-text); color: var(--nd-ink); text-decoration: underline; text-decoration-color: var(--nd-control); text-underline-offset: 3px; }
+  .nd-more > summary::-webkit-details-marker { display: none; }
+  /* The summary stays, so the list can be collapsed again. */
+  .nd-more:not([open]) .nd-more__close, .nd-more[open] .nd-more__open { display: none; }
+
+  /* Key facts come first in the page, so they lead when the columns stack
+     (phones, tablets, #90). From 960px both columns always fit (560 + 280 +
+     48 gap + gutters), and a grid places key facts on the right; below that
+     the columns stack in page order, so focus order matches what's seen. */
+  .nd-columns--profile { display: flex; flex-direction: column; align-items: stretch; }
+  .nd-columns--profile .nd-columns__side, .nd-columns--profile .nd-columns__main { flex: none; }
+  .nd-columns--profile .nd-columns__side, .nd-columns--profile .nd-overview { max-width: none; }
+  @media (min-width: 960px) {
+    .nd-columns--profile { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 340px); }
+    .nd-columns--profile .nd-columns__side { grid-column: 2; grid-row: 1; }
+    .nd-columns--profile .nd-columns__main { grid-column: 1; grid-row: 1; }
+  }
+}

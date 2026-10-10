@@ -7,6 +7,7 @@ Rails.application.routes.draw do
 
   # The directory and search results: one page for browsing and searching (#40).
   get "companies" => "directory#index", as: :companies
+  get "companies/:slug" => "companies#show", as: :company
 
   # The home page and its instant search (#41). /search returns a Turbo Frame
   # of grouped results for the home and header search fields.

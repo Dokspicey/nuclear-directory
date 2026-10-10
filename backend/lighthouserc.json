@@ -5,7 +5,8 @@
         "http://localhost:3000/",
         "http://localhost:3000/companies",
         "http://localhost:3000/companies?category=plants",
-        "http://localhost:3000/companies?q=kairos"
+        "http://localhost:3000/companies?q=kairos",
+        "http://localhost:3000/companies/kairos-power"
       ],
       "numberOfRuns": 3,
       "settings": {
