@@ -66,6 +66,29 @@ class CompanyPageTest < ActionDispatch::IntegrationTest
     assert_select "body", text: /Hidden Site/, count: 0
   end
 
+  test "unpublished facts, partners and plants disappear from the page, and come back when republished" do
+    get company_path(slug: "kairos-power")
+    assert_select "body", text: /Google/
+    assert_select "body", text: /Hermes/
+
+    @google.unpublish!(by: "human:test")
+    @hermes.unpublish!(by: "human:test")
+    @kairos.organization_roles.sole.unpublish!(by: "human:test")
+    get company_path(slug: "kairos-power")
+
+    assert_select "body", text: /Google/, count: 0
+    assert_select "body", text: /Hermes/, count: 0
+    assert_select "body", text: /Reactor developer/, count: 0
+
+    @google.verify!(by: "human:test")
+    get company_path(slug: "kairos-power")
+    assert_select "body", text: /Google/
+
+    @kairos.unpublish!(by: "human:test")
+    get company_path(slug: "kairos-power")
+    assert_response :not_found
+  end
+
   test "a plant's type, status and place show beside a link only when the plant has its own source" do
     bare = plant("Bare Reactor", facility_type: "power_reactor", status: "operating", city: "Nowhere", state: "OR")
     cite!(link(@kairos, "operates", bare))
