@@ -1,8 +1,14 @@
 # Seed research for issue #8 - generated 2026-10-09. Quotes copied from pages fetched this session.
+# 2026-10-10: Urenco USA merged in (one company per brand, Tosin's decision). Its
+# aliases, role, technology and Eunice facility entries moved here unchanged; its
+# subsidiary_of edge to Urenco was dropped.
 name: Urenco
 aliases:
 - Urenco Group
 - Urenco Limited
+- Urenco USA
+- UUSA
+- Louisiana Energy Services
 website: "https://www.urenco.com"
 hq:
   city: London
@@ -17,7 +23,24 @@ roles:
   quote: "Urenco is an international supplier of uranium enrichment services, fuel cycle products and related solutions with sustainability at the core of our business."
   published: '2024-12-11'
   confidence: 1.0
-technologies: []
+- key: fuel
+  subtype: enrichment
+  source_url: "https://urenco.com/news/usa/2024/leu-enrichment-award-u.s-department-of-energy"
+  quote: "Urenco USA is the only large-scale commercial uranium enrichment facility in the US and has been providing a reliable, domestic supply for more than a decade."
+  published: '2024-12-11'
+  confidence: 1.0
+technologies:
+- key: fission
+  source_url: "https://urenco.com/news/usa/2024/leu-enrichment-award-u.s-department-of-energy"
+  quote: "LEU is uranium enriched up to 5% and supports the operation of the existing fleet of nuclear reactors."
+  published: '2024-12-11'
+  confidence: 1.0
 relationships: []
-facilities: []
-notes: "Non-US parent of Urenco USA; included as counterparty. Legal entity name (e.g. Urenco Limited) not verified."
+facilities:
+- name: Urenco USA enrichment facility (Eunice, NM)
+  type: operates
+  source_url: "https://urenco.com/news/usa/2024/leu-enrichment-award-u.s-department-of-energy"
+  quote: "Urenco USA currently has the capacity to meet approximately one-third of the enrichment needs of U.S. utilities and is expanding to meet additional commercial demand."
+  published: '2024-12-11'
+  confidence: 1.0
+notes: "Legal entity name (e.g. Urenco Limited) not verified. From the merged Urenco USA file: DOE LEU IDIQ selection (Dec 2024) is a contract vehicle with no funds stated; not modelled as 'funds'. Urenco USA did not receive a Jan 2026 DOE task order (per secondary coverage). No named US-utility supply contract found. Urenco USA's HQ (Eunice, NM, from a press-release dateline) was dropped in the merge: the company's HQ is London; the Eunice plant keeps its location."

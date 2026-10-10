@@ -23,7 +23,7 @@ class DesignSystemController < ApplicationController
         company: Organization.new(name: "Kairos Power", slug: "kairos-power", hq_city: "Alameda", hq_state: "CA",
           description: "Develops the KP-FHR, a fluoride salt-cooled, high-temperature reactor."),
         company_sparse: Organization.new(name: "Lowercarbon Capital", slug: "lowercarbon-capital"),
-        plant: Facility.new(name: "Plant Vogtle", slug: "plant-vogtle", facility_type: "power_reactor", status: "operating",
+        plant: Facility.new(name: "Plant Vogtle", slug: "plant-vogtle", verification_status: "verified", facility_type: "power_reactor", status: "operating",
           city: "Waynesboro", state: "GA"),
         # Plant Vogtle is the site; its four reactor units sit under it as children.
         plant_sparse: Facility.new(name: "Hermes 2", slug: "hermes-2"),

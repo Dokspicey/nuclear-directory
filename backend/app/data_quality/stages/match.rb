@@ -20,7 +20,10 @@
 #     "facility" => { "name" => "…", "nrc_docket" => "05000424" }, "relationship_type" => "operates" }
 # See app/data_quality/README.md.
 class DataQuality::Stages::Match < DataQuality::Stage
-  ORDER = %w[organization facility organization_role organization_technology relationship facility_relationship
+  # Facilities before organizations: company names are checked against the
+  # plant names they may end in ("NextEra Energy Seabrook"), so plants proposed
+  # in the same run must already be known. Records before links.
+  ORDER = %w[facility organization organization_role organization_technology relationship facility_relationship
     organization_alias].freeze
 
   # Payload keys that name another record, and what kind of record each is.
@@ -93,8 +96,19 @@ class DataQuality::Stages::Match < DataQuality::Stage
           note: "New pending unit under the existing site #{found.site.name}")
       else
         # FactWriter may still find a record by a key match didn't use; trust its answer.
-        write(candidate, payload.symbolize_keys)
+        write(candidate, proposal(candidate, payload))
       end
+    end
+
+    # One company per brand: a new company from a per-plant or regional legal
+    # entity ("NextEra Energy Seabrook, LLC") is named after its brand
+    # ("NextEra Energy"), with the legal name kept as an alias.
+    def proposal(candidate, payload)
+      attributes = payload.symbolize_keys
+      brand = directory.brand_name(attributes[:name]) if candidate.kind_organization? && attributes[:name].present?
+      return attributes unless brand
+
+      attributes.merge(name: brand, aliases: [ *attributes[:aliases], attributes[:name] ])
     end
 
     # Only the fields that identify a link (LINK_KEYS and the resolved ends)
@@ -151,7 +165,27 @@ class DataQuality::Stages::Match < DataQuality::Stage
         return Review.new("name matches #{by_name.name} but domain matches #{by_domain.name}")
       end
       return Found.new(by_name, "name") if by_name
+
+      # One company per brand: a legal-entity variant of exactly one existing
+      # company is that company. Two candidates for the brand is ambiguous. A
+      # brand counts as a name match, so it must agree with the domain too, and
+      # a shared brand goes to review even when the domain picks one of them.
+      brand = name ? directory.same_brand_organizations(name) : []
+      if brand.many?
+        domain_note = " (its domain matches #{by_domain.name})" if by_domain
+        return Review.new("#{name.inspect} could be the same brand as #{brand.map(&:name).join(' or ')}#{domain_note}. Which one?")
+      end
+      if by_domain && brand.one? && brand.first.id != by_domain.id
+        return Review.new("name is the brand of #{brand.first.name} but domain matches #{by_domain.name}")
+      end
+      # A per-plant name whose brand has no company yet ("NextEra Energy
+      # Seabrook, LLC") must still agree with a company found by domain.
+      if by_domain && brand.empty? && (inferred = directory.brand_name(name.to_s)) &&
+          directory.brand_key(inferred) != directory.brand_key(by_domain.name)
+        return Review.new("name is a #{inferred} company but domain matches #{by_domain.name}")
+      end
       return Found.new(by_domain, "domain") if by_domain
+      return Found.new(brand.first, "brand, a legal-entity variant of its name") if brand.one?
 
       similar(directory.similar_organizations(name.to_s), name)
     end

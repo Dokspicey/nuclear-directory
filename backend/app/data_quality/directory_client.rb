@@ -75,6 +75,18 @@ class DataQuality::DirectoryClient
     lookup.similar_organizations(name).map { |ref| record("Organization", ref) }
   end
 
+  # Organizations that are the same brand as name (legal-entity variants).
+  def same_brand_organizations(name)
+    lookup.same_brand_organizations(name, plants: plant_names).map { |ref| record("Organization", ref) }
+  end
+
+  # The brand a per-plant or regional company name stands for
+  # ("NextEra Energy Seabrook, LLC" => "NextEra Energy"), or nil.
+  def brand_name(name) = lookup.brand_name(name, plants: plant_names)
+
+  # The brand a name reduces to ("NextEra Energy Seabrook, LLC" => "nextera"), or nil.
+  def brand_key(name) = lookup.brand_key(name, plants: plant_names)
+
   def similar_facilities(name)
     lookup.similar_facilities(name).map { |ref| record("Facility", ref) }
   end
@@ -172,11 +184,11 @@ class DataQuality::DirectoryClient
   # After a unit is verified, fills its site's blank fields (state, type,
   # status) from the unit, with the unit's quote as evidence. Never
   # overwrites a field the site already has, and leaves the site's
-  # verification alone. Returns a WriteResult, or nil when the unit has no site
-  # or the site has nothing blank to fill. Only the site's blank fields are
-  # sent, so the quote is evidence just for what it fills, and the write is
-  # protected like any automated one: a site a human rejected isn't changed
-  # (the result has an error).
+  # verification alone. Returns nil when the unit has no site or nothing is
+  # left to fill, else a WriteResult: success; an error when a human rejected
+  # the site; or a conflict when the unit disagrees with a value a human
+  # recorded for the site (nothing written, even if no field was blank). The
+  # quote is evidence just for the fields it fills.
   # The values come from the unit as stored, not from the candidate, since
   # a curated unit may have kept its own values over the candidate's.
   # Only a unit that ended up verified speaks for its site (a human may have
@@ -199,6 +211,9 @@ class DataQuality::DirectoryClient
     def lookup = @lookup ||= "Directory::Lookup".constantize
     def fact_writer = @fact_writer ||= "Directory::FactWriter".constantize
 
+    # Read once and reused for every brand check, until a facility or company is written.
+    def plant_names = @plant_names ||= lookup.plant_names
+
     def record(type, ref)
       Record.new(type:, id: ref.id, name: ref.name, domain: ref.try(:domain), nrc_docket: ref.try(:nrc_docket), parent_id: ref.try(:parent_id),
         facility_type: ref.try(:facility_type), status: ref.try(:status), state: ref.try(:state),
@@ -207,6 +222,8 @@ class DataQuality::DirectoryClient
     end
 
     def write_result(result)
+      # Plant names depend on facilities and on company names (owner prefixes).
+      @plant_names = nil if result.ok? && %w[facility organization].include?(result.kind.to_s)
       if result.ok?
         WriteResult.new(ref: Ref.new(type: type_for(result.kind), id: result.id), errors: [], created: result.created)
       elsif result.conflict?
