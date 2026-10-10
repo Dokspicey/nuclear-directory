@@ -165,7 +165,11 @@ module Directory
       end
 
       def same_value?(record, name, stored, incoming)
-        return Organization.domain_from(stored) == Organization.domain_from(incoming) if name.to_sym == :website
+        if name.to_sym == :website
+          # Same site if the same domain; a URL with no readable domain only equals itself.
+          domains = [ stored, incoming ].map { |url| Organization.domain_from(url) }
+          return domains.all?(&:present?) ? domains.uniq.one? : stored.strip == incoming.strip
+        end
         return stored == incoming if incoming.is_a?(ActiveRecord::Base)
 
         stored == record.class.type_for_attribute(name.to_s).cast(incoming)
