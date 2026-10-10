@@ -73,6 +73,11 @@ module Directory
       ActiveRecord::Base.transaction(requires_new: true) do
         record = find(kind, spec[:model], attributes) || spec[:model].new
         created = record.new_record?
+        # Locked, so a human's decision made while this write runs is seen.
+        record.lock! if protect_human_verified && !created
+        if protect_human_verified && !created && record.rejected? && record.human_reviewed?
+          raise Invalid, "#{record.model_name.human} was rejected by #{record.verified_by}; not changed"
+        end
         curated = protect_human_verified && !created && record.human_reviewed?
         changes = model_attributes(kind, attributes)
         changes = changes.select { |name, _| record.public_send(name).blank? } if (fill_blank || curated) && !created

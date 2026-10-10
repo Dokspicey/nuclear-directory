@@ -88,6 +88,18 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
     assert_equal lasalle.id, Facility.find(numbered.reload.subject_id).parent_id, "spacing differences still match"
   end
 
+  test "a unit is never placed under a rejected site" do
+    vogtle_site!.reject!(by: "human:tosin")
+    c = candidate("facility", facility_payload("Vogtle 3", "05200025"))
+
+    assert_no_difference "Facility.count" do
+      match!
+    end
+
+    assert c.reload.status_needs_review?
+    assert_match "which was rejected", c.notes
+  end
+
   test "a unit the site record doesn't cover goes to review, never merged" do
     vogtle_site!
     Facility.create!(name: "Palisades Pioneer Units 1 & 2 (SMR-300)")

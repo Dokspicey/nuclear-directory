@@ -68,6 +68,19 @@ class DataQuality::Stages::VerifyTest < ActiveSupport::TestCase
     assert_nil Directory::Lookup.organization(name: "TP Nuclear Holdings")
   end
 
+  test "a record a human rejects between match and verify isn't changed by publishing" do
+    c = candidate("organization", { "name" => "TP Nuclear Holdings", "domain" => "terrapower.com" })
+    run_stage("match")
+    organizations(:terrapower).reject!(by: "human:tosin")
+
+    verify = run_stage("verify", verifier: PublishEverything.new)
+
+    assert c.reload.status_needs_review?
+    assert_match "rejected by human:tosin", c.notes
+    assert_equal 1, verify.stats["write_errors"]
+    assert_nil Directory::Lookup.organization(name: "TP Nuclear Holdings")
+  end
+
   test "a link's details arrive when it's published, not at match" do
     candidate("organization", { "name" => "Example Operating Co" })
     candidate("facility", { "name" => "Example 1", "nrc_docket" => "05000999", "facility_type" => "power_reactor" })

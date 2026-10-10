@@ -119,11 +119,16 @@ class DataQuality::DirectoryClientTest < ActiveSupport::TestCase
   test "an agent never overturns a human's rejection" do
     terrapower = organizations(:terrapower)
     terrapower.reject!(by: "human:tosin")
-    matched = candidate("organization", { "name" => "TerraPower" })
+    matched = candidate("organization", { "name" => "TerraPower Holdings" })
     matched.update!(status: "matched", subject_type: "Organization", subject_id: terrapower.id)
 
-    assert @client.write_fact(matched, confidence: 0.9, crawl_run: @run).success?
+    result = @client.write_fact(matched, confidence: 0.9, crawl_run: @run)
+
+    assert_not result.success?, "the write is refused, so verify sends the candidate to review"
+    assert_match "rejected by human:tosin", result.errors.join
     assert terrapower.reload.rejected?
+    assert_nil Directory::Lookup.organization(name: "TerraPower Holdings"), "no alias added either"
+    assert_empty terrapower.evidence, "nothing written"
   end
 
   test "publishing a matched link applies its payload attributes" do

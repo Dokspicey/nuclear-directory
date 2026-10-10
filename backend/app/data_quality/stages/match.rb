@@ -125,9 +125,14 @@ class DataQuality::Stages::Match < DataQuality::Stage
     # the candidate goes to review instead.
     def resolve(type, payload)
       found = type == :organization ? resolve_organization(payload) : resolve_facility(payload)
-      return found unless found.is_a?(Found) && found.record.rejected?
+      if found.is_a?(Found) && found.record.rejected?
+        return Review.new("matches #{found.record.name} (by #{found.by}), which was rejected. The same thing again, or a new record?")
+      end
+      if found.is_a?(Under) && found.site.rejected?
+        return Review.new("looks like a unit of #{found.site.name}, which was rejected. Under it anyway, or its own record?")
+      end
 
-      Review.new("matches #{found.record.name} (by #{found.by}), which was rejected. The same thing again, or a new record?")
+      found
     end
 
     def resolve_organization(payload)
