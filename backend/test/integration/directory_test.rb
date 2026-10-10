@@ -13,6 +13,17 @@ class DirectoryTest < ActionDispatch::IntegrationTest
     plant("Plant Vogtle", state: "GA", facility_type: "power_reactor", status: "operating")
   end
 
+  test "a pending site's row shows its name and verified units, not its own type or place" do
+    site = Facility.create!(name: "Quiet Station", verification_status: "pending", facility_type: "power_reactor", status: "planned", city: "Nowhere", state: "OR")
+    Facility.create!(name: "Quiet Unit 1", parent: site, verification_status: "verified", verified_by: "human:test", capacity_mw: 300)
+    get companies_path(category: "plants")
+
+    assert_select ".nd-listrow", text: /Quiet Station/ do
+      assert_select ".nd-listrow__desc", "1 unit · 300 MWe"
+    end
+    assert_select "body", text: /Nowhere|Planned/, count: 0
+  end
+
   test "a category lists its verified companies" do
     get companies_path(category: "reactor-developers")
 
@@ -59,6 +70,19 @@ class DirectoryTest < ActionDispatch::IntegrationTest
     get companies_path(category: "reactor-developers", q: "nothing like this", state: "CA", sort: "connections")
 
     assert_select ".nd-notice a[href=?]", "/companies?category=reactor-developers&sort=connections&state=CA", text: "Clear search"
+  end
+
+  test "search and filtered lists aren't indexed; plain lists and categories are" do
+    [ companies_path(q: "kairos"), companies_path(state: "CA"), companies_path(category: "reactor-developers", state: "CA") ].each do |path|
+      get path
+      assert_select "meta[name=robots][content=noindex]", 1, "#{path} should be noindex"
+    end
+
+    [ companies_path, companies_path(category: "reactor-developers") ].each do |path|
+      get path
+      assert_select "meta[name=robots]", 0, "#{path} should be indexable"
+      assert_select "meta[name=description]"
+    end
   end
 
   test "filters that match nothing offer to clear them" do

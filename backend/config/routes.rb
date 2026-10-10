@@ -8,6 +8,16 @@ Rails.application.routes.draw do
   # The directory and search results: one page for browsing and searching (#40).
   get "companies" => "directory#index", as: :companies
   get "companies/:slug" => "companies#show", as: :company
+  get "plants/:slug" => "plants#show", as: :plant
+  get "corrections/new" => "corrections#new", as: :new_correction
+  post "corrections" => "corrections#create", as: :corrections
+  get "corrections/sent" => "corrections#sent", as: :correction_sent
+
+  get "privacy" => "pages#privacy", as: :privacy
+  get "disclaimer" => "pages#disclaimer", as: :disclaimer
+  get "bot" => "pages#bot", as: :bot
+  get "sitemap.xml" => "sitemaps#show", as: :sitemap, format: false, defaults: { format: :xml }
+  get "robots.txt" => "sitemaps#robots", as: :robots, format: false
 
   # The home page and its instant search (#41). /search returns a Turbo Frame
   # of grouped results for the home and header search fields.

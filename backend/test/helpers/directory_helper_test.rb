@@ -5,7 +5,7 @@ class DirectoryHelperTest < ActionView::TestCase
     assert_equal "offtakes from", relationship_verb("offtake_with")
     assert_equal "invests in", relationship_verb(:invests_in)
     assert_equal "is a subsidiary of", relationship_verb("subsidiary_of")
-    assert_equal "is the reactor vendor for", facility_relationship_verb("vendor_for")
+    assert_equal "is the reactor developer for", facility_relationship_verb("vendor_for")
     assert_raises(KeyError) { relationship_verb("partners_with") }
   end
 

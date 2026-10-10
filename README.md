@@ -34,7 +34,7 @@ in the background and `docker compose down` to stop it.
 `db:prepare` creates the database, runs migrations and, on first setup, loads
 the seed data. Rerun it after pulling new migrations.
 
-The seed data is the roles and technologies lists plus 45 hand-checked
+The seed data is the roles and technologies lists plus 44 hand-checked
 organizations, one YAML file each in `backend/db/seeds/organizations/`. Every
 fact in them is loaded as verified, with its source and quote as evidence.
 After changing `backend/db/seeds.rb` or those files, reload the seeds (safe to
@@ -127,6 +127,15 @@ secrets only when the Blueprint is first created; change them later under
 Environment (saving restarts the service). Adding a new secret means adding it
 to `render.yaml` with `sync: false` and then setting its value in the
 dashboard.
+
+**Domain.** `nuclear-directory.org` is the web service's custom domain
+(`domains` in `render.yaml`; Render adds `www`, which redirects to it). DNS is
+at Namecheap: the bare domain is an ALIAS to `nuclear-directory.onrender.com`
+(or an A record to `216.24.57.1`) and `www` is a CNAME to
+`nuclear-directory.onrender.com`. The iCloud
+mail records (MX, SPF and `apple-domain` TXT, `sig1._domainkey`, `_dmarc`)
+live alongside them and must not be changed. Cutover steps and the old values
+are in issue #57.
 
 **Errors and uptime.** Errors go to Sentry once `SENTRY_DSN` is set; until
 then nothing is sent. Visitor data stays out: no IPs, cookies, form or request

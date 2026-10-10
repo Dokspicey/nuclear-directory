@@ -35,6 +35,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_020000) do
     t.datetime "ai_checked_at"
     t.bigint "verify_run_id"
     t.string "ai_source_sha256"
+    t.string "reviewed_by"
+    t.datetime "reviewed_at"
     t.index ["ai_recommendation", "verify_run_id"], name: "index_candidates_on_ai_recommendation_and_verify_run_id"
     t.index ["crawl_run_id"], name: "index_candidates_on_crawl_run_id"
     t.index ["source_id"], name: "index_candidates_on_source_id"
@@ -43,6 +45,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_020000) do
     t.check_constraint "ai_recommendation::text = ANY (ARRAY['recommend_publish'::character varying::text, 'needs_review'::character varying::text])", name: "candidates_ai_recommendation_check"
     t.check_constraint "kind::text = ANY (ARRAY['organization'::character varying::text, 'organization_alias'::character varying::text, 'organization_role'::character varying::text, 'organization_technology'::character varying::text, 'facility'::character varying::text, 'relationship'::character varying::text, 'facility_relationship'::character varying::text])", name: "candidates_kind_check"
     t.check_constraint "status::text = ANY (ARRAY['new'::character varying::text, 'matched'::character varying::text, 'merged'::character varying::text, 'rejected'::character varying::text, 'needs_review'::character varying::text])", name: "candidates_status_check"
+  end
+
+  create_table "correction_reports", force: :cascade do |t|
+    t.string "subject", null: false
+    t.string "page_path", null: false
+    t.text "message", null: false
+    t.string "contact"
+    t.string "status", default: "open", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["status"], name: "index_correction_reports_on_status"
+    t.check_constraint "status::text = ANY (ARRAY['open'::character varying::text, 'reviewed'::character varying::text, 'closed'::character varying::text])", name: "correction_reports_status_check"
   end
 
   create_table "crawl_runs", force: :cascade do |t|

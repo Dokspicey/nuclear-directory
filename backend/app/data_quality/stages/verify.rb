@@ -20,13 +20,6 @@
 # isn't sent to the model again; later runs only repeat the code checks
 # (1-3), in case a human decided on its record meanwhile.
 class DataQuality::Stages::Verify < DataQuality::Stage
-  # Attributes compared with a human-verified record, per kind. Names aren't
-  # compared: spelling and legal-form variants are expected (aliases cover them).
-  COMPARED = {
-    "organization" => %w[domain],
-    "facility" => %w[nrc_docket eia_plant_id facility_type status state country_code]
-  }.freeze
-
   def initialize(verifier: DataQuality::Verifiers::Agent.new, **)
     super(**)
     @verifier = verifier
@@ -72,6 +65,9 @@ class DataQuality::Stages::Verify < DataQuality::Stage
         return send_to_review(candidate, reason, run, stats, model: nil)
       end
       return stats["already_recommended"] += 1 if recommended?(candidate)
+      # Recommended when the run began, but its source changed during the run,
+      # so no model was asked: the next run asks.
+      return stats["source_changed"] = stats.fetch("source_changed", 0) + 1 unless verdict
 
       # A verdict a code check produced (e.g. nothing stored) names no model.
       model = verdict.by_code ? nil : run.model
@@ -96,8 +92,8 @@ class DataQuality::Stages::Verify < DataQuality::Stage
       closed = closed_hold(record)
       return closed if closed
 
-      conflicts = human_conflicts(candidate, record)
-      return [ "conflicts", conflicts.join("; ") ] if conflicts.any?
+      differences = DataQuality::Differences.with_human_verified(candidate, record)
+      return [ "conflicts", DataQuality::Differences.describe(differences) ] if differences.any?
 
       unless quote_found?(candidate)
         return [ "quote_missing", "The cited quote isn't in the source as stored, so it can't be checked: " \
@@ -118,34 +114,6 @@ class DataQuality::Stages::Verify < DataQuality::Stage
       if record&.parent_id && (site = directory.facility(id: record.parent_id))&.closed?
         [ "human_decision", "Its site #{site.name} was #{site.decision}. Publish a unit under it anyway, or a new record?" ]
       end
-    end
-
-    # "human-verified state is NJ; this source says DE" for each compared
-    # attribute where a human-verified record already has a different value.
-    def human_conflicts(candidate, record)
-      return [] unless record && record.verification_status == "verified" && record.verified_by.to_s.start_with?("human:")
-
-      COMPARED.fetch(candidate.kind, []).filter_map do |name|
-        stored = comparable(name, record.public_send(name))
-        incoming = comparable(name, name == "domain" ? candidate.payload["domain"].presence || candidate.payload["website"] : candidate.payload[name])
-        next if stored.blank? || incoming.blank? || stored == incoming
-
-        "human-verified #{name.humanize(capitalize: false)} is #{stored}; this source says #{incoming}"
-      end
-    end
-
-    # Values compare as the directory stores them: dockets stripped, country
-    # codes stripped and upcased, domains as hosts
-    # ("https://WWW.TerraPower.com/news" is "terrapower.com").
-    def comparable(name, value)
-      return value.to_s.strip.upcase if name == "country_code"
-      return value.to_s.strip unless name == "domain" && value.present?
-
-      text = value.to_s.strip
-      host = URI.parse(text.match?(%r{\A[a-z][a-z0-9+.-]*://}i) ? text : "https://#{text}").host
-      host.to_s.downcase.delete_prefix("www.")
-    rescue URI::InvalidURIError
-      text.downcase.delete_prefix("www.")
     end
 
     def verdicts_for(candidates, run)

@@ -31,7 +31,7 @@ class DataQuality::Plugins::EiaGenerators < DataQuality::Plugin
       new_source.source_kind = INDEX_SOURCE_KIND
       new_source.title = "EIA-860M monthly generator inventory page"
     end
-    DataQuality::Snapshot.take(index, fetcher: @fetcher, same_origin: true)
+    DataQuality::Snapshot.take(index, fetcher: @fetcher)
     unless index.crawl_ok? && index.content_text.present?
       raise "EIA 860M page: #{index.status_reason || index.crawl_status}"
     end
@@ -42,7 +42,9 @@ class DataQuality::Plugins::EiaGenerators < DataQuality::Plugin
       new_source.title = "EIA-860M generator inventory, #{url[FILE_LINK, 1].capitalize} #{url[FILE_LINK, 2]}"
     end
 
-    result = DataQuality::Snapshot.take(source, fetcher: @fetcher, binary: true, same_origin: true) do |bytes|
+    # The shared Fetcher keeps every fetch, redirects included, on public https
+    # addresses of the starting host (#114).
+    result = DataQuality::Snapshot.take(source, fetcher: @fetcher, binary: true) do |bytes|
       Workbook.to_csv(Workbook.nuclear_generators(bytes))
     end
     { "file" => url, "snapshot" => result.to_s, "generators" => [ CSV.parse(source.reload.content_text.to_s).size - 1, 0 ].max,

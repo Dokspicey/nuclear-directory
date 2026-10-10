@@ -41,6 +41,50 @@ module Directory
     end
 
     FACT_TYPES = %w[Organization OrganizationRole OrganizationTechnology Facility Relationship FacilityRelationship].freeze
+    # FactWriter kinds, one per fact type.
+    FACT_KINDS = FACT_TYPES.map(&:underscore).freeze
+
+    # Facts of one kind waiting for a human's decision (verification_status
+    # pending; never rejected or unpublished), oldest first, as
+    # an array of Directory::PendingFactRef. Page with after_id: the last id seen.
+    #
+    #   Directory::Lookup.pending_facts(kind: "facility_relationship", limit: 50)
+    def pending_facts(kind:, after_id: nil, limit: 50)
+      kind = kind.to_s
+      raise ArgumentError, "not a fact kind: #{kind.inspect}" unless FACT_KINDS.include?(kind)
+
+      model = kind.camelize.constantize
+      scope = model.pending.order(:id).limit(limit).includes(*PENDING_INCLUDES.fetch(kind), :evidence)
+      scope = scope.where("#{model.table_name}.id > ?", after_id) if after_id
+      latest = latest_events(model.name, scope.map(&:id))
+
+      scope.map do |record|
+        PendingFactRef.new(type: model.name, id: record.id, kind:, attributes: pending_attributes(kind, record),
+          evidence: record.evidence.sort_by(&:id).map { |item| EvidenceRef.from(item) },
+          created_at: record.created_at, last_event: latest[record.id])
+      end
+    end
+
+    PENDING_INCLUDES = {
+      "organization" => [ :aliases ], "facility" => [ :parent, :technology ], "organization_role" => [ :organization, :role ],
+      "organization_technology" => [ :organization, :technology ],
+      "relationship" => [ :from_organization, :to_organization ], "facility_relationship" => [ :organization, :facility ]
+    }.freeze
+    private_constant :PENDING_INCLUDES
+
+    # Any fact's stored values, as FactWriter names them (string keys; link
+    # ends as ids, plus the linked records' names), or nil. Lets a caller
+    # compare a link's values, which fact_state doesn't carry.
+    #
+    #   Directory::Lookup.fact_attributes(type: "FacilityRelationship", id: 7)
+    #   # => { "ownership_pct" => 45.7, "description" => "...", ... }
+    def fact_attributes(type:, id:)
+      raise ArgumentError, "not a fact type: #{type.inspect}" unless FACT_TYPES.include?(type.to_s)
+
+      record = type.to_s.constantize.find_by(id:) or return
+      pending_attributes(type.to_s.underscore, record).stringify_keys
+    end
+
     # How a link reads to a person (VOICE.md's fixed verbs and words).
     LINK_VERBS = {
       "supplies" => "supplies", "invests_in" => "invests in", "funds" => "funds",
@@ -129,6 +173,99 @@ module Directory
         .first(10).map { |facility| FacilityRef.from(facility) }
     end
 
+    # Words that name a legal entity or operating arm of a brand rather than
+    # the brand itself, when they end a name: "Constellation Energy
+    # Generation, LLC" and "Constellation Energy Corporation" are one brand.
+    # Decision (Tosin, 2026-10-10): one company per brand.
+    ENTITY_WORDS = %w[
+      generation operating operations operator nuclear energy power usa us america americas
+      holdings holding group international global services company co corp corporation inc incorporated
+      llc lp llp ltd limited plc
+    ].to_set.freeze
+    # Shorter brand keys ("x" from "X-energy") match too much to trust.
+    MIN_BRAND_KEY_LENGTH = 4
+    # Brands that are their own company even though they look like an arm of
+    # another (Tosin, 2026-10-10: Southern Nuclear stays separate from Southern
+    # Company). Reducing a name stops here.
+    OWN_BRANDS = [ "southern nuclear" ].to_set.freeze
+    # Regions a utility brand names its operating companies after
+    # ("Duke Energy Carolinas, LLC" is Duke Energy), plus legacy brands that
+    # live on as an operating company's name: "progress" (Progress Energy,
+    # now "Duke Energy Progress, LLC", is Duke Energy; Tosin, 2026-10-10).
+    REGION_WORDS = %w[carolinas carolina florida midwest indiana ohio kentucky texas virginia progress].to_set.freeze
+
+    # Organizations whose name or an alias is the same brand as name: equal
+    # once trailing entity words, and a trailing plant or region name, are
+    # dropped. More than one result means the brand is ambiguous (e.g. "Urenco"
+    # and "Urenco USA" are both records).
+    def same_brand_organizations(name, plants: plant_names)
+      key = brand_key(name, plants:) or return []
+
+      # A leading "the" isn't part of a brand, so "The Acme Company" is found too.
+      prefix = ActiveRecord::Base.sanitize_sql_like(key)
+      OrganizationAlias.where("organization_aliases.normalized_alias LIKE ? OR organization_aliases.normalized_alias LIKE ?",
+        "#{prefix}%", "the #{prefix}%")
+        .includes(:organization).select { |a| brand_key(a.alias, plants:) == key }
+        .map(&:organization).uniq.first(10).map { |org| OrganizationRef.from(org) }
+    end
+
+    # "Constellation Energy Generation, LLC" => "constellation";
+    # "NextEra Energy Seabrook, LLC" => "nextera" (Seabrook is a known plant);
+    # "Duke Energy Carolinas, LLC" => "duke". nil when too short to trust.
+    def brand_key(name, plants: plant_names)
+      words = brand_words(name, plants)
+      # Nothing but legal or operating words ("Nuclear Energy LLC") is no brand.
+      return if words.all? { |word| ENTITY_WORDS.include?(word) }
+
+      key = words.join(" ")
+      key if key.delete(" ").length >= MIN_BRAND_KEY_LENGTH
+    end
+
+    # The brand part of a name as written, for naming a new company after its
+    # brand: "NextEra Energy Point Beach, LLC" => "NextEra Energy". nil when
+    # only legal or operating words were dropped, since the full name is
+    # then the company's own.
+    def brand_name(name, plants: plant_names)
+      # Only for a brand key we'd trust ("X-Energy Seabrook" reduces to "x": no).
+      return unless brand_key(name, plants:)
+
+      # Words are found in the name as written, so the brand keeps its own
+      # spelling ("Sargent & Lundy", "Babcock-Wilcox"); "&" counts as "and"
+      # only for finding the plant or region at the end.
+      text = join_initials(name).sub(/\A\s*the\s+(?=\S+\s)/i, "")
+      words = text.to_enum(:scan, /[[:alnum:]]+|&/).map { [ Regexp.last_match[0], Regexp.last_match.end(0) ] }
+      base = strip_entities(words.map { |word, _| word == "&" ? "and" : word.downcase })
+      place = place_words_at_end(base, plants) or return
+
+      text[0, words[base.size - place - 1].last].strip
+    end
+
+    # Words that start many place names ("North Anna", "Point Beach"); on its
+    # own, one of these isn't a plant's name, so "Acme North" keeps "North".
+    PLACE_PREFIXES = %w[north south east west new upper lower lake river point fort mount port saint grand great
+      little big old].to_set.freeze
+
+    # Distinctive names of known plants ("seabrook", "point beach",
+    # "palisades"), from the facility records, leaving out rejected ones: the
+    # full distinctive name, its first two words, and its first word alone
+    # when that is a name in itself (five letters or more, not a place word).
+    # One query; read it once and pass it as plants: when checking many names.
+    def plant_names
+      # Plants are often named after their owner ("Urenco USA enrichment
+      # facility", "Kairos Power Salt Production Facility"), so a short form
+      # that starts a company's name isn't a plant name on its own.
+      owners = OrganizationAlias.pluck(:normalized_alias).flat_map do |name|
+        words = without_article(name.split)
+        [ words.first, words.first(2).join(" ") ]
+      end.to_set
+      Facility.where.not(verification_status: "rejected").pluck(:name).flat_map do |name|
+        words = distinctive_words(name).reject { |word| word.length < 3 }
+        first = words.first.to_s
+        short = [ words.first(2).join(" "), (first if first.length >= 5 && !PLACE_PREFIXES.include?(first)) ]
+        [ words.join(" "), *short.compact.reject { |form| owners.include?(form) } ]
+      end.compact_blank.to_set
+    end
+
     # NRC units (facilities with a docket) whose names best fit name, for
     # sources that name plants their own way ("Joseph M Farley" for NRC's
     # "Farley 1", "PSEG Hope Creek Generating Station" for "Hope Creek 1").
@@ -160,6 +297,67 @@ module Directory
     end
 
     private
+      # The fact's FactWriter attributes as stored (role and technology as
+      # their keys), plus the names of the records it links.
+      def pending_attributes(kind, record)
+        names = FactWriter::KINDS.fetch(kind.to_sym)[:attributes] - %i[aliases role technology]
+        values = names.to_h { |name| [ name, record.public_send(name) ] }
+        values[:role] = record.role.key if kind == "organization_role"
+        values[:aliases] = record.aliases.map(&:alias).sort if kind == "organization"
+        values[:technology] = record.technology&.key if record.respond_to?(:technology)
+        values[:organization_name] = record.organization.name if record.respond_to?(:organization)
+        values[:facility_name] = record.facility.name if kind == "facility_relationship"
+        if kind == "relationship"
+          values[:from_organization_name] = record.from_organization.name
+          values[:to_organization_name] = record.to_organization.name
+        end
+        values[:parent_name] = record.parent&.name if kind == "facility"
+        values
+      end
+
+      def latest_events(type, ids)
+        # Only the newest event per fact (Postgres DISTINCT ON), not the whole history.
+        VerificationEvent.where(subject_type: type, subject_id: ids)
+          .select("DISTINCT ON (subject_id) verification_events.*").order(:subject_id, created_at: :desc, id: :desc)
+          .index_by(&:subject_id).transform_values { |event| VerificationEventRef.from(event) }
+      end
+
+      # Dotted initials as one word ("L.L.C." => "LLC", "L.P." => "LP"), so legal
+      # suffixes are recognized however they're punctuated.
+      def without_article(words) = words.first == "the" && words.size > 1 ? words.drop(1) : words
+
+      def join_initials(name) = name.to_s.gsub(/\b(?:[[:alpha:]]\.){2,}/) { |initials| initials.delete(".") }
+
+      # Normalized words of the brand: legal and operating words dropped from
+      # the end, then a trailing known plant or region name, then legal words
+      # again. Stops at an OWN_BRANDS name.
+      def brand_words(name, plants)
+        # A leading "the" isn't part of a brand ("The Southern Company" is Southern).
+        words = without_article(OrganizationAlias.normalize(join_initials(name)).split)
+        words = strip_entities(words)
+        place = place_words_at_end(words, plants)
+        words = strip_entities(words.first(words.size - place)) if place
+        words
+      end
+
+      def strip_entities(words)
+        words = words.dup
+        words.pop while words.size > 1 && !OWN_BRANDS.include?(words.join(" ")) && ENTITY_WORDS.include?(words.last)
+        words
+      end
+
+      # How many words at the end name a known plant or a region, leaving at
+      # least one brand word; nil when none do.
+      def place_words_at_end(words, plants)
+        return if OWN_BRANDS.include?(words.join(" "))
+
+        # Longest first, and always leaving at least one word of the brand.
+        (words.size - 1).downto(1).find do |size|
+          tail = words.last(size).join(" ")
+          REGION_WORDS.include?(tail) || plants.include?(tail)
+        end
+      end
+
       # A record's name; a link is "the fact “TerraPower owns Plant Vogtle”",
       # in the words visitors use (VOICE.md), so it reads as a review note.
       def fact_label(record)
