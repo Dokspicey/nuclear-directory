@@ -1,0 +1,144 @@
+/*
+  Nuclear Directory design tokens.
+  Rules for using them live in DESIGN.md at the repo root. Change a value here
+  and every Tailwind utility and component class follows.
+
+  Raw values are --nd-* custom properties so light and dark can swap them.
+  @theme inline exposes them to Tailwind as utilities: bg-paper, text-ink,
+  border-rule, text-ink-muted, bg-inverse, text-on-inverse, ...
+*/
+
+:root {
+  /* Color: light theme */
+  --nd-paper: #f7f7f5;
+  --nd-paper-raised: #ffffff;
+  --nd-paper-sunken: #efefec;
+  --nd-rule: #e2e2df;
+  --nd-control: #848486;
+  --nd-ink: #121212;
+  --nd-ink-muted: #57575a;
+  --nd-inverse: var(--nd-ink);
+  --nd-on-inverse: var(--nd-paper);
+  --nd-focus: var(--nd-ink);
+  --nd-critical: #a8261b;
+
+  /* Spacing (4px base) */
+  --nd-space-1: 4px;
+  --nd-space-2: 8px;
+  --nd-space-3: 12px;
+  --nd-space-4: 16px;
+  --nd-space-6: 24px;
+  --nd-space-8: 32px;
+  --nd-space-12: 48px;
+  --nd-space-16: 64px;
+
+  /* Shape */
+  --nd-radius-0: 0px;
+  --nd-radius-sm: 3px;
+  --nd-radius-md: 6px;
+  --nd-hairline: 1px;
+  --nd-focus-width: 2px;
+
+  /* Layout */
+  --nd-content-max: 1200px;
+  --nd-prose-max: 640px;
+  --nd-overview-width: 320px;
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --nd-paper: #0c0c0d;
+    --nd-paper-raised: #151516;
+    --nd-paper-sunken: #1d1d1f;
+    --nd-rule: #2a2a2c;
+    --nd-control: #6c6c70;
+    --nd-ink: #ececea;
+    --nd-ink-muted: #a3a3a6;
+    --nd-critical: #ff8f80;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --nd-paper: #0c0c0d;
+  --nd-paper-raised: #151516;
+  --nd-paper-sunken: #1d1d1f;
+  --nd-rule: #2a2a2c;
+  --nd-control: #6c6c70;
+  --nd-ink: #ececea;
+  --nd-ink-muted: #a3a3a6;
+  --nd-critical: #ff8f80;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-paper: var(--nd-paper);
+  --color-paper-raised: var(--nd-paper-raised);
+  --color-paper-sunken: var(--nd-paper-sunken);
+  --color-rule: var(--nd-rule);
+  --color-control: var(--nd-control);
+  --color-ink: var(--nd-ink);
+  --color-ink-muted: var(--nd-ink-muted);
+  --color-inverse: var(--nd-inverse);
+  --color-on-inverse: var(--nd-on-inverse);
+  --color-focus: var(--nd-focus);
+  --color-critical: var(--nd-critical);
+
+  --radius-sm: var(--nd-radius-sm);
+  --radius-md: var(--nd-radius-md);
+
+  --container-content: var(--nd-content-max);
+  --container-prose: var(--nd-prose-max);
+}
+
+/* Fonts (Google Fonts, linked in the layout): Anton and Roboto Serif from techequity.us, plus Roboto Mono. */
+@theme {
+  --font-display: "Anton", "Arial Narrow", Impact, sans-serif;
+  --font-text: "Roboto Serif", Georgia, serif;
+  --font-mono: "Roboto Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+/* Type styles. Use these instead of composing size, weight and family by hand. */
+@utility type-display {
+  font: 400 64px/1.05 var(--font-display);
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  text-wrap: balance;
+}
+@utility type-title-lg {
+  font: 400 44px/1.05 var(--font-display);
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  text-wrap: balance;
+}
+@utility type-title-md {
+  font: 600 20px/28px var(--font-text);
+}
+@utility type-body {
+  font: 400 15px/24px var(--font-text);
+}
+@utility type-body-strong {
+  font: 600 15px/24px var(--font-text);
+}
+@utility type-ui {
+  font: 500 14px/20px var(--font-text);
+}
+@utility type-small {
+  font: 400 13px/18px var(--font-text);
+}
+@utility type-label {
+  font: 700 11px/16px var(--font-text);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--nd-ink-muted);
+}
+@utility type-data {
+  font: 400 13px/20px var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+@utility type-data-sm {
+  font: 400 11px/16px var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
