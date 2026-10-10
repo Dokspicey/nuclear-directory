@@ -18,7 +18,9 @@ class CompanyPageTest < ActionDispatch::IntegrationTest
     cite!(@kairos, @google, @doe, source: @press)
 
     deal = link(@google, "offtake_with", @kairos)
-    deal.update!(description: "500 MW by 2035.", verified_at: Time.zone.parse("2026-10-09"))
+    deal.update!(description: "500 MW by 2035.")
+    # The decision's date, set as test data (a real date only changes with a named decision).
+    deal.update_column(:verified_at, Time.zone.parse("2026-10-09"))
     deal.evidence.create!(source: @press, quote: "Kairos Power and Google have signed", found_by: "human", confidence: 1)
     link(@doe, "supplies", @kairos).evidence.create!(source: @doe_page, found_by: "human", confidence: 0.8)
     cite!(link(@ghost, "invests_in", @kairos), link(@kairos, "funds", @google, verified: false))
@@ -115,7 +117,7 @@ class CompanyPageTest < ActionDispatch::IntegrationTest
   test "a general role is left out when a more specific one under it is there" do
     coolant = role("coolant")
     [ coolant, role("molten_salt", parent: coolant) ].each do |r|
-      cite!(OrganizationRole.create!(organization: @kairos, role: r, verification_status: "verified"))
+      cite!(OrganizationRole.create!(organization: @kairos, role: r, **verification(true)))
     end
     get company_path(slug: "kairos-power")
 
@@ -125,9 +127,9 @@ class CompanyPageTest < ActionDispatch::IntegrationTest
 
   test "a hidden general role's sources aren't shown" do
     coolant = role("coolant")
-    general = OrganizationRole.create!(organization: @kairos, role: coolant, verification_status: "verified")
+    general = OrganizationRole.create!(organization: @kairos, role: coolant, **verification(true))
     general.evidence.create!(source: Source.create!(url: "https://example.com/coolant", source_kind: "web_page"), found_by: "human", confidence: 1)
-    cite!(OrganizationRole.create!(organization: @kairos, role: role("molten_salt", parent: coolant), verification_status: "verified"))
+    cite!(OrganizationRole.create!(organization: @kairos, role: role("molten_salt", parent: coolant), **verification(true)))
     get company_path(slug: "kairos-power")
 
     assert_select ".nd-tag", text: "Molten salt coolant"
@@ -135,7 +137,7 @@ class CompanyPageTest < ActionDispatch::IntegrationTest
   end
 
   test "a unit under a rejected site isn't linked" do
-    rejected = Facility.create!(name: "Rejected Station", verification_status: "rejected")
+    rejected = Facility.create!(name: "Rejected Station", verification_status: "rejected", verified_by: "human:test")
     cite!(link(@kairos, "owns", cite!(plant("Rejected Unit", parent: rejected))))
     get company_path(slug: "kairos-power")
 
