@@ -232,8 +232,10 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
 
     assert_equal [ constellation, dominion ], [ generation, arm ].map { |c| c.reload.subject_id }
     assert_match "by brand", generation.notes
+
+    DataQuality::Stages::Verify.call(plugin: DummyPlugin.new, verifier: PublishEverything.new)
     assert_equal dominion, Directory::Lookup.organization(name: "Dominion Generation").id,
-      "the variant is now an alias, so the next run matches it exactly"
+      "once published, the variant is an alias, so the next run matches it exactly"
   end
 
   test "Southern Nuclear is its own company, not Southern Company" do
