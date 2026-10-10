@@ -93,6 +93,7 @@ Extract writes `candidates` (`kind`, `payload`, `quote`, `source_id`). Match
 |---|---|---|
 | **Found** | exact NRC docket, domain, or name/alias (normalized) | `matched`, subject = that record. The quote is added as evidence; an organization also gains the name as an alias. Its attributes and verification are left alone. |
 | **Not found** | nothing exact and nothing similar | `matched`, subject = a new **pending** record with the quote as evidence |
+| **New unit of a known site** | an NRC unit (has a docket) whose only similar record is a site (no docket, no parent) that covers it | `matched`, subject = a new **pending** unit with `parent_id` = the site |
 | **Ambiguous** | identifiers point at different records, or a similar record exists | `needs_review`, with the reason in `notes`. Never merged automatically. |
 
 "Similar" means the same leading distinctive word, ignoring unit numbers and
@@ -104,6 +105,16 @@ the confidence and decides whether the fact is published.
 
 Organizations and facilities are matched first, so links in the same run can
 find records proposed a moment earlier.
+
+**Units and sites.** The seed names plants at site level ("Plant Vogtle Units 3
+& 4", no docket); the NRC lists units ("Vogtle 3", with a docket). A site
+covers the units its name lists ("Units 3 & 4" covers 3 and 4); a name that
+lists none ("Susquehanna Steam Electric Station") covers every unit. A unit the
+site doesn't cover ("Vogtle 1", or "Palisades" against "Palisades Pioneer Units
+1 & 2"), or with more than one possible site, goes to review. When verify
+publishes a unit, its `state`, `facility_type`, `status` and `country_code`
+fill the site's **blank** fields only (FactWriter `fill_blank: true`), with
+the unit's quote as evidence; the site's verification is left alone.
 
 **Payloads.** Records carry their attributes, as named in the
 [FactWriter table](../directory/README.md#kinds). Links name each end with a

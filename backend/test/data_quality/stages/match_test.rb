@@ -17,6 +17,12 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
 
   def facility_payload(name, docket) = { "name" => name, "nrc_docket" => docket, "facility_type" => "power_reactor" }
 
+  # The seed's Vogtle record, in place of the fixture's (two Vogtle sites would be ambiguous).
+  def vogtle_site!
+    facilities(:vogtle).destroy!
+    Facility.create!(name: "Plant Vogtle Units 3 & 4")
+  end
+
   test "a facility matched by NRC docket is attached, with the quote as evidence" do
     site = Facility.create!(name: "Braidwood Station", nrc_docket: "05000456")
     c = candidate("facility", facility_payload("Braidwood 1", "05000456"), quote: "Braidwood 1 05000456")
@@ -56,26 +62,76 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
     assert_not_equal first.subject_id, second.subject_id
   end
 
-  test "a unit similar to a site without a docket goes to review, never merged" do
+  test "an NRC unit is added under the seed site it clearly belongs to" do
+    site = vogtle_site!
     c = candidate("facility", facility_payload("Vogtle 3", "05200025"))
+
+    run = match!
+
+    unit = Facility.find(c.reload.subject_id)
+    assert c.status_matched?
+    assert_equal [ "Vogtle 3", "05200025", site.id ], [ unit.name, unit.nrc_docket, unit.parent_id ]
+    assert unit.pending?
+    assert_match "under the existing site Plant Vogtle Units 3 & 4", c.notes
+    assert_equal 1, run.stats["proposed"]
+  end
+
+  test "a site whose name lists no units takes any of its units" do
+    site = Facility.create!(name: "Clinton Clean Energy Center")
+    single = candidate("facility", facility_payload("Clinton", "05000461"))
+    lasalle = Facility.create!(name: "La Salle County Station")
+    numbered = candidate("facility", facility_payload("LaSalle 1", "05000373"))
+
+    match!
+
+    assert_equal site.id, Facility.find(single.reload.subject_id).parent_id
+    assert_equal lasalle.id, Facility.find(numbered.reload.subject_id).parent_id, "spacing differences still match"
+  end
+
+  test "a unit the site record doesn't cover goes to review, never merged" do
+    vogtle_site!
+    Facility.create!(name: "Palisades Pioneer Units 1 & 2 (SMR-300)")
+    older = candidate("facility", facility_payload("Vogtle 1", "05000424"))
+    unnumbered = candidate("facility", facility_payload("Palisades", "05000255"))
 
     assert_no_difference "Facility.count" do
       match!
     end
 
-    assert c.reload.status_needs_review?
-    assert_nil c.subject_id
-    assert_match "Vogtle Electric Generating Plant", c.notes
+    assert older.reload.status_needs_review?
+    assert_match "only covers unit 3 & 4", older.notes
+    assert unnumbered.reload.status_needs_review?
+    assert_match "only covers unit 1 & 2", unnumbered.notes
   end
 
-  test "spacing differences still count as similar" do
-    Facility.create!(name: "La Salle County Station")
-    c = candidate("facility", facility_payload("LaSalle 1", "05000373"))
+  test "sibling units all go under the same site" do
+    site = vogtle_site!
+    units = [ facility_payload("Vogtle 3", "05200025"), facility_payload("Vogtle 4", "05200026") ]
+      .map { |payload| candidate("facility", payload) }
+
+    match!
+
+    assert_equal [ site.id, site.id ], units.map { |c| Facility.find(c.reload.subject_id).parent_id }
+  end
+
+  test "more than one possible site goes to review" do
+    Facility.create!(name: "Susquehanna Steam Electric Station")
+    Facility.create!(name: "Susquehanna Riverlands")
+    c = candidate("facility", facility_payload("Susquehanna 1", "05000387"))
 
     match!
 
     assert c.reload.status_needs_review?
-    assert_match "La Salle County Station", c.notes
+    assert_match "Susquehanna Steam Electric Station; Susquehanna Riverlands", c.notes
+  end
+
+  test "a facility without a docket isn't treated as a unit" do
+    c = candidate("facility", { "name" => "Vogtle Visitor Center" })
+
+    match!
+
+    assert c.reload.status_needs_review?
+    assert_match "Vogtle Electric Generating Plant", c.notes
   end
 
   test "docket and name pointing at different facilities goes to review" do
@@ -166,17 +222,36 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
   end
 
   test "a link to a record that needs review waits in review too" do
-    candidate("facility", facility_payload("Vogtle 3", "05200025"))
+    vogtle_site!
+    candidate("facility", facility_payload("Vogtle 1", "05000424"))
     link = candidate("facility_relationship", {
       "organization" => { "name" => "TerraPower" },
-      "facility" => { "name" => "Vogtle 3", "nrc_docket" => "05200025" },
+      "facility" => { "name" => "Vogtle 1", "nrc_docket" => "05000424" },
       "relationship_type" => "operates"
     })
 
     match!
 
     assert link.reload.status_needs_review?
-    assert_match "facility: no exact match", link.notes
+    assert_match "looks like a unit of Plant Vogtle", link.notes
+  end
+
+  test "an operator becomes an operates link on the unit under its site" do
+    site = vogtle_site!
+    candidate("organization", { "name" => "Example Nuclear Operating Co." })
+    candidate("facility", facility_payload("Vogtle 3", "05200025"))
+    link = candidate("facility_relationship", {
+      "organization" => { "name" => "Example Nuclear Operating Co." },
+      "facility" => { "name" => "Vogtle 3", "nrc_docket" => "05200025" },
+      "relationship_type" => "operates"
+    })
+
+    match!
+
+    record = FacilityRelationship.find(link.reload.subject_id)
+    assert record.operates?
+    assert_equal [ "Example Nuclear Operating Co.", site.id ], [ record.organization.name, record.facility.parent_id ]
+    assert record.organization.pending?
   end
 
   test "a link with a missing end goes to review" do

@@ -32,6 +32,8 @@ class DataQuality::Stages::Match < DataQuality::Stage
 
   Found = Data.define(:record, :by)
   Review = Data.define(:reason)
+  # A new unit that belongs under an existing site record.
+  Under = Data.define(:site)
 
   private
     def perform(run)
@@ -63,6 +65,9 @@ class DataQuality::Stages::Match < DataQuality::Stage
         attributes = { id: found.record.id }
         attributes[:aliases] = [ payload["name"] ] if candidate.kind_organization? && payload["name"].present?
         write(candidate, attributes, existing: true, note: "Matched existing #{found.record.name} (by #{found.by})")
+      when Under
+        write(candidate, payload.symbolize_keys.merge(parent_id: found.site.id), existing: false,
+          note: "New pending unit under the existing site #{found.site.name}")
       else
         write(candidate, payload.symbolize_keys, existing: false)
       end
@@ -123,7 +128,33 @@ class DataQuality::Stages::Match < DataQuality::Stage
       others = directory.similar_facilities(name.to_s).reject do |facility|
         docket && facility.nrc_docket.present? && facility.nrc_docket != docket
       end
-      similar(others, name)
+      site_for_unit(others, name, docket) || similar(others, name)
+    end
+
+    # An NRC unit ("Vogtle 3", with a docket) under a site-level record
+    # ("Plant Vogtle Units 3 & 4", no docket): Under the site when that is the
+    # only similar record, it is top-level, and its name covers this unit.
+    # Names that list no units cover them all. Anything less clear is nil, so
+    # the caller sends it to review.
+    def site_for_unit(others, name, docket)
+      return unless docket && others.one?
+
+      site = others.first
+      return unless site.nrc_docket.blank? && site.parent_id.nil?
+
+      covered = site_unit_numbers(site.name)
+      return Under.new(site) if covered.empty? || covered.include?(unit_number(name))
+
+      Review.new("#{name.inspect} looks like a unit of #{site.name}, but that record only covers " \
+        "unit #{covered.join(' & ')}. Add it under the site, or as its own record?")
+    end
+
+    # "Vogtle 3" => 3. A name without a trailing number ("Palisades") is nil.
+    def unit_number(name) = name.to_s[/\s(\d+)\s*\z/, 1]&.to_i
+
+    # "Plant Vogtle Units 3 & 4" => [3, 4]; "Susquehanna Steam Electric Station" => [].
+    def site_unit_numbers(name)
+      name.to_s.scan(/\bunits?\s+((?:\d+(?:\s*(?:,|&|and)\s*)?)+)/i).flatten.flat_map { |list| list.scan(/\d+/) }.map(&:to_i)
     end
 
     def similar(records, name)

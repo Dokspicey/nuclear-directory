@@ -11,7 +11,7 @@ class DataQuality::DirectoryClient
   # type is what candidates store in subject_type.
   Ref = Data.define(:type, :id)
   # What a lookup found: enough to match on and to explain a match.
-  Record = Data.define(:type, :id, :name, :nrc_docket) do
+  Record = Data.define(:type, :id, :name, :nrc_docket, :parent_id) do
     def ref = Ref.new(type:, id:)
   end
   WriteResult = Data.define(:ref, :errors, :created) do
@@ -79,13 +79,31 @@ class DataQuality::DirectoryClient
     write_result(result)
   end
 
+  # Site fields a verified unit can fill in when the site has none.
+  SITE_FIELDS_FROM_UNIT = %w[state facility_type status country_code].freeze
+
+  # After a unit is verified, fills its site's blank fields (state, type,
+  # status) from the unit, with the unit's quote as evidence. Never
+  # overwrites a field the site already has, and leaves the site's
+  # verification alone. Returns a WriteResult, or nil when the unit has no site.
+  def fill_site_from_unit(facility_id, candidate, crawl_run:)
+    parent_id = lookup.facility(id: facility_id)&.parent_id or return
+
+    fields = candidate.payload.slice(*SITE_FIELDS_FROM_UNIT).compact_blank.symbolize_keys
+    return if fields.empty?
+
+    result = fact_writer.write("facility", fields.merge(id: parent_id), fill_blank: true,
+      evidence: [ { source_id: candidate.source_id, quote: candidate.quote, found_by: "crawler", crawl_run_id: crawl_run.id } ])
+    write_result(result)
+  end
+
   private
     # Resolved lazily so the module has no load-time dependency on the directory.
     def lookup = @lookup ||= "Directory::Lookup".constantize
     def fact_writer = @fact_writer ||= "Directory::FactWriter".constantize
 
     def record(type, ref)
-      Record.new(type:, id: ref.id, name: ref.name, nrc_docket: ref.try(:nrc_docket)) if ref
+      Record.new(type:, id: ref.id, name: ref.name, nrc_docket: ref.try(:nrc_docket), parent_id: ref.try(:parent_id)) if ref
     end
 
     def write_result(result)

@@ -86,6 +86,12 @@ Pass `id:` to update a fact you already know. Get ids for other records from
   and awards), `offtake_with`, `subsidiary_of` (child → parent).
 - **Facility link types**: `owns`, `operates`, `vendor_for`, `offtakes_from`.
 
+### Filling blanks
+
+`fill_blank: true` sets only the attributes that are blank on an existing
+row and leaves the rest alone, e.g. to complete a site's state and status
+from one of its units without overwriting what's already there.
+
 ### Evidence
 
 Each item: `source_id` (required), `quote`, `found_by` (`crawler`, `verifier`

@@ -105,6 +105,17 @@ class Directory::FactWriterTest < ActiveSupport::TestCase
     assert_equal "Owned via subsidiary US SFR Owner.", FacilityRelationship.find(link.id).description
   end
 
+  test "fill_blank sets only fields that are blank on an existing record" do
+    site = facilities(:vogtle)
+    site.update!(state: "GA")
+
+    result = write(:facility, { id: site.id, state: "TX", status: "operating" }, fill_blank: true)
+
+    assert result.ok?
+    site.reload
+    assert_equal [ "GA", "operating" ], [ site.state, site.status ]
+  end
+
   test "returns errors instead of raising" do
     org_id = organizations(:terrapower).id
 

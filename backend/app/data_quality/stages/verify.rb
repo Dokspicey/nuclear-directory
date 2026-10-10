@@ -33,6 +33,8 @@ class DataQuality::Stages::Verify < DataQuality::Stage
       if result.success?
         candidate.update!(status: "merged", subject_type: result.ref.type, subject_id: result.ref.id)
         stats["published"] += 1
+        # A verified unit completes its site's missing details (see DirectoryClient).
+        directory.fill_site_from_unit(result.ref.id, candidate, crawl_run: run) if candidate.kind_facility?
       else
         stats["write_errors"] += 1
         send_to_review(candidate, "Directory rejected the write: #{result.errors.join('; ')}", stats)

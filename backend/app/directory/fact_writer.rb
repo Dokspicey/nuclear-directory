@@ -55,7 +55,9 @@ module Directory
 
     # kind: a key of KINDS. attributes may include :id to update a known row.
     # verification: { status: "pending" | "verified" | "rejected", by: "human:tosin" }
-    def write(kind, attributes, evidence: [], verification: nil)
+    # fill_blank: true sets only attributes that are blank on an existing row,
+    # so new data can complete a record without overwriting anything.
+    def write(kind, attributes, evidence: [], verification: nil, fill_blank: false)
       kind = kind.to_sym
       spec = KINDS[kind] or return failure(kind, "unknown kind #{kind.inspect}")
       attributes = attributes.to_h.symbolize_keys
@@ -67,7 +69,9 @@ module Directory
       ActiveRecord::Base.transaction(requires_new: true) do
         record = find(kind, spec[:model], attributes) || spec[:model].new
         created = record.new_record?
-        record.assign_attributes(model_attributes(kind, attributes))
+        changes = model_attributes(kind, attributes)
+        changes = changes.select { |name, _| record.public_send(name).blank? } if fill_blank && !created
+        record.assign_attributes(changes)
         record.save!
 
         write_aliases(record, [ record.name, *attributes[:aliases] ]) if kind == :organization

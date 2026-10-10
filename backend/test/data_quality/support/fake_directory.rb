@@ -42,8 +42,8 @@ module FakeDirectory
       @next_id = 1000
     end
 
-    def write(kind, attributes, evidence: [], verification: nil)
-      @writes << { kind:, attributes:, evidence:, verification: }
+    def write(kind, attributes, evidence: [], verification: nil, fill_blank: false)
+      @writes << { kind:, attributes:, evidence:, verification:, fill_blank: }
       return Directory::FactWriter::Result.new(kind: kind.to_sym, id: nil, created: false, errors: [ @fail_with ]) if @fail_with
 
       id = attributes[:id] || (@next_id += 1)
