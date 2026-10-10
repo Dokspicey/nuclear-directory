@@ -29,7 +29,7 @@ class CompanyProfile
   delegate :name, :slug, :verified_at, to: :organization
 
   # The record's own fields, only when a source backs them.
-  def sourced? = organization.evidence.any?
+  def sourced? = defined?(@sourced) ? @sourced : (@sourced = organization.evidence.any?)
   %i[description website hq_city hq_state founded_year legal_name].each do |field|
     define_method(field) { organization.public_send(field) if sourced? }
   end
@@ -111,7 +111,8 @@ class CompanyProfile
     end
   end
 
-  def investor? = Relationship.verified.invests_in.where(from_organization: organization).exists?
+  # From the deals the page shows, so a hidden deal never adds the category.
+  def investor? = deals.any? { |deal| deal.relationship_type == "invests_in" && deal.from_organization_id == organization.id }
 
   # Fields DESIGN.md marks "must" that this company doesn't have yet.
   def missing_fields
