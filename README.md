@@ -208,11 +208,14 @@ the end. Same tools as the restore test, run from a Mac:
 4. Check the row counts against that backup run's log on Render, then remove
    your IP from the new database's Access Control and run
    `unset RESTORE_TARGET_URL`.
-5. Web service → Environment: set `DATABASE_URL` to the new database's
-   **Internal** Database URL and save (the service restarts on it).
+5. Set `DATABASE_URL` to the new database's **Internal** Database URL in
+   both places that use it, and save each: the web service's Environment
+   (it restarts on it) and the `nuclear-directory-backup` cron job's
+   Environment (so the next weekly backup copies the new database).
 6. Open a PR that points `render.yaml` at the new database, so the next
-   Blueprint sync doesn't switch back. Delete the old database once the site
-   is confirmed working.
+   Blueprint sync doesn't switch either one back. Keep the old database
+   until that PR has synced and the site and a backup run are confirmed
+   working; only then delete it.
 
 ## Starting over
 

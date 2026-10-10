@@ -26,7 +26,14 @@ if ! grep -q '^AGE-SECRET-KEY-1' <<< "$key"; then
   exit 1
 fi
 
-gh release download ${1:+"$1"} --repo "$repo" --pattern "*.dump.age" --dir "$work"
+# The newest published backup-* release, not the repo's overall "latest".
+tag="${1:-$(gh release list --repo "$repo" --exclude-drafts --limit 100 --json tagName,createdAt \
+  --jq '[.[] | select(.tagName | startswith("backup-"))] | sort_by(.createdAt) | last | .tagName // empty')}"
+if [[ -z "$tag" ]]; then
+  echo "No backups found in ${repo}." >&2
+  exit 1
+fi
+gh release download "$tag" --repo "$repo" --pattern "*.dump.age" --dir "$work"
 file="$(basename "$(ls "$work"/*.dump.age)")"
 echo "Downloaded ${file}"
 
