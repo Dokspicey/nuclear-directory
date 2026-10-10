@@ -146,7 +146,23 @@ class Directory::LookupTest < ActiveSupport::TestCase
 
     assert_equal "acme north", Directory::Lookup.brand_key("Acme North, LLC"), "North alone isn't a plant"
     assert_equal "dominion", Directory::Lookup.brand_key("Dominion Energy North Anna, LLC"), "North Anna is"
-    assert_equal "holtec", Directory::Lookup.brand_key("Holtec Palisades, LLC"), "a plant's own first word still counts"
+    assert_equal "holtec palisades", Directory::Lookup.brand_key("Holtec Palisades, LLC"),
+      "one word of a longer plant name doesn't count"
+    Facility.create!(name: "Palisades", nrc_docket: "05000255")
+    assert_equal "holtec", Directory::Lookup.brand_key("Holtec Palisades, LLC"), "a plant named Palisades does"
+  end
+
+  test "a single ordinary word that starts a plant name isn't a plant" do
+    Facility.create!(name: "Advanced Test Reactor")
+    Facility.create!(name: "White Mesa Mill")
+
+    assert_equal "acme advanced", Directory::Lookup.brand_key("Acme Advanced, LLC")
+    assert_equal "acme white", Directory::Lookup.brand_key("Acme White LLC")
+  end
+
+  test "dotted initials in a brand are kept as written" do
+    Facility.create!(name: "Seabrook Station")
+    assert_equal "L.L. Bean", Directory::Lookup.brand_name("L.L. Bean Seabrook, LLC")
   end
 
   test "a trailing known plant or region is dropped from the brand" do

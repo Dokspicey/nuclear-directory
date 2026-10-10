@@ -23,7 +23,7 @@ class SeedsTest < ActiveSupport::TestCase
 
     assert_equal 50, Organization.verified.count
     assert_equal 66, OrganizationRole.verified.count
-    assert_equal 48, OrganizationTechnology.verified.count
+    assert_equal 47, OrganizationTechnology.verified.count, "Long Mott's smr tag waits for a full quote"
     assert_equal 52, Relationship.verified.count
     assert_equal 28, Facility.verified.count
     assert_equal [ 53, 3 ], [ FacilityRelationship.verified.count, FacilityRelationship.pending.count ]

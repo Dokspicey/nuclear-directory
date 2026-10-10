@@ -184,9 +184,10 @@ module Directory
       # Words are found in the name as written, so the brand keeps its own
       # spelling ("Sargent & Lundy", "Babcock-Wilcox"); "&" counts as "and"
       # only for finding the plant or region at the end.
-      text = join_initials(name).sub(/\A\s*the\s+(?=\S+\s)/i, "")
-      words = text.to_enum(:scan, /[[:alnum:]]+|&/).map { [ Regexp.last_match[0], Regexp.last_match.end(0) ] }
-      base = strip_entities(words.map { |word, _| word == "&" ? "and" : word.downcase })
+      # Dotted initials are one word ("L.L. Bean" stays as written).
+      text = name.to_s.sub(/\A\s*the\s+(?=\S+\s)/i, "")
+      words = text.to_enum(:scan, /(?:[[:alpha:]]\.){2,}|[[:alnum:]]+|&/).map { [ Regexp.last_match[0], Regexp.last_match.end(0) ] }
+      base = strip_entities(words.map { |word, _| word == "&" ? "and" : word.delete(".").downcase })
       place = place_words_at_end(base, plants) or return
 
       text[0, words[base.size - place - 1].last].strip
@@ -202,19 +203,25 @@ module Directory
     # full distinctive name, its first two words, and its first word alone
     # when that is a name in itself (five letters or more, not a place word).
     # One query; read it once and pass it as plants: when checking many names.
-    def plant_names
+    # owners: more company names to treat as owners, e.g. ones proposed in the
+    # same match run, so the result doesn't depend on processing order.
+    def plant_names(owners: [])
       # Plants are often named after their owner ("Urenco USA enrichment
       # facility", "Kairos Power Salt Production Facility"), so a short form
       # that starts a company's name isn't a plant name on its own.
-      owners = OrganizationAlias.pluck(:normalized_alias).flat_map do |name|
-        words = without_article(name.split)
-        [ words.first, words.first(2).join(" ") ]
-      end.to_set
+      owner_forms = (OrganizationAlias.pluck(:normalized_alias) + owners.map { |name| OrganizationAlias.normalize(name) })
+        .flat_map do |name|
+          words = without_article(name.split)
+          [ words.first, words.first(2).join(" ") ]
+        end.to_set
+      # The full distinctive name, and its first two words ("point beach" from
+      # "Point Beach Nuclear Plant"). A single word on its own is never taken as
+      # a plant name: too many ordinary words start plant names ("advanced",
+      # "white").
       Facility.where.not(verification_status: "rejected").pluck(:name).flat_map do |name|
         words = distinctive_words(name).reject { |word| word.length < 3 }
-        first = words.first.to_s
-        short = [ words.first(2).join(" "), (first if first.length >= 5 && !PLACE_PREFIXES.include?(first)) ]
-        [ words.join(" "), *short.compact.reject { |form| owners.include?(form) } ]
+        two = words.first(2).join(" ") if words.size >= 2
+        [ words.join(" "), (two unless owner_forms.include?(two)) ]
       end.compact_blank.to_set
     end
 
