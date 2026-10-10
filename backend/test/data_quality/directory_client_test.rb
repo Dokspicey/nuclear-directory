@@ -107,6 +107,16 @@ class DataQuality::DirectoryClientTest < ActiveSupport::TestCase
     assert_equal "human:tosin", columbia.verified_by
   end
 
+  test "publishing a plant matched under one of its other names keeps the plant's own name" do
+    crane = Facility.create!(name: "Crane Clean Energy Center")
+    crane.aliases.create!(alias: "Three Mile Island Unit 1")
+    matched = candidate("facility", { "name" => "Three Mile Island Unit 1", "state" => "PA" })
+    matched.update!(status: "matched", subject_type: "Facility", subject_id: crane.id)
+
+    assert @client.write_fact(matched, confidence: 0.9, crawl_run: @run).success?
+    assert_equal [ "Crane Clean Energy Center", "PA" ], crane.reload.values_at(:name, :state)
+  end
+
   test "publishing never changes a human-verified link" do
     link = FacilityRelationship.create!(organization: organizations(:terrapower), facility: facilities(:vogtle),
       relationship_type: "owns", description: "Curated description", ownership_pct: 40)
