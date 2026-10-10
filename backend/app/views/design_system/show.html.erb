@@ -228,6 +228,20 @@
     </div>
 
     <div class="flex flex-col gap-2">
+      <span class="type-label">Site footer, and a short fixed page (nd-prose with nd-code)</span>
+      <div class="border border-rule"><%= render "shared/site_footer" %></div>
+      <div class="border border-rule nd-prose flex flex-col p-4">
+        <h3 class="type-title-md">NuclearDirectoryBot</h3>
+        <p class="type-body">A short page reads as headed sections in a narrow column.</p>
+        <section class="flex flex-col gap-2">
+          <h4 class="type-body-strong">How to block it</h4>
+          <pre class="nd-code type-data">User-agent: NuclearDirectoryBot
+Disallow: /</pre>
+        </section>
+      </div>
+    </div>
+
+    <div class="flex flex-col gap-2">
       <span class="type-label">Category pills (with and without counts) and boxes</span>
       <%= render "shared/category_pills", current: Category.find("reactor-developers"), counts: { "fuel" => 11, "reactor-developers" => 9, "plants" => 28 } %>
       <%= render "shared/category_pills", current: nil %>

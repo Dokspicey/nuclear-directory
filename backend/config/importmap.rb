@@ -8,4 +8,6 @@ pin_all_from "app/javascript/controllers", under: "controllers"
 
 # Anonymous page views (#66): loaded lazily by app/javascript/analytics.js.
 pin "analytics"
-pin "posthog-js", to: "https://cdn.jsdelivr.net/npm/posthog-js@1.438.7/dist/module.mjs", preload: false
+# posthog-js 1.438.7 (dist/module.mjs, Apache-2.0, licence beside it) is served
+# from vendor/javascript, so no third-party code network sees visitors (#56).
+pin "posthog-js", to: "posthog-js.js", preload: false
