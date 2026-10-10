@@ -74,13 +74,20 @@ class SharedPartialsTest < ActionView::TestCase
 
     assert_select "li#source-1 a", count: 0
     assert_select "li#source-1 span", text: "Looks harmless"
+    assert_select "li#source-1 small", "unlinked source"
   end
 
-  test "sources list leaves out a blank domain" do
+  test "a source chip for a hostless URL still has a readable label" do
+    render partial: "shared/source_chip", locals: { number: 3, source: Source.new(url: "javascript:alert(1)") }
+
+    assert_select "a.nd-src[aria-label=?]", "Source 3: unlinked source"
+  end
+
+  test "sources list never shows a blank domain" do
     hostless = Source.new(url: "mailto:press@example.com", published_on: Date.new(2024, 10, 14))
     render partial: "shared/sources_list", locals: { sources: [ [ 1, hostless ] ] }
 
-    assert_select "li#source-1 small", "published 2024-10-14"
+    assert_select "li#source-1 small", "unlinked source · published 2024-10-14"
   end
 
   test "fact row shows the checked date on its first source chip only" do

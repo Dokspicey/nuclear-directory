@@ -17,6 +17,8 @@ class ErrorsTest < ActionDispatch::IntegrationTest
     assert_select "h1", "Page not found"
     assert_select "form[role=search][action='/companies']"
     assert_select "a[href='/']", "go to the home page"
+    assert_select "main", 1
+    assert_select "header.nd-sitebar + main"
   end
 
   test "other errors keep the static pages, which work even when the app is broken" do

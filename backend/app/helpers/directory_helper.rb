@@ -124,9 +124,11 @@ module DirectoryHelper
   end
 
   # "kairospower.com" for a source, from its domain or URL.
+  # A URL with no host (a bad import such as "javascript:...") reads
+  # "unlinked source", so chips and their labels are never blank.
   def source_domain(source)
-    source.domain.presence || URI.parse(source.url.to_s).host.to_s.delete_prefix("www.")
+    source.domain.presence || URI.parse(source.url.to_s).host.to_s.delete_prefix("www.").presence || "unlinked source"
   rescue URI::InvalidURIError
-    source.url
+    "unlinked source"
   end
 end
