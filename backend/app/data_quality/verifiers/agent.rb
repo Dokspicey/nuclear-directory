@@ -10,7 +10,7 @@ class DataQuality::Verifiers::Agent
   PROMPT_VERSION = "verify-v2"
   BATCH_SIZE = 15
   PUBLISH_AT = 0.8
-  NOTHING_STORED = DataQuality::Verdict.new(outcome: :review,
+  NOTHING_STORED = DataQuality::Verdict.new(outcome: :review, by_code: true,
     reason: "The source has no stored content, so the claim can't be checked against it")
 
   SCHEMA = {

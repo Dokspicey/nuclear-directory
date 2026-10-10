@@ -8,6 +8,15 @@ class DataQuality::ClaimTest < ActiveSupport::TestCase
       claim("facility", { "name" => "Vogtle 3", "nrc_docket" => "05200025", "facility_type" => "power_reactor", "status" => "operating" })
   end
 
+  test "roles and technologies are in visitors' words" do
+    assert_equal "Kairos Power is a reactor developer.",
+      claim("organization_role", { "organization" => { "name" => "Kairos Power" }, "role" => "reactor_vendor" })
+    assert_equal "Constellation is an operator.",
+      claim("organization_role", { "organization" => { "name" => "Constellation" }, "role" => "operator" })
+    assert_equal "Oklo works on sodium fast reactor.",
+      claim("organization_technology", { "organization" => { "name" => "Oklo" }, "technology" => "sodium_fast_reactor" })
+  end
+
   test "links include every detail approval would publish" do
     text = claim("facility_relationship", { "organization" => { "name" => "Southern Company" },
       "facility" => { "name" => "Vogtle 3", "nrc_docket" => "05200025" }, "relationship_type" => "owns",

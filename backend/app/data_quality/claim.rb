@@ -11,6 +11,9 @@ module DataQuality::Claim
     "offtake_with" => "has an offtake agreement with", "subsidiary_of" => "is a subsidiary of",
     "owns" => "owns", "operates" => "operates", "vendor_for" => "is vendor for", "offtakes_from" => "offtakes from"
   }.freeze
+  # Roles in visitors' words (VOICE.md), as the directory's review labels say them.
+  ROLE_WORDS = { "reactor_vendor" => "reactor developer", "reactor_services" => "repair and services company",
+    "data_center_offtaker" => "power buyer" }.freeze
   LABELS = { "nrc_docket" => "NRC docket", "facility_type" => "plant type", "ownership_pct" => "ownership",
     "hq_city" => "headquarters city", "hq_state" => "headquarters state", "capacity_mw" => "capacity" }.freeze
 
@@ -33,9 +36,9 @@ module DataQuality::Claim
       "#{name_of(payload['from_organization'])} #{verb(payload['relationship_type'])} #{name_of(payload['to_organization'])}" \
         "#{details(payload.except('from_organization', 'to_organization', 'relationship_type'))}."
     when "organization_role"
-      "#{name_of(payload['organization'])} has the role #{humanize(payload['role'])}."
+      "#{name_of(payload['organization'])} is #{with_article(role_words(payload['role']))}."
     when "organization_technology"
-      "#{name_of(payload['organization'])} works with the technology #{humanize(payload['technology'])}."
+      "#{name_of(payload['organization'])} works on #{humanize(payload['technology'])}."
     else
       "#{candidate.kind.humanize}: #{payload.to_json}"
     end
@@ -63,6 +66,8 @@ module DataQuality::Claim
   end
 
   def self.verb(type) = RELATIONSHIP_VERBS.fetch(type.to_s, humanize(type))
+  def self.role_words(key) = ROLE_WORDS.fetch(key.to_s, humanize(key))
+  def self.with_article(words) = "#{words.match?(/\A[aeiou]/i) ? 'an' : 'a'} #{words}"
   def self.humanize(value) = value.to_s.humanize(capitalize: false)
-  private_class_method :details, :value_text, :name_of, :facility_name, :verb, :humanize
+  private_class_method :details, :value_text, :name_of, :facility_name, :verb, :role_words, :with_article, :humanize
 end
