@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title><%= [ content_for(:title), "Admin", "Nuclear Directory" ].compact.join(" · ") %></title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <%# Not indexed, and no analytics snippet (TracksAnalytics skips /admin). %>
+    <meta name="robots" content="noindex, nofollow">
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Roboto+Serif:opsz,wght@8..144,400;8..144,500;8..144,600;8..144,700&family=Roboto+Mono:wght@400;500&display=swap">
+    <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
+    <%= javascript_importmap_tags %>
+  </head>
+
+  <body>
+    <header class="nd-sitebar">
+      <div class="nd-sitebar__inner">
+        <a class="nd-wordmark" href="<%= authenticated? ? admin_root_path : root_path %>">Nuclear Directory</a>
+        <span class="nd-label">Admin</span>
+        <% if authenticated? %>
+          <nav class="nd-adminnav" aria-label="Admin">
+            <%= link_to "Review queue", admin_candidates_path, aria: { current: ("page" if controller_name == "candidates") } %>
+            <%= link_to "Pending facts", admin_pending_facts_path, aria: { current: ("page" if controller_name == "pending_facts") } %>
+            <%= button_to "Sign out", session_path, method: :delete, class: "nd-btn nd-btn--ghost nd-btn--sm" %>
+          </nav>
+        <% end %>
+      </div>
+    </header>
+
+    <main class="nd-page">
+      <% if notice %><div class="nd-flash" role="status"><%= notice %></div><% end %>
+      <% if alert %><div class="nd-flash nd-flash--alert" role="alert"><strong><%= icon("warning-circle") %></strong> <%= alert %></div><% end %>
+      <%= yield %>
+    </main>
+  </body>
+</html>

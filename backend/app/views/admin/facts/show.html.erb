@@ -1,0 +1,72 @@
+<% content_for :title, @fact.name.to_s.upcase_first %>
+
+<div class="nd-stack">
+  <p class="nd-label m-0"><%= type_label(@fact.type) %></p>
+  <h1 class="type-title-md m-0"><%= @fact.name.to_s.upcase_first %></h1>
+  <div class="nd-row">
+    <%= status_badge(@fact.verification_status) %>
+    <% if @fact.verified_by %>
+      <span class="type-small text-ink-muted">by <%= @fact.verified_by %><% if @fact.verified_at %> on <span class="nd-num"><%= data_date(@fact.verified_at) %></span><% end %></span>
+    <% end %>
+  </div>
+</div>
+
+<section class="nd-stack">
+  <h2 class="nd-sec-h">Values</h2>
+  <dl class="nd-kv">
+    <% @fact.values.except(*AdminHelper::HIDDEN_FIELDS.map(&:to_s)).each do |name, value| %>
+      <dt><%= field_label(name) %></dt><dd><%= field_value(value) %></dd>
+    <% end %>
+  </dl>
+</section>
+
+<section class="nd-stack">
+  <h2 class="nd-sec-h">Publishing</h2>
+  <% case @fact.verification_status %>
+  <% when "verified" %>
+    <p class="m-0 max-w-prose">This fact is public. Unpublishing hides it from the site and keeps the pipeline from changing it, until you republish it.</p>
+    <%= form_with url: admin_fact_unpublish_path(type: @fact.type, id: @fact.id), class: "nd-item__reject" do %>
+      <div class="nd-field">
+        <label for="reason">Reason <small>(optional, kept in the history)</small></label>
+        <%= text_field_tag :reason, nil, class: "nd-input" %>
+      </div>
+      <button type="submit" class="nd-btn" data-turbo-confirm="Unpublish this fact? It disappears from the public site until you republish it.">Unpublish</button>
+    <% end %>
+  <% when "unpublished" %>
+    <p class="m-0 max-w-prose">This fact is hidden from the public site. Republishing makes it public again.</p>
+    <%= form_with url: admin_fact_republish_path(type: @fact.type, id: @fact.id), class: "nd-item__reject" do %>
+      <div class="nd-field">
+        <label for="reason">Reason <small>(optional, kept in the history)</small></label>
+        <%= text_field_tag :reason, nil, class: "nd-input" %>
+      </div>
+      <button type="submit" class="nd-btn nd-btn--primary">Republish</button>
+    <% end %>
+  <% when "pending" %>
+    <p class="m-0">Waiting for a decision. Decide on it in the <%= link_to "review queue", admin_candidates_path, class: "nd-link" %> or under <%= link_to "pending facts", admin_pending_facts_path, class: "nd-link" %>.</p>
+  <% else %>
+    <p class="m-0">Rejected. It isn't public, and the pipeline won't publish it again.</p>
+  <% end %>
+</section>
+
+<section class="nd-stack">
+  <h2 class="nd-sec-h">History</h2>
+  <% if @fact.history.empty? %>
+    <p class="m-0 text-ink-muted">No decisions recorded yet.</p>
+  <% else %>
+    <div class="nd-table-wrap">
+      <table class="nd-table">
+        <thead><tr><th scope="col">Date</th><th scope="col">Change</th><th scope="col">By</th><th scope="col">Reason</th></tr></thead>
+        <tbody>
+          <% @fact.history.each do |event| %>
+            <tr>
+              <td class="nd-num"><%= data_date(event.at) %></td>
+              <td><%= change_text(event) %></td>
+              <td><%= event.by %></td>
+              <td><%= event.reason %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% end %>
+</section>

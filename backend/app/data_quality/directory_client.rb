@@ -57,9 +57,7 @@ class DataQuality::DirectoryClient
     case candidate.subject_type
     when "Organization" then record("Organization", lookup.organization(id: candidate.subject_id))
     when "Facility" then record("Facility", lookup.facility(id: candidate.subject_id))
-    else
-      state = lookup.fact_state(type: candidate.subject_type, id: candidate.subject_id) or return
-      record(candidate.subject_type, state, values: lookup.fact_attributes(type: candidate.subject_type, id: candidate.subject_id))
+    else fact(type: candidate.subject_type, id: candidate.subject_id)
     end
   end
 
@@ -167,6 +165,12 @@ class DataQuality::DirectoryClient
 
   # The six fact kinds, e.g. "organization", "facility_relationship".
   def fact_kinds = "Directory::Lookup::FACT_KINDS".constantize
+
+  # Any fact (links included) with its decision and stored values, or nil.
+  def fact(type:, id:)
+    state = lookup.fact_state(type:, id:) or return
+    record(type, state, values: lookup.fact_attributes(type:, id:))
+  end
 
   # Facts of one kind waiting for a human (Directory::PendingFactRef), oldest first.
   def pending_facts(kind:, after_id: nil, limit: 50) = lookup.pending_facts(kind:, after_id:, limit:)

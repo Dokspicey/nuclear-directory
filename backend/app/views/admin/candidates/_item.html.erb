@@ -1,0 +1,63 @@
+<%# One claim in the review queue. Locals: item (DataQuality::Review::Item), filters (the queue's). %>
+<% source_url = safe_url(item.source.url) %>
+<li class="nd-item" id="claim-<%= item.candidate_id %>">
+  <div class="nd-item__select">
+    <input type="checkbox" class="nd-check" name="candidate_ids[]" value="<%= item.candidate_id %>"
+      aria-label="Select claim <%= item.candidate_id %>" data-select-all-target="item" data-action="select-all#refresh">
+  </div>
+  <div class="nd-item__main">
+    <p class="nd-item__claim"><%= item.claim %></p>
+    <% if item.quote.present? %><blockquote class="nd-quote">“<%= item.quote %>”</blockquote><% end %>
+
+    <div class="nd-item__meta">
+      <span>
+        <% if source_url %>
+          <%= link_to source_url, class: "nd-link nd-link--muted", target: "_blank", rel: "noopener" do %><%= item.source.title.presence || source_host(source_url) %> <%= icon("arrow-square-out", size: 12) %><% end %>
+        <% else %>
+          <%= item.source.title.presence || item.source.url %>
+        <% end %>
+      </span>
+      <% if item.found_by %><span>Found by <span class="nd-num"><%= item.found_by %></span></span><% end %>
+      <span class="nd-num">Claim <%= item.candidate_id %></span>
+      <% if item.subject_id %><%= link_to "Open record", admin_fact_path(type: item.subject_type, id: item.subject_id), class: "nd-link nd-link--muted" %><% end %>
+    </div>
+
+    <% if item.ai_recommendation == "recommend_publish" %>
+      <p class="nd-item__why"><strong>Verifier recommends publishing</strong><% if item.ai_confidence %> (<%= percent(item.ai_confidence) %> sure)<% end %>: <%= item.ai_reason %></p>
+    <% elsif item.notes.present? %>
+      <p class="nd-item__why"><strong>Why it's here:</strong> <%= item.notes %></p>
+    <% end %>
+
+    <% if item.differences.any? %>
+      <div class="nd-table-wrap">
+        <table class="nd-table">
+          <caption class="sr-only">Differences from the human-verified record</caption>
+          <thead><tr><th scope="col">Field</th><th scope="col">Human-verified</th><th scope="col">This source</th></tr></thead>
+          <tbody>
+            <% item.differences.each do |name, (stored, incoming)| %>
+              <tr><th scope="row" class="type-small"><%= field_label(name) %></th><td><%= stored %></td><td><%= incoming %></td></tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+      <p class="type-small text-ink-muted m-0">Approving replaces the human-verified value with this source's.</p>
+    <% end %>
+
+    <div class="nd-item__actions">
+      <button type="submit" class="nd-btn nd-btn--primary nd-btn--sm" name="candidate_id" value="<%= item.candidate_id %>"
+        formaction="<%= approve_admin_candidates_path(filters) %>">Approve</button>
+      <%= link_to "Edit, then approve", edit_admin_candidate_path(item.candidate_id), class: "nd-btn nd-btn--sm" %>
+      <details>
+        <summary class="nd-btn nd-btn--sm">Reject…</summary>
+        <div class="nd-item__reject">
+          <div class="nd-field">
+            <label for="reason-<%= item.candidate_id %>">Reason <small>(optional, kept in the record's history)</small></label>
+            <input type="text" class="nd-input" id="reason-<%= item.candidate_id %>" name="reasons[<%= item.candidate_id %>]">
+          </div>
+          <button type="submit" class="nd-btn nd-btn--sm" name="candidate_id" value="<%= item.candidate_id %>"
+            formaction="<%= reject_admin_candidates_path(filters) %>">Reject claim</button>
+        </div>
+      </details>
+    </div>
+  </div>
+</li>

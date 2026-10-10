@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_11_010000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_11_010002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -239,6 +239,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_010000) do
     t.index ["parent_id"], name: "index_roles_on_parent_id"
   end
 
+  create_table "sessions", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.string "ip_address"
+    t.string "user_agent"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["user_id"], name: "index_sessions_on_user_id"
+  end
+
   create_table "solid_cable_messages", force: :cascade do |t|
     t.binary "channel", null: false
     t.binary "payload", null: false
@@ -444,6 +453,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_010000) do
     t.index ["parent_id"], name: "index_technologies_on_parent_id"
   end
 
+  create_table "users", force: :cascade do |t|
+    t.string "email_address", null: false
+    t.string "password_digest", null: false
+    t.string "handle", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["email_address"], name: "index_users_on_email_address", unique: true
+    t.index ["handle"], name: "index_users_on_handle", unique: true
+    t.check_constraint "handle::text ~ '^[a-z][a-z0-9_-]*$'::text", name: "users_handle_format"
+  end
+
   create_table "verification_events", force: :cascade do |t|
     t.string "subject_type", null: false
     t.bigint "subject_id", null: false
@@ -474,6 +494,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_010000) do
   add_foreign_key "relationships", "organizations", column: "from_organization_id"
   add_foreign_key "relationships", "organizations", column: "to_organization_id"
   add_foreign_key "roles", "roles", column: "parent_id"
+  add_foreign_key "sessions", "users"
   add_foreign_key "solid_queue_batch_executions", "solid_queue_batches", column: "batch_id", on_delete: :cascade
   add_foreign_key "solid_queue_batch_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_blocked_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade

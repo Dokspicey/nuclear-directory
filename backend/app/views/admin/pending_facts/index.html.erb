@@ -1,0 +1,60 @@
+<% content_for :title, "Pending facts" %>
+
+<div class="nd-stack">
+  <h1 class="type-title-md m-0">Pending facts</h1>
+  <p class="m-0 max-w-prose text-ink-muted">Facts already in the directory that wait for a decision and have no claim in the review queue, such as seed data. They aren't public until you approve them.</p>
+  <nav class="nd-pills" aria-label="Kinds of fact">
+    <% @kinds.each do |kind| %>
+      <%= link_to kind_label(kind), admin_pending_facts_path(kind:), class: "nd-pill", aria: { current: ("page" if kind == @kind) } %>
+    <% end %>
+  </nav>
+</div>
+
+<% if @facts.empty? %>
+  <%= render "shared/empty_state", message: "No pending #{kind_label(@kind).downcase}." %>
+<% else %>
+  <%= form_with url: approve_admin_pending_facts_path(kind: @kind) do %>
+    <button type="submit" disabled hidden aria-hidden="true" tabindex="-1"></button>
+    <%= hidden_field_tag :type, @kind %>
+    <ol class="nd-items">
+      <% @facts.each do |fact| %>
+        <li class="nd-item nd-item--single" id="fact-<%= fact.id %>">
+          <div class="nd-item__main">
+            <p class="nd-item__claim"><%= link_to fact_heading(fact), admin_fact_path(type: fact.type, id: fact.id), class: "nd-link" %></p>
+            <dl class="nd-kv">
+              <% fact.attributes.compact_blank.except(*AdminHelper::HIDDEN_FIELDS).each do |name, value| %>
+                <dt><%= field_label(name) %></dt><dd><%= field_value(value) %></dd>
+              <% end %>
+            </dl>
+            <% fact.evidence.each do |evidence| %>
+              <% url = evidence.source && safe_url(evidence.source.url) %>
+              <% if evidence.quote.present? %><blockquote class="nd-quote">“<%= evidence.quote %>”</blockquote><% end %>
+              <div class="nd-item__meta">
+                <% if url %><%= link_to url, class: "nd-link nd-link--muted", target: "_blank", rel: "noopener" do %><%= evidence.source.title.presence || source_host(url) %> <%= icon("arrow-square-out", size: 12) %><% end %><% end %>
+                <span>Found by <%= evidence.found_by %></span>
+              </div>
+            <% end %>
+            <% if fact.evidence.empty? %><p class="type-small text-ink-muted m-0">No source recorded.</p><% end %>
+            <div class="nd-item__actions">
+              <button type="submit" class="nd-btn nd-btn--primary nd-btn--sm" name="id" value="<%= fact.id %>">Approve</button>
+              <details>
+                <summary class="nd-btn nd-btn--sm">Reject…</summary>
+                <div class="nd-item__reject">
+                  <div class="nd-field">
+                    <label for="reason-<%= fact.id %>">Reason <small>(optional, kept in the fact's history)</small></label>
+                    <input type="text" class="nd-input" id="reason-<%= fact.id %>" name="reasons[<%= fact.id %>]">
+                  </div>
+                  <button type="submit" class="nd-btn nd-btn--sm" name="id" value="<%= fact.id %>"
+                    formaction="<%= reject_admin_pending_facts_path(kind: @kind) %>">Reject fact</button>
+                </div>
+              </details>
+            </div>
+          </div>
+        </li>
+      <% end %>
+    </ol>
+  <% end %>
+  <% if @facts.size == 50 %>
+    <div><%= link_to "Next 50", admin_pending_facts_path(kind: @kind, after: @facts.last.id), class: "nd-btn nd-btn--sm" %></div>
+  <% end %>
+<% end %>

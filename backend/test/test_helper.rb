@@ -1,6 +1,7 @@
 ENV["RAILS_ENV"] ||= "test"
 require_relative "../config/environment"
 require "rails/test_help"
+require_relative "test_helpers/session_test_helper"
 require "webmock/minitest"
 
 # No real HTTP in tests (e.g. to OpenRouter); stub it with WebMock.
