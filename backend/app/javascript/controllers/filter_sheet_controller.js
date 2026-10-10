@@ -1,24 +1,19 @@
 import { Controller } from "@hotwired/stimulus"
 
-// Directory filters on phones (#90): a "Filters (N)" button opens the filter
-// form in a full-screen <dialog>, and its submit button counts what the
-// choice would show ("Show 12 results") before you apply it; a polite
-// status line says the same to screen readers.
-//
-// The form lives inline (its "home") and only moves into the dialog while
-// the dialog is open, so it's never inside a closed dialog. CSS decides
-// from first paint which shows on phones (no layout shift), and without
-// JavaScript the form stays inline everywhere.
+// The live count on the phone filter sheet (#90). The sheet itself is a
+// native popover that the "Filters (N)" button opens and closes without
+// JavaScript (popovertarget), so filtering never depends on this file. When
+// it loads, it adds: the submit button counts what the choice would show
+// ("Show 12 results"), a polite status line says the same, and the sheet
+// closes if the screen grows past phone width.
 export default class extends Controller {
-  static targets = ["dialog", "home", "slot", "form", "submit", "status"]
+  static targets = ["sheet", "form", "submit", "status"]
   static values = { countUrl: String }
 
   connect() {
     this.label = this.submitTarget.textContent
-    // Rotating a phone or widening a window past phone width closes the
-    // sheet. Both events are watched: some browsers skip the query's change.
     this.phone = window.matchMedia("(max-width: 560px)")
-    this.leftPhone = () => { if (this.dialogTarget.open && !this.phone.matches) this.close() }
+    this.leftPhone = () => { if (!this.phone.matches && this.isOpen) this.sheetTarget.hidePopover() }
     this.phone.addEventListener("change", this.leftPhone)
     window.addEventListener("resize", this.leftPhone)
   }
@@ -28,32 +23,19 @@ export default class extends Controller {
     window.removeEventListener("resize", this.leftPhone)
   }
 
-  open() {
-    this.slotTarget.append(this.formTarget)
-    this.dialogTarget.showModal()
-    this.count()
-  }
-
-  // Close button, Escape (the dialog's cancel event) or the screen getting
-  // wider. The form goes back inline here rather than only on the dialog's
-  // close event, which some browsers deliver late.
-  close() {
-    if (this.dialogTarget.open) this.dialogTarget.close()
-    this.closed()
-  }
-
-  // Also bound to the dialog's close event; safe to run twice.
-  closed() {
-    if (this.homeTarget.contains(this.formTarget)) return
-
-    this.homeTarget.append(this.formTarget)
-    this.request = null
-    this.show(this.label, "")
+  // The popover opened or closed.
+  toggled(event) {
+    if (event.newState === "open") {
+      this.count()
+    } else {
+      this.request = null
+      this.show(this.label, "")
+    }
   }
 
   // Ask how many results the current choices give, and say so.
   async count() {
-    if (!this.dialogTarget.open) return
+    if (!this.isOpen) return
 
     const request = (this.request = Symbol())
     const params = new URLSearchParams(new FormData(this.formTarget))
@@ -77,5 +59,9 @@ export default class extends Controller {
   show(label, status) {
     this.submitTarget.textContent = label
     this.statusTarget.textContent = status
+  }
+
+  get isOpen() {
+    return this.sheetTarget.matches(":popover-open")
   }
 }

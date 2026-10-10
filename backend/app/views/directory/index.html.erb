@@ -24,16 +24,22 @@
   <div class="nd-listhead">
     <h1 class="type-title-md nd-listhead__title"><%= heading %> <span class="type-data nd-listhead__count"><%= pluralize(total, noun, plural:) %></span></h1>
 
-    <%# On phones the form opens in a full-screen sheet behind "Filters (N)" (#90).
-        The form stays inline (its home) and only moves into the dialog while
-        it's open. CSS picks the phone layout from first paint when scripting
-        is on; without JavaScript the form is inline everywhere. %>
+    <%# On phones the filters open in a full-screen sheet behind "Filters (N)"
+        (#90). The sheet is a native popover: the button opens and closes it
+        without JavaScript, and on wide screens (or browsers without popover
+        support) the same element shows the form inline. JavaScript only adds
+        the live "Show N results" count. %>
     <% active = [ listing.technology, listing.state ].compact.size %>
     <div class="nd-filterwrap" data-controller="filter-sheet" data-filter-sheet-count-url-value="<%= companies_path(format: :json) %>">
-      <button type="button" class="nd-btn nd-btn--sm nd-filterwrap__open" data-action="filter-sheet#open" aria-haspopup="dialog">
+      <button type="button" class="nd-btn nd-btn--sm nd-filterwrap__open" popovertarget="filter-sheet" popovertargetaction="show">
         <%= icon("sliders-horizontal") %>Filters<% if active.positive? %> <span class="type-data">(<%= active %>)</span><% end %>
       </button>
-      <div class="nd-filterwrap__home" data-filter-sheet-target="home">
+      <div id="filter-sheet" class="nd-filtersheet" popover role="group" aria-labelledby="filters-title"
+           data-filter-sheet-target="sheet" data-action="toggle->filter-sheet#toggled">
+        <div class="nd-filtersheet__head">
+          <h2 id="filters-title" class="type-body-strong">Filters</h2>
+          <button type="button" class="nd-btn nd-btn--ghost nd-btn--sm" popovertarget="filter-sheet" popovertargetaction="hide">Close filters</button>
+        </div>
         <%= form_with url: companies_path, method: :get, class: "nd-filters", data: { filter_sheet_target: "form", action: "change->filter-sheet#count" } do %>
           <%= hidden_field_tag :category, listing.category&.key, id: nil if listing.category %>
           <%= hidden_field_tag :q, listing.query, id: nil if listing.searching? %>
@@ -48,15 +54,8 @@
           </label>
           <button type="submit" class="nd-btn nd-btn--sm" data-filter-sheet-target="submit">Apply filters</button>
         <% end %>
-      </div>
-      <dialog class="nd-filtersheet" aria-labelledby="filters-title" data-filter-sheet-target="dialog" data-action="cancel->filter-sheet#close close->filter-sheet#closed">
-        <div class="nd-filtersheet__head">
-          <h2 id="filters-title" class="type-body-strong">Filters</h2>
-          <button type="button" class="nd-btn nd-btn--ghost nd-btn--sm" data-action="filter-sheet#close">Close filters</button>
-        </div>
-        <div class="nd-filtersheet__slot" data-filter-sheet-target="slot"></div>
         <p class="sr-only" role="status" data-filter-sheet-target="status"></p>
-      </dialog>
+      </div>
     </div>
   </div>
 

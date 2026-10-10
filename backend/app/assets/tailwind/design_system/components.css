@@ -494,28 +494,33 @@
   .nd-notfound__search p { margin: 0; }
 }
 
-/* Directory filters (#90): inline on wide screens; on phones with scripting
-   a "Filters (N)" button opens them full screen. Chosen in CSS from first
-   paint, so nothing shifts; without JavaScript the form stays inline. */
+/* Directory filters (#90): inline on wide screens; on phones a "Filters (N)"
+   button opens them full screen. The sheet is a native popover, so it works
+   without JavaScript, and the layout is set in CSS from first paint. Where
+   popovers aren't supported, the form stays inline everywhere. */
 @layer components {
   .nd-filterwrap__open { display: none; }
+  /* Inline: the popover element is just a wrapper (its own box and the
+     browser's popover styles drop away). */
+  .nd-filtersheet { display: contents; }
+  .nd-filtersheet__head { display: none; }
 
-  @media (max-width: 560px) and (scripting: enabled) {
-    .nd-filterwrap__open { display: inline-flex; }
-    .nd-filterwrap__home { display: none; }
+  @supports selector(:popover-open) {
+    @media (max-width: 560px) {
+      .nd-filterwrap__open { display: inline-flex; }
+      .nd-filtersheet:not(:popover-open) { display: none; }
+    }
+    /* Open: full screen, whatever the width (the count script closes it if
+       the screen grows past phone width). */
+    .nd-filtersheet:popover-open { display: flex; flex-direction: column; gap: var(--nd-space-6); position: fixed; inset: 0; width: 100%; height: 100%; margin: 0; padding: var(--nd-space-4); padding-bottom: max(var(--nd-space-4), env(safe-area-inset-bottom)); border: 0; background: var(--nd-paper); color: var(--nd-ink); overflow-y: auto; }
+    .nd-filtersheet:popover-open::backdrop { background: var(--nd-scrim); }
+    .nd-filtersheet:popover-open .nd-filtersheet__head { display: flex; align-items: center; justify-content: space-between; gap: var(--nd-space-3); }
+    .nd-filtersheet:popover-open .nd-filtersheet__head h2 { margin: 0; }
+    .nd-filtersheet:popover-open .nd-filters { flex: 1; flex-direction: column; align-items: stretch; gap: var(--nd-space-4); }
+    .nd-filtersheet:popover-open .nd-select { justify-content: space-between; }
+    .nd-filtersheet:popover-open .nd-select select { max-width: 60%; }
+    .nd-filtersheet:popover-open .nd-filters [type=submit] { margin-top: auto; width: 100%; justify-content: center; height: 48px; background: var(--nd-inverse); border-color: var(--nd-inverse); color: var(--nd-on-inverse); }
   }
-
-  /* Open styles apply whatever the width; the controller closes the sheet
-     if the screen grows past phone width while it's open. */
-  .nd-filtersheet[open] { display: flex; flex-direction: column; gap: var(--nd-space-6); position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: var(--nd-space-4); padding-bottom: max(var(--nd-space-4), env(safe-area-inset-bottom)); border: 0; background: var(--nd-paper); color: var(--nd-ink); overflow-y: auto; }
-  .nd-filtersheet::backdrop { background: var(--nd-scrim); }
-  .nd-filtersheet__head { display: flex; align-items: center; justify-content: space-between; gap: var(--nd-space-3); }
-  .nd-filtersheet__head h2 { margin: 0; }
-  .nd-filtersheet__slot { display: flex; flex: 1; }
-  .nd-filtersheet .nd-filters { flex: 1; flex-direction: column; align-items: stretch; gap: var(--nd-space-4); }
-  .nd-filtersheet .nd-select { justify-content: space-between; }
-  .nd-filtersheet .nd-select select { max-width: 60%; }
-  .nd-filtersheet .nd-filters [type=submit] { margin-top: auto; width: 100%; justify-content: center; height: 48px; background: var(--nd-inverse); border-color: var(--nd-inverse); color: var(--nd-on-inverse); }
 
   @media (any-pointer: coarse) {
     .nd-filterwrap__open, .nd-filtersheet__head .nd-btn { min-height: 44px; }
