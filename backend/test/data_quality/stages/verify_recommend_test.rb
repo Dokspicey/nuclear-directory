@@ -112,6 +112,24 @@ class DataQuality::Stages::VerifyRecommendTest < ActiveSupport::TestCase
     assert_equal 1, verify.stats["decided_meanwhile"]
   end
 
+  test "a value a human verifies while the model is asked is still compared before recommending" do
+    unit = Facility.create!(name: "Hope Creek 1", nrc_docket: "05000354")
+    c = candidate("facility", { "name" => "Hope Creek 1", "nrc_docket" => "05000354", "state" => "DE" })
+    c.update!(status: "matched", subject_type: "Facility", subject_id: unit.id)
+    # Verifies the record with another state mid-run, then recommends.
+    racing = Object.new
+    racing.define_singleton_method(:verdicts) do |candidates, run:, plugin:|
+      unit.update!(state: "NJ")
+      unit.verify!(by: "human:tosin")
+      candidates.to_h { |x| [ x.id, DataQuality::Verdict.new(outcome: :publish, confidence: 0.9, reason: "Yes.") ] }
+    end
+
+    run_stage("verify", verifier: racing)
+
+    assert c.reload.status_needs_review?, "not recommended over the new human-verified value"
+    assert_match "human-verified state is NJ; this source says DE", c.notes
+  end
+
   test "a verdict a code check produced records no model, even when the run asked one for others" do
     by_code = candidate("organization", { "name" => "Nothing Stored Co" })
     asked = candidate("organization", { "name" => "Imaginary Fission Co" })
