@@ -24,7 +24,7 @@ class DataQuality::Stages::Verify < DataQuality::Stage
   # compared: spelling and legal-form variants are expected (aliases cover them).
   COMPARED = {
     "organization" => %w[domain],
-    "facility" => %w[nrc_docket facility_type status state country_code]
+    "facility" => %w[nrc_docket eia_plant_id facility_type status state country_code]
   }.freeze
 
   def initialize(verifier: DataQuality::Verifiers::Agent.new, **)

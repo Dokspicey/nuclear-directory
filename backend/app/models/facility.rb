@@ -23,7 +23,7 @@ class Facility < ApplicationRecord
   validates :nrc_docket, uniqueness: true, allow_nil: true
   # One site per EIA plant (#121); only sites carry it.
   validates :eia_plant_id, uniqueness: { conditions: -> { where(parent_id: nil) } }, allow_nil: true
-  validates :eia_plant_id, absence: { message: "belongs on the site, not a unit" }, if: :parent_id
+  validates :eia_plant_id, absence: { message: "belongs on the site, not a unit" }, if: -> { parent_id || nrc_docket }
   validates :country_code, length: { is: 2 }
   validates :capacity_mw, numericality: { greater_than_or_equal_to: 0 }, allow_nil: true
   validates :latitude, numericality: { in: -90..90 }, allow_nil: true

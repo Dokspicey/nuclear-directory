@@ -285,6 +285,30 @@ class DataQuality::Plugins::EiaGeneratorsTest < ActiveSupport::TestCase
     assert_equal 1, candidates.count { |c| c[:kind] == "facility" && c[:payload]["eia_plant_id"] == "649" }, "one site per plant"
   end
 
+  test "an EIA site isn't matched to an NRC unit of the same name, and units never take an EIA plant ID" do
+    unit = nrc_unit("Joseph M Farley", "05000348", "AL")
+    crawl!
+    DataQuality::Pipeline.run("eia_generators", plugin: plugin, only: %w[extract match])
+
+    farley = Candidate.where(source: source, kind: "facility").find { |c| c.payload["eia_plant_id"] == "6001" }
+    assert farley.status_matched?, farley.notes
+    assert_not_equal unit.id, farley.subject_id, "a new site, not the NRC unit"
+    assert_nil unit.reload.eia_plant_id
+    assert_not unit.tap { |u| u.eia_plant_id = "6001" }.valid?, "a docketed unit can't carry the plant ID"
+  end
+
+  test "withdrawing an older month's candidates retires what only they proposed" do
+    july = Source.create!(url: "https://www.eia.gov/electricity/data/eia860m/xls/july_generator2026.xlsx",
+      source_kind: "eia_generators", crawl_status: "ok")
+    proposed = Facility.create!(name: "Gone Plant", eia_plant_id: "99999")
+    Candidate.create!(source: july, kind: "facility", quote: "old", status: "matched", proposed_subject: true,
+      payload: { "name" => "Gone Plant", "eia_plant_id" => "99999" }, subject_type: "Facility", subject_id: proposed.id)
+
+    crawl!
+
+    assert proposed.reload.rejected?, "nothing current points at it"
+  end
+
   test "an EIA plant is proposed once, then found by its plant ID; a seed site's look-alike goes to review" do
     facilities(:vogtle).update!(name: "Plant Vogtle")
     crawl!

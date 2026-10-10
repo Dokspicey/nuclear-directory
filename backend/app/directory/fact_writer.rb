@@ -278,7 +278,9 @@ module Directory
         when :facility
           ref = Lookup.facility(nrc_docket: attrs[:nrc_docket]) if attrs[:nrc_docket].present?
           ref ||= Lookup.facility(eia_plant_id: attrs[:eia_plant_id]) if attrs[:eia_plant_id].present?
+          eia_site = attrs[:eia_plant_id].present? && attrs[:nrc_docket].blank?
           ref ||= Lookup.facility(name: attrs[:name]) if attrs[:name].present?
+          ref = nil if eia_site && ref&.nrc_docket.present?
           Facility.find(ref.id) if ref
         when :organization_role
           model.find_by(organization_id: attrs[:organization_id], role: lookup_row(Role, attrs[:role]))

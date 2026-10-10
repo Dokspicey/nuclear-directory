@@ -164,6 +164,8 @@ class DataQuality::Stages::Match < DataQuality::Stage
 
       by_docket = directory.facility(nrc_docket: docket) if docket
       by_name = directory.facility(name:) if name
+      # An EIA plant is a site; an NRC unit of the same name ("Palisades") isn't it.
+      by_name = nil if eia_plant && !docket && by_name&.nrc_docket.present?
 
       if by_docket && by_name && by_docket.id != by_name.id
         return Review.new("docket matches #{by_docket.name} but name matches #{by_name.name}")

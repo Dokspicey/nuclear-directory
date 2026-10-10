@@ -72,7 +72,7 @@ module Directory
         verification_status: record.verification_status, verified_by: record.verified_by, verified_at: record.verified_at)
     end
 
-    # Pass exactly one of id, slug, name or nrc_docket.
+    # Pass exactly one of id, slug, name, nrc_docket or eia_plant_id.
     # name is matched case-insensitively; names aren't unique, so the oldest
     # match wins.
     # eia_plant_id finds the site for that EIA plant (#121).

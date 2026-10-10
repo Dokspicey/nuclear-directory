@@ -26,7 +26,7 @@ class DataQuality::Plugins::EiaGenerators < DataQuality::Plugin
     @fetcher = fetcher
   end
 
-  def crawl(_run)
+  def crawl(run)
     index = Source.find_or_create_by!(url: INDEX_URL) do |new_source|
       new_source.source_kind = INDEX_SOURCE_KIND
       new_source.title = "EIA-860M monthly generator inventory page"
@@ -46,7 +46,7 @@ class DataQuality::Plugins::EiaGenerators < DataQuality::Plugin
       Workbook.to_csv(Workbook.nuclear_generators(bytes))
     end
     { "file" => url, "snapshot" => result.to_s, "generators" => [ CSV.parse(source.reload.content_text.to_s).size - 1, 0 ].max,
-      "superseded" => (supersede_older_files(source) if source.crawl_ok?) }.compact
+      "superseded" => (supersede_older_files(source, run) if source.crawl_ok?) }.compact
   rescue Workbook::Unreadable => error
     source.update!(crawl_status: "needs_human", status_reason: "Couldn't read the EIA workbook: #{error.message}")
     { "file" => url, "snapshot" => "needs_human" }
@@ -113,7 +113,7 @@ class DataQuality::Plugins::EiaGenerators < DataQuality::Plugin
     # points back at an earlier file, a later month's candidates are kept.
     # Candidates already in a human's review stay there, with a note that a
     # newer file exists (some were published and only need a site checked).
-    def supersede_older_files(source)
+    def supersede_older_files(source, run)
       current = file_month(source.url)
       older = Source.where(source_kind:).where.not(id: source.id).select { |other| (file_month(other.url) <=> current) == -1 }
       return 0 if older.empty?
@@ -121,8 +121,23 @@ class DataQuality::Plugins::EiaGenerators < DataQuality::Plugin
       waiting = Candidate.where(source_id: older.map(&:id))
       waiting.where(status: "needs_review").where.not("notes LIKE ?", "%A newer EIA file exists%")
         .update_all([ "notes = COALESCE(notes || '. ', '') || ?, updated_at = ?", "A newer EIA file exists: #{source.title}", Time.current ])
-      waiting.where(status: %w[new matched])
+      withdrawn = waiting.where(status: %w[new matched]).to_a
+      Candidate.where(id: withdrawn.map(&:id))
         .update_all(status: "rejected", notes: "Superseded by the newer #{source.title}", updated_at: Time.current)
+      retire_orphans(withdrawn.select(&:proposed_subject), run)
+      withdrawn.size
+    end
+
+    # A record a withdrawn candidate proposed is retired (rejected, as the
+    # verify stage does for a rejected proposal) unless a live candidate, e.g.
+    # from the newer file, still points at it.
+    def retire_orphans(candidates, run)
+      directory = DataQuality::DirectoryClient.new
+      candidates.uniq { |c| [ c.subject_type, c.subject_id ] }.each do |candidate|
+        live = Candidate.where(subject_type: candidate.subject_type, subject_id: candidate.subject_id,
+          status: %w[new matched merged needs_review])
+        directory.retire(candidate, crawl_run: run) unless live.exists?
+      end
     end
 
     # [year, month] of a monthly file URL, or nil when it isn't one.
