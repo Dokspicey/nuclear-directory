@@ -1,11 +1,15 @@
-# Lookup data the app needs in every environment. Safe to re-run: rows are
-# matched by key and updated in place, never duplicated. To add a role or
-# technology, add a line here and run `bin/rails db:seed`.
+# Data the app needs in every environment, safe to re-run:
+# 1. Lookup tables (roles, technologies), matched by key and updated in
+#    place. To add one, add a line here and run `bin/rails db:seed`.
+# 2. The hand-checked organizations in db/seeds/organizations/*.yml, loaded
+#    through Directory::FactWriter (see lib/seed/organization_loader.rb).
 #
 # Parents must be listed before their children.
 
 ROLES = [
   [ "fuel", "Fuel", "Mines, converts, enriches or fabricates nuclear fuel (uranium, HALEU, TRISO)." ],
+  [ "enrichment", "Enrichment", "Enriches uranium, including HALEU.", "fuel" ],
+  [ "fabrication", "Fuel fabrication", "Makes finished fuel such as fuel assemblies or TRISO particles.", "fuel" ],
   [ "reactor_vendor", "Reactor vendor", "Designs and sells reactors, from large light-water plants to SMRs and microreactors." ],
   [ "reactor_services", "Reactor services", "Maintains, inspects, refuels or upgrades operating reactors." ],
   [ "utility", "Utility", "Sells electricity to customers and owns or plans nuclear generation." ],
@@ -40,4 +44,11 @@ end
 ActiveRecord::Base.transaction do
   seed_lookup(Role, ROLES)
   seed_lookup(Technology, TECHNOLOGIES)
+end
+
+loader = Seed::OrganizationLoader.new(Rails.root.join("db/seeds/organizations")).load!
+unless Rails.env.test?
+  loader.results.each do |kind, counts|
+    puts format("%-24s %3d created, %3d updated", kind, counts[:created], counts[:updated])
+  end
 end

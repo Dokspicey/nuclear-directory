@@ -1,0 +1,33 @@
+# Seed research for issue #8 - generated 2026-10-09. Quotes copied from pages fetched this session.
+name: Helion Energy
+aliases:
+- Helion
+website: "https://www.helionenergy.com"
+hq:
+  state: WA
+  source_url: "https://www.helionenergy.com/newsroom/helion-secures-land-and-begins-building-site-of-worlds-first-fusion-power-plant"
+  quote: "Helion, a Washington-based fusion energy company, today announced that it has begun work on the site of its first fusion power plant, Orion, marking a major step in bringing fusion electricity to the grid."
+country_code: US
+status: active
+roles:
+- key: reactor_vendor
+  source_url: "https://www.helionenergy.com/newsroom/helion-announces-425m-series-f-investment-to-scale-commercialized-fusion-power"
+  quote: "Helion is a fusion energy company focused on generating zero-carbon electricity from fusion."
+  published: '2025-01-28'
+  confidence: 1.0
+technologies:
+- key: fusion
+  source_url: "https://www.helionenergy.com/newsroom/helion-announces-425m-series-f-investment-to-scale-commercialized-fusion-power"
+  quote: "Its mission is to build the world’s first fusion power plant, enabling a future with unlimited clean electricity."
+  published: '2025-01-28'
+  confidence: 1.0
+relationships: []
+facilities:
+- name: Orion fusion power plant (Malaga, Chelan County, WA)
+  type: owns
+  source_url: "https://www.helionenergy.com/newsroom/helion-secures-land-and-begins-building-site-of-worlds-first-fusion-power-plant"
+  quote: "Helion began building in Malaga, Washington, on land it is leasing from the Chelan County Public Utilities District (PUD)."
+  published: '2025-07-30'
+  confidence: 1.0
+  note: "Under construction; land leased from Chelan County PUD, so 'owns' refers to the plant, not the land. Target online 2028, 50 MW+."
+notes: "Press releases are datelined Everett, WA, but HQ city not explicitly stated in fetched text. Later Series G ($465M, led by Thrive Capital) appears on Helion's site but was not researched."

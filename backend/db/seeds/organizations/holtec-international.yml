@@ -1,0 +1,36 @@
+# Seed research for issue #8 - generated 2026-10-09. Quotes copied from pages fetched this session.
+name: Holtec International
+aliases:
+- Holtec
+- SMR, LLC
+website: "https://holtecinternational.com"
+hq: null
+country_code: US
+status: active
+roles:
+- key: reactor_vendor
+  source_url: "https://www.enercon.com/nrc-accepts-holtec/"
+  quote: "Holtec International has reached an exciting milestone in its effort to bring two new SMR‑300 small modular reactors — Pioneer Units 1 and 2 — to the Palisades Energy Center in Covert, Michigan."
+  published: 2026-02
+  confidence: 0.8
+- key: operator
+  source_url: "https://www.enercon.com/nrc-accepts-holtec/"
+  quote: "The new SMR‑300 units will be located next to the Palisades Nuclear Plant, which Holtec is in the process of bringing back online."
+  published: 2026-02
+  confidence: 0.8
+technologies:
+- key: smr
+  source_url: "https://www.enercon.com/nrc-accepts-holtec/"
+  quote: "Holtec International has reached an exciting milestone in its effort to bring two new SMR‑300 small modular reactors — Pioneer Units 1 and 2 — to the Palisades Energy Center in Covert, Michigan."
+  published: 2026-02
+  confidence: 0.8
+relationships: []
+facilities:
+- name: Palisades Pioneer Units 1 & 2 (SMR-300)
+  type: owns
+  source_url: "https://www.enercon.com/nrc-accepts-holtec/"
+  quote: "The U.S. Nuclear Regulatory Commission (NRC) has officially accepted Holtec’s initial submittal, which includes the Limited Work Authorization (LWA) and a Comprehensive Environmental Report (ER)."
+  published: 2026-02
+  confidence: 0.8
+  note: "Planned; construction permit application Part 1 accepted by NRC (Feb 2026). 'owns' inferred from Holtec being the applicant - verify."
+notes: "All Holtec facts come from Enercon's (a contractor's) page, so confidence capped at 0.8; Holtec's own homepage fetched but had little text. Operator role (Palisades restart) needs a Holtec or NRC source. HQ not verified."
