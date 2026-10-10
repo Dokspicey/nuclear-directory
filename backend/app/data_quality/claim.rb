@@ -11,9 +11,22 @@ module DataQuality::Claim
     "offtake_with" => "has an offtake agreement with", "subsidiary_of" => "is a subsidiary of",
     "owns" => "owns", "operates" => "operates", "vendor_for" => "is a vendor for", "offtakes_from" => "offtakes from"
   }.freeze
-  # Roles in visitors' words (VOICE.md), as the directory's review labels say them.
-  ROLE_WORDS = { "reactor_vendor" => "reactor developer", "reactor_services" => "repair and services company",
-    "data_center_offtaker" => "power buyer" }.freeze
+  # Roles in visitors' words (VOICE.md), each with its article: the same
+  # phrases as the directory's review labels (Directory::Lookup; a test keeps
+  # them in step). The article isn't guessed from the first letter, which
+  # would say "an utility". Other roles read "has the role <name>".
+  ROLE_PHRASES = {
+    "fuel" => "a fuel supplier", "mining" => "a uranium miner", "conversion" => "a uranium converter",
+    "enrichment" => "a uranium enricher", "fabrication" => "a fuel fabricator",
+    "reactor_vendor" => "a reactor developer", "reactor_services" => "a repair and services company",
+    "utility" => "a utility", "operator" => "an operator", "data_center_offtaker" => "a power buyer",
+    "coolant" => "a coolant supplier", "molten_salt" => "a molten salt coolant supplier",
+    "water" => "a light water coolant supplier", "helium" => "a helium coolant supplier",
+    "sodium" => "a sodium coolant supplier", "lead" => "a lead coolant supplier",
+    "heavy_water" => "a heavy water supplier", "regulatory_consultant" => "a regulatory consultant",
+    "venture_capital" => "a venture capital investor", "government_agency" => "a government agency",
+    "national_lab" => "a national lab"
+  }.freeze
   LABELS = { "nrc_docket" => "NRC docket", "facility_type" => "plant type", "ownership_pct" => "ownership",
     "hq_city" => "headquarters city", "hq_state" => "headquarters state", "capacity_mw" => "capacity" }.freeze
 
@@ -36,7 +49,9 @@ module DataQuality::Claim
       "#{name_of(payload['from_organization'])} #{verb(payload['relationship_type'])} #{name_of(payload['to_organization'])}" \
         "#{details(payload.except('from_organization', 'to_organization', 'relationship_type'))}."
     when "organization_role"
-      "#{name_of(payload['organization'])} is #{with_article(role_words(payload['role']))}."
+      role = payload["role"].to_s
+      phrase = ROLE_PHRASES[role]
+      phrase ? "#{name_of(payload['organization'])} is #{phrase}." : "#{name_of(payload['organization'])} has the role #{humanize(role)}."
     when "organization_technology"
       "#{name_of(payload['organization'])} works on #{humanize(payload['technology'])}."
     else
@@ -66,8 +81,6 @@ module DataQuality::Claim
   end
 
   def self.verb(type) = RELATIONSHIP_VERBS.fetch(type.to_s, humanize(type))
-  def self.role_words(key) = ROLE_WORDS.fetch(key.to_s, humanize(key))
-  def self.with_article(words) = "#{words.match?(/\A[aeiou]/i) ? 'an' : 'a'} #{words}"
   def self.humanize(value) = value.to_s.humanize(capitalize: false)
-  private_class_method :details, :value_text, :name_of, :facility_name, :verb, :role_words, :with_article, :humanize
+  private_class_method :details, :value_text, :name_of, :facility_name, :verb, :humanize
 end

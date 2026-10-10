@@ -196,6 +196,7 @@ class DataQuality::DirectoryClientTest < ActiveSupport::TestCase
       "Lookup.fact_attributes" => [ Directory::Lookup.method(:fact_attributes),
         FakeDirectory::Lookup.instance_method(:fact_attributes) ],
       "FactWriter.write" => [ Directory::FactWriter.instance_method(:write), FakeDirectory::FactWriter.instance_method(:write) ],
+      "FactWriter.while_open" => [ Directory::FactWriter.method(:while_open), FakeDirectory::FactWriter.instance_method(:while_open) ],
       "FactWriter.fill_site_from_unit" => [ Directory::FactWriter.instance_method(:fill_site_from_unit),
         FakeDirectory::FactWriter.instance_method(:fill_site_from_unit) ]
     }.each do |name, (real, fake)|

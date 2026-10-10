@@ -13,8 +13,16 @@ class DataQuality::ClaimTest < ActiveSupport::TestCase
       claim("organization_role", { "organization" => { "name" => "Kairos Power" }, "role" => "reactor_vendor" })
     assert_equal "Constellation is an operator.",
       claim("organization_role", { "organization" => { "name" => "Constellation" }, "role" => "operator" })
+    assert_equal "Duke Energy is a utility.",
+      claim("organization_role", { "organization" => { "name" => "Duke Energy" }, "role" => "utility" }), "not \"an utility\""
+    assert_equal "Acme has the role isotope broker.",
+      claim("organization_role", { "organization" => { "name" => "Acme" }, "role" => "isotope_broker" })
     assert_equal "Oklo works on sodium fast reactor.",
       claim("organization_technology", { "organization" => { "name" => "Oklo" }, "technology" => "sodium_fast_reactor" })
+  end
+
+  test "role phrases match the directory's review labels" do
+    assert_equal Directory::Lookup.const_get(:ROLE_WORDS), DataQuality::Claim::ROLE_PHRASES
   end
 
   test "links include every detail approval would publish" do
