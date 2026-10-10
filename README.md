@@ -128,12 +128,14 @@ Environment (saving restarts the service). Adding a new secret means adding it
 to `render.yaml` with `sync: false` and then setting its value in the
 dashboard.
 
-**Errors and uptime.** Errors go to Sentry when `SENTRY_DSN` is set. Visitor
-data stays out: no IPs, cookies, form or request bodies, search queries, SQL
-or job arguments (see `backend/config/initializers/sentry.rb`). The Sentry
-project also has "Prevent Storing of IP Addresses" on. A Sentry uptime monitor
-checks `/up` every 5 minutes and emails hello@nuclear-directory.org when it
-fails.
+**Errors and uptime.** Errors go to Sentry once `SENTRY_DSN` is set; until
+then nothing is sent. Visitor data stays out: no IPs, cookies, form or request
+bodies, search queries, SQL or job arguments (see
+`backend/config/initializers/sentry.rb`). Setting it up is a one-time job in
+Sentry (issue #102, section F): create the project, turn on "Prevent Storing
+of IP Addresses", add `SENTRY_DSN` to the web service's Environment, and add
+an uptime monitor that checks `/up` every 5 minutes and emails
+hello@nuclear-directory.org when it fails.
 
 **Roll back.** Web service → Events (or Deploys), find the last good deploy and
 choose Rollback. This redeploys that image; it does not undo database

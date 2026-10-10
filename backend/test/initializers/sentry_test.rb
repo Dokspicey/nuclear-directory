@@ -15,6 +15,7 @@ class ErrorReportingTest < ActiveSupport::TestCase
     "HTTP_REFERER" => "https://example.com/?email=jane@example.com",
     "HTTP_COOKIE" => "_nuclear_directory_session=abc123",
     "HTTP_ACCEPT" => "text/html",
+    "HTTP_X_ACCEPT_VISITOR_EMAIL" => "visitor@example.com",
     "CONTENT_TYPE" => "application/x-www-form-urlencoded",
     "action_dispatch.request_id" => "req-42",
     "rack.input" => StringIO.new("email=jane%40example.com&note=hello")
@@ -36,7 +37,7 @@ class ErrorReportingTest < ActiveSupport::TestCase
     assert_nil request[:data]
     assert_nil request[:query_string]
     assert_empty request[:cookies].to_h
-    [ "203.0.113.7", "198.51.100.23", "jane", "abc123", "Mozilla" ].each do |value|
+    [ "203.0.113.7", "198.51.100.23", "jane", "visitor@", "abc123", "Mozilla" ].each do |value|
       assert_not_includes sent, value
     end
   end
@@ -47,6 +48,7 @@ class ErrorReportingTest < ActiveSupport::TestCase
     assert_equal "text/html", headers["Accept"]
     assert_equal "req-42", headers["X-Request-Id"]
     assert_equal "[Filtered]", headers["User-Agent"]
+    assert_equal "[Filtered]", headers["X-Accept-Visitor-Email"], "allow-list must match whole header names"
   end
 
   test "it is off without SENTRY_DSN" do

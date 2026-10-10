@@ -12,7 +12,9 @@
 # The Sentry project also has "Prevent Storing of IP Addresses" turned on.
 module ErrorReporting
   # Request headers worth keeping for debugging; everything else is filtered.
-  HEADERS = %w[accept content-type content-length x-request-id].freeze
+  # Anchored, because Sentry treats plain string terms as substrings (so
+  # "accept" would also let through a client's "X-Accept-Visitor-Email").
+  HEADERS = [ /\A(accept|content-type|content-length|x-request-id)\z/i ].freeze
 
   class << self
     def dsn = ENV["SENTRY_DSN"].presence
