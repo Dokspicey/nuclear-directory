@@ -12,7 +12,10 @@ export default class extends Controller {
     clearTimeout(this.timer)
   }
 
-  search() {
+  search(event) {
+    // Focus moved back to the field by this controller isn't a new search.
+    if (event?.type === "focus" && this.movingFocus) return
+
     clearTimeout(this.timer)
     this.timer = setTimeout(() => this.load(), this.delayValue)
   }
@@ -30,6 +33,10 @@ export default class extends Controller {
   // A load that finishes after the results were closed stays closed.
   loaded() {
     if (!this.pending) return
+    // A response for an older query: the newer one is on its way, or the
+    // field was cleared.
+    const requested = new URL(this.frameTarget.src, window.location.origin).searchParams.get("q")
+    if (requested !== this.inputTarget.value.trim()) return
     this.pending = false
 
     const panel = this.frameTarget.querySelector("[data-instant-search-count]")
@@ -59,10 +66,10 @@ export default class extends Controller {
       links[Math.min(index + 1, links.length - 1)]?.focus()
     } else if (event.key === "ArrowUp") {
       event.preventDefault()
-      index <= 0 ? this.inputTarget.focus() : links[index - 1].focus()
+      index <= 0 ? this.focusInput() : links[index - 1].focus()
     } else if (event.key === "Escape") {
       this.close()
-      this.inputTarget.focus()
+      this.focusInput()
     }
   }
 
@@ -82,6 +89,12 @@ export default class extends Controller {
     this.resultsTarget.hidden = true
     this.inputTarget.setAttribute("aria-expanded", "false")
     this.statusTarget.textContent = ""
+  }
+
+  focusInput() {
+    this.movingFocus = true
+    this.inputTarget.focus()
+    this.movingFocus = false
   }
 
   get isOpen() {
