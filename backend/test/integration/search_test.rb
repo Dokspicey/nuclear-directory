@@ -17,9 +17,9 @@ class SearchTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_not_includes response.body, "<html"
     assert_select "turbo-frame#instant-results[target=_top]"
-    assert_select "#instant-companies", "Companies"
+    assert_select "#instant-results-companies", "Companies"
     assert_select ".nd-instant__row[href='/companies/kairos-power']", /Kairos Power.*Reactor developer · Alameda, CA/m
-    assert_select "#instant-plants", "Plants and sites"
+    assert_select "#instant-results-plants", "Plants and sites"
     assert_select ".nd-instant__row[href='/plants/kairos-hermes']", /Test reactor · Oak Ridge, TN/
     assert_select ".nd-instant[data-instant-search-count='2']"
     assert_select ".nd-instant__all[href=?]", "/companies?q=kairos", text: /All results for “kairos”/
@@ -52,6 +52,6 @@ class SearchTest < ActionDispatch::IntegrationTest
     8.times { |i| company("Kairos Clone #{i}", roles: [ vendor ]) }
     get search_path(q: "kairos")
 
-    assert_select "ul[aria-labelledby=instant-companies] li", SearchController::COMPANY_LIMIT
+    assert_select "ul[aria-labelledby=instant-results-companies] li", SearchController::COMPANY_LIMIT
   end
 end

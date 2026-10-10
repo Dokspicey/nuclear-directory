@@ -113,6 +113,6 @@ class DirectoryTest < ActionDispatch::IntegrationTest
 
     assert_select "form.nd-filters[action='/companies'][method=get]"
     assert_select "form.nd-filters input[type=hidden][name=category][value=reactor-developers]"
-    assert_select "form.nd-filters button[type=submit]", "Apply"
+    assert_select "form.nd-filters button[type=submit]", "Apply filters"
   end
 end

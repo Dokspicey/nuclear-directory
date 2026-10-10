@@ -53,7 +53,9 @@ export default class extends Controller {
     if (event.key === "ArrowDown" && this.isOpen) {
       event.preventDefault()
       this.links[0]?.focus()
-    } else if (event.key === "Escape") {
+    } else if (event.key === "Escape" && this.isOpen) {
+      // A search field clears itself on Escape; here it only closes the results.
+      event.preventDefault()
       this.close()
     }
   }
@@ -69,6 +71,7 @@ export default class extends Controller {
       event.preventDefault()
       index <= 0 ? this.focusInput() : links[index - 1].focus()
     } else if (event.key === "Escape") {
+      event.preventDefault()
       this.close()
       this.focusInput()
     }

@@ -5,39 +5,39 @@
     <% total = @companies.size + @plants.size %>
     <div class="nd-instant" data-instant-search-count="<%= total %>">
       <% if @companies.any? %>
-        <div class="nd-label nd-instant__group" id="instant-companies">Companies</div>
-        <ul class="nd-instant__list" aria-labelledby="instant-companies">
+        <div class="nd-label nd-instant__group" id="<%= @frame_id %>-companies">Companies</div>
+        <ul class="nd-instant__list" aria-labelledby="<%= @frame_id %>-companies">
           <% @companies.each do |company| %>
             <% role = @roles[company.id]&.map(&:role)&.find { |r| r.parent_id.nil? } || @roles[company.id]&.first&.role %>
             <% meta = [ (role_label(role) if role), place(company.hq_city, company.hq_state) ].compact.join(" · ").presence %>
             <li>
               <%= link_to company_url_for(company), class: "nd-instant__row" do %>
                 <span class="nd-mono" aria-hidden="true"><%= initials(company.name) %></span>
-                <span class="nd-instant__text"><b><%= company.name %></b><% if meta %><span><%= meta %></span><% end %></span>
+                <span class="nd-instant__text"><b class="type-body-strong"><%= company.name %></b><% if meta %><span class="type-small"><%= meta %></span><% end %></span>
               <% end %>
             </li>
           <% end %>
         </ul>
       <% end %>
       <% if @plants.any? %>
-        <div class="nd-label nd-instant__group" id="instant-plants">Plants and sites</div>
-        <ul class="nd-instant__list" aria-labelledby="instant-plants">
+        <div class="nd-label nd-instant__group" id="<%= @frame_id %>-plants">Plants and sites</div>
+        <ul class="nd-instant__list" aria-labelledby="<%= @frame_id %>-plants">
           <% @plants.each do |plant| %>
             <% meta = [ facility_type_label(plant.facility_type), place(plant.city, plant.state) ].compact.join(" · ").presence %>
             <li>
               <%= link_to plant_url_for(plant), class: "nd-instant__row" do %>
                 <span class="nd-ring" aria-hidden="true"><%= icon("factory") %></span>
-                <span class="nd-instant__text"><b><%= plant.name %></b><% if meta %><span><%= meta %></span><% end %></span>
+                <span class="nd-instant__text"><b class="type-body-strong"><%= plant.name %></b><% if meta %><span class="type-small"><%= meta %></span><% end %></span>
               <% end %>
             </li>
           <% end %>
         </ul>
       <% end %>
       <% if total.zero? %>
-        <p class="nd-instant__empty">No results for “<%= @query %>”</p>
+        <p class="nd-instant__empty type-body">No results for “<%= @query %>”</p>
       <% else %>
-        <%= link_to directory_url_for(q: @query), class: "nd-instant__all" do %>
-          <span>All results for “<%= @query %>”</span><kbd>Enter</kbd>
+        <%= link_to directory_url_for(q: @query), class: "nd-instant__all type-ui" do %>
+          <span>All results for “<%= @query %>”</span><kbd class="type-data-sm">Enter</kbd>
         <% end %>
       <% end %>
     </div>
