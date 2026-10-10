@@ -230,3 +230,37 @@ facilities by `name` and/or `nrc_docket`):
 
 A link whose end isn't found, or is itself in review, goes to `needs_review`
 too. `organization_alias` candidates aren't matched automatically yet.
+
+## Enrichment sources
+
+Some sources only add values to records NRC already defines. **EIA**
+(`plugins/eia_generators.rb`, #61) adds net summer capacity (`capacity_mw`) and
+coordinates to NRC units from EIA's monthly generator inventory (Form
+EIA-860M). It never creates or renames facilities.
+
+```bash
+docker compose run --rm web bin/rails "data_quality:run[eia_generators]"
+```
+
+- **Crawl** reads EIA's 860M page, takes the newest `<month>_generator<year>.xlsx`,
+  and stores only its nuclear rows as CSV. There's one source per monthly
+  file, so evidence names the exact file. If the workbook can't be read (for
+  example, the layout changed), the source is marked `needs_human`.
+- **Extract** makes a `facility` candidate per generator. The payload carries
+  `"identify" => { "name", "state", "unit", "eia_plant_id" }` and the values to
+  set. The quote is the generator's CSV row.
+- **Match** finds the unit, in this order (`Directory::Lookup.facility_units`):
+  1. the NRC units sharing the **most** distinctive words with EIA's plant name
+     ("Wolf Creek" picks Wolf Creek 1 over Hope Creek 1);
+  2. among those, units in EIA's state or with no state yet (a tie-break only;
+     NRC unit candidates carry no state, and EIA's is used);
+  3. the one with the same unit number. A plant with a single, unnumbered NRC
+     unit takes that unit ("R E Ginna" → "Ginna").
+  - The candidate is attached; nothing is written until verify publishes it.
+  - Two equally good fits, or a rejected unit → `needs_review`.
+  - No fit yet → the candidate stays `new` and is retried on the next run.
+- **Verify** writes only the values. The unit's verification is unchanged,
+  since EIA doesn't vouch for the record itself. A verified unit's
+  coordinates also fill its site's blank ones.
+
+Any payload with an `"identify"` key is treated as enrichment this way.

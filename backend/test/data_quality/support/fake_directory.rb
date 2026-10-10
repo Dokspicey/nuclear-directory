@@ -28,6 +28,7 @@ module FakeDirectory
     def fact_state(type:, id:) = nil
     def fact_attributes(type:, id:) = nil
     def similar_facilities(name) = []
+    def facility_units(name:, state: nil) = []
 
     private
       # Same rule as the real Lookup.

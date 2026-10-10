@@ -174,7 +174,9 @@
 
   .nd-sitebar { border-bottom: var(--nd-hairline) solid var(--nd-rule); }
   .nd-sitebar__inner { max-width: var(--nd-content-max); margin: 0 auto; padding: 14px clamp(16px, 4vw, 32px); display: flex; flex-wrap: wrap; align-items: center; gap: var(--nd-space-3) var(--nd-space-6); }
-  .nd-wordmark { font: 400 22px/1 var(--font-display); letter-spacing: .01em; text-transform: uppercase; color: var(--nd-ink); text-decoration: none; }
+  /* The wordmark is an SVG cropped to cap height (shared/_wordmark): 19px tall matches 22px Anton. */
+  .nd-wordmark { display: inline-flex; color: var(--nd-ink); text-decoration: none; }
+  .nd-wordmark__svg { display: block; height: 19px; width: auto; overflow: visible; }
   .nd-sitebar .nd-search { flex: 1 1 320px; max-width: 560px; height: 42px; padding: 0 14px; background: var(--nd-paper-raised); border-color: var(--nd-ink); }
   /* 16px keeps iOS Safari from zooming the page when the field is focused. */
   .nd-sitebar .nd-search input { font-size: 16px; }
@@ -261,7 +263,9 @@
 /* Home page and instant search (#41). */
 @layer components {
   .nd-home { min-height: 100vh; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; gap: 28px; padding: clamp(80px, 18vh, 180px) clamp(16px, 4vw, 32px) 80px; }
-  .nd-home__wordmark { margin: 0; text-align: center; }
+  .nd-home__wordmark { margin: 0; display: flex; justify-content: center; color: var(--nd-ink); }
+  /* 55px tall matches 64px Anton; 34px (40px Anton) on phones. */
+  .nd-home__wordmark .nd-wordmark__svg { height: 55px; max-width: 100%; }
   .nd-home__search { width: 100%; max-width: 720px; display: flex; flex-direction: column; gap: var(--nd-space-4); }
   .nd-home__cats { width: 100%; max-width: 880px; margin-top: var(--nd-space-6); }
 
@@ -302,12 +306,13 @@
     .nd-pills { flex-wrap: nowrap; scroll-snap-type: x proximity; padding-right: var(--nd-space-8);
       mask-image: linear-gradient(to right, #000 85%, transparent); -webkit-mask-image: linear-gradient(to right, #000 85%, transparent); }
     .nd-pill { scroll-snap-align: start; }
+    .nd-home__wordmark .nd-wordmark__svg { height: 34px; }
   }
 
   /* 44px tap targets on touch screens, without changing how small parts look. */
   @media (pointer: coarse) {
     .nd-pill, .nd-sugg, .nd-select, .nd-instant__row, .nd-instant__all { min-height: 44px; }
-    .nd-src, .nd-az a { position: relative; }
-    .nd-src::after, .nd-az a::after { content: ""; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); transform: translate(-50%, -50%); }
+    .nd-src, .nd-az a, .nd-wordmark { position: relative; }
+    .nd-src::after, .nd-az a::after, .nd-wordmark::after { content: ""; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); transform: translate(-50%, -50%); }
   }
 }
