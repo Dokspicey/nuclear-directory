@@ -251,7 +251,7 @@
 @layer components {
   .nd-listhead { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--nd-space-3) var(--nd-space-6); border-bottom: 2px solid var(--nd-ink); padding-bottom: var(--nd-space-3); margin-bottom: calc(var(--nd-space-8) * -1 + var(--nd-space-2)); }
   .nd-listhead__title { margin: 0; }
-  .nd-listhead__title .nd-num { margin-left: 6px; font-size: 13px; font-weight: 400; color: var(--nd-ink-muted); }
+  .nd-listhead__title .nd-listhead__count { margin-left: 6px; color: var(--nd-ink-muted); }
   .nd-filters { display: flex; flex-wrap: wrap; align-items: center; gap: var(--nd-space-2); }
   .nd-select select { border: 0; background: transparent; color: inherit; font: inherit; padding: 0 2px; cursor: pointer; }
   .nd-select:focus-within { outline: var(--nd-focus-width) solid var(--nd-focus); outline-offset: 2px; }
@@ -268,7 +268,7 @@
   .nd-searchbox { position: relative; width: 100%; }
   .nd-sitebar .nd-searchbox { flex: 1 1 320px; max-width: 560px; }
   .nd-searchbox--large .nd-search { max-width: none; height: 64px; padding: 0 20px; gap: 14px; background: var(--nd-paper-raised); border-color: var(--nd-ink); }
-  .nd-searchbox--large .nd-search input { font-size: 19px; }
+  .nd-searchbox__results[aria-busy="true"] { opacity: .5; }
   .nd-searchbox__results { position: absolute; top: 100%; left: 0; right: 0; z-index: 20; background: var(--nd-paper-raised); border: var(--nd-hairline) solid var(--nd-ink); border-top: 0; max-height: min(70vh, 520px); overflow-y: auto; }
 
   .nd-instant__group { padding: var(--nd-space-3) var(--nd-space-4) var(--nd-space-1); }
@@ -284,7 +284,7 @@
   .nd-instant__empty { margin: 0; padding: var(--nd-space-4); }
 
   .nd-suggs { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--nd-space-2); }
-  .nd-sugg { display: inline-flex; align-items: center; gap: 6px; padding: 6px var(--nd-space-3); border: var(--nd-hairline) solid var(--nd-rule); border-radius: 999px; color: var(--nd-ink); font: 400 14px/20px var(--font-text); text-decoration: none; }
+  .nd-sugg { display: inline-flex; align-items: center; gap: 6px; padding: 6px var(--nd-space-3); border: var(--nd-hairline) solid var(--nd-rule); border-radius: 999px; color: var(--nd-ink); text-decoration: none; }
   .nd-sugg:hover { border-color: var(--nd-ink); }
   .nd-sugg .nd-ic { color: var(--nd-ink-muted); }
 }
@@ -296,7 +296,6 @@
     .nd-home { min-height: 0; padding-top: max(var(--nd-space-12), env(safe-area-inset-top)); gap: var(--nd-space-6); }
     .nd-searchbox__results { max-height: 60vh; }
     .nd-searchbox--large .nd-search { height: 52px; padding: 0 var(--nd-space-4); gap: var(--nd-space-3); }
-    .nd-searchbox--large .nd-search input { font-size: 16px; }
     .nd-cats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--nd-space-2); }
     .nd-cat { padding: var(--nd-space-3); }
     /* One scrolling row of pills, faded at the edge so more is visible. */

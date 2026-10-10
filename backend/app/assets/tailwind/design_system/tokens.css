@@ -115,6 +115,11 @@
   text-transform: uppercase;
   text-wrap: balance;
 }
+/* The large home search field; 16px on phones so iOS doesn't zoom (#90). */
+@utility type-search-lg {
+  font: 400 19px/28px var(--font-text);
+  @media (max-width: 560px) { font-size: 16px; }
+}
 @utility type-title-md {
   font: 600 20px/28px var(--font-text);
 }

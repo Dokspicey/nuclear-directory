@@ -30,7 +30,7 @@ class DirectoryTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "title", "Reactor developers · Nuclear Directory"
     assert_select "h1", /Reactor developers/
-    assert_select "h1 .nd-num", "2 companies"
+    assert_select "h1 .nd-listhead__count", "2 companies"
     assert_select "a.nd-pill[aria-current=page]", /Reactor developers/
     assert_select "a.nd-listrow[href='/companies/kairos-power']", /Develops salt-cooled reactors./
     assert_select "a.nd-listrow", text: /Pending Reactors/, count: 0
@@ -85,7 +85,7 @@ class DirectoryTest < ActionDispatch::IntegrationTest
     assert_select "select[name=technology]"
     assert_select "select[name=technology] option", text: /coolant/, count: 0
     assert_select "select[name=state]"
-    assert_select "h1 .nd-num", "1 plant or site"
+    assert_select "h1 .nd-listhead__count", "1 plant or site"
   end
 
   test "search results are grouped even when only one kind matches" do
@@ -108,7 +108,7 @@ class DirectoryTest < ActionDispatch::IntegrationTest
   test "an unknown filter value is ignored, not applied behind an Any control" do
     get companies_path(category: "reactor-developers", state: "ZZ")
 
-    assert_select "h1 .nd-num", "2 companies"
+    assert_select "h1 .nd-listhead__count", "2 companies"
     assert_select "select[name=state] option[selected]", count: 0
   end
 

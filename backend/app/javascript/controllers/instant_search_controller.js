@@ -18,6 +18,7 @@ export default class extends Controller {
 
     clearTimeout(this.timer)
     this.pending = false
+    this.markStale()
     this.timer = setTimeout(() => this.load(), this.delayValue)
   }
 
@@ -40,6 +41,7 @@ export default class extends Controller {
     if (requested !== this.inputTarget.value.trim()) return
     this.pending = false
 
+    this.markFresh()
     const panel = this.frameTarget.querySelector("[data-instant-search-count]")
     if (!panel) return this.close()
 
@@ -90,9 +92,30 @@ export default class extends Controller {
     this.inputTarget.setAttribute("aria-expanded", "true")
   }
 
+  // A failed request closes the old results rather than leaving them up.
+  failed(event) {
+    if (event?.type === "turbo:frame-missing") event.preventDefault()
+    this.pending = false
+    this.close()
+  }
+
+  // Results for the previous text stay in view, dimmed and out of reach,
+  // until the new ones arrive, so the list doesn't flicker as you type.
+  markStale() {
+    if (!this.isOpen) return
+    this.resultsTarget.setAttribute("aria-busy", "true")
+    this.resultsTarget.inert = true
+  }
+
+  markFresh() {
+    this.resultsTarget.removeAttribute("aria-busy")
+    this.resultsTarget.inert = false
+  }
+
   close() {
     clearTimeout(this.timer)
     this.pending = false
+    this.markFresh()
     this.resultsTarget.hidden = true
     this.inputTarget.setAttribute("aria-expanded", "false")
     this.statusTarget.textContent = ""
