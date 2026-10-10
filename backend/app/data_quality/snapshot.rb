@@ -9,11 +9,16 @@ class DataQuality::Snapshot
   # Blocked this many fetches in a row: stop treating it as temporary.
   BLOCKED_STREAK_LIMIT = 3
 
-  def self.take(source, fetcher:)
+  # binary: fetch raw bytes. With a block, the block turns the fetched body
+  # into the text that's stored (e.g. the rows of a spreadsheet that matter),
+  # and the hash is of that text, so unrelated changes to the file don't
+  # count as changes.
+  # same_origin: don't follow a redirect to another site (see Fetcher#get).
+  def self.take(source, fetcher:, binary: false, same_origin: false, &to_text)
     # At most one fetch per source per calendar day (in the app's time zone).
     return :skipped_recent if source.fetched_at&.to_date == Date.current
 
-    response = fetcher.get(source.url, etag: source.etag, last_modified: source.last_modified)
+    response = fetcher.get(source.url, etag: source.etag, last_modified: source.last_modified, binary:, same_origin:)
     attempt = { fetched_at: Time.current, http_status: response.status }
 
     case response.kind
@@ -24,11 +29,12 @@ class DataQuality::Snapshot
         return :error
       end
 
-      sha = Digest::SHA256.hexdigest(response.body)
+      text = convert(response.body, source, attempt, &to_text)
+      sha = Digest::SHA256.hexdigest(text)
       changed = sha != source.content_sha256
-      title = DataQuality::PageTitle.from(response.body, content_type: response.content_type)
+      title = DataQuality::PageTitle.from(response.body, content_type: response.content_type) unless binary
       source.update!(attempt.merge(fresh(source, response))
-        .merge(content_text: response.body, content_sha256: sha, title: title || source.title))
+        .merge(content_text: text, content_sha256: sha, title: title || source.title))
       changed ? :changed : :unchanged
     when :not_modified
       source.update!(attempt.merge(fresh(source, response)))
@@ -49,6 +55,16 @@ class DataQuality::Snapshot
       :error
     end
   end
+
+  # The body as the text to store. A conversion that fails still counts as
+  # today's fetch, so a rerun the same day doesn't download the file again.
+  def self.convert(body, source, attempt)
+    block_given? ? yield(body) : body
+  rescue StandardError
+    source.update!(attempt)
+    raise
+  end
+  private_class_method :convert
 
   # A successful fetch clears any block. Validators are only replaced when
   # the server sends new ones (a 304 may omit them).
