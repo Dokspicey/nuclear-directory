@@ -5,6 +5,6 @@
 # attributes: FactWriter attribute names with their current values; links
 #             also carry their ends' names (organization_name, facility_name,
 #             from_organization_name, to_organization_name, parent_name)
-# evidence:   Directory::EvidenceRefs
+# evidence:   an array of Directory::EvidenceRef
 # last_event: the latest Directory::VerificationEventRef, or nil
 Directory::PendingFactRef = Data.define(:type, :id, :kind, :attributes, :evidence, :created_at, :last_event)
