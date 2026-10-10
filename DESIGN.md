@@ -18,7 +18,8 @@ Read this before building or changing any view. It holds the rules; the code liv
 - **Spacing:** Tailwind's default scale is already 4px-based, so `gap-2` is `space-2` (8px), `p-4` is `space-4` (16px), `gap-6`, `p-8`, `py-12`, `gap-16` likewise. Stick to 1, 2, 3, 4, 6, 8, 12 and 16. Page width: `max-w-content`; running text: `max-w-prose`.
 - **Radius:** `rounded-sm` (3px) for controls and chips, `rounded-md` (6px) for cards and panels, none for tables and banners.
 - **Icons:** `<%= icon("flag") %>`, `<%= icon("graph", weight: :bold) %>`, `<%= icon("check", size: 12, label: "Verified") %>`. Sizes are 12, 16, 20 or 24. Pass `label:` only when the icon carries meaning without a word next to it (rare). To add an icon, copy both weights from Phosphor 2.1.1 into the two folders under the same name.
-- **Component classes:** `nd-btn` (Button), `nd-search` (SearchField), `nd-az` (AZIndex), `nd-filterbar` + `nd-chip` + `nd-select` + `nd-toggle` (FilterBar), `nd-card` (OrgCard), `nd-table` (DirectoryTable), `nd-badge` (VerificationBadge), `nd-conf` (ConfidenceMeter), `nd-src` (SourceChip), `nd-banner` (ProfileHeader), `nd-tabs` (Tabs), `nd-overview` (OverviewPanel), `nd-empty` (EmptyState), `nd-graph` (RelationshipGraph), `nd-mono` (organization initials), `nd-tag` (role and technology tags).
+- **Component classes:** `nd-btn` (Button), `nd-search` (SearchField), `nd-az` (AZIndex), `nd-filterbar` + `nd-chip` + `nd-select` + `nd-toggle` (FilterBar), `nd-card` (OrgCard), `nd-table` (DirectoryTable), `nd-badge` (VerificationBadge), `nd-conf` (ConfidenceMeter), `nd-src` (SourceChip), `nd-profile` (ProfileHeader; `nd-banner` is the earlier black version, kept on `/design` but not used on pages), `nd-tabs` (Tabs), `nd-overview` (OverviewPanel), `nd-notice` (EmptyState: one line and an action, used by the `empty_state` partial; `nd-empty` is the boxed version on `/design`, not used on pages), `nd-graph` (RelationshipGraph), `nd-mono` (organization initials), `nd-tag` (role and technology tags).
+- **Shared partials** (`backend/app/views/shared/`): build public pages from these instead of copying markup. `site_header`, `category_pills`, `category_boxes`, `company_row`, `plant_row`, `profile_header`, `fact_row`, `source_chip`, `sources_list`, `confidence`, `verified_badge`, `overview_panel`, `missing_fields` ("Not verified yet"), `empty_state`. Each one leaves out a field that's empty rather than showing a placeholder. `/design` renders each with mock records, with its optional fields filled and again with them empty. Wording (relationship verbs, plant types and statuses, role names, confidence words) lives in `DirectoryHelper`; the eight categories live in `Category`.
 - **Public pages show verified facts only.** Pending and rejected badges belong to the maintainer queue.
 
 Token names below (`paper`, `ink-muted`, `space-4`, `radius-sm`, ...) are the same names as the utilities and `--nd-*` variables above.
@@ -58,7 +59,7 @@ The system is **monochrome**. Ink on paper, a gray scale, hairlines and three ty
 
 ### Type
 Fonts come from techequity.us.
-- **Anton** (`display`) for the loudest moments only: `display` for the home headline and `title-lg` for an org or facility name in the `ProfileHeader`. Always uppercase, weight 400, never bold or italic. Never more than one Anton element per screen region.
+- **Anton** (`display`) for the loudest moments only: the wordmark, and `display` for a home headline if one is ever needed. Company and plant names are set in Roboto Serif (`nd-profile__name`), not Anton. Always uppercase, weight 400, never bold or italic. Never more than one Anton element per screen region.
 - **Roboto Serif** (`text`) for everything you read and operate: `title-md`, `body`, `body-strong`, `ui`, `small`, `label`.
 - **Roboto Mono** (`mono`), from the same Roboto family, for everything you compare or copy: `data` and `data-sm`. Docket numbers, capacities, dates, counts and source domains.
 - Never set running text or a number in Anton, and never set a heading in mono.
@@ -86,7 +87,7 @@ The approved high-fidelity designs are on the [Nuclear Directory Screens canvas]
 | Home | One job: search. Wordmark, one large `SearchField` with instant results grouped as Companies and Plants and sites, four suggested searches, the eight category boxes below. No intro text. | Google, Wikipedia |
 | Directory and search results | One page. Compact search in the header, the eight categories as pills, a heading with the count, Technology/State/Sort, then a dense list of rows that link to each page. No CSV export in v1. | Global Energy Monitor tracker, Fonts In Use |
 | No results | One line that names the query, with "Clear search" or "Suggest a company" | Cosmos "not on Cosmos" |
-| Organization page | Black `ProfileHeader`, `Tabs` (Overview · Relationships · Facilities · Sources), `OverviewPanel` pinned right | Parallel company profiles (Astronaut Monastery) |
+| Company page | One scrolling page, no tabs: `ProfileHeader` (initials, name, one-line description, tags), Deals and links, Plants and sites, Sources; `OverviewPanel` on the right. The black banner was dropped in the approved design. | Parallel company profiles, Wikipedia |
 | Relationship map | `RelationshipGraph`: selected org in the center, hairline edges, detail panel on the right | Memotron graph, Fibery workspace map |
 | Landscape view (later) | The whole graph at once, for the home page only | Delphi |
 
@@ -117,7 +118,7 @@ Not on the home page: `coolant` and its sub-roles, `regulatory_consultant`, `gov
 ## Iconography
 
 - The icon set is **Phosphor** (MIT licence), chosen because one family gives two matching weights. The files the site uses so far are in the `Icons` asset group.
-- **Regular** for everything on paper: controls, chips, lists, search. **Bold** only on the black `ProfileHeader` banner, inside solid `inverse` badges, and next to Anton.
+- **Regular** for everything on paper: controls, chips, lists, search. **Bold** only inside solid `inverse` badges and fills, and next to Anton.
 - Sizes: 16px in buttons, chips and table cells; 12px inside badges and source chips; 20px in the search field and lists; 24px in empty states. Use the `nd-ic` classes.
 - Icons take `currentColor`: `ink` by default, `ink-muted` beside metadata, `on-inverse` on the banner. Inline the SVG so the colour follows the text.
 - Fixed meanings: `magnifying-glass` search · `sliders-horizontal` filters · `graph` relationship map · `buildings` organization · `factory` facility · `link` source · `arrow-square-out` opens a source · `check` verified · `clock` pending · `x` rejected · `map-pin` location · `coins` investment · `plug` power and offtake · `flag` report a correction · `download-simple` export. Don't reuse one for another meaning.
