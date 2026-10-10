@@ -130,7 +130,7 @@ class DataQuality::Plugins::NrcReactorList < DataQuality::Plugin
         "state" => [ answer["state"], unit.state ],
         "operator" => [ answer["operator"], unit.owner_operator ]
       }.filter_map { |field, (said, table)| differs(field, said, table) unless said == table }
-        .tap { |problems| problems << "its quote isn't the table row as written" unless answer["quote"] == line }
+        .tap { |problems| problems << differs("quote", answer["quote"], line) unless answer["quote"] == line }
     end
 
     def differs(field, said, table) = "#{field}: model said #{said.inspect}, table says #{table.inspect}"
@@ -157,7 +157,8 @@ class DataQuality::Plugins::NrcReactorList < DataQuality::Plugin
 
       # "state" is NRC's, which is the state of the city Location measures
       # from; near a border that's not the plant's (Salem NJ shows as DE).
-      # It's evidence, and EIA's plant state wins for that field.
+      # It's evidence; EIA's plant state is to win for that field (planned in
+      # the EIA plug-in, #72).
       [
         { kind: "facility", quote: line, payload: facility.merge(
           "facility_type" => "power_reactor", "status" => "operating", "reactor_type" => unit.reactor_type,

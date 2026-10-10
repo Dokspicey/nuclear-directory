@@ -119,7 +119,7 @@ class DataQuality::Plugins::NrcReactorList::ExtractTest < ActiveSupport::TestCas
     assert_equal 3, run.stats["ai_check"]["disagreed"]
     assert_match 'name: model said "DC Cook 1", table says "D.C. Cook 1"', candidates_for("05000315").first.notes
     assert_match "operator: model said", candidates_for("05000259").first.notes
-    assert_match "quote isn't the table row", candidates_for("05200026").first.notes
+    assert_match 'quote: model said "Vogtle 4 |  05200026', candidates_for("05200026").first.notes
   end
 
   test "an operator is only confirmed through a row the model agreed on" do
@@ -141,7 +141,9 @@ class DataQuality::Plugins::NrcReactorList::ExtractTest < ActiveSupport::TestCas
     extract(FakeModel.new { |units| units.map { |u| u["nrc_docket"] == "05000416" ? u.merge("quote" => "Grand Gulf 1 is a BWR") : u } })
 
     assert candidates_for("05000416").all?(&:status_needs_review?)
-    assert_match "quote isn't the table row", candidates_for("05000416").first.notes
+    notes = candidates_for("05000416").first.notes
+    assert_match 'quote: model said "Grand Gulf 1 is a BWR", table says "Grand Gulf 1 | 05000416 |', notes,
+      "both quotes are shown, so a reviewer can compare them"
   end
 
   test "a unit the model skips still gets candidates, sent to review" do

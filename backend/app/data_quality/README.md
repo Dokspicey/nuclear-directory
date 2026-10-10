@@ -91,7 +91,8 @@ is measured on a source we can check before it's trusted on messier ones. Per un
 (`facility`), its operator (`organization`, one per name) and an `operates` link. The unit's `state` is
 evidence, not the final word: NRC's Location measures from a nearby city, which near a border is in
 another state (Salem and Hope Creek are in NJ, listed from "Wilmington, DE"; Catawba SC; Fermi 2 MI).
-EIA's plant state wins for that field (Tosin's decision; the EIA plug-in applies it).
+EIA's plant state will win for that field (Tosin's decision). That's planned in the EIA plug-in (#72,
+not merged yet); until then NRC's state is stored as is.
 
 ## Talking to the directory
 
