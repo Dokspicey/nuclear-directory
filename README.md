@@ -29,8 +29,13 @@ docker compose up
 Then open http://localhost:3000. Stop with `Ctrl+C`; add `-d` to `up` to run it
 in the background and `docker compose down` to stop it.
 
-`db:prepare` creates the database and runs migrations. Rerun it after pulling
-new migrations.
+`db:prepare` creates the database, runs migrations and, on first setup, loads
+the seed data (roles and technologies). Rerun it after pulling new migrations.
+After pulling changes to `backend/db/seeds.rb`, reload the seeds (safe to re-run):
+
+```bash
+docker compose run --rm web bin/rails db:seed
+```
 
 ## Run the tests
 
