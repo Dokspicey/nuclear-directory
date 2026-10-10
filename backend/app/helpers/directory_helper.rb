@@ -40,6 +40,8 @@ module DirectoryHelper
 
   ROLE_LABELS = {
     "fuel" => "Fuel supplier",
+    "mining" => "Uranium mining and milling",
+    "conversion" => "Uranium conversion",
     "enrichment" => "Enrichment",
     "fabrication" => "Fuel fabrication",
     "reactor_vendor" => "Reactor developer",
@@ -51,7 +53,13 @@ module DirectoryHelper
     "regulatory_consultant" => "Regulatory consultant",
     "venture_capital" => "Investor",
     "government_agency" => "Government agency",
-    "national_lab" => "National lab"
+    "national_lab" => "National lab",
+    "molten_salt" => "Molten salt coolant",
+    "water" => "Water coolant",
+    "helium" => "Helium coolant",
+    "sodium" => "Sodium coolant",
+    "lead" => "Lead coolant",
+    "heavy_water" => "Heavy water"
   }.freeze
 
   # Bars filled out of 3, and the word shown beside them.

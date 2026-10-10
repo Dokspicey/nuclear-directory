@@ -12,8 +12,12 @@ class CategoryTest < ActiveSupport::TestCase
     assert_nil Category.find("nope")
   end
 
-  test "every role key a category uses exists in the seed lookup" do
-    seeded = File.read(Rails.root.join("db/seeds.rb")).scan(/\[ "([a-z_]+)", /).flatten
-    Category.all.flat_map(&:role_keys).each { |key| assert_includes seeded, key }
+  test "every role key a category uses is a seeded role" do
+    roles_block = File.read(Rails.root.join("db/seeds.rb"))[/^ROLES = \[(.*?)^\]\.freeze/m, 1]
+    seeded_roles = roles_block.scan(/\[ "([a-z_]+)", /).flatten
+
+    assert_includes seeded_roles, "reactor_vendor"
+    assert_not_includes seeded_roles, "fusion"
+    Category.all.flat_map(&:role_keys).each { |key| assert_includes seeded_roles, key }
   end
 end
