@@ -20,9 +20,11 @@ module DataQuality::Budget
   def self.usage_this_month(now: Time.current)
     start = now.beginning_of_month
     key = start.strftime("%Y-%m")
-    # Runs never last a day (abandoned after 2 hours), so a run whose calls
-    # fall in this month started no earlier than the day before it.
-    runs = CrawlRun.where(started_at: (start - 1.day)..)
+    # Every run: one started long ago can still be making calls this month
+    # (the abandoned-run sweep doesn't stop a run that's really working).
+    # by_month picks out this month's share; older runs without it count by
+    # start month. The table is small, one row per stage run.
+    runs = CrawlRun.all
     month = ->(field, cast) do
       "COALESCE(SUM(CASE WHEN stats -> 'llm' -> 'by_month' IS NOT NULL " \
         "THEN (stats -> 'llm' -> 'by_month' -> #{CrawlRun.connection.quote(key)} ->> '#{field}')::#{cast} " \

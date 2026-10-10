@@ -61,6 +61,17 @@ class DataQuality::BudgetTest < ActiveSupport::TestCase
     end
   end
 
+  test "a long-running run started weeks ago still counts its calls made this month" do
+    CrawlRun.create!(stage: "verify", source_kind: "dummy", started_at: Time.zone.parse("2026-09-25 10:00"),
+      stats: { "llm" => { "cost" => 3.0, "by_month" => {
+        "2026-09" => { "calls" => 1, "total_tokens" => 10, "cost" => 1.0 },
+        "2026-10" => { "calls" => 2, "total_tokens" => 20, "cost" => 2.0 } } } })
+
+    travel_to(Time.zone.parse("2026-10-20 12:00")) do
+      assert_equal({ calls: 2, total_tokens: 20, cost: 2.0 }, DataQuality::Budget.usage_this_month)
+    end
+  end
+
   test "runs recorded before per-month usage still count by the month they started" do
     spend(0.25) # no by_month, started this month
     spend(1.0, at: 1.month.ago)
