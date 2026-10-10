@@ -65,6 +65,7 @@ class DirectoryListing
     scope = sites.verified.or(sites.where(id: Facility.verified.where.not(parent_id: nil).select(:parent_id)))
     scope = matching_plants(scope) if query
     scope = scope.where(state:) if state
+    scope = plants_with_technology(scope) if technology
     scope
   end
 
@@ -139,6 +140,17 @@ class DirectoryListing
     end
 
     # A technology key (fission, smr) or a coolant sub-role key (molten_salt).
+    # Sites whose own technology, or a verified unit's, is the chosen one or a
+    # sub-technology of it. Coolant is a company role, so it hides plants.
+    def plants_with_technology(scope)
+      technology_record = Technology.find_by(key: technology)
+      return scope.none unless technology_record
+
+      tech_ids = Technology.where(id: technology_record.id).or(Technology.where(parent_id: technology_record.id)).select(:id)
+      units = Facility.verified.where.not(parent_id: nil).where(technology_id: tech_ids).select(:parent_id)
+      scope.where(technology_id: tech_ids).or(scope.where(id: units))
+    end
+
     # A technology includes its sub-technologies: Fission includes SMR.
     def with_technology(scope)
       if (technology_record = Technology.find_by(key: technology))

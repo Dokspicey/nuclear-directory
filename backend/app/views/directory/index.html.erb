@@ -47,7 +47,7 @@
     <% elsif listing.filtered? %>
       <%= render "shared/empty_state", message: "Nothing matches these filters.", action_label: "Clear filters", action_url: directory_url_for(category: listing.category) %>
     <% else %>
-      <%= render "shared/empty_state", message: "Nothing verified in this category yet." %>
+      <%= render "shared/empty_state", message: listing.category ? "Nothing verified in this category yet." : "No companies verified yet." %>
     <% end %>
   <% elsif @companies.any? && @plants.any? %>
     <section aria-labelledby="companies-heading">

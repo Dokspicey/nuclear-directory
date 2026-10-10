@@ -79,6 +79,15 @@ class DirectoryListingTest < ActiveSupport::TestCase
     assert_equal 2, DirectoryListing.category_counts["plants"]
   end
 
+  test "a technology filter narrows plants too, by the site's or a unit's technology" do
+    fusion_site = plant("Orion", technology: Technology.find_by!(key: "fusion"))
+    @unit.update!(technology: Technology.find_by!(key: "smr"))
+
+    assert_equal [ "Plant Vogtle" ], DirectoryListing.new(category: "plants", technology: "fission").plants.map(&:name)
+    assert_equal [ fusion_site.name ], DirectoryListing.new(category: "plants", technology: "fusion").plants.map(&:name)
+    assert_empty DirectoryListing.new(category: "plants", technology: "molten_salt").plants
+  end
+
   test "a parent technology filter includes its sub-technologies" do
     assert_equal [ "Kairos Power" ], names(DirectoryListing.new(technology: "fission"))
   end
