@@ -197,6 +197,9 @@ class DataQuality::Stages::Match < DataQuality::Stage
       name, docket = payload.values_at("name", "nrc_docket").map(&:presence)
       by_docket = directory.facility(nrc_docket: docket) if docket
       by_name = directory.facility(name:) if name
+      # A candidate's other names find its plant here, so it's attached
+      # without writing; its aliases are added only when it's approved.
+      by_name ||= Array(payload["aliases"]).compact_blank.lazy.filter_map { |other| directory.facility(name: other) }.first
 
       if by_docket && by_name && by_docket.id != by_name.id
         return Review.new("docket matches #{by_docket.name} but name matches #{by_name.name}")
