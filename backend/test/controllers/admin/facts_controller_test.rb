@@ -67,6 +67,18 @@ class Admin::FactsControllerTest < ActionDispatch::IntegrationTest
     assert terrapower.reload.verified?
   end
 
+  test "a published plant links to its public page; a pending one doesn't" do
+    plant = facilities(:vogtle)
+    plant.verify!(by: "human:tosin")
+
+    get admin_fact_path(type: "Facility", id: plant.id)
+    assert_select "a[href=?]", plant_path(slug: plant.slug), text: /View on site/
+
+    pending = Facility.create!(name: "Pending Plant")
+    get admin_fact_path(type: "Facility", id: pending.id)
+    assert_select "a", text: /View on site/, count: 0
+  end
+
   test "a fact type that isn't one is not found" do
     get "/admin/facts/User/1"
     assert_response :not_found

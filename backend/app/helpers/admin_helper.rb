@@ -18,6 +18,17 @@ module AdminHelper
 
   def kind_label(kind) = KIND_LABELS.fetch(kind.to_s, kind.to_s.humanize)
 
+  # The public page of a published company or plant, or nil.
+  def public_page_path(fact)
+    slug = fact.values["slug"].presence
+    return unless fact.published && slug
+
+    case fact.type
+    when "Organization" then company_path(slug:)
+    when "Facility" then plant_path(slug:)
+    end
+  end
+
   # A pending fact as one line: its name, or the link in words
   # ("Southern Company owns Vogtle 3").
   def fact_heading(fact)

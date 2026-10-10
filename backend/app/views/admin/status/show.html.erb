@@ -55,15 +55,14 @@
   <% if @runs.latest.empty? && @runs.running.empty? %>
     <p class="m-0 text-ink-muted">No runs yet.</p>
   <% else %>
-    <%# One card per run on phones (no sideways scrolling, #90): each cell carries its label. %>
-    <div class="nd-table-wrap nd-runs">
-      <table class="nd-table">
-        <thead><tr><th scope="col">Source kind</th><th scope="col">Stage</th><th scope="col">Result</th><th scope="col">Started (UTC)</th><th scope="col" class="nd-r">Time</th><th scope="col">Detail</th></tr></thead>
+    <%# The shared card table (#97): one card per run on phones, labels before values (#90). %>
+    <div class="nd-table-wrap nd-table-wrap--cards">
+      <table class="nd-table nd-table--cards">
+        <thead><tr><th scope="col">Run</th><th scope="col">Result</th><th scope="col">Started (UTC)</th><th scope="col">Time</th><th scope="col">Detail</th></tr></thead>
         <tbody>
           <% (@runs.running + @runs.latest).each do |run| %>
             <tr>
-              <td class="type-data-sm" data-label="Source kind"><%= run.source_kind %></td>
-              <td data-label="Stage"><%= run.stage.humanize %></td>
+              <th scope="row"><span class="type-data-sm"><%= run.source_kind %></span> · <%= run.stage.humanize %></th>
               <td data-label="Result">
                 <% if run.failed? %>
                   <span class="text-critical"><%= icon("warning-circle") %> Failed</span>
@@ -71,8 +70,8 @@
                   <%= run.status.humanize %>
                 <% end %>
               </td>
-              <td class="type-data-sm whitespace-nowrap" data-label="Started (UTC)"><%= run.started_at.utc.strftime("%Y-%m-%d %H:%M") %></td>
-              <td class="nd-num whitespace-nowrap" data-label="Time"><%= run_duration(run.duration) %></td>
+              <td class="type-data-sm" data-label="Started (UTC)"><%= run.started_at.utc.strftime("%Y-%m-%d %H:%M") %></td>
+              <td class="type-data-sm" data-label="Time"><%= run_duration(run.duration) %></td>
               <td class="type-small" data-label="Detail"><%= run.failed? ? run.error.to_s.truncate(160) : run_detail(run.stats) %></td>
             </tr>
           <% end %>

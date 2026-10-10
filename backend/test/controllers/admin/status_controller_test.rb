@@ -25,7 +25,7 @@ class Admin::StatusControllerTest < ActionDispatch::IntegrationTest
       assert_select ".nd-item__why", "HTTP 403 from AkamaiGHost, reference #18.abc"
       assert_select ".nd-item__meta", /Blocked 2 days in a row/
     end
-    assert_select "td", "nrc_reactor_list"
+    assert_select "tbody th", /nrc_reactor_list · Crawl/
     assert_select "td", /Error pulling: -1/
     assert_select "section", /of the \$5\.00 monthly budget/
     assert_select "a", text: /PostHog/, count: 0
