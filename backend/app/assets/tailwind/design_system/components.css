@@ -380,6 +380,6 @@
     .nd-form__actions .nd-btn { width: 100%; justify-content: center; height: 44px; }
   }
   @media (pointer: coarse) {
-    .nd-factrow__fix { display: inline-flex; align-items: center; min-height: 44px; }
+    .nd-factrow__fix, .nd-overview__fix, .nd-gaps .nd-btn { display: inline-flex; align-items: center; min-height: 44px; }
   }
 }
