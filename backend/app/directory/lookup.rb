@@ -46,7 +46,7 @@ module Directory
 
     # Facts of one kind waiting for a human's decision (verification_status
     # pending; never rejected or unpublished), oldest first, as
-    # Directory::PendingFactRefs. Page with after_id: the last id seen.
+    # an array of Directory::PendingFactRef. Page with after_id: the last id seen.
     #
     #   Directory::Lookup.pending_facts(kind: "facility_relationship", limit: 50)
     def pending_facts(kind:, after_id: nil, limit: 50)
@@ -312,7 +312,9 @@ module Directory
       end
 
       def latest_events(type, ids)
-        VerificationEvent.where(subject_type: type, subject_id: ids).order(:created_at, :id)
+        # Only the newest event per fact (Postgres DISTINCT ON), not the whole history.
+        VerificationEvent.where(subject_type: type, subject_id: ids)
+          .select("DISTINCT ON (subject_id) verification_events.*").order(:subject_id, created_at: :desc, id: :desc)
           .index_by(&:subject_id).transform_values { |event| VerificationEventRef.from(event) }
       end
 
