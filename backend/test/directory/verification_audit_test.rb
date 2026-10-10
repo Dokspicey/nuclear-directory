@@ -94,7 +94,7 @@ class Directory::VerificationAuditTest < ActiveSupport::TestCase
     @org.reject!(by: "agent:verifier/x") # the pipeline retiring its own proposal
     assert_raises(ActiveRecord::RecordInvalid) { @org.verify!(by: "agent:verifier/x") }
     unprotected = write(:organization, { id: @org.id }, verification: { status: "verified", by: "agent:verifier/x" })
-    assert_match "only a human can change it", unprotected.errors.join
+    assert_match "was rejected by agent:verifier/x", unprotected.errors.join
 
     @org.reload.verify!(by: "human:tosin")
     assert @org.reload.verified?
@@ -105,6 +105,32 @@ class Directory::VerificationAuditTest < ActiveSupport::TestCase
 
     assert_raises(ActiveRecord::RecordInvalid) { @org.reload.update!(verification_status: "verified") }
     assert @org.reload.rejected?
+  end
+
+  test "any decision on an existing fact must say who makes it, so no event is misattributed" do
+    @org.verify!(by: "human:tosin")
+
+    error = assert_raises(ActiveRecord::RecordInvalid) { @org.reload.update!(verification_status: "pending") }
+    assert_match "needs who decided", error.message
+    assert_equal 1, history(@org).size
+  end
+
+  test "an agent repeating a closed decision can't edit the fact" do
+    @org.reject!(by: "agent:verifier/x")
+
+    result = write(:organization, { id: @org.id, hq_city: "Bellevue" }, verification: { status: "rejected", by: "agent:verifier/x" })
+    assert_not result.ok?
+    assert_nil @org.reload.hq_city
+  end
+
+  test "write_many fails a write missing its kind or attributes, not the batch" do
+    results = Directory::FactWriter.write_many([
+      { attributes: { id: @org.id } },
+      { kind: :organization, attributes: { id: @org.id }, verification: { status: "verified", by: "human:tosin" } }
+    ])
+
+    assert_equal [ false, true ], results.map(&:ok?)
+    assert_match "missing write keys: kind", results.first.errors.join
   end
 
   test "write_many fails a write with a misspelled key instead of dropping it" do
