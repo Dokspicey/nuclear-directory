@@ -40,16 +40,13 @@ module Seed
     end
 
     private
-      # One sources row per URL. Sources belong to the data quality side, so
-      # they're written directly rather than through FactWriter.
+      # One sources row per URL. Sources belong to the data quality module,
+      # so they're created through its entry point, not FactWriter.
       def write_sources(docs)
         items = docs.values.flat_map { |doc| evidence_items(doc) }
         items.group_by { |item| item["source_url"] }.to_h do |url, group|
-          source = Source.find_or_initialize_by(url: url)
-          source.source_kind ||= "web_page"
-          source.published_on ||= group.filter_map { |item| item["published"] }.min
-          source.save!
-          [ url, source.id ]
+          published_on = group.filter_map { |item| item["published"] }.min
+          [ url, DataQuality::Sources.find_or_create(url: url, published_on: published_on).id ]
         end
       end
 

@@ -56,22 +56,20 @@ The quotes stop zsh from treating `[...]` as a file pattern.
 Create `plugins/<source_kind>.rb` defining `DataQuality::Plugins::<SourceKind> < DataQuality::Plugin`
 with `crawl(run)` and `extract(source, run)` (see `plugin.rb`). Match and verify are shared.
 
-## What the module expects from the directory (#32)
+## Talking to the directory
 
-`directory_client.rb` calls exactly this. The fakes in
-`test/data_quality/support/fake_directory.rb` implement the same calls.
+The contract is in [`app/directory/README.md`](../directory/README.md).
+`directory_client.rb` uses `Directory::Lookup.organization` / `.facility` and
+`Directory::FactWriter.write(kind, attributes, evidence: [...], verification: {...})`.
 
-```ruby
-Directory::Lookup.find_organization(name:, domain:)   # => object with #id, or nil
-Directory::Lookup.find_facility(name:, nrc_docket:)    # => object with #id, or nil
+Two tests keep the module and the directory in step:
+- `directory_client_test.rb` runs `DirectoryClient`, and the whole pipeline,
+  against the real directory classes.
+- It also checks that the fakes in `support/fake_directory.rb` have the same
+  method signatures as the real interfaces.
 
-Directory::FactWriter.write(
-  kind:,         # candidate kind, e.g. "organization"
-  attributes:,   # candidate payload hash
-  subject:,      # { type:, id: } of the matched record, or nil to create
-  evidence:,     # { source_id:, quote:, found_by:, confidence:, crawl_run_id: }
-  verified_by:   # e.g. "agent:verifier/<model>"
-) # => result with #success?, #record_type, #record_id, #errors
-```
+## Giving others a source
 
-If #32 settles on different names, change `directory_client.rb` and the fakes. Nothing else.
+Sources belong to this module. Code outside it (e.g. the seed loader) gets one
+with `DataQuality::Sources.find_or_create(url:, source_kind:, published_on:)`,
+which returns a plain `SourceRef`.

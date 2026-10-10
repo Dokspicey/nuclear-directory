@@ -33,12 +33,15 @@ class DataQuality::PipelineTest < ActiveSupport::TestCase
 
     assert_equal 2, @writer.writes.size
     write = @writer.writes.first
-    assert_equal({ type: "Organization", id: 7 }, write[:subject])
-    assert_equal "crawler", write[:evidence][:found_by]
-    assert_equal existing.source_id, write[:evidence][:source_id]
-    assert_equal "Acme Nuclear", write[:evidence][:quote]
-    assert_equal runs.last.id, write[:evidence][:crawl_run_id]
-    assert_nil @writer.writes.second[:subject], "unmatched candidates create a new record"
+    assert_equal "organization", write[:kind]
+    assert_equal({ name: "Acme Nuclear", id: 7 }, write[:attributes], "a matched candidate updates its record")
+    evidence = write[:evidence].sole
+    assert_equal "crawler", evidence[:found_by]
+    assert_equal existing.source_id, evidence[:source_id]
+    assert_equal "Acme Nuclear", evidence[:quote]
+    assert_equal runs.last.id, evidence[:crawl_run_id]
+    assert_equal "verified", write[:verification][:status]
+    assert_nil @writer.writes.second[:attributes][:id], "unmatched candidates create a new record"
   end
 
   test "by default nothing is published; everything goes to review" do

@@ -30,8 +30,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_10_000001) do
     t.index ["source_id"], name: "index_candidates_on_source_id"
     t.index ["status", "kind"], name: "index_candidates_on_status_and_kind"
     t.index ["subject_type", "subject_id"], name: "index_candidates_on_subject"
-    t.check_constraint "kind::text = ANY (ARRAY['organization'::character varying, 'organization_alias'::character varying, 'organization_role'::character varying, 'organization_technology'::character varying, 'facility'::character varying, 'relationship'::character varying, 'facility_relationship'::character varying]::text[])", name: "candidates_kind_check"
-    t.check_constraint "status::text = ANY (ARRAY['new'::character varying, 'matched'::character varying, 'merged'::character varying, 'rejected'::character varying, 'needs_review'::character varying]::text[])", name: "candidates_status_check"
+    t.check_constraint "kind::text = ANY (ARRAY['organization'::character varying::text, 'organization_alias'::character varying::text, 'organization_role'::character varying::text, 'organization_technology'::character varying::text, 'facility'::character varying::text, 'relationship'::character varying::text, 'facility_relationship'::character varying::text])", name: "candidates_kind_check"
+    t.check_constraint "status::text = ANY (ARRAY['new'::character varying::text, 'matched'::character varying::text, 'merged'::character varying::text, 'rejected'::character varying::text, 'needs_review'::character varying::text])", name: "candidates_status_check"
   end
 
   create_table "crawl_runs", force: :cascade do |t|
@@ -47,8 +47,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_10_000001) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["stage", "started_at"], name: "index_crawl_runs_on_stage_and_started_at"
-    t.check_constraint "stage::text = ANY (ARRAY['crawl'::character varying, 'extract'::character varying, 'match'::character varying, 'verify'::character varying]::text[])", name: "crawl_runs_stage_check"
-    t.check_constraint "status::text = ANY (ARRAY['running'::character varying, 'succeeded'::character varying, 'failed'::character varying]::text[])", name: "crawl_runs_status_check"
+    t.check_constraint "stage::text = ANY (ARRAY['crawl'::character varying::text, 'extract'::character varying::text, 'match'::character varying::text, 'verify'::character varying::text])", name: "crawl_runs_stage_check"
+    t.check_constraint "status::text = ANY (ARRAY['running'::character varying::text, 'succeeded'::character varying::text, 'failed'::character varying::text])", name: "crawl_runs_status_check"
   end
 
   create_table "evidence", force: :cascade do |t|
@@ -64,7 +64,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_10_000001) do
     t.index ["source_id"], name: "index_evidence_on_source_id"
     t.index ["subject_type", "subject_id"], name: "index_evidence_on_subject"
     t.check_constraint "confidence IS NULL OR confidence >= 0::numeric AND confidence <= 1::numeric", name: "evidence_confidence_check"
-    t.check_constraint "found_by::text = ANY (ARRAY['crawler'::character varying, 'verifier'::character varying, 'human'::character varying]::text[])", name: "evidence_found_by_check"
+    t.check_constraint "found_by::text = ANY (ARRAY['crawler'::character varying::text, 'verifier'::character varying::text, 'human'::character varying::text])", name: "evidence_found_by_check"
   end
 
   create_table "facilities", force: :cascade do |t|
@@ -95,8 +95,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_10_000001) do
     t.index ["verification_status"], name: "index_facilities_on_verification_status"
     t.check_constraint "confidence IS NULL OR confidence >= 0::numeric AND confidence <= 1::numeric", name: "facilities_confidence_check"
     t.check_constraint "facility_type::text = ANY (ARRAY['power_reactor'::character varying, 'research_reactor'::character varying, 'fuel_facility'::character varying, 'enrichment'::character varying, 'fusion_facility'::character varying, 'other'::character varying, 'uranium_mine'::character varying, 'mill'::character varying]::text[])", name: "facilities_facility_type_check"
-    t.check_constraint "status::text = ANY (ARRAY['operating'::character varying, 'under_construction'::character varying, 'planned'::character varying, 'shut_down'::character varying, 'decommissioning'::character varying]::text[])", name: "facilities_status_check"
-    t.check_constraint "verification_status::text = ANY (ARRAY['pending'::character varying, 'verified'::character varying, 'rejected'::character varying]::text[])", name: "facilities_verification_status_check"
+    t.check_constraint "status::text = ANY (ARRAY['operating'::character varying::text, 'under_construction'::character varying::text, 'planned'::character varying::text, 'shut_down'::character varying::text, 'decommissioning'::character varying::text])", name: "facilities_status_check"
+    t.check_constraint "verification_status::text = ANY (ARRAY['pending'::character varying::text, 'verified'::character varying::text, 'rejected'::character varying::text])", name: "facilities_verification_status_check"
   end
 
   create_table "facility_relationships", force: :cascade do |t|
@@ -119,8 +119,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_10_000001) do
     t.index ["verification_status"], name: "index_facility_relationships_on_verification_status"
     t.check_constraint "confidence IS NULL OR confidence >= 0::numeric AND confidence <= 1::numeric", name: "facility_relationships_confidence_check"
     t.check_constraint "ownership_pct IS NULL OR ownership_pct >= 0::numeric AND ownership_pct <= 100::numeric", name: "facility_relationships_ownership_pct_check"
-    t.check_constraint "relationship_type::text = ANY (ARRAY['owns'::character varying, 'operates'::character varying, 'vendor_for'::character varying, 'offtakes_from'::character varying]::text[])", name: "facility_relationships_relationship_type_check"
-    t.check_constraint "verification_status::text = ANY (ARRAY['pending'::character varying, 'verified'::character varying, 'rejected'::character varying]::text[])", name: "facility_relationships_verification_status_check"
+    t.check_constraint "relationship_type::text = ANY (ARRAY['owns'::character varying::text, 'operates'::character varying::text, 'vendor_for'::character varying::text, 'offtakes_from'::character varying::text])", name: "facility_relationships_relationship_type_check"
+    t.check_constraint "verification_status::text = ANY (ARRAY['pending'::character varying::text, 'verified'::character varying::text, 'rejected'::character varying::text])", name: "facility_relationships_verification_status_check"
   end
 
   create_table "organization_aliases", force: :cascade do |t|
@@ -147,7 +147,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_10_000001) do
     t.index ["role_id"], name: "index_organization_roles_on_role_id"
     t.index ["verification_status"], name: "index_organization_roles_on_verification_status"
     t.check_constraint "confidence IS NULL OR confidence >= 0::numeric AND confidence <= 1::numeric", name: "organization_roles_confidence_check"
-    t.check_constraint "verification_status::text = ANY (ARRAY['pending'::character varying, 'verified'::character varying, 'rejected'::character varying]::text[])", name: "organization_roles_verification_status_check"
+    t.check_constraint "verification_status::text = ANY (ARRAY['pending'::character varying::text, 'verified'::character varying::text, 'rejected'::character varying::text])", name: "organization_roles_verification_status_check"
   end
 
   create_table "organization_technologies", force: :cascade do |t|
@@ -164,7 +164,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_10_000001) do
     t.index ["technology_id"], name: "index_organization_technologies_on_technology_id"
     t.index ["verification_status"], name: "index_organization_technologies_on_verification_status"
     t.check_constraint "confidence IS NULL OR confidence >= 0::numeric AND confidence <= 1::numeric", name: "organization_technologies_confidence_check"
-    t.check_constraint "verification_status::text = ANY (ARRAY['pending'::character varying, 'verified'::character varying, 'rejected'::character varying]::text[])", name: "organization_technologies_verification_status_check"
+    t.check_constraint "verification_status::text = ANY (ARRAY['pending'::character varying::text, 'verified'::character varying::text, 'rejected'::character varying::text])", name: "organization_technologies_verification_status_check"
   end
 
   create_table "organizations", force: :cascade do |t|
@@ -189,8 +189,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_10_000001) do
     t.index ["slug"], name: "index_organizations_on_slug", unique: true
     t.index ["verification_status"], name: "index_organizations_on_verification_status"
     t.check_constraint "confidence IS NULL OR confidence >= 0::numeric AND confidence <= 1::numeric", name: "organizations_confidence_check"
-    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'acquired'::character varying, 'defunct'::character varying]::text[])", name: "organizations_status_check"
-    t.check_constraint "verification_status::text = ANY (ARRAY['pending'::character varying, 'verified'::character varying, 'rejected'::character varying]::text[])", name: "organizations_verification_status_check"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'acquired'::character varying::text, 'defunct'::character varying::text])", name: "organizations_status_check"
+    t.check_constraint "verification_status::text = ANY (ARRAY['pending'::character varying::text, 'verified'::character varying::text, 'rejected'::character varying::text])", name: "organizations_verification_status_check"
   end
 
   create_table "relationships", force: :cascade do |t|
@@ -213,7 +213,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_10_000001) do
     t.check_constraint "confidence IS NULL OR confidence >= 0::numeric AND confidence <= 1::numeric", name: "relationships_confidence_check"
     t.check_constraint "from_organization_id <> to_organization_id", name: "relationships_not_self_check"
     t.check_constraint "relationship_type::text = ANY (ARRAY['supplies'::character varying, 'invests_in'::character varying, 'funds'::character varying, 'offtake_with'::character varying, 'subsidiary_of'::character varying]::text[])", name: "relationships_relationship_type_check"
-    t.check_constraint "verification_status::text = ANY (ARRAY['pending'::character varying, 'verified'::character varying, 'rejected'::character varying]::text[])", name: "relationships_verification_status_check"
+    t.check_constraint "verification_status::text = ANY (ARRAY['pending'::character varying::text, 'verified'::character varying::text, 'rejected'::character varying::text])", name: "relationships_verification_status_check"
   end
 
   create_table "roles", force: :cascade do |t|
@@ -414,7 +414,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_10_000001) do
     t.index ["domain"], name: "index_sources_on_domain"
     t.index ["source_kind"], name: "index_sources_on_source_kind"
     t.index ["url"], name: "index_sources_on_url", unique: true
-    t.check_constraint "crawl_status::text = ANY (ARRAY['pending'::character varying, 'ok'::character varying, 'blocked'::character varying, 'needs_human'::character varying]::text[])", name: "sources_crawl_status_check"
+    t.check_constraint "crawl_status::text = ANY (ARRAY['pending'::character varying::text, 'ok'::character varying::text, 'blocked'::character varying::text, 'needs_human'::character varying::text])", name: "sources_crawl_status_check"
   end
 
   create_table "technologies", force: :cascade do |t|

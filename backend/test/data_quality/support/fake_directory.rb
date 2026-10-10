@@ -1,31 +1,35 @@
-# Stand-ins for Directory::Lookup and Directory::FactWriter (#32), so the
-# module is tested without the directory. They follow the interface
-# DataQuality::DirectoryClient expects; when #32 lands, the real classes
-# must satisfy the same calls (see app/data_quality/README.md).
+# In-memory stand-ins for Directory::Lookup and Directory::FactWriter, so
+# the module's own tests don't depend on directory data. They have the same
+# method signatures and return the real value classes (OrganizationRef,
+# FacilityRef, FactWriter::Result), and directory_client_test.rb checks the
+# signatures still match, so the fakes can't drift from the real thing.
 module FakeDirectory
-  Found = Data.define(:id)
-  WriteResult = Data.define(:record_type, :record_id, :errors) do
-    def success? = errors.empty?
-  end
-
   class Lookup
     def initialize(organizations: {}, facilities: {})
       @organizations = organizations # name => id
       @facilities = facilities
     end
 
-    def find_organization(name: nil, domain: nil)
-      Found.new(id: @organizations[name]) if @organizations.key?(name)
+    def organization(id: nil, slug: nil, name: nil, domain: nil)
+      one_of!(id:, slug:, name:, domain:)
+      Directory::OrganizationRef.new(id: @organizations[name], slug: nil, name: name, domain: nil,
+        verification_status: "verified") if @organizations.key?(name)
     end
 
-    def find_facility(name: nil, nrc_docket: nil)
-      Found.new(id: @facilities[name]) if @facilities.key?(name)
+    def facility(id: nil, slug: nil, name: nil, nrc_docket: nil)
+      one_of!(id:, slug:, name:, nrc_docket:)
+      Directory::FacilityRef.new(id: @facilities[name], slug: nil, name: name, nrc_docket: nil, parent_id: nil,
+        verification_status: "verified") if @facilities.key?(name)
     end
+
+    private
+      # Same rule as the real Lookup.
+      def one_of!(**options)
+        raise ArgumentError, "pass exactly one of #{options.keys.join(", ")}" unless options.compact.size == 1
+      end
   end
 
   class FactWriter
-    TYPES = { "organization" => "Organization", "facility" => "Facility" }.freeze
-
     attr_reader :writes
 
     def initialize(fail_with: nil)
@@ -34,12 +38,12 @@ module FakeDirectory
       @next_id = 1000
     end
 
-    def write(kind:, attributes:, subject:, evidence:, verified_by:)
-      @writes << { kind:, attributes:, subject:, evidence:, verified_by: }
-      return WriteResult.new(record_type: nil, record_id: nil, errors: [ @fail_with ]) if @fail_with
+    def write(kind, attributes, evidence: [], verification: nil)
+      @writes << { kind:, attributes:, evidence:, verification: }
+      return Directory::FactWriter::Result.new(kind: kind.to_sym, id: nil, created: false, errors: [ @fail_with ]) if @fail_with
 
-      id = subject ? subject[:id] : (@next_id += 1)
-      WriteResult.new(record_type: TYPES.fetch(kind, kind.camelize), record_id: id, errors: [])
+      id = attributes[:id] || (@next_id += 1)
+      Directory::FactWriter::Result.new(kind: kind.to_sym, id: id, created: !attributes[:id], errors: [])
     end
   end
 
