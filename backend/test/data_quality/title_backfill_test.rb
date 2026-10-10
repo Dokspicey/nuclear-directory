@@ -48,6 +48,32 @@ class DataQuality::TitleBackfillTest < ActiveSupport::TestCase
     assert @article.crawl_pending?
   end
 
+  test "fetches a source at most once a day: its fetch counts as today's, and a source fetched today is skipped" do
+    @article.update!(fetched_at: Time.current)
+
+    stats = run_backfill
+
+    assert_not_requested :get, @article.url
+    assert_nil @article.reload.title
+    assert_equal 2, stats["skipped"], "the source fetched today, and the blocked one"
+    assert_equal Date.current, @second.reload.fetched_at.to_date, "a backfill fetch is today's fetch"
+    assert_equal Date.current, @blocked.reload.fetched_at.to_date, "so is a blocked one"
+
+    assert_equal :skipped_recent, DataQuality::Snapshot.take(@second, fetcher: @fetcher), "Snapshot won't fetch it again today"
+  end
+
+  test "asks conditionally; not modified takes the title from the stored page, and no validators are stored" do
+    @article.update!(etag: '"v1"', last_modified: "Wed, 01 Oct 2026 00:00:00 GMT", fetched_at: 2.days.ago,
+      content_text: "<html><head><title>Stored page title</title></head></html>")
+    stub_request(:get, @article.url).with(headers: { "If-None-Match" => '"v1"' }).to_return(status: 304)
+
+    run_backfill
+
+    assert_equal "Stored page title", @article.reload.title
+    assert_equal '"v1"', @article.etag, "kept, not replaced by a partial read's"
+    assert_nil @second.reload.etag, "a partial read stores no validators"
+  end
+
   test "reads at most the top of a page" do
     huge = "<html><head><title>Big page</title></head><body>#{'x' * 2.megabytes}</body></html>"
     stub_request(:get, @article.url).to_return(body: huge, headers: { "Content-Type" => "text/html" })
