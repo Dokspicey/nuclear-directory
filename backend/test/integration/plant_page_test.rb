@@ -169,6 +169,16 @@ class PlantPageTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "an unpublished unit or link disappears from the plant page" do
+    @unit4.unpublish!(by: "human:test")
+    FacilityRelationship.find_by!(organization: @southern).unpublish!(by: "human:test")
+    get plant_path(slug: "plant-vogtle")
+
+    assert_select "tr#unit-unit-4", count: 0
+    assert_select "body", text: /Southern Nuclear/, count: 0
+    assert_select "tr#unit-unit-3"
+  end
+
   test "link preview tags" do
     get plant_path(slug: "plant-vogtle")
 
@@ -179,7 +189,7 @@ class PlantPageTest < ActionDispatch::IntegrationTest
 
   test "hidden or unknown plants are not found" do
     plant("Pending Only", verified: false)
-    Facility.create!(name: "Rejected Station", verification_status: "rejected")
+    Facility.create!(name: "Rejected Station", verification_status: "rejected", verified_by: "human:test")
 
     %w[pending-only rejected-station nobody].each do |slug|
       get plant_path(slug:)

@@ -116,7 +116,7 @@ class DirectoryListingTest < ActiveSupport::TestCase
   end
 
   test "a rejected site never appears, even with a verified unit" do
-    rejected = Facility.create!(name: "Rejected Station", verification_status: "rejected")
+    rejected = Facility.create!(name: "Rejected Station", verification_status: "rejected", verified_by: "human:test")
     plant("Rejected Unit 1", parent: rejected)
 
     assert_not_includes DirectoryListing.new(category: "plants").plants.map(&:name), "Rejected Station"
@@ -133,9 +133,9 @@ class DirectoryListingTest < ActiveSupport::TestCase
   test "filter options come only from companies and plants the public can see" do
     hidden_tech = technology("pebble_bed", "Pebble bed")
     company("Pending Pebbles", techs: [ hidden_tech ], verified: false)
-    rejected = Facility.create!(name: "Rejected Site", verification_status: "rejected")
+    rejected = Facility.create!(name: "Rejected Site", verification_status: "rejected", verified_by: "human:test")
     plant("Rejected Unit", parent: rejected, technology: technology("sfr", "Sodium fast reactor"))
-    OrganizationRole.create!(organization: @pending, role: role("lead_coolant", parent: Role.find_by!(key: "coolant")), verification_status: "verified")
+    OrganizationRole.create!(organization: @pending, role: role("lead_coolant", parent: Role.find_by!(key: "coolant")), **verification(true))
 
     options = DirectoryListing.new.technology_options.map(&:last)
     assert_not_includes options, "pebble_bed"
@@ -172,9 +172,21 @@ class DirectoryListingTest < ActiveSupport::TestCase
 
   test "a link on a pending site itself doesn't make the site searchable" do
     site = plant("Quiet Site", verified: false).tap { |s| plant("Quiet Unit", parent: s) }
-    FacilityRelationship.create!(organization: @kairos, facility: site, relationship_type: "owns", verification_status: "verified", description: "Zebra deal.")
+    FacilityRelationship.create!(organization: @kairos, facility: site, relationship_type: "owns", verification_status: "verified", verified_by: "human:test", description: "Zebra deal.")
 
     assert_empty DirectoryListing.new(q: "zebra").plants
+  end
+
+  test "search ignores unsourced and ended links, which plant pages hide" do
+    unsourced = FacilityRelationship.find_by!(facility: @unit)
+    unsourced.update!(description: "Yak deal.")
+    assert_empty DirectoryListing.new(q: "yak").plants
+
+    unsourced.evidence.create!(source: default_source, found_by: "human", confidence: 1)
+    assert_equal [ "Plant Vogtle" ], DirectoryListing.new(q: "yak").plants.map(&:name)
+
+    unsourced.update!(ended_on: Date.new(2020, 1, 1))
+    assert_empty DirectoryListing.new(q: "yak").plants
   end
 
   test "a parent technology filter includes its sub-technologies" do
@@ -186,7 +198,7 @@ class DirectoryListingTest < ActiveSupport::TestCase
   end
 
   test "search matches plant link descriptions, finding the company and the site" do
-    FacilityRelationship.find_by!(facility: @unit).update!(description: "Co-owned with MEAG Power.")
+    cite!(FacilityRelationship.find_by!(facility: @unit)).update!(description: "Co-owned with MEAG Power.")
     listing = DirectoryListing.new(q: "meag")
 
     assert_equal [ "Kairos Power" ], names(listing)
