@@ -49,7 +49,8 @@ module Seed
         # Organizations first, so relationships can find the other side.
         docs.each { |slug, doc| write_organization(slug, doc, sources, shared) }
         docs.each { |slug, doc| write_facts(slug, doc, sources) }
-        facilities.each { |facility| write_facility_details(facility, sources) }
+        in_docs = docs.values.flat_map { |doc| Array(doc["facilities"]).map { |item| item["name"] } }.to_set
+        facilities.each { |facility| write_facility_details(facility, sources, in_docs) }
 
         raise Error, "Seed failed, nothing was written:\n  #{@errors.join("\n  ")}" if @errors.any?
       end
@@ -82,7 +83,7 @@ module Seed
 
       # A legal name is public only when one of the file's quotes states it
       # word for word (that quote is then its evidence); otherwise it's left
-      # blank, and isn't loaded as an alias either, rather than shown
+      # blank, and isn't kept as an alias either, rather than shown
       # unsourced.
       def legal_name_item(doc)
         name = doc["legal_name"].presence or return
@@ -108,14 +109,18 @@ module Seed
         legal = legal_name_item(doc)
         attributes = {
           name: doc["name"], slug: slug, legal_name: (doc["legal_name"] if legal), website: doc["website"],
-          aliases: legal ? doc["aliases"] : Array(doc["aliases"]) - [ doc["legal_name"] ],
+          aliases: doc["aliases"],
           country_code: doc["country_code"], status: doc["status"], description: description["text"],
           hq_city: hq.filter_map { |entry| entry["city"].presence }.last, hq_state: hq.filter_map { |entry| entry["state"].presence }.last
         }
         attributes[:domain] = nil if shared.include?(Organization.domain_from(doc["website"]))
 
         items = [ *hq, *description_items(doc), legal ].compact.uniq
-        write(slug, :organization, attributes, items.filter_map { |item| evidence(item, sources) })
+        # An unquoted legal name still finds a record an earlier seed loaded
+        # under it (it's in aliases), then is removed from the aliases in the
+        # same write.
+        write(slug, :organization, attributes, items.filter_map { |item| evidence(item, sources) },
+          remove_aliases: legal ? [] : Array(doc["legal_name"]))
       end
 
       def write_facts(slug, doc, sources)
@@ -173,10 +178,13 @@ module Seed
       # each is written with its own evidence. The plant must already be in an
       # organization file. A field with no value (e.g. no city, with a quote
       # naming the nearest town) is kept in the YAML but not written.
-      def write_facility_details(entry, sources)
+      def write_facility_details(entry, sources, in_docs)
         name = entry["name"]
+        # Checked against the files, not the database, so a plant left over
+        # from an earlier load or a crawl doesn't let an orphan entry through.
+        return @errors << "facilities.yml: #{name.inspect} isn't in any organization file" unless in_docs.include?(name)
+
         facility = Directory::Lookup.facility(name:)
-        return @errors << "facilities.yml: #{name.inspect} isn't in any organization file" unless facility
 
         FACILITY_FIELDS.each do |field|
           detail = entry[field]
@@ -207,9 +215,9 @@ module Seed
         FacilityRelationship.find_by(organization_id:, facility_id:, relationship_type: type)&.closed?
       end
 
-      def write(slug, kind, attributes, evidence, pending: false)
+      def write(slug, kind, attributes, evidence, pending: false, remove_aliases: [])
         result = Directory::FactWriter.write(kind, attributes, evidence: Array.wrap(evidence),
-          verification: (VERIFICATION unless pending))
+          verification: (VERIFICATION unless pending), remove_aliases:)
         if result.ok?
           @results[kind][result.created ? :created : :updated] += 1
         else

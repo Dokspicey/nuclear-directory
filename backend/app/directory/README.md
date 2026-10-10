@@ -81,6 +81,8 @@ Pass `id:` to update a fact you already know. Get ids for other records from
 
 - **Organizations**: the name is stored as an alias as well, along with
   `aliases:`. An alias already used by another organization is an error.
+  `remove_aliases:` (a keyword, with a human's `verification:`) drops
+  aliases, never the current name, e.g. a former name that has no quote.
   `domain` defaults to the website's; pass `domain: nil` to leave it blank,
   for example when several organizations share one website.
 - **Relationship types**: `supplies`, `invests_in` (equity), `funds` (grants
