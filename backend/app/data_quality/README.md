@@ -82,9 +82,38 @@ Never work around a block. `plugins/nrc_reactor_list.rb` is the reference plug-i
 | `status`, `notes` | Optional: `status: "needs_review"` with the reason in `notes` sends a candidate straight to review. The stage marks it `review_origin: "extract"`, so re-extracting a changed source replaces it (with the source's `new` candidates) instead of piling up duplicates |
 
 The extract stage adds `source_id` and `crawl_run_id`. Candidates start `new` (or `needs_review` if
-the plug-in flagged them). Match links the ones it can to directory records (`matched`), and verify
-then publishes (`merged`), sends to review (`needs_review`) or rejects (`rejected`). See
-"Matching and candidate payloads" below for match's outcomes.
+the plug-in flagged them). Match links the ones it can to directory records (`matched`). Verify then
+recommends or sends to review; a human publishes (`merged`) from the admin. See "Matching and
+candidate payloads" below for match's outcomes.
+
+## Verify recommends; a human publishes
+
+Tosin approves everything that goes public. Verify (`stages/verify.rb`) never writes to the directory.
+For each `new` or `matched` candidate:
+
+1. **Code checks first**, with no model call. These go to `needs_review`, with the reason in `notes`:
+   - its record was rejected or unpublished by a human after match attached it
+   - it disagrees with a human-verified value on its record ("human-verified state is NJ; this source
+     says DE"; names aren't compared)
+   - its quote isn't in the source as stored. Each plug-in defines that: `quote_in_source?`, by default
+     the page's visible text, and for NRC a whole table row
+2. **The verifier agent** (`Verifiers::Agent`, `OPENROUTER_VERIFY_MODEL`, prompt `verify-v1`) reads the
+   claim (`Claim.describe`) against an excerpt (`verification_context`; for NRC the header and the row),
+   15 claims per call. All model calls happen before anything is written.
+   - supported and at least 80% sure: **`ai_recommendation: "recommend_publish"`**; the candidate stays
+     `new`/`matched` and the fact stays pending
+   - anything else: `needs_review`, with the model's reason
+   - it never rejects on its own
+
+The recommendation lives on the candidate: `ai_recommendation`, `ai_reason`, `ai_confidence`, `ai_model`,
+`ai_checked_at` and `verify_run`. `Candidate.recommended` lists those waiting for approval, indexed by
+recommendation and run.
+
+**Approving** (`DataQuality::Review.approve(ids, by: "human:tosin")`) publishes each candidate in one
+FactWriter write, as a human, without the protection automated writers get: the fact, its evidence (with
+the verifier's confidence and the verify run) and `verification: { status: "verified", by:, context: {
+candidate_id, crawl_run_id } }`. An approved unit then fills its site's blank fields. #85 adds listing,
+reject, unpublish and pending directory facts.
 
 **NRC extract.** The extractor model (`OPENROUTER_EXTRACT_MODEL`, prompt `nrc-extract-v1`) reads the
 reactor table as plain lines and returns each unit with its row quoted. Every answer is checked

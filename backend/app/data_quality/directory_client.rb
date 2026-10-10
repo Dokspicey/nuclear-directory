@@ -88,7 +88,13 @@ class DataQuality::DirectoryClient
   # or unpublished isn't changed at all; the result has an error instead (FactWriter
   # protect_human_verified). Returns a WriteResult; never raises on
   # validation problems.
-  def write_fact(candidate, confidence:, crawl_run:)
+  #
+  # by: a human ("human:tosin") approving it in the admin
+  # (DataQuality::Review). A human is the authority, so their write isn't
+  # protected: it applies the candidate's values even over a human-verified
+  # fact, and records the candidate and run in the audit trail. Without by:,
+  # it's the automated writer described above.
+  def write_fact(candidate, confidence:, crawl_run:, by: nil, reason: nil)
     attributes = candidate.payload.except(*LINK_ENDS).symbolize_keys
     attributes[:id] = candidate.subject_id if candidate.subject_id
     if candidate.kind == "organization"
@@ -98,6 +104,13 @@ class DataQuality::DirectoryClient
       attributes.delete(:name) if candidate.subject_id
     end
 
+    verification =
+      if by
+        { status: "verified", by:, reason:, context: { "candidate_id" => candidate.id, "crawl_run_id" => crawl_run&.id } }.compact
+      else
+        { status: "verified", by: "agent:verifier/#{crawl_run&.model || 'unknown'}" }
+      end
+
     result = fact_writer.write(
       candidate.kind,
       attributes,
@@ -106,10 +119,10 @@ class DataQuality::DirectoryClient
         quote: candidate.quote,
         found_by: "crawler",
         confidence: confidence,
-        crawl_run_id: crawl_run.id
+        crawl_run_id: crawl_run&.id
       } ],
-      verification: { status: "verified", by: "agent:verifier/#{crawl_run.model || 'unknown'}" },
-      protect_human_verified: true
+      verification: verification,
+      protect_human_verified: by.nil?
     )
     write_result(result)
   end
@@ -147,7 +160,7 @@ class DataQuality::DirectoryClient
     return if fields.empty?
 
     result = fact_writer.write("facility", fields.merge(id: site.id), fill_blank: true, protect_human_verified: true,
-      evidence: [ { source_id: candidate.source_id, quote: candidate.quote, found_by: "crawler", crawl_run_id: crawl_run.id } ])
+      evidence: [ { source_id: candidate.source_id, quote: candidate.quote, found_by: "crawler", crawl_run_id: crawl_run&.id } ])
     write_result(result)
   end
 

@@ -6,6 +6,8 @@ require_relative "support/dummy_plugin"
 # so the module and the directory can't silently drift apart. (Tests may use
 # directory models; only module code is held to the boundary.)
 class DataQuality::DirectoryClientTest < ActiveSupport::TestCase
+  include ReviewHelpers
+
   setup do
     @client = DataQuality::DirectoryClient.new
     @run = CrawlRun.create!(stage: "verify", source_kind: "web_page", model: "vendor/verifier")
@@ -165,11 +167,18 @@ class DataQuality::DirectoryClientTest < ActiveSupport::TestCase
     assert_match "unknown attributes: favourite_colour", result.errors.join
   end
 
-  test "the dummy plug-in runs through every stage into the real directory" do
+  test "the dummy plug-in runs through every stage into the real directory, published once a human approves" do
     runs = DataQuality::Pipeline.run("dummy", plugin: DummyPlugin.new, verifier: PublishEverything.new)
 
     assert runs.all?(&:succeeded?)
-    assert_equal 2, runs.last.stats["published"]
+    assert_equal 2, runs.last.stats["recommended"]
+    assert_equal "pending", Directory::Lookup.organization(name: "NewCo Fission").verification_status,
+      "proposed by match, not published by verify"
+
+    assert approve_recommended.all?(&:ok?)
+
+    newco = Directory::Lookup.organization(name: "NewCo Fission")
+    assert_equal [ "verified", "human:tosin" ], [ newco.verification_status, newco.verified_by ]
     assert_equal %w[Acme\ Nuclear NewCo\ Fission].to_set,
       %w[Acme\ Nuclear NewCo\ Fission].filter_map { |name| Directory::Lookup.organization(name:)&.name }.to_set
   end

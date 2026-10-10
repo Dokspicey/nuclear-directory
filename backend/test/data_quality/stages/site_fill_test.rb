@@ -4,6 +4,8 @@ require_relative "../support/dummy_plugin"
 # A verified NRC unit fills its seed site's missing details, through the
 # real directory.
 class DataQuality::Stages::SiteFillTest < ActiveSupport::TestCase
+  include ReviewHelpers
+
   class UnitPlugin < DataQuality::Plugin
     def source_kind = "dummy"
   end
@@ -20,9 +22,10 @@ class DataQuality::Stages::SiteFillTest < ActiveSupport::TestCase
 
   def run_stage(stage, **) = DataQuality::Pipeline.run("dummy", plugin: UnitPlugin.new, only: stage, **)
 
-  test "publishing a unit fills only its site's blank fields, and keeps the site's verification" do
+  test "approving a unit fills only its site's blank fields, and keeps the site's verification" do
     run_stage("match")
     run_stage("verify", verifier: PublishEverything.new)
+    approve_recommended
 
     @site.reload
     assert_equal [ "power_reactor", "operating" ], [ @site.facility_type, @site.status ], "blanks filled"
@@ -41,6 +44,7 @@ class DataQuality::Stages::SiteFillTest < ActiveSupport::TestCase
     @site.update!(state: nil)
 
     run_stage("verify", verifier: PublishEverything.new)
+    approve_recommended
 
     assert_equal "GA", @site.reload.state
   end
@@ -50,6 +54,7 @@ class DataQuality::Stages::SiteFillTest < ActiveSupport::TestCase
     Facility.find_by!(nrc_docket: "05200025").reject!(by: "human:tosin")
 
     run_stage("verify", verifier: PublishEverything.new)
+    approve_recommended
 
     assert_nil @site.reload.facility_type
   end
@@ -58,6 +63,7 @@ class DataQuality::Stages::SiteFillTest < ActiveSupport::TestCase
     @site.update!(facility_type: "power_reactor", status: "operating")
     run_stage("match")
     run_stage("verify", verifier: PublishEverything.new)
+    approve_recommended
 
     assert_empty @site.reload.evidence, "the site had everything but a disagreeing state; nothing to fill"
   end
@@ -66,11 +72,11 @@ class DataQuality::Stages::SiteFillTest < ActiveSupport::TestCase
     run_stage("match")
     @site.reject!(by: "human:tosin")
 
-    run = run_stage("verify", verifier: PublishEverything.new).last
+    run_stage("verify", verifier: PublishEverything.new)
+    approve_recommended
 
     assert_nil @site.reload.facility_type
     assert_empty @site.evidence
-    assert_equal 1, run.stats["site_not_filled"]
     assert_match "Site not filled:", Candidate.find_by!(kind: "facility").notes
   end
 

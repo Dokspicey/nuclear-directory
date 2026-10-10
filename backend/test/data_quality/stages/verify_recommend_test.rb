@@ -1,0 +1,107 @@
+require "test_helper"
+require_relative "../support/dummy_plugin"
+
+# Verify only recommends (#15, Tosin: "I should have the final approval to
+# publish"). Against the real directory.
+class DataQuality::Stages::VerifyRecommendTest < ActiveSupport::TestCase
+  include ReviewHelpers
+
+  # Counts what it's asked, and publishes everything.
+  class CountingVerifier
+    attr_reader :asked
+
+    def initialize = @asked = []
+
+    def call(candidate)
+      @asked << candidate.id
+      DataQuality::Verdict.new(outcome: :publish, confidence: 0.85, reason: "The row names it.")
+    end
+  end
+
+  setup do
+    @source = Source.create!(url: "https://www.nrc.gov/test/recommend.html", source_kind: "dummy", crawl_status: "ok")
+  end
+
+  def candidate(kind, payload) = Candidate.create!(source: @source, kind: kind, payload: payload, quote: "a quote")
+  def run_stage(stage, **) = DataQuality::Pipeline.run("dummy", plugin: DummyPlugin.new, only: stage, **).last
+
+  test "a confident verdict is stored as a recommendation, and nothing is written to the directory" do
+    c = candidate("organization", { "name" => "Imaginary Fission Co" })
+    run_stage("match")
+    proposed = Organization.find(c.reload.subject_id)
+    events = VerificationEvent.count
+
+    verify = run_stage("verify", verifier: CountingVerifier.new)
+
+    c.reload
+    assert c.status_matched?, "still waiting for a human"
+    assert_equal [ "recommend_publish", 0.85, "The row names it.", verify.id ],
+      [ c.ai_recommendation, c.ai_confidence.to_f, c.ai_reason, c.verify_run_id ]
+    assert c.ai_checked_at
+    assert_equal 1, verify.stats["recommended"]
+    assert proposed.reload.pending?, "not published"
+    assert_empty proposed.evidence.where(crawl_run_id: verify.id)
+    assert_equal events, VerificationEvent.count, "no verification decision was made"
+    assert_includes Candidate.recommended, c
+  end
+
+  test "a candidate disagreeing with a human-verified record goes to review with both values, unasked" do
+    unit = Facility.create!(name: "Hope Creek 1", nrc_docket: "05000354", state: "NJ", facility_type: "power_reactor")
+    unit.verify!(by: "human:tosin")
+    c = candidate("facility", { "name" => "Hope Creek 1", "nrc_docket" => "05000354", "state" => "DE",
+      "facility_type" => "power_reactor" })
+    run_stage("match")
+    assert_equal unit.id, c.reload.subject_id
+    verifier = CountingVerifier.new
+
+    verify = run_stage("verify", verifier:)
+
+    assert_empty verifier.asked, "no model call for a known conflict"
+    assert c.reload.status_needs_review?
+    assert_equal "human-verified state is NJ; this source says DE", c.notes
+    assert_equal "needs_review", c.ai_recommendation
+    assert_equal 1, verify.stats["conflicts"]
+    assert_equal "NJ", unit.reload.state, "nothing written"
+  end
+
+  test "agreeing with a human-verified record is fine; names aren't compared" do
+    unit = Facility.create!(name: "Hope Creek Generating Station", nrc_docket: "05000354", state: "NJ")
+    unit.verify!(by: "human:tosin")
+    c = candidate("facility", { "name" => "Hope Creek 1", "nrc_docket" => "05000354", "state" => "NJ" })
+    run_stage("match")
+
+    run_stage("verify", verifier: CountingVerifier.new)
+
+    assert_equal "recommend_publish", c.reload.ai_recommendation
+  end
+
+  test "approving publishes as the human, with the verifier's confidence on the evidence and the history" do
+    c = candidate("organization", { "name" => "Imaginary Fission Co" })
+    run_stage("match")
+    verify = run_stage("verify", verifier: CountingVerifier.new)
+
+    result = approve_recommended(by: "human:tosin").sole
+
+    assert result.ok?
+    organization = Organization.find(c.reload.subject_id)
+    assert c.status_merged?
+    assert_equal [ true, "human:tosin" ], [ organization.verified?, organization.verified_by ]
+    evidence = organization.evidence.find_by!(crawl_run_id: verify.id)
+    assert_equal 0.85, evidence.confidence.to_f
+    event = Directory::Lookup.verification_history(type: "Organization", id: organization.id).first
+    assert_equal [ "verified", "human:tosin", c.id ], [ event.to_status, event.by, event.context["candidate_id"] ]
+  end
+
+  test "only a human approves, and a decided candidate isn't approved again" do
+    c = candidate("organization", { "name" => "Imaginary Fission Co" })
+    run_stage("match")
+    run_stage("verify", verifier: CountingVerifier.new)
+
+    assert_raises(ArgumentError) { DataQuality::Review.approve([ c.id ], by: "agent:verifier/x") }
+
+    approve_recommended
+    again = DataQuality::Review.approve([ c.id ], by: "human:tosin").sole
+    assert_not again.ok?
+    assert_match "already merged", again.errors.join
+  end
+end

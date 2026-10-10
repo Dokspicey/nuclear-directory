@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_10_220000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_11_000000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -28,10 +28,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_10_220000) do
     t.datetime "updated_at", null: false
     t.string "review_origin"
     t.boolean "proposed_subject", default: false, null: false
+    t.string "ai_recommendation"
+    t.text "ai_reason"
+    t.decimal "ai_confidence", precision: 3, scale: 2
+    t.string "ai_model"
+    t.datetime "ai_checked_at"
+    t.bigint "verify_run_id"
+    t.index ["ai_recommendation", "verify_run_id"], name: "index_candidates_on_ai_recommendation_and_verify_run_id"
     t.index ["crawl_run_id"], name: "index_candidates_on_crawl_run_id"
     t.index ["source_id"], name: "index_candidates_on_source_id"
     t.index ["status", "kind"], name: "index_candidates_on_status_and_kind"
     t.index ["subject_type", "subject_id"], name: "index_candidates_on_subject"
+    t.check_constraint "ai_recommendation::text = ANY (ARRAY['recommend_publish'::character varying::text, 'needs_review'::character varying::text])", name: "candidates_ai_recommendation_check"
     t.check_constraint "kind::text = ANY (ARRAY['organization'::character varying::text, 'organization_alias'::character varying::text, 'organization_role'::character varying::text, 'organization_technology'::character varying::text, 'facility'::character varying::text, 'relationship'::character varying::text, 'facility_relationship'::character varying::text])", name: "candidates_kind_check"
     t.check_constraint "status::text = ANY (ARRAY['new'::character varying::text, 'matched'::character varying::text, 'merged'::character varying::text, 'rejected'::character varying::text, 'needs_review'::character varying::text])", name: "candidates_status_check"
   end
@@ -448,6 +456,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_10_220000) do
   end
 
   add_foreign_key "candidates", "crawl_runs"
+  add_foreign_key "candidates", "crawl_runs", column: "verify_run_id"
   add_foreign_key "candidates", "sources"
   add_foreign_key "evidence", "crawl_runs"
   add_foreign_key "evidence", "sources"

@@ -1,15 +1,30 @@
-# Checks each candidate and then publishes it through the directory's
-# FactWriter, sends it to human review, or rejects it. Shared by all plug-ins.
+# Checks each candidate and RECOMMENDS: it never publishes. A human approves
+# in the admin (DataQuality::Review.approve). Shared by all plug-ins.
 #
-# 1. Code first: the cited quote must really appear in the source's stored
-#    content (plug-in's quote_in_source?). A made-up quote goes to review
-#    without asking any model.
-# 2. Then the verifier decides. The default is the verifier agent, a second
-#    model that re-reads the source (Verifiers::Agent). A verifier either
-#    answers in batches (#verdicts) or one candidate at a time (#call).
-# Publishing never overwrites a fact a human verified or rejected
-# (DirectoryClient#write_fact, FactWriter protect_human_verified).
+# For each new or matched candidate, in order:
+# 1. Its record was rejected or unpublished by a human after match attached
+#    it: review, naming that decision.
+# 2. It disagrees with a value a human verified on its record: review,
+#    showing both values ("human-verified state is NJ; this source says DE").
+# 3. Its quote isn't in the source's stored content (plug-in's
+#    quote_in_source?): review, without asking any model.
+# 4. The verifier decides. The default is the verifier agent, a second model
+#    that re-reads the source (Verifiers::Agent). A verifier answers in batches
+#    (#verdicts) or one candidate at a time (#call).
+#    - publish → ai_recommendation "recommend_publish"; the candidate stays
+#      new/matched and nothing is written to the directory
+#    - review → needs_review, with the reason
+#    - reject → rejected (only test verifiers reject; the agent never does)
+# The recommendation (ai_*, verify_run) is stored on the candidate, so the
+# admin can list it by run and by reason.
 class DataQuality::Stages::Verify < DataQuality::Stage
+  # Attributes compared with a human-verified record, per kind. Names aren't
+  # compared: spelling and legal-form variants are expected (aliases cover them).
+  COMPARED = {
+    "organization" => %w[domain],
+    "facility" => %w[nrc_docket facility_type status state country_code]
+  }.freeze
+
   def initialize(verifier: DataQuality::Verifiers::Agent.new, **)
     super(**)
     @verifier = verifier
@@ -17,28 +32,30 @@ class DataQuality::Stages::Verify < DataQuality::Stage
 
   private
     def perform(run)
-      stats = { "candidates" => 0, "quote_missing" => 0, "published" => 0, "needs_review" => 0, "rejected" => 0,
-        "write_errors" => 0 }
+      stats = { "candidates" => 0, "recommended" => 0, "needs_review" => 0, "rejected" => 0,
+        "quote_missing" => 0, "human_decision" => 0, "conflicts" => 0 }
       pending = candidates.where(status: %w[new matched]).includes(:source).order(:id).to_a
       stats["candidates"] = pending.size
 
-      checkable, made_up = pending.partition { |candidate| quote_found?(candidate) }
+      # Code checks first; only what passes goes to the model.
+      held = pending.to_h { |candidate| [ candidate.id, hold_reason(candidate) ] }.compact
+      checkable = pending.reject { |candidate| held.key?(candidate.id) }
 
       # Every model call happens here, before anything is written, so a
       # failed call leaves every candidate as it was.
       verdicts = verdicts_for(checkable, run)
 
-      made_up.each do |candidate|
-        stats["quote_missing"] += 1
-        send_to_review(candidate, "The cited quote isn't in the source as stored, so it can't be checked: " \
-          "#{candidate.quote.to_s.truncate(120).inspect}", stats)
-      end
-      checkable.each do |candidate|
-        verdict = verdicts.fetch(candidate.id)
+      pending.each do |candidate|
+        if (stat, reason = held[candidate.id])
+          stats[stat] += 1
+          send_to_review(candidate, reason, run, stats)
+          next
+        end
 
+        verdict = verdicts.fetch(candidate.id)
         case verdict.outcome
-        when :publish then publish(candidate, verdict, run, stats)
-        when :review then send_to_review(candidate, verdict.reason, stats)
+        when :publish then recommend(candidate, verdict, run, stats)
+        when :review then send_to_review(candidate, verdict.reason, run, stats, confidence: verdict.confidence)
         when :reject
           candidate.update!(status: "rejected", notes: verdict.reason)
           stats["rejected"] += 1
@@ -47,6 +64,40 @@ class DataQuality::Stages::Verify < DataQuality::Stage
       end
 
       stats
+    end
+
+    # [stats key, reason] when a candidate must go to review before any model
+    # is asked, or nil.
+    def hold_reason(candidate)
+      record = directory.attached_record(candidate)
+      if record&.closed?
+        return [ "human_decision", "#{record.name} was #{record.decision} after this was matched to it. " \
+          "The same thing again, or a new record?" ]
+      end
+
+      conflicts = human_conflicts(candidate, record)
+      return [ "conflicts", conflicts.join("; ") ] if conflicts.any?
+
+      unless quote_found?(candidate)
+        return [ "quote_missing", "The cited quote isn't in the source as stored, so it can't be checked: " \
+          "#{candidate.quote.to_s.truncate(120).inspect}" ]
+      end
+
+      nil
+    end
+
+    # "human-verified state is NJ; this source says DE" for each compared
+    # attribute where a human-verified record already has a different value.
+    def human_conflicts(candidate, record)
+      return [] unless record && record.verification_status == "verified" && record.verified_by.to_s.start_with?("human:")
+
+      COMPARED.fetch(candidate.kind, []).filter_map do |name|
+        stored = record.public_send(name)
+        incoming = candidate.payload[name]
+        next if stored.blank? || incoming.blank? || stored.to_s == incoming.to_s
+
+        "human-verified #{name.humanize(capitalize: false)} is #{stored}; this source says #{incoming}"
+      end
     end
 
     def verdicts_for(candidates, run)
@@ -62,33 +113,30 @@ class DataQuality::Stages::Verify < DataQuality::Stage
       candidate.source.content_text.blank? || plugin.quote_in_source?(candidate.source, candidate.quote)
     end
 
-    def publish(candidate, verdict, run, stats)
-      result = directory.write_fact(candidate, confidence: verdict.confidence, crawl_run: run)
-
-      if result.success?
-        candidate.update!(status: "merged", subject_type: result.ref.type, subject_id: result.ref.id, notes: verdict.reason)
-        stats["published"] += 1
-        # A verified unit completes its site's missing details (see DirectoryClient).
-        directory.fill_site_from_unit(result.ref.id, candidate, crawl_run: run) if candidate.kind_facility?
-      else
-        stats["write_errors"] += 1
-        send_to_review(candidate, "Directory rejected the write: #{result.errors.join('; ')}", stats)
-      end
+    def recommend(candidate, verdict, run, stats)
+      candidate.update!(ai_fields("recommend_publish", verdict.reason, verdict.confidence, run))
+      stats["recommended"] += 1
     end
 
-    # A rejected candidate whose record match created (a proposal) takes that
-    # record with it, unless another live candidate is attached to it too. A
-    # rejected candidate attached to an existing record leaves it alone.
+    # A rejected candidate whose record match created (a proposal) retires
+    # that record, unless another live candidate is attached to it too.
     def retire_proposal(candidate, run)
-      return unless candidate.proposed_subject? && candidate.subject_id
+      return unless candidate.subject_id
 
-      others = Candidate.where(subject_type: candidate.subject_type, subject_id: candidate.subject_id)
-        .where.not(id: candidate.id).where(status: %w[new matched merged needs_review])
-      directory.retire(candidate, crawl_run: run) unless others.exists?
+      attached = Candidate.where(subject_type: candidate.subject_type, subject_id: candidate.subject_id)
+      return unless attached.where(proposed_subject: true).exists?
+      return if attached.where.not(id: candidate.id).where(status: %w[new matched merged needs_review]).exists?
+
+      directory.retire(candidate, crawl_run: run)
     end
 
-    def send_to_review(candidate, reason, stats)
-      candidate.update!(status: "needs_review", notes: reason)
+    def send_to_review(candidate, reason, run, stats, confidence: nil)
+      candidate.update!(ai_fields("needs_review", reason, confidence, run).merge(status: "needs_review", notes: reason))
       stats["needs_review"] += 1
+    end
+
+    def ai_fields(recommendation, reason, confidence, run)
+      { ai_recommendation: recommendation, ai_reason: reason, ai_confidence: confidence,
+        ai_model: run.model, ai_checked_at: Time.current, verify_run: run }
     end
 end
