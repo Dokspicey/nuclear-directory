@@ -43,8 +43,8 @@ class DataQuality::DirectoryClient
     record("Organization", lookup.organization(name:, domain:))
   end
 
-  def facility(id: nil, name: nil, nrc_docket: nil)
-    record("Facility", lookup.facility(id:, name:, nrc_docket:))
+  def facility(id: nil, name: nil, nrc_docket: nil, eia_plant_id: nil)
+    record("Facility", lookup.facility(id:, name:, nrc_docket:, eia_plant_id:))
   end
 
   # Runs the block with the candidate's attached fact locked, unless it was

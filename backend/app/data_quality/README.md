@@ -226,7 +226,19 @@ too. `organization_alias` candidates aren't matched automatically yet.
 Some sources only add values to records NRC already defines. **EIA**
 (`plugins/eia_generators.rb`, #61) adds net summer capacity (`capacity_mw`) and
 coordinates to NRC units from EIA's monthly generator inventory (Form
-EIA-860M). It never creates or renames facilities.
+EIA-860M). It never creates or renames units.
+
+**EIA also proposes plants (#121)**, so the directory can grow when NRC's list
+can't be read. Each EIA plant gives three candidates, quoting its first generator
+row: its **site** (name, `eia_plant_id`, state, coordinates, `power_reactor`, and
+`operating` for EIA's `(OP)` code), its **operator** (EIA's entity name) and an
+**`operates`** link between them. They go through match, verify and a human's
+approval like any candidate. A site is found by `eia_plant_id` first, so a plant
+is proposed once and found on every later run; then by name, so a seed site
+with the same name gets EIA's row as more evidence. A look-alike ("Vogtle" and
+"Plant Vogtle") goes to review. NRC's units aren't look-alikes of an EIA site:
+they belong under it. NRC stays preferred for dockets, reactor types and
+licensees, and a disagreement with a human-reviewed value goes to review.
 
 ```bash
 docker compose run --rm web bin/rails "data_quality:run[eia_generators]"

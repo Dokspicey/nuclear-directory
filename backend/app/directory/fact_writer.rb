@@ -56,7 +56,7 @@ module Directory
       facility: {
         model: Facility,
         attributes: %i[name slug parent_id facility_type status technology reactor_type capacity_mw nrc_docket
-          city state country_code latitude longitude]
+          eia_plant_id city state country_code latitude longitude]
       },
       relationship: {
         model: Relationship,
@@ -277,6 +277,7 @@ module Directory
           Organization.find(ref.id) if ref
         when :facility
           ref = Lookup.facility(nrc_docket: attrs[:nrc_docket]) if attrs[:nrc_docket].present?
+          ref ||= Lookup.facility(eia_plant_id: attrs[:eia_plant_id]) if attrs[:eia_plant_id].present?
           ref ||= Lookup.facility(name: attrs[:name]) if attrs[:name].present?
           Facility.find(ref.id) if ref
         when :organization_role

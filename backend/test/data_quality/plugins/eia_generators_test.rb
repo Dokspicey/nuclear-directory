@@ -189,7 +189,7 @@ class DataQuality::Plugins::EiaGeneratorsTest < ActiveSupport::TestCase
 
     match_and_verify!
 
-    vogtle_1 = Candidate.where(source: source).find { |c| c.payload["identify"].values_at("name", "unit") == %w[Vogtle 1] }
+    vogtle_1 = Candidate.where(source: source).find { |c| c.payload["identify"]&.values_at("name", "unit") == %w[Vogtle 1] }
     assert vogtle_1.status_needs_review?
     assert_match "which was rejected", vogtle_1.notes
   end
@@ -226,7 +226,7 @@ class DataQuality::Plugins::EiaGeneratorsTest < ActiveSupport::TestCase
     crawl!
     candidates = plugin.extract(source, nil)
 
-    farley = candidates.find { |c| c[:payload]["identify"]["name"] == "Joseph M Farley" }
+    farley = candidates.find { |c| c[:payload]["identify"]&.dig("name") == "Joseph M Farley" }
     assert_equal({ "name" => "Joseph M Farley", "state" => "AL", "unit" => "1", "eia_plant_id" => "6001" },
       farley[:payload]["identify"])
     assert_match(/\A\d+(\.\d)?\z/, farley[:payload]["capacity_mw"])
@@ -260,11 +260,11 @@ class DataQuality::Plugins::EiaGeneratorsTest < ActiveSupport::TestCase
     assert columbia.reload.capacity_mw.positive?, "EIA lists Columbia as generator 2"
   end
 
-  test "EIA never creates facilities and doesn't change a unit's verification" do
+  test "EIA never creates units and doesn't change a unit's verification" do
     unit = nrc_unit("Vogtle 1", "05000424", "GA")
     crawl!
 
-    assert_no_difference "Facility.count" do
+    assert_no_difference "Facility.where.not(nrc_docket: nil).count" do
       match_and_verify!
     end
 
@@ -272,18 +272,46 @@ class DataQuality::Plugins::EiaGeneratorsTest < ActiveSupport::TestCase
     assert_equal [ "crawler" ], unit.evidence.distinct.pluck(:found_by)
   end
 
+  test "each plant proposes its site, its operator and an operates link (#121)" do
+    crawl!
+    candidates = plugin.extract(source, nil)
+
+    site = candidates.find { |c| c[:kind] == "facility" && c[:payload]["eia_plant_id"] == "649" }
+    assert_equal({ "name" => "Vogtle", "eia_plant_id" => "649", "facility_type" => "power_reactor", "state" => "GA" },
+      site[:payload].slice("name", "eia_plant_id", "facility_type", "state"))
+    assert_includes source.content_text, site[:quote]
+    link = candidates.find { |c| c[:kind] == "facility_relationship" && c[:payload]["facility"]["eia_plant_id"] == "649" }
+    assert_equal "operates", link[:payload]["relationship_type"]
+    assert_equal 1, candidates.count { |c| c[:kind] == "facility" && c[:payload]["eia_plant_id"] == "649" }, "one site per plant"
+  end
+
+  test "an EIA plant is proposed once, then found by its plant ID; a seed site's look-alike goes to review" do
+    facilities(:vogtle).update!(name: "Plant Vogtle")
+    crawl!
+    DataQuality::Pipeline.run("eia_generators", plugin: plugin, only: %w[extract match])
+
+    vogtle = Candidate.where(source: source, kind: "facility").find { |c| c.payload["eia_plant_id"] == "649" }
+    assert vogtle.status_needs_review?, "Vogtle looks like the seed's Plant Vogtle: a human decides"
+    farley = Candidate.where(source: source, kind: "facility").find { |c| c.payload["eia_plant_id"] == "6001" }
+    assert farley.status_matched?
+    assert_equal "6001", Facility.find(farley.subject_id).eia_plant_id
+
+    assert_no_difference "Facility.count" do
+      DataQuality::Pipeline.run("eia_generators", plugin: plugin, only: %w[extract match])
+    end
+  end
+
   test "generators without an NRC unit yet wait and are retried" do
     crawl!
     runs = match_and_verify!
 
-    waiting = Candidate.where(source: source)
+    waiting = Candidate.where(source: source).where("payload ? 'identify'")
     assert waiting.all?(&:status_new?)
     assert_equal 10, runs[1].stats["waiting"]
-    assert_equal 0, runs[2].stats["candidates"], "verify skips them"
 
     nrc_unit("Vogtle 2", "05000425", "GA")
     DataQuality::Pipeline.run("eia_generators", plugin: plugin, only: "match")
-    assert_equal 1, Candidate.where(source: source).status_matched.count
+    assert_equal 1, waiting.status_matched.count
   end
 
   test "a border plant NRC lists under a nearby city's state still matches, by the stricter rule" do
@@ -306,7 +334,7 @@ class DataQuality::Plugins::EiaGeneratorsTest < ActiveSupport::TestCase
 
     match_and_verify!
 
-    vogtle_1 = Candidate.where(source: source).find { |c| c.payload["identify"].values_at("name", "unit") == %w[Vogtle 1] }
+    vogtle_1 = Candidate.where(source: source).find { |c| c.payload["identify"]&.values_at("name", "unit") == %w[Vogtle 1] }
     assert vogtle_1.status_new?
     assert_match "retried on the next match run", vogtle_1.notes
   end
@@ -318,7 +346,7 @@ class DataQuality::Plugins::EiaGeneratorsTest < ActiveSupport::TestCase
 
     match_and_verify!(verifier: DataQuality::Verifiers::ReviewEverything.new)
 
-    ano = Candidate.where(source: source).find { |c| c.payload["identify"].values_at("name", "unit") == [ "Arkansas Nuclear One", "1" ] }
+    ano = Candidate.where(source: source).find { |c| c.payload["identify"]&.values_at("name", "unit") == [ "Arkansas Nuclear One", "1" ] }
     assert ano.status_needs_review?
     assert_match "could be Arkansas Nuclear 1 or Arkansas River 1", ano.notes
   end

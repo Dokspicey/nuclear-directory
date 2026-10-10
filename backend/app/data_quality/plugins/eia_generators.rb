@@ -1,8 +1,13 @@
 # EIA's monthly generator inventory (Form EIA-860M, #61): capacity and
-# coordinates for nuclear units. An enrichment source: it never creates or
-# renames facilities (NRC is the source of truth for which units exist, their
-# names, dockets and operators). It only adds capacity_mw, state, latitude
-# and longitude to NRC units that already exist.
+# coordinates for nuclear units, and (#121) the plants and their operators.
+# - Each generator enriches its NRC unit (capacity_mw, state, latitude,
+#   longitude); it never creates or renames a unit.
+# - Each plant also proposes its site (by EIA plant ID and name), its operator
+#   (EIA's entity name) and an "operates" link, so the directory can grow
+#   when NRC's list can't be read. NRC stays preferred for dockets, reactor
+#   types and licensees: a site found by name keeps what it has, agreement adds
+#   EIA's row as evidence, and a disagreement with a human-reviewed value goes
+#   to review. A site is found by EIA plant ID first, so nothing duplicates.
 #
 # Crawl reads EIA's 860M page to find the newest monthly file, fetches it,
 # and stores just its nuclear rows as CSV (one source per monthly file, so
@@ -47,10 +52,18 @@ class DataQuality::Plugins::EiaGenerators < DataQuality::Plugin
     { "file" => url, "snapshot" => "needs_human" }
   end
 
-  def extract(source, _run)
-    CSV.parse(source.content_text.to_s, headers: true).filter_map do |row|
-      next if row["state"].blank? || row["plant_name"].blank?
+  # EIA's status code for a plant in service; anything else (standby, out of
+  # service…) is left blank rather than guessed.
+  STATUSES = { "OP" => "operating" }.freeze
 
+  def extract(source, _run)
+    rows = CSV.parse(source.content_text.to_s, headers: true).reject { |row| row["state"].blank? || row["plant_name"].blank? }
+    rows.map { |row| enrichment(row) } + rows.group_by { |row| row["eia_plant_id"] }.flat_map { |_, plant| plant_candidates(plant) }
+  end
+
+  private
+    # A generator's capacity and place, for its NRC unit (#61).
+    def enrichment(row)
       {
         kind: "facility",
         payload: {
@@ -66,9 +79,33 @@ class DataQuality::Plugins::EiaGenerators < DataQuality::Plugin
         quote: row.to_csv.chomp
       }
     end
-  end
 
-  private
+    # The plant's site, its operator and the link between them (#121), each
+    # quoting the plant's first generator row, which names all three.
+    def plant_candidates(rows)
+      row = rows.first
+      quote = row.to_csv.chomp
+      site = { "name" => row["plant_name"], "eia_plant_id" => row["eia_plant_id"] }
+      candidates = [ {
+        kind: "facility",
+        payload: site.merge(
+          "facility_type" => "power_reactor",
+          "status" => STATUSES[row["status"].to_s[/\A\((\w+)\)/, 1]],
+          "state" => row["state"],
+          "latitude" => number(row["latitude"], 6),
+          "longitude" => number(row["longitude"], 6)
+        ).compact,
+        quote:
+      } ]
+      operator = row["entity_name"].presence or return candidates
+
+      candidates + [
+        { kind: "organization", payload: { "name" => operator }, quote: },
+        { kind: "facility_relationship", quote:,
+          payload: { "organization" => { "name" => operator }, "facility" => site, "relationship_type" => "operates" } }
+      ]
+    end
+
     # Once a newer monthly file is read, candidates from older files that
     # haven't been published yet are withdrawn: an older month approved after
     # a newer one would overwrite current capacity and coordinates.

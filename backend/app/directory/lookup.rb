@@ -75,9 +75,10 @@ module Directory
     # Pass exactly one of id, slug, name or nrc_docket.
     # name is matched case-insensitively; names aren't unique, so the oldest
     # match wins.
-    def facility(id: nil, slug: nil, name: nil, nrc_docket: nil)
+    # eia_plant_id finds the site for that EIA plant (#121).
+    def facility(id: nil, slug: nil, name: nil, nrc_docket: nil, eia_plant_id: nil)
       scope =
-        case one_of!(id:, slug:, name:, nrc_docket:)
+        case one_of!(id:, slug:, name:, nrc_docket:, eia_plant_id:)
         in [ :id, value ] then Facility.where(id: value)
         in [ :slug, value ] then Facility.where(slug: value)
         in [ :name, value ] then Facility.where("lower(name) = ?", value.to_s.strip.downcase)
@@ -85,6 +86,9 @@ module Directory
           # A blank docket must match nothing, not every facility without one.
           docket = value.to_s.strip.presence or return
           Facility.where(nrc_docket: docket)
+        in [ :eia_plant_id, value ]
+          plant = value.to_s.strip.presence or return
+          Facility.where(parent_id: nil, eia_plant_id: plant)
         end
 
       record = scope.order(:id).first
