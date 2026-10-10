@@ -25,9 +25,13 @@ class DataQuality::Stages::Verify < DataQuality::Stage
         when :publish then publish(candidate, verdict, run, stats)
         when :review then send_to_review(candidate, verdict.reason, stats)
         when :reject
-          candidate.update!(status: "rejected", notes: verdict.reason)
-          stats["rejected"] += 1
-          retire_proposal(candidate, run)
+          # Rejected only while the fact is still open, under its lock.
+          closed = directory.unless_closed(candidate) do
+            candidate.update!(status: "rejected", notes: verdict.reason)
+            stats["rejected"] += 1
+            retire_proposal(candidate, run)
+          end
+          send_closed_to_review(candidate, closed, stats) if closed
         end
       end
 
@@ -40,9 +44,13 @@ class DataQuality::Stages::Verify < DataQuality::Stage
       subject = directory.attached_record(candidate)
       return false unless subject&.closed?
 
+      send_closed_to_review(candidate, subject, stats)
+      true
+    end
+
+    def send_closed_to_review(candidate, subject, stats)
       send_to_review(candidate, "#{subject.name.upcase_first} was #{subject.decision} after this was matched to it. " \
         "The same thing again, or a new record?", stats)
-      true
     end
 
     def publish(candidate, verdict, run, stats)
