@@ -12,9 +12,25 @@ class Source < ApplicationRecord
   before_validation { self.domain ||= domain_from_url }
 
   validates :url, presence: true, uniqueness: true
+  validate :url_is_a_web_address
   validates :source_kind, presence: true
 
+  # Absolute http(s) URLs only. Sources are shown as links, so anything else
+  # (javascript:, data:, a relative path) must never be stored (#79).
+  def self.web_address?(url)
+    uri = URI.parse(url.to_s)
+    uri.is_a?(URI::HTTP) && uri.host.present? && !url.to_s.match?(/\s/)
+  rescue URI::InvalidURIError
+    false
+  end
+
   private
+    def url_is_a_web_address
+      return if url.blank? || self.class.web_address?(url)
+
+      errors.add(:url, "must be an absolute http or https address")
+    end
+
     def domain_from_url
       URI.parse(url.to_s).host&.downcase&.delete_prefix("www.")
     rescue URI::InvalidURIError

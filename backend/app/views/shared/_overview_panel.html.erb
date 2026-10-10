@@ -1,0 +1,21 @@
+<%# The side panel of key facts on company and power plant pages. Locals:
+    rows:        [[label, value, citations], ...]; a row with a blank value is skipped
+    verified_at: when the record was last checked
+    correction_url: where "Report a correction" goes (optional) %>
+<% shown = rows.select { |_, value, _| value.present? } %>
+<aside class="nd-overview" aria-label="Key facts">
+  <% if shown.any? %>
+    <dl>
+      <% shown.each do |label, value, citations| %>
+        <dt><%= label %></dt>
+        <dd><%= value %><% Array(citations).each do |number, source| %><%= render "shared/source_chip", number:, source:, compact: true %><% end %></dd>
+      <% end %>
+    </dl>
+  <% end %>
+  <div class="nd-overview__foot">
+    <%= render "shared/verified_badge", verified_at: local_assigns[:verified_at] %>
+  </div>
+  <% if local_assigns[:correction_url] %>
+    <p class="type-small mt-3"><%= link_to "Report a correction", correction_url, class: "nd-link nd-link--muted" %></p>
+  <% end %>
+</aside>
