@@ -23,6 +23,10 @@ class DataQuality::Plugins::NrcReactorList < DataQuality::Plugin
     "Harris 1" => "Shearon Harris 1",
     "River Bend Station 1" => "River Bend 1"
   }.freeze
+  TABLE_MISSING = "Couldn't find the reactor table; the page layout may have changed"
+
+  # The stored page has no reactor table to extract from.
+  class TableMissing < StandardError; end
 
   def initialize(fetcher: DataQuality::Fetcher.new, extractor: Extractor.new)
     @fetcher = fetcher
@@ -53,9 +57,17 @@ class DataQuality::Plugins::NrcReactorList < DataQuality::Plugin
   # The tally is saved on the run as stats["ai_check"].
   # Per unit: the unit (facility), its operator (organization, one per
   # name) and the "operates" link, in the shape match expects (README).
+  # A page without the table (normally caught at crawl, but extract can be
+  # run on its own) marks the source needs_human and fails the run before
+  # any model call, so earlier candidates stay and the page is retried.
   def extract(source, run)
     table = Page.units(source.content_text).index_by(&:nrc_docket)
     text = Page.lines(source.content_text)
+    if table.empty? || text.size < 2
+      needs_human(source, TABLE_MISSING)
+      raise TableMissing, "#{TABLE_MISSING} (#{source.url})"
+    end
+
     lines = text.index_by { |line| line[/(?:\A| \| )(\d{8})(?: \| |\z)/, 1] }
     answers = @extractor.call(text, run: run)
 
@@ -98,7 +110,7 @@ class DataQuality::Plugins::NrcReactorList < DataQuality::Plugin
 
       units = Page.units(list.content_text)
       if units.empty?
-        needs_human(list, "Couldn't find the reactor table; the page layout may have changed")
+        needs_human(list, TABLE_MISSING)
         return { "units" => 0 }
       end
 

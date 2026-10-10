@@ -21,7 +21,7 @@ class DataQuality::PipelineTest < ActiveSupport::TestCase
     assert_equal %w[crawl extract match verify], runs.map(&:stage)
     assert runs.all?(&:succeeded?)
     assert runs.all? { |run| run.source_kind == "dummy" && run.finished_at }
-    assert_equal({ "sources" => 1, "candidates" => 2, "unchanged" => 0 }, runs[1].stats)
+    assert_equal({ "sources" => 1, "candidates" => 2, "unchanged" => 0, "empty" => 0 }, runs[1].stats)
     assert_equal 1, runs[2].stats["matched"]
     assert_equal 2, runs[3].stats["published"]
 
@@ -71,7 +71,7 @@ class DataQuality::PipelineTest < ActiveSupport::TestCase
     run_pipeline(only: %w[crawl extract])
     rerun = run_pipeline(only: "extract").sole
 
-    assert_equal({ "sources" => 0, "candidates" => 0, "unchanged" => 1 }, rerun.stats)
+    assert_equal({ "sources" => 0, "candidates" => 0, "unchanged" => 1, "empty" => 0 }, rerun.stats)
     assert_equal 2, dummy_candidates.count
   end
 

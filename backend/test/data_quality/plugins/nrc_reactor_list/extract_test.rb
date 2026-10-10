@@ -200,6 +200,33 @@ class DataQuality::Plugins::NrcReactorList::ExtractTest < ActiveSupport::TestCas
     assert_not_equal "changed", @source.reload.extracted_sha256
   end
 
+  test "a page without the table fails the run before any model call, keeping earlier candidates" do
+    extract
+    before = @source.candidates.reload.pluck(:id).sort
+    redesigned = "<html><body><p>We moved things around.</p></body></html>"
+    @source.update!(content_text: redesigned, content_sha256: Digest::SHA256.hexdigest(redesigned))
+    model = FakeModel.new
+
+    assert_raises(Plugin::TableMissing) { extract(model) }
+
+    assert_empty model.calls, "no model call for a page with nothing to read"
+    assert @source.reload.crawl_needs_human?
+    assert_match "Couldn't find the reactor table", @source.status_reason
+    assert_equal before, @source.candidates.reload.pluck(:id).sort, "earlier candidates are kept"
+    assert_not_equal @source.content_sha256, @source.extracted_sha256, "the page will be extracted again"
+    assert CrawlRun.where(stage: "extract").order(:id).last.failed?
+  end
+
+  test "a source with nothing stored is skipped, not treated as a broken page" do
+    empty = Source.create!(url: "https://www.nrc.gov/empty", source_kind: "nrc_reactor_list", crawl_status: "ok")
+
+    run = extract
+
+    assert run.succeeded?
+    assert_operator run.stats["empty"], :>=, 1
+    assert empty.reload.crawl_ok?
+  end
+
   test "calls the model outside any database transaction" do
     baseline = ActiveRecord::Base.connection.open_transactions # the test's own
     model = FakeModel.new

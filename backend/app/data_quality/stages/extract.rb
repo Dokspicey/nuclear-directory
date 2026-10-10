@@ -11,9 +11,16 @@
 class DataQuality::Stages::Extract < DataQuality::Stage
   private
     def perform(run)
-      stats = { "sources" => 0, "candidates" => 0, "unchanged" => 0 }
+      stats = { "sources" => 0, "candidates" => 0, "unchanged" => 0, "empty" => 0 }
 
       sources.crawl_ok.find_each do |source|
+        # Nothing stored, nothing to extract (not the same as a page whose
+        # layout changed, which the plug-in reports).
+        if source.content_text.blank?
+          stats["empty"] += 1
+          next
+        end
+
         if source.content_sha256.present? && source.content_sha256 == source.extracted_sha256
           stats["unchanged"] += 1
           next
