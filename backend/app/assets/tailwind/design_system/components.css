@@ -416,7 +416,7 @@
     .nd-sheet { margin: auto 0 0; width: 100%; max-width: none; max-height: 80vh; }
     .nd-sheet__panel { border-radius: var(--nd-radius-md) var(--nd-radius-md) 0 0; border-bottom: 0; padding-bottom: max(var(--nd-space-4), env(safe-area-inset-bottom)); }
   }
-  @media (pointer: coarse) {
+  @media (any-pointer: coarse) {
     .nd-sheet__head .nd-btn, .nd-sheet__source a { min-height: 44px; display: inline-flex; align-items: center; }
   }
 }

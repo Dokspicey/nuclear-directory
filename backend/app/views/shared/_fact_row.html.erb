@@ -10,7 +10,7 @@
   <div class="nd-factrow__main">
     <span><%= sentence %></span>
     <% if local_assigns[:detail].present? %><span class="nd-factrow__detail"><%= detail %></span><% end %>
-    <% if local_assigns[:quote].present? %><p class="nd-quote">“<%= quote %>”</p><% end %>
+    <% if local_assigns[:quote].present? %><p class="nd-quote" data-source-number="<%= citations.first&.first %>">“<%= quote %>”</p><% end %>
   </div>
   <div class="nd-factrow__side">
     <% citations.each_with_index do |(number, source), index| %>

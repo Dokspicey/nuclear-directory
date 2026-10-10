@@ -11,7 +11,7 @@ export default class extends Controller {
 
   open(event) {
     const chip = event.target.closest?.("a.nd-src")
-    if (!chip || !window.matchMedia("(max-width: 560px), (pointer: coarse)").matches) return
+    if (!chip || !window.matchMedia("(max-width: 560px), (any-pointer: coarse)").matches) return
 
     const number = chip.getAttribute("href").replace("#source-", "")
     const entry = this.element.querySelector(`#source-${CSS.escape(number)}`)
@@ -40,13 +40,16 @@ export default class extends Controller {
 
   details(chip, entry) {
     const parts = []
-    const quote = chip.closest(".nd-factrow")?.querySelector(".nd-quote")
+    // Only the quote that comes from this chip's source.
+    const number = chip.getAttribute("href").replace("#source-", "")
+    const quote = chip.closest(".nd-factrow")?.querySelector(`.nd-quote[data-source-number="${CSS.escape(number)}"]`)
     if (quote) parts.push(this.copy(quote))
 
     const source = entry.querySelector("span:last-child")
     if (source) {
       const copy = this.copy(source)
       copy.classList.add("nd-sheet__source")
+      copy.querySelector("small")?.classList.add("type-data-sm")
       parts.push(copy)
     }
 

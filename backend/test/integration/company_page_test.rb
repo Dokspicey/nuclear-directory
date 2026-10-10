@@ -122,10 +122,11 @@ class CompanyPageTest < ActionDispatch::IntegrationTest
     assert_select "[data-controller=source-sheet][data-action='click@document->source-sheet#open']" do
       assert_select "dialog.nd-sheet[aria-labelledby=source-sheet-title]" do
         assert_select "h2#source-sheet-title", /Source/
-        assert_select "button[type=button][data-action='source-sheet#close']", "Close"
+        assert_select "button[type=button][data-action='source-sheet#close']", "Close source details"
       end
     end
     assert_select ".nd-factrow a.nd-src[href='#source-1']"
+    assert_select ".nd-factrow .nd-quote[data-source-number='1']", "“Kairos Power and Google have signed”"
   end
 
   test "key facts" do
