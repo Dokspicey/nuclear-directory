@@ -112,6 +112,9 @@ class DataQuality::Plugins::EiaGenerators::Workbook
     # from the zip as a stream, never held whole in memory.
     def each_row(path)
       entry = @zip.find_entry(path) or raise Unreadable, "Missing #{path}"
+      # Loaded before the sheet is streamed: entries of one in-memory zip share
+      # its buffer, so reading another entry mid-stream would corrupt the sheet.
+      shared_strings
       Nokogiri::XML::Reader(entry.get_input_stream).each do |node|
         next unless node.name == "row" && node.node_type == Nokogiri::XML::Reader::TYPE_ELEMENT
 

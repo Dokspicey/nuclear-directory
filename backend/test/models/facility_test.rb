@@ -9,6 +9,30 @@ class FacilityTest < ActiveSupport::TestCase
     assert_includes @site.children, unit
   end
 
+  test "only sites and their units: no unit under a unit, and a site with units can't become one" do
+    unit = Facility.create!(name: "Vogtle Unit 3", parent: @site)
+
+    grandchild = Facility.new(name: "Vogtle Unit 3 annex", parent: unit)
+    assert_not grandchild.valid?
+    assert_includes grandchild.errors[:parent], "must be a site, not a unit"
+
+    other = Facility.create!(name: "Other Site")
+    @site.parent = other
+    assert_not @site.valid?
+    assert_includes @site.errors[:parent], "can't be set: this site has units of its own"
+  end
+
+  test "a three-level chain built in memory is refused before anything is saved" do
+    top = Facility.new(name: "Top Site")
+    middle = Facility.new(name: "Middle", parent: top)
+    bottom = Facility.new(name: "Bottom", parent: middle)
+
+    assert_not bottom.valid?
+    assert_includes bottom.errors[:parent], "must be a site, not a unit"
+    assert_raises(ActiveRecord::RecordInvalid) { bottom.save! }
+    assert_not Facility.exists?(name: "Top Site")
+  end
+
   test "nrc docket is unique when present" do
     Facility.create!(name: "Unit A", facility_type: "power_reactor", status: "operating", nrc_docket: "05000424")
     dup = Facility.new(name: "Unit B", facility_type: "power_reactor", status: "operating", nrc_docket: "05000424")
