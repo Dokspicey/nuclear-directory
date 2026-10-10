@@ -3,6 +3,12 @@ require "test_helper"
 # Sources and runs (#86): blocked sources with their CDN reference, the last
 # run per stage, and spend against the budget.
 class Admin::StatusControllerTest < ActionDispatch::IntegrationTest
+  # Every test starts from the defaults ($5 budget, no dashboard link),
+  # whatever the developer's or CI's environment says.
+  ENV_VARS = %w[DATA_QUALITY_MONTHLY_BUDGET POSTHOG_DASHBOARD_URL].freeze
+  setup { @saved_env = ENV.to_h.slice(*ENV_VARS); ENV_VARS.each { ENV.delete(_1) } }
+  teardown { ENV_VARS.each { ENV.delete(_1) }; @saved_env.each { |name, value| ENV[name] = value } }
+
   # Sets (or clears, with nil) an environment variable for the block, then restores it.
   def with_env(name, value)
     saved = ENV[name]

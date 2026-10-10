@@ -104,6 +104,19 @@ class Admin::FactsControllerTest < ActionDispatch::IntegrationTest
     assert_select "a", text: /View on site/, count: 0
   end
 
+  test "a pending site that's public through a published unit links to its page and says why" do
+    site = Facility.create!(name: "Plant Example Site")
+    unit = Facility.create!(name: "Example 1", parent: site, nrc_docket: "05099991")
+    unit.verify!(by: "human:tosin")
+    assert site.reload.pending?
+    assert_includes Facility.published, site, "#104: a pending site shows once a unit is published"
+
+    get admin_fact_path(type: "Facility", id: site.id)
+
+    assert_select "a[href=?]", plant_path(slug: site.slug), text: /View on site/
+    assert_select "p", /Pending, but public: a site shows once one of its units is published/
+  end
+
   test "a fact type that isn't one is not found" do
     get "/admin/facts/User/1"
     assert_response :not_found
