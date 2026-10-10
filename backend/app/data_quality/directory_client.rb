@@ -139,8 +139,14 @@ class DataQuality::DirectoryClient
   # Only a unit that ended up verified speaks for its site (a human may have
   # kept it rejected); FactWriter checks that, and which fields are blank,
   # with both records locked.
+  # Only the fields this candidate states are filled, so the site's evidence
+  # is the document that stated them (an NRC row doesn't vouch for EIA's
+  # coordinates; the EIA candidate fills those when it's published).
   def fill_site_from_unit(facility_id, candidate, crawl_run:)
-    result = fact_writer.fill_site_from_unit(facility_id, fields: SITE_FIELDS_FROM_UNIT,
+    stated = candidate.payload.keys & SITE_FIELDS_FROM_UNIT
+    return if stated.empty?
+
+    result = fact_writer.fill_site_from_unit(facility_id, fields: stated,
       evidence: [ { source_id: candidate.source_id, quote: candidate.quote, found_by: "crawler", crawl_run_id: crawl_run.id } ])
     write_result(result) if result
   end

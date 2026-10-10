@@ -72,10 +72,28 @@ class DataQuality::Plugins::EiaGenerators < DataQuality::Plugin
     # Once a newer monthly file is read, candidates from older files that
     # haven't been published yet are withdrawn: an older month approved after
     # a newer one would overwrite current capacity and coordinates.
+    # Only files from an earlier month count as older: if the index ever
+    # points back at an earlier file, a later month's candidates are kept.
+    # Candidates already in a human's review stay there, with a note that a
+    # newer file exists (some were published and only need a site checked).
     def supersede_older_files(source)
-      older = Source.where(source_kind:).where.not(id: source.id).select(:id)
-      Candidate.where(source_id: older, status: %w[new matched needs_review])
+      current = file_month(source.url)
+      older = Source.where(source_kind:).where.not(id: source.id).select { |other| (file_month(other.url) <=> current) == -1 }
+      return 0 if older.empty?
+
+      waiting = Candidate.where(source_id: older.map(&:id))
+      waiting.where(status: "needs_review").where.not("notes LIKE ?", "%A newer EIA file exists%")
+        .update_all([ "notes = COALESCE(notes || '. ', '') || ?, updated_at = ?", "A newer EIA file exists: #{source.title}", Time.current ])
+      waiting.where(status: %w[new matched])
         .update_all(status: "rejected", notes: "Superseded by the newer #{source.title}", updated_at: Time.current)
+    end
+
+    # [year, month] of a monthly file URL, or nil when it isn't one.
+    def file_month(url)
+      month, year = URI.parse(url).path.match(FILE_LINK)&.captures
+      [ year.to_i, Date::MONTHNAMES.index(month.capitalize).to_i ] if month
+    rescue URI::Error
+      nil
     end
 
     # The newest "<month>_generator<year>.xlsx" linked from the page, as an
@@ -100,5 +118,5 @@ class DataQuality::Plugins::EiaGenerators < DataQuality::Plugin
     end
 
     # Strict: the workbook reader already refused anything that isn't a number.
-    def number(value, digits) = value.present? ? BigDecimal(value).round(digits).to_s : nil
+    def number(value, digits) = value.present? ? BigDecimal(value).round(digits).to_s("F") : nil
 end

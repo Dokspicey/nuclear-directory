@@ -85,6 +85,22 @@ class DataQuality::Plugins::EiaGeneratorsTest < ActiveSupport::TestCase
     assert published.reload.status_merged?, "what's published stays"
   end
 
+  test "a later month is never superseded by an earlier one, and review items only get a note" do
+    july = Source.create!(url: "https://www.eia.gov/electricity/data/eia860m/xls/july_generator2026.xlsx",
+      source_kind: "eia_generators", crawl_status: "ok")
+    september = Source.create!(url: "https://www.eia.gov/electricity/data/eia860m/xls/september_generator2026.xlsx",
+      source_kind: "eia_generators", crawl_status: "ok")
+    later = Candidate.create!(source: september, kind: "facility", quote: "later row", payload: {})
+    in_review = Candidate.create!(source: july, kind: "facility", quote: "review row", payload: {}, status: "needs_review",
+      notes: "Its site disagrees")
+
+    crawl!
+
+    assert later.reload.status_new?, "September is newer than the August file read now"
+    assert in_review.reload.status_needs_review?
+    assert_equal "Its site disagrees. A newer EIA file exists: EIA-860M generator inventory, August 2026", in_review.notes
+  end
+
   test "a damaged sheet inside the workbook is reported, not a crash" do
     bytes = Zip::OutputStream.write_buffer do |zip|
       zip.put_next_entry("xl/workbook.xml")
