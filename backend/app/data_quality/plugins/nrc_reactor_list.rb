@@ -58,8 +58,9 @@ class DataQuality::Plugins::NrcReactorList < DataQuality::Plugin
       end
 
       stats = { "units" => units.size }
-      unless status.crawl_ok? && status.content_text.present?
-        return stats.merge("cross_check" => "skipped: status file is #{status.crawl_status}")
+      unless status.crawl_ok? && status.content_text.present? && status.status_reason.nil?
+        state = status.status_reason.present? ? "unavailable" : status.crawl_status
+        return stats.merge("cross_check" => "skipped: status file is #{state}")
       end
 
       reported = StatusFile.latest_units(status.content_text)
