@@ -29,6 +29,14 @@ class LinkPreviewTest < ActionDispatch::IntegrationTest
     assert_select "meta[property='og:description'][content^='Who makes the fuel']"
   end
 
+  test "a category keeps its own preview address; search and filters don't" do
+    get companies_path(category: "reactor-developers", state: "CA", q: "x")
+    assert_select "meta[property='og:url'][content=?]", "http://www.example.com/companies?category=reactor-developers"
+
+    get companies_path(category: "not-a-category")
+    assert_select "meta[property='og:url'][content=?]", "http://www.example.com/companies"
+  end
+
   test "the preview image is served" do
     get ActionController::Base.helpers.image_path("og-default.png")
     assert_response :success
