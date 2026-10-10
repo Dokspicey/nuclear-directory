@@ -93,7 +93,7 @@
   --container-prose: var(--nd-prose-max);
 }
 
-/* Fonts (Google Fonts, linked in the layout): Anton and Roboto Serif from techequity.us, plus Roboto Mono. */
+/* Fonts (self-hosted Latin subsets, shared/_fonts): Anton and Roboto Serif from techequity.us, plus Roboto Mono. */
 @theme {
   --font-display: "Anton", "Arial Narrow", Impact, sans-serif;
   --font-text: "Roboto Serif", Georgia, serif;

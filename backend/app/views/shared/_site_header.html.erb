@@ -3,7 +3,7 @@
     names the search box when a page shows two headers. %>
 <header class="nd-sitebar">
   <div class="nd-sitebar__inner">
-    <a class="nd-wordmark" href="/">Nuclear Directory</a>
+    <a class="nd-wordmark" href="/"><span class="sr-only">Nuclear Directory</span><%= render "shared/wordmark" %></a>
     <%= render "shared/search_box", size: :compact, query: local_assigns[:query], id: local_assigns[:search_id] %>
   </div>
 </header>
