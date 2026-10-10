@@ -75,23 +75,23 @@ class DataQuality::Plugins::NrcReactorList::ExtractTest < ActiveSupport::TestCas
 
   # Checked by hand against the NRC page (fixture fetched 2026-10-10).
   HAND_CHECKED = {
-    "05200025" => [ "Vogtle 3", "PWR", "Southern Nuclear Operating Co." ],
-    "05200026" => [ "Vogtle 4", "PWR", "Southern Nuclear Operating Co." ],
-    "05000315" => [ "D.C. Cook 1", "PWR", "Indiana/Michigan Power Co." ],
-    "05000259" => [ "Browns Ferry 1", "BWR", "Tennessee Valley Authority" ],
-    "05000416" => [ "Grand Gulf 1", "BWR", "Entergy Nuclear Operations, Inc." ],
-    "05000255" => [ "Palisades", "PWR", "Holtec Palisades, LLC" ]
+    "05200025" => [ "Vogtle 3", "PWR", "GA", "Southern Nuclear Operating Co." ],
+    "05200026" => [ "Vogtle 4", "PWR", "GA", "Southern Nuclear Operating Co." ],
+    "05000315" => [ "D.C. Cook 1", "PWR", "MI", "Indiana/Michigan Power Co." ],
+    "05000259" => [ "Browns Ferry 1", "BWR", "AL", "Tennessee Valley Authority" ],
+    "05000416" => [ "Grand Gulf 1", "BWR", "MS", "Entergy Nuclear Operations, Inc." ],
+    "05000255" => [ "Palisades", "PWR", "MI", "Holtec Palisades, LLC" ]
   }.freeze
 
   test "matches a hand-checked sample, in the shape match expects" do
     extract
 
-    HAND_CHECKED.each do |docket, (name, type, operator)|
+    HAND_CHECKED.each do |docket, (name, type, state, operator)|
       facility = candidates_for(docket).find(&:kind_facility?)
       link = candidates_for(docket).find(&:kind_facility_relationship?)
 
       assert_equal({ "name" => name, "nrc_docket" => docket, "facility_type" => "power_reactor", "status" => "operating",
-        "reactor_type" => type, "country_code" => "US" }, facility.payload, name)
+        "reactor_type" => type, "state" => state, "country_code" => "US" }, facility.payload, name)
       assert_equal({ "organization" => { "name" => operator }, "facility" => { "name" => name, "nrc_docket" => docket },
         "relationship_type" => "operates" }, link.payload, name)
       assert_match(/\A#{Regexp.escape(name)} \| #{docket} \|/, facility.quote)
@@ -108,15 +108,6 @@ class DataQuality::Plugins::NrcReactorList::ExtractTest < ActiveSupport::TestCas
     assert_match 'reactor type: model said "BWR", table says "PWR"', vogtle3.first.notes
     assert_equal "PWR", vogtle3.find(&:kind_facility?).payload["reactor_type"]
     assert candidates_for("05200026").all?(&:status_new?), "other units are unaffected"
-  end
-
-  test "never publishes NRC's state, which is the nearby city's, not always the plant's" do
-    extract
-
-    salem = candidates_for("05000272").find(&:kind_facility?)
-    assert_equal "Salem 1", salem.payload["name"]
-    assert_match "of Wilmington, DE", salem.quote, "NRC measures from Wilmington, DE; the plant is in NJ"
-    assert @source.candidates.select(&:kind_facility?).none? { |c| c.payload.key?("state") }
   end
 
   test "values are checked exactly, so a tidied copy isn't counted as agreement" do

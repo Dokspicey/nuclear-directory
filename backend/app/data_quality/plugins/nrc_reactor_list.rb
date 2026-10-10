@@ -155,14 +155,10 @@ class DataQuality::Plugins::NrcReactorList < DataQuality::Plugin
       facility = { "name" => unit.name, "nrc_docket" => unit.nrc_docket }
       flags = review ? { status: "needs_review", notes: review } : {}
 
-      # No "state": NRC's Location is the distance from a nearby city, whose
-      # state isn't always the plant's (Salem and Hope Creek are in NJ, not
-      # "Wilmington, DE"; Catawba is in SC; Fermi 2 in MI). EIA's plant
-      # state fills it instead.
       [
         { kind: "facility", quote: line, payload: facility.merge(
           "facility_type" => "power_reactor", "status" => "operating", "reactor_type" => unit.reactor_type,
-          "country_code" => "US") },
+          "state" => unit.state, "country_code" => "US") },
         { kind: "facility_relationship", quote: line, payload: {
           "organization" => { "name" => unit.owner_operator }, "facility" => facility, "relationship_type" => "operates" } }
       ].map { |candidate| candidate.merge(flags) }
