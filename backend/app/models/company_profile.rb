@@ -77,10 +77,20 @@ class CompanyProfile
     @plant_links ||= begin
       organization.facility_relationships.verified
         .where(facility_id: DirectoryListing.new.public_facilities.select(:id))
-        .includes(facility: :parent, evidence: :source).to_a
+        .includes({ facility: [ { evidence: :source }, { parent: { evidence: :source } } ] }, evidence: :source).to_a
         .select { |link| link.evidence.any? }
         .sort_by { |link| [ link.relationship_type, link.facility.name ] }
     end
+  end
+
+  # A plant's own type, status and place show beside a link only when the
+  # plant is verified and has a source, which is then cited too.
+  def plant_facts?(facility) = facility.verified? && facility.evidence.any?
+
+  # The link's sources plus those of the plant facts shown with it.
+  def plant_link_citations(link)
+    site = link.facility.parent || link.facility
+    [ link, link.facility, site ].uniq.flat_map { |fact| citations_for(fact) }.uniq(&:first)
   end
 
   def other_party(deal) = deal.from_organization_id == organization.id ? deal.to_organization : deal.from_organization
@@ -121,7 +131,10 @@ class CompanyProfile
       cite(organization) if hq_city.present? || hq_state.present? || founded_year.present?
       (parents + subsidiaries).each { |link| cite(link) }
       deals.each { |deal| cite(deal) }
-      plant_links.each { |link| cite(link) }
+      plant_links.each do |link|
+        cite(link)
+        [ link.facility, link.facility.parent ].compact.each { |facility| cite(facility) if plant_facts?(facility) }
+      end
     end
 
     def sourced_only(records) = records.select { |record| record.evidence.any? }
