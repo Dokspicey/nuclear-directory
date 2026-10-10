@@ -112,6 +112,25 @@ class DataQuality::Stages::VerifyRecommendTest < ActiveSupport::TestCase
     assert_equal 1, verify.stats["decided_meanwhile"]
   end
 
+  test "a recommendation lapses when its source changes, and verify asks again" do
+    @source.update!(content_text: "Imaginary Fission Co, the old page", content_sha256: "old")
+    c = candidate("organization", { "name" => "Imaginary Fission Co" })
+    c.update!(quote: "Imaginary Fission Co")
+    run_stage("match")
+    run_stage("verify", verifier: CountingVerifier.new)
+    assert_equal "old", c.reload.ai_source_sha256
+    assert_includes Candidate.recommended, c
+
+    @source.update!(content_text: "Imaginary Fission Co, the new page", content_sha256: "new")
+    assert_not_includes Candidate.recommended, c, "not approvable as recommended against a page the verifier never read"
+
+    verifier = CountingVerifier.new
+    again = run_stage("verify", verifier:)
+
+    assert_equal [ c.id ], verifier.asked
+    assert_equal [ "recommend_publish", "new", again.id ], [ c.reload.ai_recommendation, c.ai_source_sha256, c.verify_run_id ]
+  end
+
   test "a value a human verifies while the model is asked is still compared before recommending" do
     unit = Facility.create!(name: "Hope Creek 1", nrc_docket: "05000354")
     c = candidate("facility", { "name" => "Hope Creek 1", "nrc_docket" => "05000354", "state" => "DE" })

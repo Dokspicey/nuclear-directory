@@ -34,6 +34,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_010002) do
     t.string "ai_model"
     t.datetime "ai_checked_at"
     t.bigint "verify_run_id"
+    t.string "ai_source_sha256"
     t.string "reviewed_by"
     t.datetime "reviewed_at"
     t.index ["ai_recommendation", "verify_run_id"], name: "index_candidates_on_ai_recommendation_and_verify_run_id"

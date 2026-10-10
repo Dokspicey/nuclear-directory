@@ -21,7 +21,12 @@ class Candidate < ApplicationRecord
   validates :ai_confidence, numericality: { in: 0..1 }, allow_nil: true
 
   # Waiting for a human to approve: recommended by the agent, not yet decided.
-  scope :recommended, -> { where(ai_recommendation: "recommend_publish", status: %w[new matched]) }
+  # Recommended against the source as it is now: once the source changes, the
+  # recommendation lapses until verify checks it again.
+  scope :recommended, -> {
+    where(ai_recommendation: "recommend_publish", status: %w[new matched]).joins(:source)
+      .where("candidates.ai_source_sha256 IS NOT DISTINCT FROM sources.content_sha256")
+  }
 
   # Checks the columns rather than loading the record, so the data quality
   # module can set the link without touching directory models.
