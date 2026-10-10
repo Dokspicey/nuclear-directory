@@ -121,6 +121,12 @@ module Directory
           raise Invalid, "#{record.model_name.human} was #{record.verification_status} by #{record.verified_by || 'review'}" \
             "#{" on #{record.verified_at.to_date}" if record.verified_at}; not changed"
         end
+        # No automated unit under a rejected or unpublished site; the site is
+        # locked, so a decision made while this write runs is seen.
+        if protect_human_verified && kind == :facility && attributes[:parent_id] &&
+            (site = Facility.lock.find_by(id: attributes[:parent_id]))&.closed?
+          raise Invalid, "site #{site.name} was #{site.verification_status} by #{site.verified_by || 'review'}; no units under it"
+        end
         curated = protect_human_verified && !created && record.human_reviewed?
         changes = model_attributes(kind, attributes)
         if curated && (conflicts = conflicts_with(record, changes)).any?
