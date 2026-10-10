@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_10_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_10_100000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -411,6 +411,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_10_000001) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.date "published_on"
+    t.string "etag"
+    t.string "last_modified"
+    t.string "extracted_sha256"
+    t.integer "blocked_streak", default: 0, null: false
     t.index ["domain"], name: "index_sources_on_domain"
     t.index ["source_kind"], name: "index_sources_on_source_kind"
     t.index ["url"], name: "index_sources_on_url", unique: true
