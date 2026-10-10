@@ -137,9 +137,7 @@ module Directory
       # Only for a brand key we'd trust ("X-Energy Seabrook" reduces to "x": no).
       return unless brand_key(name, plants:)
 
-      # "L.L.C." is one word ("LLC"), as the alias normalizer reads it.
-      tokens = name.to_s.gsub("&", " and ").gsub(/\b(?:[[:alpha:]]\.){2,}/) { |initials| initials.delete(".") }
-        .scan(/[[:alnum:]]+/)
+      tokens = join_initials(name).gsub("&", " and ").scan(/[[:alnum:]]+/)
       base = strip_entities(tokens.map(&:downcase))
       place = place_words_at_end(base, plants) or return
 
@@ -157,10 +155,15 @@ module Directory
     # when that is a name in itself (five letters or more, not a place word).
     # One query; read it once and pass it as plants: when checking many names.
     def plant_names
+      # Plants are often named after their owner ("Urenco USA enrichment
+      # facility", "Kairos Power Salt Production Facility"), so a short form
+      # that starts a company's name isn't a plant name on its own.
+      owners = OrganizationAlias.pluck(:normalized_alias).flat_map { |name| [ name.split.first, name.split.first(2).join(" ") ] }.to_set
       Facility.where.not(verification_status: "rejected").pluck(:name).flat_map do |name|
         words = distinctive_words(name).reject { |word| word.length < 3 }
         first = words.first.to_s
-        [ words.join(" "), words.first(2).join(" "), (first if first.length >= 5 && !PLACE_PREFIXES.include?(first)) ]
+        short = [ words.first(2).join(" "), (first if first.length >= 5 && !PLACE_PREFIXES.include?(first)) ]
+        [ words.join(" "), *short.compact.reject { |form| owners.include?(form) } ]
       end.compact_blank.to_set
     end
 
@@ -169,11 +172,15 @@ module Directory
     end
 
     private
+      # Dotted initials as one word ("L.L.C." => "LLC", "L.P." => "LP"), so legal
+      # suffixes are recognized however they're punctuated.
+      def join_initials(name) = name.to_s.gsub(/\b(?:[[:alpha:]]\.){2,}/) { |initials| initials.delete(".") }
+
       # Normalized words of the brand: legal and operating words dropped from
       # the end, then a trailing known plant or region name, then legal words
       # again. Stops at an OWN_BRANDS name.
       def brand_words(name, plants)
-        words = strip_entities(OrganizationAlias.normalize(name).split)
+        words = strip_entities(OrganizationAlias.normalize(join_initials(name)).split)
         place = place_words_at_end(words, plants)
         words = strip_entities(words.first(words.size - place)) if place
         words
