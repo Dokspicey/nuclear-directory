@@ -147,11 +147,15 @@ module Directory
       # Only for a brand key we'd trust ("X-Energy Seabrook" reduces to "x": no).
       return unless brand_key(name, plants:)
 
-      tokens = join_initials(name).gsub("&", " and ").scan(/[[:alnum:]]+/)
-      base = strip_entities(tokens.map(&:downcase))
+      # Words are found in the name as written, so the brand keeps its own
+      # spelling ("Sargent & Lundy", "Babcock-Wilcox"); "&" counts as "and"
+      # only for finding the plant or region at the end.
+      text = join_initials(name)
+      words = text.to_enum(:scan, /[[:alnum:]]+|&/).map { [ Regexp.last_match[0], Regexp.last_match.end(0) ] }
+      base = strip_entities(words.map { |word, _| word == "&" ? "and" : word.downcase })
       place = place_words_at_end(base, plants) or return
 
-      tokens.first(base.size - place).join(" ")
+      text[0, words[base.size - place - 1].last].strip
     end
 
     # Words that start many place names ("North Anna", "Point Beach"); on its

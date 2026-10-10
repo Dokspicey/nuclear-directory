@@ -42,7 +42,6 @@ facilities:
   note: Planned; ownership inferred from Energy Northwest leading design-build procurement; verify.
 - name: Columbia Generating Station
   type: owns
-  ownership_pct: 100.0
   source_url: https://www.bpa.gov/-/media/Aep/about/publications/news-releases/20250522pr1025jointreleaseenergynorthwestandbpaadvanceplantoexpandregionsnuclearpower.pdf
   quote: Columbia Generating Station, a 1,207-megawatt nuclear energy facility near Richland, Washington, is owned and operated by Energy Northwest.
   published: '2025-05-22'

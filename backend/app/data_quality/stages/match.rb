@@ -20,7 +20,10 @@
 #     "facility" => { "name" => "…", "nrc_docket" => "05000424" }, "relationship_type" => "operates" }
 # See app/data_quality/README.md.
 class DataQuality::Stages::Match < DataQuality::Stage
-  ORDER = %w[organization facility organization_role organization_technology relationship facility_relationship
+  # Facilities before organizations: company names are checked against the
+  # plant names they may end in ("NextEra Energy Seabrook"), so plants proposed
+  # in the same run must already be known. Records before links.
+  ORDER = %w[facility organization organization_role organization_technology relationship facility_relationship
     organization_alias].freeze
 
   # Payload keys that name another record, and what kind of record each is.

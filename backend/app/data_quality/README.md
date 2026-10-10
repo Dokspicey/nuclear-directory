@@ -158,8 +158,9 @@ left out); a few brands are their own company and never merged into another
 Evidence from match is `found_by: crawler` with no confidence; verify sets
 the confidence and decides whether the fact is published.
 
-Organizations and facilities are matched first, so links in the same run can
-find records proposed a moment earlier.
+Facilities are matched first, then organizations (so a company name can be
+checked against plants proposed in the same run), then links, which can find
+records proposed a moment earlier.
 
 **Units and sites.** The seed names plants at site level ("Plant Vogtle Units 3
 & 4", no docket); the NRC lists units ("Vogtle 3", with a docket). A site
