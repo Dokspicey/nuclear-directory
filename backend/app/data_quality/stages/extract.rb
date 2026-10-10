@@ -1,9 +1,13 @@
 # Turns each crawled source into candidate facts via the plug-in.
 # A source whose content hasn't changed since its last extraction is
-# skipped. Re-extracting replaces a source's unprocessed (new) candidates;
-# candidates that already moved on are left alone. A plug-in may send a
-# candidate straight to review by returning status: "needs_review" and the
-# reason in notes.
+# skipped. A plug-in may send a candidate straight to review by returning
+# status: "needs_review" and the reason in notes; it's marked
+# review_origin: "extract".
+#
+# Re-extracting a changed source replaces what came from its old
+# snapshot and wasn't acted on yet: candidates still new, and ones extract
+# itself sent to review. Candidates that moved on (matched, merged,
+# rejected, or sent to review by a later stage) are left alone.
 class DataQuality::Stages::Extract < DataQuality::Stage
   private
     def perform(run)
@@ -16,9 +20,11 @@ class DataQuality::Stages::Extract < DataQuality::Stage
         end
 
         Candidate.transaction do
-          source.candidates.status_new.delete_all
+          stale(source).delete_all
           plugin.extract(source, run).each do |attrs|
-            source.candidates.create!(attrs.slice(:kind, :payload, :quote, :status, :notes).merge(crawl_run: run))
+            attrs = attrs.slice(:kind, :payload, :quote, :status, :notes)
+            attrs[:review_origin] = "extract" if attrs[:status].to_s == "needs_review"
+            source.candidates.create!(attrs.merge(crawl_run: run))
             stats["candidates"] += 1
           end
           source.update!(extracted_sha256: source.content_sha256)
@@ -27,5 +33,9 @@ class DataQuality::Stages::Extract < DataQuality::Stage
       end
 
       stats
+    end
+
+    def stale(source)
+      source.candidates.status_new.or(source.candidates.status_needs_review.where(review_origin: "extract"))
     end
 end

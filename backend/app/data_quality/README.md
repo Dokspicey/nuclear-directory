@@ -75,7 +75,7 @@ Never work around a block. `plugins/nrc_reactor_list.rb` is the reference plug-i
 | `kind` | One of `Candidate::KINDS`: the six FactWriter kinds plus `organization_alias` |
 | `payload` | String keys. Records use FactWriter attribute names. Links name each end with a nested hash (`"organization" => { "name" => … }`, `"facility" => { "name" => …, "nrc_docket" => … }`), never `*_id`; match resolves those |
 | `quote` | The supporting text, copied exactly from the source |
-| `status`, `notes` | Optional: `status: "needs_review"` with the reason in `notes` sends a candidate straight to review |
+| `status`, `notes` | Optional: `status: "needs_review"` with the reason in `notes` sends a candidate straight to review. The stage marks it `review_origin: "extract"`, so re-extracting a changed source replaces it (with the source's `new` candidates) instead of piling up duplicates |
 
 The extract stage adds `source_id` and `crawl_run_id`. Candidates start `new` (or `needs_review` if
 the plug-in flagged them). Match links the ones it can to directory records (`matched`), and verify

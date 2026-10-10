@@ -47,7 +47,7 @@ class DataQuality::Plugins::NrcReactorList::ExtractTest < ActiveSupport::TestCas
   end
 
   def candidates_for(docket)
-    @source.candidates.select { |c| c.payload["nrc_docket"] == docket || c.payload.dig("facility", "nrc_docket") == docket }
+    @source.candidates.reload.select { |c| c.payload["nrc_docket"] == docket || c.payload.dig("facility", "nrc_docket") == docket }
   end
 
   test "when the model agrees with the table, every unit becomes candidates" do
@@ -163,6 +163,25 @@ class DataQuality::Plugins::NrcReactorList::ExtractTest < ActiveSupport::TestCas
     assert_equal 1, run.stats["ai_check"]["made_up"]
     assert_empty candidates_for("09999999")
     assert_not @source.candidates.any? { |c| c.payload["name"] == "Nobody" }
+  end
+
+  test "re-extracting a changed page replaces extract's own review flags, but keeps later stages' work" do
+    extract(FakeModel.new { |units| units.map { |u| u["nrc_docket"] == "05200025" ? u.merge("reactor_type" => "BWR") : u } })
+    assert candidates_for("05200025").all? { |c| c.status_needs_review? && c.review_origin == "extract" }
+    # Meanwhile a later stage (e.g. match) sends Byron 1 to review, and Vogtle 4 is merged.
+    byron = candidates_for("05000454").find(&:kind_facility?)
+    byron.update!(status: "needs_review", notes: "Ambiguous: two similar sites")
+    candidates_for("05200026").find(&:kind_facility?).update!(status: "merged", subject_type: "Facility", subject_id: 1)
+
+    @source.update!(content_sha256: "changed")
+    extract
+
+    vogtle3 = candidates_for("05200025")
+    assert_equal 2, vogtle3.size, "the old flags are replaced, not duplicated"
+    assert vogtle3.all?(&:status_new?)
+    assert byron.reload.status_needs_review?, "a later stage's review flag is kept"
+    assert_equal 2, candidates_for("05000454").count(&:kind_facility?), "alongside the fresh candidate from the new page"
+    assert candidates_for("05200026").any?(&:status_merged?), "merged work is kept"
   end
 
   test "if the model fails, the run fails and the page is extracted again next time" do
