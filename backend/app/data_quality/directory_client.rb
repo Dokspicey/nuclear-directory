@@ -64,7 +64,8 @@ class DataQuality::DirectoryClient
   # Writes a fact the match stage found or proposed, with the candidate's
   # source as evidence (found_by: crawler). Verification is left alone, so a
   # new fact starts pending and an existing one keeps its status. A fact a
-  # human has verified or rejected only gets its blanks filled.
+  # human has verified only gets its blanks filled; one a human rejected
+  # isn't changed (the result has an error).
   # evidence: false writes only the record (a link that may already exist
   # gets its evidence on publish, so nothing unverified lands on it early).
   def write_pending(kind, attributes, candidate:, crawl_run:, evidence: true)
@@ -76,8 +77,9 @@ class DataQuality::DirectoryClient
   # Writes a candidate as a verified fact, with the source it came from as
   # evidence. A matched candidate updates its record (attributes id:); for
   # link kinds the ends were resolved by match, so the rest of the payload is
-  # sent. A fact a human has verified or rejected is never overwritten: only
-  # its blank attributes are filled and its verification stays (FactWriter
+  # sent. A fact a human has verified is never overwritten: only its blank
+  # attributes are filled and its verification stays. A fact a human rejected
+  # isn't changed at all; the result has an error instead (FactWriter
   # protect_human_verified). Returns a WriteResult; never raises on
   # validation problems.
   def write_fact(candidate, confidence:, crawl_run:)
