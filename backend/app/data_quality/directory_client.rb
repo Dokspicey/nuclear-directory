@@ -50,12 +50,12 @@ class DataQuality::DirectoryClient
 
   # Organizations that are the same brand as name (legal-entity variants).
   def same_brand_organizations(name)
-    lookup.same_brand_organizations(name).map { |ref| record("Organization", ref) }
+    lookup.same_brand_organizations(name, plants: plant_names).map { |ref| record("Organization", ref) }
   end
 
   # The brand a per-plant or regional company name stands for
   # ("NextEra Energy Seabrook, LLC" => "NextEra Energy"), or nil.
-  def brand_name(name) = lookup.brand_name(name)
+  def brand_name(name) = lookup.brand_name(name, plants: plant_names)
 
   def similar_facilities(name)
     lookup.similar_facilities(name).map { |ref| record("Facility", ref) }
@@ -64,7 +64,8 @@ class DataQuality::DirectoryClient
   # Writes a fact the match stage found or proposed, with the candidate's
   # source as evidence (found_by: crawler). Verification is left alone, so a
   # new fact starts pending and an existing one keeps its status. A fact a
-  # human has verified or rejected only gets its blanks filled.
+  # human has verified only gets its blanks filled; one a human rejected
+  # isn't changed (the result has an error).
   # evidence: false writes only the record (a link that may already exist
   # gets its evidence on publish, so nothing unverified lands on it early).
   def write_pending(kind, attributes, candidate:, crawl_run:, evidence: true)
@@ -76,8 +77,9 @@ class DataQuality::DirectoryClient
   # Writes a candidate as a verified fact, with the source it came from as
   # evidence. A matched candidate updates its record (attributes id:); for
   # link kinds the ends were resolved by match, so the rest of the payload is
-  # sent. A fact a human has verified or rejected is never overwritten: only
-  # its blank attributes are filled and its verification stays (FactWriter
+  # sent. A fact a human has verified is never overwritten: only its blank
+  # attributes are filled and its verification stays. A fact a human rejected
+  # isn't changed at all; the result has an error instead (FactWriter
   # protect_human_verified). Returns a WriteResult; never raises on
   # validation problems.
   def write_fact(candidate, confidence:, crawl_run:)
@@ -142,6 +144,9 @@ class DataQuality::DirectoryClient
     def lookup = @lookup ||= "Directory::Lookup".constantize
     def fact_writer = @fact_writer ||= "Directory::FactWriter".constantize
 
+    # Read once and reused for every brand check, until a facility is written.
+    def plant_names = @plant_names ||= lookup.plant_names
+
     def record(type, ref)
       Record.new(type:, id: ref.id, name: ref.name, nrc_docket: ref.try(:nrc_docket), parent_id: ref.try(:parent_id),
         facility_type: ref.try(:facility_type), status: ref.try(:status), state: ref.try(:state),
@@ -149,6 +154,7 @@ class DataQuality::DirectoryClient
     end
 
     def write_result(result)
+      @plant_names = nil if result.ok? && result.kind.to_s == "facility"
       if result.ok?
         WriteResult.new(ref: Ref.new(type: type_for(result.kind), id: result.id), errors: [], created: result.created)
       elsif result.conflict?

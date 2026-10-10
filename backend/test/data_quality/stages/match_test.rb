@@ -297,6 +297,32 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
     assert_match "could be the same brand as Urenco or Urenco USA", c.notes
   end
 
+  test "a shared brand goes to review even when the domain matches one of them" do
+    Directory::FactWriter.write(:organization, { name: "Urenco", website: "https://urenco.com" })
+    Directory::FactWriter.write(:organization, { name: "Urenco USA" })
+    c = candidate("organization", { "name" => "Urenco Nuclear Operations LLC", "website" => "https://urenco.com/usa" })
+
+    match!
+
+    assert c.reload.status_needs_review?
+    assert_match "could be the same brand as Urenco or Urenco USA (its domain matches Urenco)", c.notes
+  end
+
+  test "brand checks read the plant names once per run, and again after a facility is written" do
+    lookup = SimpleDelegator.new(Directory::Lookup)
+    reads = 0
+    lookup.define_singleton_method(:plant_names) { reads += 1; __getobj__.plant_names }
+    client = DataQuality::DirectoryClient.new(lookup:)
+
+    client.same_brand_organizations("NextEra Energy Seabrook, LLC")
+    client.brand_name("NextEra Energy Seabrook, LLC")
+    assert_equal 1, reads
+    client.write_pending("facility", { name: "Seabrook Station" }, candidate: candidate("facility", {}),
+      crawl_run: Struct.new(:id).new(nil))
+    assert_equal "NextEra Energy", client.brand_name("NextEra Energy Seabrook, LLC"), "Seabrook is now a known plant"
+    assert_equal 2, reads
+  end
+
   test "an organization listed on many rows is proposed once, then matched" do
     rows = 2.times.map { candidate("organization", { "name" => "Entergy Nuclear Operations, Inc." }) }
 
@@ -324,6 +350,7 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
     assert record.operates?
     assert record.pending?
     assert_equal "Arkansas Nuclear 1", record.facility.name
+    assert_equal [ link.quote ], record.evidence.pluck(:quote), "a new link is a proposal and carries its quote"
     assert_equal 3, run.stats["proposed"]
   end
 
@@ -347,6 +374,7 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
     assert_equal [ "Curated description", 40 ], link.slice(:description, :ownership_pct).values
     assert_equal "human:tosin", link.verified_by
     assert link.verified?
+    assert_empty link.evidence, "an existing link gets the quote only when it's published"
   end
 
   test "matching an existing pending link defers candidate attributes until publication" do

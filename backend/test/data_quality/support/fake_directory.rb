@@ -25,8 +25,9 @@ module FakeDirectory
 
     # The fake knows nothing similar; match tests that need it use the real directory.
     def similar_organizations(name) = []
-    def same_brand_organizations(name) = []
+    def same_brand_organizations(name, plants: nil) = []
     def brand_name(name, plants: nil) = nil
+    def plant_names = Set.new
     def similar_facilities(name) = []
 
     private

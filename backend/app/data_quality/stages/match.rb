@@ -110,7 +110,8 @@ class DataQuality::Stages::Match < DataQuality::Stage
     # Only the fields that identify a link (LINK_KEYS and the resolved ends)
     # are written at match; its description, dates and ownership are applied
     # when it's published, so an existing link never takes on unverified
-    # values. (A new link is pending, so nothing public is missing meanwhile.)
+    # values. (A new link is pending, so nothing public is missing meanwhile;
+    # like any proposal, it gets the quote as evidence.)
     def match_link(candidate, payload)
       attributes = payload.slice(*LINK_KEYS.fetch(candidate.kind)).symbolize_keys
 
@@ -161,16 +162,18 @@ class DataQuality::Stages::Match < DataQuality::Stage
 
       # One company per brand: a legal-entity variant of exactly one existing
       # company is that company. Two candidates for the brand is ambiguous. A
-      # brand counts as a name match, so it must agree with the domain too.
+      # brand counts as a name match, so it must agree with the domain too, and
+      # a shared brand goes to review even when the domain picks one of them.
       brand = name ? directory.same_brand_organizations(name) : []
-      if by_domain && brand.any? && brand.none? { |record| record.id == by_domain.id }
-        return Review.new("name is the brand of #{brand.map(&:name).join(' or ')} but domain matches #{by_domain.name}")
+      if brand.many?
+        domain_note = " (its domain matches #{by_domain.name})" if by_domain
+        return Review.new("#{name.inspect} could be the same brand as #{brand.map(&:name).join(' or ')}#{domain_note}. Which one?")
+      end
+      if by_domain && brand.one? && brand.first.id != by_domain.id
+        return Review.new("name is the brand of #{brand.first.name} but domain matches #{by_domain.name}")
       end
       return Found.new(by_domain, "domain") if by_domain
       return Found.new(brand.first, "brand, a legal-entity variant of its name") if brand.one?
-      if brand.many?
-        return Review.new("#{name.inspect} could be the same brand as #{brand.map(&:name).join(' or ')}. Which one?")
-      end
 
       similar(directory.similar_organizations(name.to_s), name)
     end
@@ -240,6 +243,12 @@ class DataQuality::Stages::Match < DataQuality::Stage
     # evidence: false for links, which may already exist; their quote is added on publish.
     def write(candidate, attributes, existing: nil, note: nil, evidence: true)
       result = directory.write_pending(candidate.kind, attributes, candidate:, crawl_run: @run, evidence:)
+      # A link written without evidence (so an existing one isn't changed) that
+      # turned out to be new is a proposal, and a proposal carries its quote.
+      if result.success? && result.created && !evidence
+        with_quote = directory.write_pending(candidate.kind, { id: result.ref.id }, candidate:, crawl_run: @run)
+        result = with_quote unless with_quote.success?
+      end
       unless result.success?
         return review(candidate, "Directory rejected the write: #{result.errors.join('; ')}", write_error: true)
       end
