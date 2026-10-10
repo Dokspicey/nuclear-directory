@@ -133,7 +133,8 @@ class DataQuality::FetcherTest < ActiveSupport::TestCase
       "::1" => "IPv6 loopback", "fd00::1" => "IPv6 unique local", "fe80::1" => "IPv6 link-local",
       "::ffff:127.0.0.1" => "IPv4-mapped loopback", "4000::1" => "IPv6 reserved", "fec0::1" => "IPv6 site-local",
       "64:ff9b::a00:1" => "NAT64", "64:ff9b:1::1" => "local-use NAT64", "3fff::1" => "IPv6 documentation",
-      "2002:a00:1::1" => "6to4 wrapping 10.0.0.1", "2001::1" => "Teredo", "ff02::1" => "IPv6 multicast"
+      "2002:a00:1::1" => "6to4 wrapping 10.0.0.1", "2001::1" => "Teredo", "ff02::1" => "IPv6 multicast",
+      "192.88.99.1" => "6to4 relay anycast"
     }.each do |address, what|
       fetcher = DataQuality::Fetcher.new(sleeper: ->(_) { }, resolver: ->(_host) { [ address ] })
       response = fetcher.get("https://internal.example/x")

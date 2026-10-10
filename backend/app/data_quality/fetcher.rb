@@ -25,7 +25,7 @@ class DataQuality::Fetcher
     Errno::EHOSTUNREACH, SocketError, EOFError, OpenSSL::SSL::SSLError ].freeze
   # IPv4 that isn't the public internet, besides IPAddr's private, loopback
   # and link-local (169.254.0.0/16 holds cloud metadata services).
-  NON_PUBLIC_V4 = %w[0.0.0.0/8 100.64.0.0/10 192.0.0.0/24 192.0.2.0/24 198.18.0.0/15 198.51.100.0/24 203.0.113.0/24
+  NON_PUBLIC_V4 = %w[0.0.0.0/8 100.64.0.0/10 192.0.0.0/24 192.0.2.0/24 192.88.99.0/24 198.18.0.0/15 198.51.100.0/24 203.0.113.0/24
     224.0.0.0/4 240.0.0.0/4].map { IPAddr.new(_1) }.freeze
   # IPv6 is public only inside global unicast (2000::/3), minus its
   # special-use blocks: IETF protocol assignments (incl. Teredo), 6to4 (which
