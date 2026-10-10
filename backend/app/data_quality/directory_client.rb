@@ -129,7 +129,11 @@ class DataQuality::DirectoryClient
   # After a unit is verified, fills its site's blank fields (state, type,
   # status) from the unit, with the unit's quote as evidence. Never
   # overwrites a field the site already has, and leaves the site's
-  # verification alone. Returns a WriteResult, or nil when the unit has no site.
+  # verification alone. Returns a WriteResult, or nil when the unit has no site
+  # or the site has nothing blank to fill. Only the site's blank fields are
+  # sent, so the quote is evidence just for what it fills, and the write is
+  # protected like any automated one: a site a human rejected isn't changed
+  # (the result has an error).
   # The values come from the unit as stored, not from the candidate, since
   # a curated unit may have kept its own values over the candidate's.
   def fill_site_from_unit(facility_id, candidate, crawl_run:)
@@ -137,10 +141,12 @@ class DataQuality::DirectoryClient
     # Only a unit that ended up verified speaks for its site (a human may have kept it rejected).
     return unless unit&.parent_id && unit.verification_status == "verified"
 
+    site = lookup.facility(id: unit.parent_id) or return
     fields = unit.to_h.slice(*SITE_FIELDS_FROM_UNIT.map(&:to_sym)).compact_blank
+      .select { |name, _| site.public_send(name).blank? }
     return if fields.empty?
 
-    result = fact_writer.write("facility", fields.merge(id: unit.parent_id), fill_blank: true,
+    result = fact_writer.write("facility", fields.merge(id: site.id), fill_blank: true, protect_human_verified: true,
       evidence: [ { source_id: candidate.source_id, quote: candidate.quote, found_by: "crawler", crawl_run_id: crawl_run.id } ])
     write_result(result)
   end
