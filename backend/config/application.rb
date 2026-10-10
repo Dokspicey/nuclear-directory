@@ -23,5 +23,17 @@ module NuclearDirectory
     #
     # config.time_zone = "Central Time (US & Canada)"
     # config.eager_load_paths << Rails.root.join("extras")
+
+    # "Page not found" uses the site's layout (ErrorsController). Every other
+    # error keeps the static pages in public/, which work even when the app
+    # itself is broken.
+    config.exceptions_app = lambda do |env|
+      status = env["PATH_INFO"].delete_prefix("/").to_i
+      if status == 404
+        ErrorsController.action(:not_found).call(env)
+      else
+        ActionDispatch::PublicExceptions.new(Rails.public_path).call(env)
+      end
+    end
   end
 end

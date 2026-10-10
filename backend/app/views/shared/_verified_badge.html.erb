@@ -1,0 +1,3 @@
+<%# "Verified" and the date it was last checked. Locals: verified_at. %>
+<span class="nd-badge nd-badge--verified"><%= icon("check", weight: :bold, size: 12) %>Verified</span>
+<% if local_assigns[:verified_at] %><span class="type-data-sm text-ink-muted">checked <%= data_date(verified_at) %></span><% end %>

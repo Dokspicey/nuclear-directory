@@ -10,4 +10,14 @@ class DesignSystemTest < ActionDispatch::IntegrationTest
     end
     assert_select "svg.nd-ic", minimum: 20
   end
+
+  test "it renders every shared page part with mock records" do
+    get design_system_path
+
+    within_parts = "#page-parts"
+    %w[nd-sitebar nd-pills nd-cats nd-listrow nd-profile nd-factrow nd-gaps nd-sources nd-notice nd-overview].each do |part|
+      assert_select "#{within_parts} .#{part}", { minimum: 1 }, "missing #{part}"
+    end
+    assert_select "#{within_parts} .nd-listrow", 4
+  end
 end

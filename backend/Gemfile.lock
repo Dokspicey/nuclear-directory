@@ -211,6 +211,8 @@ GEM
     pg (1.7.0-x86_64-darwin)
     pg (1.7.0-x86_64-linux)
     pg (1.7.0-x86_64-linux-musl)
+    posthog-ruby (3.27.0)
+      concurrent-ruby (~> 1)
     pp (0.6.4)
       prettyprint
     prettyprint (0.2.1)
@@ -398,6 +400,7 @@ DEPENDENCIES
   jbuilder
   json_schemer (~> 2.4)
   pg (~> 1.1)
+  posthog-ruby (~> 3.0)
   propshaft
   puma (>= 5.0)
   rails (~> 8.1.4)
