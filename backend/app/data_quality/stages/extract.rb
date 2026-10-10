@@ -36,11 +36,13 @@ class DataQuality::Stages::Extract < DataQuality::Stage
           attrs.merge(crawl_run: run)
         end
 
-        # Results belong to the snapshot they were read from. If a crawl
-        # stored new content meanwhile, or another run already extracted
-        # this snapshot, they're discarded rather than written over it.
+        # Results belong to the snapshot they were read from, from a source
+        # that's still usable. If a crawl stored new content or flagged the
+        # source (blocked, needs_human) meanwhile, or another run already
+        # extracted this snapshot, they're discarded rather than written.
         written = Candidate.transaction do
           source.lock!
+          next false unless source.crawl_ok?
           next false if source.content_sha256 != snapshot || source.extracted_sha256 == snapshot
 
           stale(source).delete_all

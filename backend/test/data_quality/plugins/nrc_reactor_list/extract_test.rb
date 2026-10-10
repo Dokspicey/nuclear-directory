@@ -217,6 +217,21 @@ class DataQuality::Plugins::NrcReactorList::ExtractTest < ActiveSupport::TestCas
     assert CrawlRun.where(stage: "extract").order(:id).last.failed?
   end
 
+  test "results are discarded if the source was flagged while the model was working" do
+    model = FakeModel.new
+    # A crawl's cross-check flags the source while the model reads it; the content is unchanged.
+    model.define_singleton_method(:structured) do |**args|
+      Source.where(url: Plugin::LIST_URL).update_all(crawl_status: "needs_human", status_reason: "units disagree")
+      super(**args)
+    end
+
+    run = extract(model)
+
+    assert_equal 1, run.stats["superseded"]
+    assert_empty @source.candidates.reload
+    assert_nil @source.reload.extracted_sha256, "the flagged snapshot isn't recorded as extracted"
+  end
+
   test "a broken snapshot replaced by a good one meanwhile doesn't flag the good one" do
     broken = "<html><body><p>We moved things around.</p></body></html>"
     @source.update!(content_text: broken, content_sha256: Digest::SHA256.hexdigest(broken))
