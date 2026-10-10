@@ -135,6 +135,55 @@ class DataQuality::ReviewTest < ActiveSupport::TestCase
       attributes: { role: "utility" }).errors.join
   end
 
+  test "id can't be edited, and an id in a payload never picks the record written" do
+    c = candidate("organization", { "name" => "Imaginary Fission Co" })
+    assert_match "can't edit id", Review.edit_and_approve(c.id, attributes: { "id" => organizations(:terrapower).id }, by: BY).errors.join
+
+    sneaky = candidate("organization", { "name" => "Sneaky Co", "id" => organizations(:terrapower).id })
+    assert Review.approve([ sneaky.id ], by: BY).sole.ok?
+    assert_equal "TerraPower", organizations(:terrapower).reload.name, "not overwritten"
+    assert_not_equal organizations(:terrapower).id, sneaky.reload.subject_id
+  end
+
+  test "an edited claim doesn't carry the verifier's confidence; an unchanged one does" do
+    edited = candidate("facility", { "name" => "Hope Creek 1", "nrc_docket" => "05000354", "state" => "DE" })
+    same = candidate("facility", { "name" => "Salem 1", "nrc_docket" => "05000272", "state" => "NJ" })
+    run_stage("match")
+    run_stage("verify", verifier: Recommend.new)
+
+    Review.edit_and_approve(edited.id, attributes: { "state" => "NJ" }, by: BY)
+    Review.edit_and_approve(same.id, attributes: { "state" => "NJ" }, by: BY)
+
+    confidence = ->(c) { Facility.find(c.reload.subject_id).evidence.where.not(crawl_run_id: nil).sole.confidence }
+    assert_nil confidence.(edited), "the model checked DE, not NJ"
+    assert_equal 0.9, confidence.(same).to_f
+  end
+
+  test "approving an alias adds it to its published company, as the human" do
+    terrapower = organizations(:terrapower)
+    terrapower.verify!(by: BY)
+    c = candidate("organization_alias", { "organization" => { "name" => "TerraPower" }, "alias" => "TerraPower Isotopes" })
+    run_stage("match")
+    assert c.reload.status_needs_review?
+
+    result = Review.approve([ c.id ], by: BY).sole
+
+    assert result.ok?, result.errors.inspect
+    assert_equal [ "Organization", terrapower.id ], [ result.ref.type, result.ref.id ]
+    assert_includes terrapower.aliases.reload.pluck(:alias), "TerraPower Isotopes"
+    assert c.reload.status_merged?
+  end
+
+  test "an alias waits for its company to be published, and needs a company that exists" do
+    pending_co = Organization.find(Directory::FactWriter.write(:organization, { name: "Pending Fission Co" }).id)
+    early = candidate("organization_alias", { "organization" => { "name" => "Pending Fission Co" }, "alias" => "PFC" })
+    nowhere = candidate("organization_alias", { "organization" => { "name" => "Nobody Co" }, "alias" => "NC" })
+
+    assert_match "Pending Fission Co isn't published; approve it first", Review.approve([ early.id ], by: BY).sole.errors.join
+    assert_match "no company named \"Nobody Co\"", Review.approve([ nowhere.id ], by: BY).sole.errors.join
+    assert_empty pending_co.aliases.where(alias: "PFC")
+  end
+
   test "an item carries the record it's attached to" do
     c = candidate("organization", { "name" => "Imaginary Fission Co" })
     run_stage("match")
