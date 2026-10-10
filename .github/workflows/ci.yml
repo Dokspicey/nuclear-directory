@@ -23,6 +23,17 @@ jobs:
       - name: RuboCop
         run: bin/rubocop -f github
 
+  blueprint:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check render.yaml
+        run: ruby .github/scripts/check_blueprint.rb
+
   test:
     runs-on: ubuntu-latest
 
@@ -60,3 +71,63 @@ jobs:
 
       - name: Run tests
         run: bin/rails test
+
+  # #90: Lighthouse on a phone profile (simulated 4G, mid-range CPU) against
+  # the production build with seed data. Fails below 95 for performance or
+  # accessibility, or when the largest content takes over 2.5 s.
+  lighthouse:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 15
+
+    env:
+      RAILS_ENV: production
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432
+      SECRET_KEY_BASE_DUMMY: "1"
+      FORCE_SSL: "false"
+      RAILS_LOG_LEVEL: warn
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          working-directory: backend
+          bundler-cache: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build assets
+        run: bin/rails assets:precompile
+
+      - name: Prepare database with seed data
+        run: bin/rails db:prepare db:seed
+
+      - name: Start the app
+        run: |
+          bin/rails server -p 3000 -d
+          for i in $(seq 1 30); do curl -sf http://localhost:3000/up && break; sleep 1; done
+
+      - name: Lighthouse
+        run: npx --yes @lhci/cli@0.14.0 autorun
+
+      - name: Keep the reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse
+          path: backend/lighthouse
