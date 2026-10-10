@@ -223,9 +223,9 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
     assert_match "name matches TerraPower but domain matches Westinghouse", c.notes
   end
 
-  test "an operator similar to an existing parent goes to review" do
+  test "a similar company with a different brand goes to review" do
     Directory::FactWriter.write(:organization, { name: "Southern Company" })
-    c = candidate("organization", { "name" => "Southern Nuclear Operating Co." })
+    c = candidate("organization", { "name" => "Southern California Edison" })
 
     assert_no_difference "Organization.count" do
       match!
@@ -233,6 +233,132 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
 
     assert c.reload.status_needs_review?
     assert_match "Southern Company", c.notes
+  end
+
+  test "one company per brand: a legal-entity variant is that company" do
+    constellation = Directory::FactWriter.write(:organization, { name: "Constellation Energy Corporation" }).id
+    dominion = Directory::FactWriter.write(:organization, { name: "Dominion Energy" }).id
+    generation = candidate("organization", { "name" => "Constellation Energy Generation, LLC" })
+    arm = candidate("organization", { "name" => "Dominion Generation" })
+
+    assert_no_difference "Organization.count" do
+      match!
+    end
+
+    assert_equal [ constellation, dominion ], [ generation, arm ].map { |c| c.reload.subject_id }
+    assert_match "by brand", generation.notes
+
+    DataQuality::Review.approve([ arm.id ], by: "human:tosin")
+    assert_equal dominion, Directory::Lookup.organization(name: "Dominion Generation").id,
+      "once published, the variant is an alias, so the next run matches it exactly"
+  end
+
+  test "Southern Nuclear is its own company, not Southern Company" do
+    Directory::FactWriter.write(:organization, { name: "Southern Company" })
+    c = candidate("organization", { "name" => "Southern Nuclear Operating Co., Inc." })
+
+    match!
+
+    assert c.reload.status_needs_review?, "similar to Southern Company, so a human decides; never merged into it"
+    assert_nil c.subject_id
+  end
+
+  test "a per-plant LLC belongs to its brand, which a new company is named after" do
+    Facility.create!(name: "Point Beach 1", nrc_docket: "05000266")
+    Facility.create!(name: "Seabrook 1", nrc_docket: "05000443")
+    point_beach = candidate("organization", { "name" => "NextEra Energy Point Beach, LLC" })
+    seabrook = candidate("organization", { "name" => "NextEra Energy Seabrook, LLC" })
+
+    assert_difference "Organization.count", 1 do
+      match!
+    end
+
+    nextera = Organization.find(point_beach.reload.subject_id)
+    assert_equal "NextEra Energy", nextera.name
+    assert_equal nextera.id, seabrook.reload.subject_id
+    assert_equal nextera.id, Directory::Lookup.organization(name: "NextEra Energy Point Beach, LLC").id, "legal name kept as an alias"
+  end
+
+  test "a regional operating company belongs to its brand" do
+    duke = Directory::FactWriter.write(:organization, { name: "Duke Energy" }).id
+    holtec = Directory::FactWriter.write(:organization, { name: "Holtec International" }).id
+    Facility.create!(name: "Palisades", nrc_docket: "05000255")
+    carolinas = candidate("organization", { "name" => "Duke Energy Carolinas, LLC" })
+    palisades = candidate("organization", { "name" => "Holtec Palisades, LLC" })
+
+    match!
+
+    assert_equal [ duke, holtec ], [ carolinas, palisades ].map { |c| c.reload.subject_id }
+  end
+
+  test "a brand match that disagrees with the domain goes to review" do
+    Directory::FactWriter.write(:organization, { name: "Dominion Energy" })
+    c = candidate("organization", { "name" => "Dominion Generation", "domain" => "terrapower.com" })
+
+    match!
+
+    assert c.reload.status_needs_review?
+    assert_match "brand of Dominion Energy but domain matches TerraPower", c.notes
+  end
+
+  test "a per-plant name whose brand isn't in the directory yet must agree with the domain" do
+    Facility.create!(name: "Seabrook Station")
+    c = candidate("organization", { "name" => "NextEra Energy Seabrook, LLC", "domain" => "terrapower.com" })
+
+    match!
+
+    assert c.reload.status_needs_review?
+    assert_match "name is a NextEra Energy company but domain matches TerraPower", c.notes
+  end
+
+  test "a brand shared by two companies goes to review" do
+    Directory::FactWriter.write(:organization, { name: "Urenco" })
+    Directory::FactWriter.write(:organization, { name: "Urenco USA" })
+    c = candidate("organization", { "name" => "Urenco Nuclear Operations LLC" })
+
+    match!
+
+    assert c.reload.status_needs_review?
+    assert_match "could be the same brand as Urenco or Urenco USA", c.notes
+  end
+
+  test "a shared brand goes to review even when the domain matches one of them" do
+    Directory::FactWriter.write(:organization, { name: "Urenco", website: "https://urenco.com" })
+    Directory::FactWriter.write(:organization, { name: "Urenco USA" })
+    c = candidate("organization", { "name" => "Urenco Nuclear Operations LLC", "website" => "https://urenco.com/usa" })
+
+    match!
+
+    assert c.reload.status_needs_review?
+    assert_match "could be the same brand as Urenco or Urenco USA (its domain matches Urenco)", c.notes
+  end
+
+  test "brand checks read the plant names once per run, and again after a facility is written" do
+    lookup = SimpleDelegator.new(Directory::Lookup)
+    reads = 0
+    lookup.define_singleton_method(:plant_names) { reads += 1; __getobj__.plant_names }
+    client = DataQuality::DirectoryClient.new(lookup:)
+
+    client.same_brand_organizations("NextEra Energy Seabrook, LLC")
+    client.brand_name("NextEra Energy Seabrook, LLC")
+    assert_equal 1, reads
+    client.write_pending("facility", { name: "Seabrook Station" }, candidate: candidate("facility", {}),
+      crawl_run: Struct.new(:id).new(nil))
+    assert_equal "NextEra Energy", client.brand_name("NextEra Energy Seabrook, LLC"), "Seabrook is now a known plant"
+    assert_equal 2, reads
+    client.write_pending("organization", { name: "Seabrook Holdings" }, candidate: candidate("organization", {}),
+      crawl_run: Struct.new(:id).new(nil))
+    client.brand_name("NextEra Energy Seabrook, LLC")
+    assert_equal 3, reads, "company names change which short forms count as plants"
+  end
+
+  test "a plant proposed in the same run is known when companies are matched" do
+    candidate("organization", { "name" => "Acme Power Fernhill, LLC" })
+    candidate("facility", { "name" => "Fernhill Generating Station", "facility_type" => "power_reactor" })
+
+    match!
+
+    assert Organization.exists?(name: "Acme Power"), "proposed under its brand, since Fernhill is a plant"
   end
 
   test "an organization listed on many rows is proposed once, then matched" do

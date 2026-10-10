@@ -186,8 +186,9 @@ Extract writes `candidates` (`kind`, `payload`, `quote`, `source_id`). Match
 
 | Outcome | When | Candidate becomes |
 |---|---|---|
+| **Same brand** | a company name that, without its legal words and a trailing plant or region name, is the brand of exactly one company ("Constellation Energy Generation, LLC" → Constellation; "NextEra Energy Seabrook, LLC" → NextEra Energy) | `matched` to that company, like **Found**. It must agree with the domain. A brand shared by two companies goes to review, even when the domain matches one of them. |
 | **Found** | exact NRC docket, domain, or name/alias (normalized) | `matched`, subject = that record. Nothing is written yet: when a human approves it, the quote is added as evidence and an organization gains the name as an alias (its own name is kept). If it disagrees with a human-verified value, verify sends it to review with both values; approving it then applies the new value, since the approver is a human. A record that was rejected or unpublished is never changed or attached to: the candidate goes to review, with who decided and when. |
-| **Not found** | nothing exact and nothing similar | `matched`, subject = a new **pending** record with the quote as evidence |
+| **Not found** | nothing exact and nothing similar | `matched`, subject = a new **pending** record with the quote as evidence. A per-plant or regional company name with no company for its brand yet is proposed under its brand ("NextEra Energy Point Beach, LLC" → a new "NextEra Energy"), so later names of the same brand find it. |
 | **New unit of a known site** | an NRC unit (has a docket) whose only similar record is a site (no docket, no parent) that covers it | `matched`, subject = a new **pending** unit with `parent_id` = the site |
 | **Ambiguous** | identifiers point at different records, or a similar record exists | `needs_review`, with the reason in `notes`. Never merged automatically. |
 
@@ -195,11 +196,17 @@ Extract writes `candidates` (`kind`, `payload`, `quote`, `source_id`). Match
 generic words ("Vogtle 3" vs "Plant Vogtle Units 3 & 4", "Southern Nuclear
 Operating Co." vs "Southern Company"). Facilities with different NRC dockets
 are never similar, so "Braidwood 2" isn't flagged against "Braidwood 1".
+Plant names for the brand rule come from the facility records (rejected ones
+left out); a few brands are their own company and never merged into another
+("Southern Nuclear" isn't Southern Company). Rules in
+[`Directory::Lookup`](../directory/lookup.rb) (`brand_key`, `brand_name`).
+
 Evidence from match is `found_by: crawler` with no confidence; when a human
 approves, the evidence gets the verifier's confidence (if it recommended publishing).
 
-Organizations and facilities are matched first, so links in the same run can
-find records proposed a moment earlier.
+Facilities are matched first, then organizations (so a company name can be
+checked against plants proposed in the same run), then links, which can find
+records proposed a moment earlier.
 
 **Units and sites.** The seed names plants at site level ("Plant Vogtle Units 3
 & 4", no docket); the NRC lists units ("Vogtle 3", with a docket). A site
