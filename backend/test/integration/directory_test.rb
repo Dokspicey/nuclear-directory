@@ -146,8 +146,13 @@ class DirectoryTest < ActionDispatch::IntegrationTest
 
     assert_select ".nd-filterwrap[data-controller=filter-sheet][data-filter-sheet-count-url-value='/companies.json']" do
       assert_select "button.nd-filterwrap__open[aria-haspopup=dialog]", /Filters\s+\(1\)/
-      assert_select "dialog.nd-filtersheet[aria-labelledby=filters-title] form.nd-filters[data-action='change->filter-sheet#count']"
-      assert_select "button[data-action='filter-sheet#close']", "Close filters"
+      assert_select ".nd-filterwrap__home form.nd-filters[data-action='change->filter-sheet#count']"
+      assert_select "dialog.nd-filtersheet[aria-labelledby=filters-title][data-action='cancel->filter-sheet#close close->filter-sheet#closed']" do
+        assert_select "form", 0
+        assert_select "[data-filter-sheet-target=slot]"
+        assert_select "p.sr-only[role=status][data-filter-sheet-target=status]"
+        assert_select "button[data-action='filter-sheet#close']", "Close filters"
+      end
     end
   end
 
