@@ -45,7 +45,7 @@ module Directory
     LINK_VERBS = {
       "supplies" => "supplies", "invests_in" => "invests in", "funds" => "funds",
       "offtake_with" => "has an offtake agreement with", "subsidiary_of" => "is a subsidiary of",
-      "owns" => "owns", "operates" => "operates", "vendor_for" => "is vendor for", "offtakes_from" => "offtakes from"
+      "owns" => "owns", "operates" => "operates", "vendor_for" => "is a vendor for", "offtakes_from" => "offtakes from"
     }.freeze
     # What a company with each role is, in a sentence ("TerraPower is a reactor
     # developer"), in visitors' words. A role not listed reads "has the role …".
