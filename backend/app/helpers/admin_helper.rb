@@ -13,10 +13,43 @@ module AdminHelper
   }.freeze
   STATUS_WORDS = { "verified" => "Verified", "pending" => "Pending", "rejected" => "Rejected", "unpublished" => "Unpublished" }.freeze
 
+  CRAWL_STATUS_LABELS = { "ok" => "OK", "blocked" => "Blocked", "needs_human" => "Needs a human check", "pending" => "Not fetched yet" }.freeze
+
+  # A source's crawl status in one wording, wherever it's shown.
+  def crawl_status_label(status) = CRAWL_STATUS_LABELS.fetch(status.to_s, status.to_s.humanize)
+
+  # Who decided, as the screen shows it: "tosin" for "human:tosin", "the
+  # verifier (model)" for an agent. The data keeps the prefix.
+  def who(by)
+    by = by.to_s
+    return by.delete_prefix("human:") if by.start_with?("human:")
+    return "the verifier (#{by.delete_prefix('agent:verifier/')})" if by.start_with?("agent:verifier/")
+
+    by
+  end
+
+  # Reply to a visitor's correction: their address, a subject, and the page.
+  def correction_reply_mailto(report)
+    # Encoded, so a crafted address ("a@b.c?bcc=…") can't add recipients or headers.
+    "mailto:#{ERB::Util.url_encode(report.contact).gsub('%40', '@')}?" + { subject: "Your correction on Nuclear Directory",
+      body: "About #{request.base_url}#{report.page_path}\n\n" }.to_query.gsub("+", "%20")
+  end
+
   # Ids of linked records; their names are shown instead.
   HIDDEN_FIELDS = %i[organization_id facility_id from_organization_id to_organization_id parent_id].freeze
 
   def kind_label(kind) = KIND_LABELS.fetch(kind.to_s, kind.to_s.humanize)
+
+  # The public page of a published company or plant, or nil.
+  def public_page_path(fact)
+    slug = fact.values["slug"].presence
+    return unless fact.published && slug
+
+    case fact.type
+    when "Organization" then company_path(slug:)
+    when "Facility" then plant_path(slug:)
+    end
+  end
 
   # A pending fact as one line: its name, or the link in words
   # ("Southern Company owns Vogtle 3").
@@ -86,6 +119,36 @@ module AdminHelper
   end
 
   def percent(confidence) = confidence && "#{(confidence.to_d * 100).floor}%"
+
+  # Model spend: cents, but a few calls' worth reads "under $0.01", not $0.00.
+  def money(amount)
+    amount = amount.to_d
+    amount.positive? && amount < 0.01.to_d ? "under $0.01" : format("$%.2f", amount)
+  end
+
+  ACRONYMS = { "ai" => "AI", "nrc" => "NRC", "eia" => "EIA", "llm" => "LLM", "url" => "URL" }.freeze
+
+  # A stats key in words, acronyms kept: "ai_check" => "AI check".
+  def stat_label(key)
+    key.to_s.humanize(capitalize: false).split.map { |word| ACRONYMS.fetch(word, word) }.join(" ").upcase_first
+  end
+
+  # A run's stats in words: "Sources 1; AI check: agreed 95, missed 0".
+  def run_detail(stats)
+    stats.map do |key, value|
+      value = value.map { |k, v| "#{stat_label(k).downcase_first} #{v}" }.join(", ") if value.is_a?(Hash)
+      "#{stat_label(key)}#{':' if stats[key].is_a?(Hash)} #{value}"
+    end.join("; ").truncate(200)
+  end
+
+  # "42.9 s", "72 min", "1 h 12 min".
+  def run_duration(seconds)
+    return "running" if seconds.nil?
+    return "#{seconds} s" if seconds <= 90
+
+    minutes = (seconds / 60.0).round
+    minutes < 90 ? "#{minutes} min" : "#{minutes / 60} h #{minutes % 60} min"
+  end
 
   # What happened, in a history row: "Pending to verified".
   def change_text(event)

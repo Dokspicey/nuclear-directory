@@ -72,6 +72,21 @@ module Directory
     }.freeze
     private_constant :PENDING_INCLUDES
 
+    # Ids of companies or plants by slug, in one query: { "terrapower" => 12 }.
+    def ids_by_slug(type:, slugs:)
+      raise ArgumentError, "not a company or plant: #{type.inspect}" unless %w[Organization Facility].include?(type.to_s)
+
+      type.to_s.constantize.where(slug: slugs).pluck(:slug, :id).to_h
+    end
+
+    # Whether a fact is public now, by its model's .published scope (a unit
+    # under a closed site isn't, #104), so callers don't re-derive the rule.
+    def published?(type:, id:)
+      raise ArgumentError, "not a fact type: #{type.inspect}" unless FACT_TYPES.include?(type.to_s)
+
+      type.to_s.constantize.published.exists?(id:)
+    end
+
     # Whether a fact has any evidence (a source).
     def sourced?(type:, id:)
       raise ArgumentError, "not a fact type: #{type.inspect}" unless FACT_TYPES.include?(type.to_s)
@@ -123,29 +138,35 @@ module Directory
         verification_status: record.verification_status, verified_by: record.verified_by, verified_at: record.verified_at)
     end
 
-    # Pass exactly one of id, slug, name or nrc_docket.
+    # Pass exactly one of id, slug, name, site_name, nrc_docket or eia_plant_id.
     # name matches the facility's name (case-insensitive), or else one of its
     # aliases, compared after FacilityAlias.normalize ("Three Mile Island
     # Unit 1" finds Crane Clean Energy Center).
     # name is matched case-insensitively; names aren't unique, so the oldest
-    # match wins.
-    def facility(id: nil, slug: nil, name: nil, nrc_docket: nil)
+    # match wins. site_name is the same, among sites only (top-level, no
+    # docket), so an NRC unit of the same name doesn't hide the site.
+    # eia_plant_id finds the site for that EIA plant (#121).
+    def facility(id: nil, slug: nil, name: nil, site_name: nil, nrc_docket: nil, eia_plant_id: nil)
       scope =
-        case one_of!(id:, slug:, name:, nrc_docket:)
+        case one_of!(id:, slug:, name:, site_name:, nrc_docket:, eia_plant_id:)
         in [ :id, value ] then Facility.where(id: value)
         in [ :slug, value ] then Facility.where(slug: value)
-        in [ :name, value ]
+        in [ :name | :site_name => key, value ]
+          among = key == :site_name ? Facility.where(parent_id: nil, nrc_docket: [ nil, "" ]) : Facility.all
           # Its own name first, then the names it also goes by (#65).
-          by_name = Facility.where("lower(name) = ?", value.to_s.strip.downcase)
+          by_name = among.where("lower(name) = ?", value.to_s.strip.downcase)
           if by_name.exists?
             by_name
           else
-            Facility.where(id: FacilityAlias.where(normalized_alias: FacilityAlias.normalize(value)).select(:facility_id))
+            among.where(id: FacilityAlias.where(normalized_alias: FacilityAlias.normalize(value)).select(:facility_id))
           end
         in [ :nrc_docket, value ]
           # A blank docket must match nothing, not every facility without one.
           docket = value.to_s.strip.presence or return
           Facility.where(nrc_docket: docket)
+        in [ :eia_plant_id, value ]
+          plant = value.to_s.strip.presence or return
+          Facility.where(parent_id: nil, eia_plant_id: plant)
         end
 
       record = scope.order(:id).first

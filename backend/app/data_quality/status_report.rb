@@ -3,6 +3,7 @@
 # - the last run of each stage per source kind, and anything running now
 # - the review queue, grouped by reason
 # - model calls, tokens and cost this month against the budget
+# The values come from DataQuality::Status, which the admin shows too.
 module DataQuality::StatusReport
   def self.call(now: Time.current, budget: DataQuality::Config.from_env.monthly_budget)
     [
@@ -19,32 +20,29 @@ module DataQuality::StatusReport
   end
 
   def self.sources
-    counts = Source.group(:crawl_status).count.sort.map { |status, n| "#{status} #{n}" }.join(", ")
-    attention = Source.where(crawl_status: %w[blocked needs_human]).order(:source_kind, :url).map do |source|
+    status = DataQuality::Status.sources
+    counts = status.by_status.map { |crawl_status, n| "#{crawl_status} #{n}" }.join(", ")
+    attention = status.attention.map do |source|
       "  #{source.crawl_status.ljust(11)} #{source.source_kind.ljust(18)} #{source.url}\n" \
         "              #{source.status_reason.presence || 'no reason recorded'}"
     end
 
-    [ "Sources: #{Source.count} (#{counts.presence || 'none'})", "Needing attention:", *(attention.presence || [ "  none" ]) ]
+    [ "Sources: #{status.total} (#{counts.presence || 'none'})", "Needing attention:", *(attention.presence || [ "  none" ]) ]
   end
 
   def self.runs
-    # Finished runs only; a run in progress is listed under "Running now" and
-    # mustn't hide its stage's last result.
-    latest = CrawlRun.where.not(status: "running")
-      .select("DISTINCT ON (source_kind, stage) *").order(:source_kind, :stage, started_at: :desc)
-    running = CrawlRun.running.order(:started_at)
+    runs = DataQuality::Status.runs
 
     [
       "Last run per stage:",
-      *(latest.map { |run| "  #{run_line(run)}" }.presence || [ "  none yet" ]),
-      *(running.any? ? [ "Running now:", *running.map { |run| "  #{run_line(run)}" } ] : [])
+      *(runs.latest.map { |run| "  #{run_line(run)}" }.presence || [ "  none yet" ]),
+      *(runs.running.any? ? [ "Running now:", *runs.running.map { |run| "  #{run_line(run)}" } ] : [])
     ]
   end
 
   def self.run_line(run)
-    duration = run.finished_at ? "#{(run.finished_at - run.started_at).round(1)}s" : "running"
-    detail = run.failed? ? "ERROR #{run.error}" : run.stats.except("llm").to_json
+    duration = run.duration ? "#{run.duration}s" : "running"
+    detail = run.failed? ? "ERROR #{run.error}" : run.stats.to_json
     "#{run.source_kind.to_s.ljust(18)} #{run.stage.ljust(7)} #{run.status.ljust(9)} " \
       "#{run.started_at.utc.strftime('%Y-%m-%d %H:%M')} #{duration.rjust(8)}  #{detail.truncate(140)}"
   end
@@ -65,9 +63,9 @@ module DataQuality::StatusReport
 
   # The same month-split totals the budget guard uses.
   def self.spend(now, budget)
-    usage = DataQuality::Budget.usage_this_month(now:)
+    spend = DataQuality::Status.spend(now:, budget:)
     format("Model spend this month: %d calls, %s tokens, $%.4f of the $%.2f budget",
-      usage[:calls], ActiveSupport::NumberHelper.number_to_delimited(usage[:total_tokens]), usage[:cost], budget)
+      spend.calls, ActiveSupport::NumberHelper.number_to_delimited(spend.total_tokens), spend.cost, spend.budget)
   end
   private_class_method :sources, :runs, :run_line, :review_queue, :spend
 end
