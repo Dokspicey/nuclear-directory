@@ -53,7 +53,7 @@ facilities:
   state:
     value: TN
     source_url: https://www.ans.org/news/2026-04-21/article-7964/kairos-power-breaks-ground-on-first-powerproducing-reactor-in-oak-ridge/
-    quote: An aerial view of the Kairos Power site at the East Tennessee Technology Park in Oak Ridge.
+    quote: On April 17, Kairos Power broke ground on its Hermes 2 demonstration plant in Oak Ridge, Tenn., for which it received test reactor construction permits from the Nuclear Regulatory Commission in November 2024.
     confidence: 1.0
 - name: Kemmerer Unit 1
   other_names:
