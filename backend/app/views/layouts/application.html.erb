@@ -8,6 +8,11 @@
     <meta name="mobile-web-app-capable" content="yes">
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
+    <% if analytics_snippet? %>
+      <%# Anonymous page views (PostHog, cookieless). Public project key, safe in page source. %>
+      <meta name="posthog-key" content="<%= Analytics.public_key %>">
+      <meta name="posthog-host" content="<%= Analytics.host %>">
+    <% end %>
 
     <%= yield :head %>
 
@@ -29,8 +34,8 @@
   </head>
 
   <body>
-    <main>
-      <%= yield %>
-    </main>
+    <%# Each page renders its own <main> after the site header, so the header
+        stays outside the main landmark and there's only ever one. %>
+    <%= yield %>
   </body>
 </html>

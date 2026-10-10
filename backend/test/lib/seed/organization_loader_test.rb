@@ -103,6 +103,15 @@ class Seed::OrganizationLoaderTest < ActiveSupport::TestCase
     assert_match "Nowhere Plant", error.message
   end
 
+  test "a seed file citing a non-web URL fails the load and names it" do
+    write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com",
+      roles: [ item(key: "fuel", source_url: "javascript:alert(1)") ]))
+
+    error = assert_raises(Seed::OrganizationLoader::Error) { Seed::OrganizationLoader.new(@dir).load! }
+    assert_match 'source "javascript:alert(1)": Url must be an absolute http or https address', error.message
+    assert_nil Organization.find_by(slug: "acme-fuel"), "nothing is written"
+  end
+
   test "fails as a whole when any fact can't be written" do
     write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com",
       relationships: [ item(type: "supplies", to: "Nobody At All", description: "x") ]))
