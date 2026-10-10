@@ -309,6 +309,40 @@ class DataQuality::Plugins::EiaGeneratorsTest < ActiveSupport::TestCase
     assert proposed.reload.rejected?, "nothing current points at it"
   end
 
+  test "a proposal is retired when it leaves the file, months after the candidate that proposed it" do
+    june = Source.create!(url: "https://www.eia.gov/electricity/data/eia860m/xls/june_generator2026.xlsx",
+      source_kind: "eia_generators", crawl_status: "ok")
+    july = Source.create!(url: "https://www.eia.gov/electricity/data/eia860m/xls/july_generator2026.xlsx",
+      source_kind: "eia_generators", crawl_status: "ok")
+    proposed = Facility.create!(name: "Gone Plant", eia_plant_id: "99999")
+    payload = { "name" => "Gone Plant", "eia_plant_id" => "99999" }
+    Candidate.create!(source: june, kind: "facility", quote: "june", status: "rejected", proposed_subject: true,
+      payload:, subject_type: "Facility", subject_id: proposed.id)
+    Candidate.create!(source: july, kind: "facility", quote: "july", status: "matched", proposed_subject: false,
+      payload:, subject_type: "Facility", subject_id: proposed.id)
+
+    crawl!
+
+    assert proposed.reload.rejected?, "June proposed it; July only attached; August no longer lists it"
+  end
+
+  test "an operates link is retired when its plant stays but its operator changes" do
+    july = Source.create!(url: "https://www.eia.gov/electricity/data/eia860m/xls/july_generator2026.xlsx",
+      source_kind: "eia_generators", crawl_status: "ok")
+    farley = Facility.create!(name: "Joseph M Farley", eia_plant_id: "6001")
+    old_operator = Organization.create!(name: "Old Operator Co")
+    link = FacilityRelationship.create!(organization: old_operator, facility: farley, relationship_type: "operates")
+    Candidate.create!(source: july, kind: "facility_relationship", quote: "old", status: "matched", proposed_subject: true,
+      payload: { "organization" => { "name" => "Old Operator Co" }, "facility" => { "eia_plant_id" => "6001" },
+        "relationship_type" => "operates" },
+      subject_type: "FacilityRelationship", subject_id: link.id)
+
+    crawl!
+
+    assert link.reload.rejected?, "August lists Farley under another operator"
+    assert farley.reload.pending?, "the plant itself is still listed"
+  end
+
   test "a plant still in the newer file keeps its proposal, which the newer file then matches" do
     july = Source.create!(url: "https://www.eia.gov/electricity/data/eia860m/xls/july_generator2026.xlsx",
       source_kind: "eia_generators", crawl_status: "ok")

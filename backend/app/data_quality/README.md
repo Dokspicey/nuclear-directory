@@ -229,10 +229,11 @@ coordinates to NRC units from EIA's monthly generator inventory (Form
 EIA-860M). It never creates or renames units.
 
 **EIA also proposes plants (#121)**, so the directory can grow when NRC's list
-can't be read. Each EIA plant gives three candidates, quoting its first generator
-row: its **site** (name, `eia_plant_id`, state, coordinates, `power_reactor`, and
-`operating` for EIA's `(OP)` code), its **operator** (EIA's entity name) and an
-**`operates`** link between them. They go through match, verify and a human's
+can't be read. Each EIA plant gives up to three candidates, quoting its first
+generator row: its **site** (name, `eia_plant_id`, state, coordinates,
+`power_reactor`, and `operating` for EIA's `(OP)` code), and, when the row names
+an operator, its **operator** (EIA's entity name) and an **`operates`** link
+between them. A plant with no entity name gives only its site. They go through match, verify and a human's
 approval like any candidate. A site is found by `eia_plant_id` first, so a plant
 is proposed once and found on every later run; then by name, so a seed site
 with the same name gets EIA's row as more evidence. A look-alike ("Vogtle" and

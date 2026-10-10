@@ -124,34 +124,46 @@ class DataQuality::Plugins::EiaGenerators < DataQuality::Plugin
       withdrawn = waiting.where(status: %w[new matched]).to_a
       Candidate.where(id: withdrawn.map(&:id))
         .update_all(status: "rejected", notes: "Superseded by the newer #{source.title}", updated_at: Time.current)
-      retire_orphans(withdrawn.select(&:proposed_subject), source, run)
+      retire_orphans(withdrawn.select(&:subject_id), source, run)
       withdrawn.size
     end
 
-    # A record a withdrawn candidate proposed is retired (rejected, as the
-    # verify stage does for a rejected proposal) only when the newer file no
-    # longer has its plant (or, for a company, its operator) and no live
-    # candidate points at it. A plant still in the newer file keeps its
-    # proposal, which the newer file's candidates then match.
+    # A proposed record a withdrawn candidate pointed at is retired
+    # (rejected, as the verify stage does for a rejected proposal) only when
+    # the newer file no longer has it and no live candidate points at it.
+    # "Has it" is by plant for a site, by operator for a company, and by the
+    # (plant, operator) pair for an operates link. A record still in the
+    # newer file keeps its proposal, which the newer file's candidates then
+    # match. The proposing candidate may be from any earlier month: after one
+    # supersession, a later month's candidate attaches without proposing.
     def retire_orphans(candidates, source, run)
       rows = CSV.parse(source.content_text.to_s, headers: true)
-      plants = rows.map { |row| row["eia_plant_id"] }.to_set
-      operators = rows.map { |row| row["entity_name"] }.compact.to_set
+      listed = {
+        plants: rows.map { |row| row["eia_plant_id"] }.to_set,
+        operators: rows.map { |row| row["entity_name"] }.compact.to_set,
+        links: rows.map { |row| [ row["eia_plant_id"], row["entity_name"] ] }.to_set
+      }
       directory = DataQuality::DirectoryClient.new
       candidates.uniq { |c| [ c.subject_type, c.subject_id ] }.each do |candidate|
-        next if still_listed?(candidate.payload, plants, operators)
+        next if still_listed?(candidate, listed)
 
-        live = Candidate.where(subject_type: candidate.subject_type, subject_id: candidate.subject_id,
-          status: %w[new matched merged needs_review])
-        directory.retire(candidate, crawl_run: run) unless live.exists?
+        attached = Candidate.where(subject_type: candidate.subject_type, subject_id: candidate.subject_id)
+        next unless attached.where(proposed_subject: true).exists?
+        next if attached.where(status: %w[new matched merged needs_review]).exists?
+
+        directory.retire(candidate, crawl_run: run)
       end
     end
 
-    def still_listed?(payload, plants, operators)
-      plant = payload["eia_plant_id"] || payload.dig("facility", "eia_plant_id")
-      return plants.include?(plant) if plant
-
-      operators.include?(payload["name"] || payload.dig("organization", "name"))
+    def still_listed?(candidate, listed)
+      payload = candidate.payload
+      case candidate.kind
+      when "facility" then listed[:plants].include?(payload["eia_plant_id"])
+      when "organization" then listed[:operators].include?(payload["name"])
+      when "facility_relationship"
+        listed[:links].include?([ payload.dig("facility", "eia_plant_id"), payload.dig("organization", "name") ])
+      else true
+      end
     end
 
     # [year, month] of a monthly file URL, or nil when it isn't one.
