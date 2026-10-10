@@ -131,6 +131,29 @@ class DataQuality::Stages::VerifyRecommendTest < ActiveSupport::TestCase
     assert_equal [ "recommend_publish", "new", again.id ], [ c.reload.ai_recommendation, c.ai_source_sha256, c.verify_run_id ]
   end
 
+  test "a recommended candidate whose source changes during the run waits for the next run" do
+    other = Source.create!(url: "https://www.nrc.gov/test/other.html", source_kind: "dummy", crawl_status: "ok")
+    kept = candidate("organization", { "name" => "Imaginary Fission Co" })
+    run_stage("match")
+    run_stage("verify", verifier: CountingVerifier.new)
+    asked = Candidate.create!(source: other, kind: "organization", payload: { "name" => "Another Fission Co" }, quote: "q")
+    run_stage("match")
+    source = @source
+    # A new snapshot of the first source arrives while the model is asked about the other.
+    changing = Object.new
+    changing.define_singleton_method(:verdicts) do |candidates, run:, plugin:|
+      source.update!(content_sha256: "changed")
+      candidates.to_h { |x| [ x.id, DataQuality::Verdict.new(outcome: :publish, confidence: 0.9, reason: "Yes.") ] }
+    end
+
+    verify = run_stage("verify", verifier: changing)
+
+    assert verify.succeeded?, "no crash on the missing verdict"
+    assert_equal 1, verify.stats["source_changed"]
+    assert_equal "recommend_publish", asked.reload.ai_recommendation
+    assert_not_includes Candidate.recommended, kept.reload, "lapsed until the next run asks"
+  end
+
   test "a value a human verifies while the model is asked is still compared before recommending" do
     unit = Facility.create!(name: "Hope Creek 1", nrc_docket: "05000354")
     c = candidate("facility", { "name" => "Hope Creek 1", "nrc_docket" => "05000354", "state" => "DE" })

@@ -97,15 +97,19 @@ module DataQuality::Review
     # site's blank fields. Already-decided candidates are refused.
     # only_recommended: true for bulk approval, which covers the Recommended
     # queue only; anything else needs a look on its own (#86).
+    # One outer transaction: an unexpected error rolls the whole batch back
+    # (a refused item is a Result with errors, not an error).
     def approve(candidate_ids, by:, reason: nil, only_recommended: false, directory: DataQuality::DirectoryClient.new)
       human!(by)
-      recommended = Candidate.recommended.where(id: candidate_ids).pluck(:id).to_set if only_recommended
-      Candidate.where(id: candidate_ids).includes(:crawl_run, :verify_run).order(:id).map do |candidate|
-        if recommended && !recommended.include?(candidate.id)
-          next Result.new(candidate_id: candidate.id, ref: nil, errors: [ "it isn't recommended, so approve it on its own" ])
-        end
+      Candidate.transaction do
+        recommended = Candidate.recommended.where(id: candidate_ids).pluck(:id).to_set if only_recommended
+        Candidate.where(id: candidate_ids).includes(:crawl_run, :verify_run).order(:id).map do |candidate|
+          if recommended && !recommended.include?(candidate.id)
+            next Result.new(candidate_id: candidate.id, ref: nil, errors: [ "it isn't recommended, so approve it on its own" ])
+          end
 
-        approve_one(candidate, by:, reason:, directory:)
+          approve_one(candidate, by:, reason:, directory:)
+        end
       end
     end
 
@@ -113,7 +117,7 @@ module DataQuality::Review
     # slug can't be edited here.
     def edit_and_approve(candidate_id, attributes:, by:, reason: nil, directory: DataQuality::DirectoryClient.new)
       human!(by)
-      candidate = Candidate.find(candidate_id)
+      candidate = Candidate.find_by(id: candidate_id) or return gone(candidate_id)
       attributes = attributes.to_h.stringify_keys
       if (locked = attributes.keys & locked_keys(candidate.kind)).any?
         return Result.new(candidate_id:, ref: nil, errors: [ "can't edit #{locked.to_sentence} here" ])
@@ -135,14 +139,18 @@ module DataQuality::Review
     def reject(candidate_ids, by:, reason: nil, directory: DataQuality::DirectoryClient.new)
       human!(by)
       Candidate.where(id: candidate_ids).order(:id).map do |candidate|
+        errors = []
         Candidate.transaction do
           candidate.lock! # an approval at the same moment waits, then sees the decision
           next Result.new(candidate_id: candidate.id, ref: nil, errors: [ already(candidate) ]) unless open?(candidate)
 
           candidate.update!(status: "rejected", notes: reason.presence || candidate.notes, reviewed_by: by, reviewed_at: Time.current)
           errors = retire_proposal(candidate, by:, reason:, directory:)
-          Result.new(candidate_id: candidate.id, ref: nil, errors:)
-        end
+          # The proposal couldn't be retired: undo the rejection too, so a retry works.
+          raise ActiveRecord::Rollback if errors.any?
+
+          Result.new(candidate_id: candidate.id, ref: nil, errors: [])
+        end || Result.new(candidate_id: candidate.id, ref: nil, errors:)
       end
     end
 
@@ -206,11 +214,21 @@ module DataQuality::Review
         candidate.ai_confidence if candidate.ai_recommendation == "recommend_publish"
       end
 
+      # "human:<who>": a nonblank name, so the audit trail says who decided.
       def human!(by)
-        raise ArgumentError, "only a human decides (by: \"human:…\")" unless by.to_s.start_with?("human:")
+        raise ArgumentError, "only a human decides (by: \"human:…\")" unless by.to_s.match?(/\Ahuman:\S+\z/)
+      end
+
+      def gone(candidate_id)
+        Result.new(candidate_id:, ref: nil, errors: [ "this claim no longer exists; refresh the queue" ])
       end
 
       def open?(candidate) = candidate.status_new? || candidate.status_matched? || candidate.status_needs_review?
+
+      # A recommendation made against an earlier snapshot of its source.
+      def lapsed?(candidate)
+        candidate.ai_recommendation == "recommend_publish" && candidate.ai_source_sha256 != candidate.source.content_sha256
+      end
       def already(candidate) = "it's already #{candidate.status.humanize(capitalize: false)}"
 
       # Locked, and in one transaction with the directory write: two people
@@ -220,6 +238,10 @@ module DataQuality::Review
         Candidate.transaction do
           candidate.lock!
           next Result.new(candidate_id: candidate.id, ref: nil, errors: [ already(candidate) ]) unless open?(candidate)
+          if lapsed?(candidate)
+            next Result.new(candidate_id: candidate.id, ref: nil,
+              errors: [ "its source changed after the verifier checked it; the next verify run checks it again" ])
+          end
 
           # The evidence belongs to the run that judged it (verify), else the one that found it.
           run = candidate.verify_run || candidate.crawl_run
