@@ -84,24 +84,30 @@ module Directory
         .first(10).map { |facility| FacilityRef.from(facility) }
     end
 
-    # NRC units (facilities with a docket) whose names fit name, for sources
-    # that name plants their own way ("Joseph M Farley" for NRC's "Farley 1").
-    # Words under three letters don't count, but two words run together do
-    # ("la salle" / "lasalle").
-    # - With a state: units in that state sharing any distinctive word.
-    # - Without one (state: nil): units in any state, but only those whose
-    #   distinctive words all appear in name. Stricter, because NRC gives some
-    #   border plants the state of a nearby city (Salem, NJ is listed under DE).
+    # NRC units (facilities with a docket) whose names best fit name, for
+    # sources that name plants their own way ("Joseph M Farley" for NRC's
+    # "Farley 1", "PSEG Hope Creek Generating Station" for "Hope Creek 1").
+    # The units sharing the most distinctive words win, so "Wolf Creek" picks
+    # Wolf Creek 1 over Hope Creek 1. Words under three letters don't count,
+    # but two words run together do ("la salle" / "lasalle"). state breaks a
+    # tie: among equally good fits, units in that state (or with no state
+    # yet) are preferred, since NRC units no longer carry a state (EIA's is
+    # used; Tosin, 2026-10-10).
     def facility_units(name:, state: nil)
       words = comparable_words(distinctive_words(name))
       return [] if words.empty?
 
-      units = Facility.where.not(nrc_docket: nil).order(:name)
-      units = units.where(state: state.to_s.upcase) if state
-      units.select do |unit|
-        theirs = comparable_words(distinctive_words(unit.name))
-        state ? (theirs & words).any? : theirs.any? && (distinctive_words(unit.name).select { |w| w.length >= 3 } - words).empty?
-      end.first(20).map { |unit| FacilityRef.from(unit) }
+      scored = Facility.where.not(nrc_docket: nil).order(:name).filter_map do |unit|
+        shared = (comparable_words(distinctive_words(unit.name)) & words).size
+        [ unit, shared ] if shared.positive?
+      end
+      best = scored.map(&:last).max or return []
+      units = scored.select { |_, shared| shared == best }.map(&:first)
+      if state.present?
+        in_state = units.select { |unit| unit.state.blank? || unit.state.casecmp?(state) }
+        units = in_state if in_state.any?
+      end
+      units.first(20).map { |unit| FacilityRef.from(unit) }
     end
 
     def distinctive_words(name)

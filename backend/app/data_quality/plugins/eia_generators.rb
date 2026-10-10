@@ -1,8 +1,8 @@
 # EIA's monthly generator inventory (Form EIA-860M, #61): capacity and
 # coordinates for nuclear units. An enrichment source: it never creates or
 # renames facilities (NRC is the source of truth for which units exist, their
-# names, dockets and operators). It only adds capacity_mw, latitude and
-# longitude to NRC units that already exist.
+# names, dockets and operators). It only adds capacity_mw, state, latitude
+# and longitude to NRC units that already exist.
 #
 # Crawl reads EIA's 860M page to find the newest monthly file, fetches it,
 # and stores just its nuclear rows as CSV (one source per monthly file, so
@@ -47,6 +47,9 @@ class DataQuality::Plugins::EiaGenerators < DataQuality::Plugin
           "identify" => row.to_h.slice("plant_name", "state", "generator_id", "eia_plant_id")
             .transform_keys("plant_name" => "name", "generator_id" => "unit"),
           "capacity_mw" => number(row["net_summer_capacity_mw"], 1),
+          # EIA's plant state is the unit's state (Tosin, 2026-10-10): NRC's list
+          # only names a nearby city, which is in another state for border plants.
+          "state" => row["state"],
           "latitude" => number(row["latitude"], 6),
           "longitude" => number(row["longitude"], 6)
         }.compact,

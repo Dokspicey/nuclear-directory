@@ -194,19 +194,16 @@ class DataQuality::Stages::Match < DataQuality::Stage
 
     # An enrichment source (e.g. EIA) adds values to an NRC unit that already
     # exists and never creates one. identify: { "name", "state", "unit" }.
-    # The unit is the one NRC unit in that state sharing a distinctive word
-    # with the name and with the same unit number; a plant with a single,
-    # unnumbered NRC unit takes that unit. When nothing fits in the state,
-    # units anywhere are tried by a stricter name rule, because NRC lists
-    # some border plants under a nearby city's state (Salem, NJ under DE).
-    # If no unit fits yet (NRC data not loaded, or the unit's own NRC record
-    # is still in review), the candidate stays new and is retried on the next
-    # run. More than one fit goes to review.
+    # The unit is the NRC unit whose name best fits (most shared distinctive
+    # words, state as a tie-break; see Lookup.facility_units) and has the same
+    # unit number; a plant with a single, unnumbered NRC unit takes that unit.
+    # If no unit fits yet (NRC data not loaded, or the unit's own NRC record is
+    # still in review), the candidate stays new and is retried on the next run.
+    # More than one fit goes to review.
     def match_enrichment(candidate, identify)
       name, state, unit = identify.to_h.values_at("name", "state", "unit")
       number = unit.to_s[/\d+/]&.to_i
       units, same_number = enrichment_fits(name, state, number)
-      units, same_number = enrichment_fits(name, nil, number) if units.empty?
       chosen = same_number.first if same_number.one?
       chosen ||= units.first if same_number.empty? && units.one? && unit_number(units.first.name).nil?
       label = "#{name} unit #{unit} (#{state})"

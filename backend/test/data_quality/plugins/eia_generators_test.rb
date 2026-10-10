@@ -152,22 +152,43 @@ class DataQuality::Plugins::EiaGeneratorsTest < ActiveSupport::TestCase
     assert_match "retried on the next match run", vogtle_1.notes
   end
 
-  test "two units that both fit go to review" do
+  test "two units that fit equally well go to review" do
     nrc_unit("Arkansas Nuclear 1", "05000313", "AR")
-    nrc_unit("Arkansas Nuclear One 1", "05000999", "AR")
+    nrc_unit("Arkansas River 1", "05000999", "AR")
     crawl!
 
     match_and_verify!(verifier: DataQuality::Verifiers::ReviewEverything.new)
 
-    ano = Candidate.where(source: source).find { |c| c.payload["identify"]["name"] == "Arkansas Nuclear One" && c.payload["identify"]["unit"] == "1" }
+    ano = Candidate.where(source: source).find { |c| c.payload["identify"].values_at("name", "unit") == [ "Arkansas Nuclear One", "1" ] }
     assert ano.status_needs_review?
-    assert_match "could be Arkansas Nuclear 1 or Arkansas Nuclear One 1", ano.notes
+    assert_match "could be Arkansas Nuclear 1 or Arkansas River 1", ano.notes
+  end
+
+  test "the closest name wins over a looser one" do
+    exact = nrc_unit("Arkansas Nuclear One 1", "05000313", "AR")
+    nrc_unit("Arkansas Nuclear 1", "05000999", "AR")
+    crawl!
+
+    match_and_verify!
+
+    assert exact.reload.capacity_mw.positive?, "shares 'arkansas' and 'one' with EIA's name, not just 'arkansas'"
+  end
+
+  test "units without a state still match, and take EIA's state" do
+    salem = nrc_unit("Salem 1", "05000272", nil)
+    hope_creek = nrc_unit("Hope Creek 1", "05000354", nil)
+    crawl!
+
+    match_and_verify!
+
+    assert_equal [ "NJ", "NJ" ], [ salem.reload.state, hope_creek.reload.state ]
+    assert salem.capacity_mw.positive?
   end
 
   test "a verified unit's coordinates fill its site's blank ones" do
     facilities(:vogtle).destroy!
     site = Facility.create!(name: "Plant Vogtle Units 3 & 4")
-    nrc_unit("Vogtle 3", "05200025", "GA", parent: site)
+    nrc_unit("Vogtle 3", "05200025", "GA", parent: site).verify!(by: "agent:verifier/nrc") # only a verified unit speaks for its site
     crawl!
 
     match_and_verify!
