@@ -179,6 +179,16 @@ class PlantPageTest < ActionDispatch::IntegrationTest
     assert_select "tr#unit-unit-3"
   end
 
+  test "a missing NRC docket is listed, and a sourced site with no shown fields isn't cited" do
+    site = cite!(plant("Blank Site"))
+    cite!(link(cite!(company("Blank Owner")), "owns", site))
+    get plant_path(slug: "blank-site")
+
+    assert_select ".nd-gaps li", text: "NRC docket"
+    assert_select "#sources-heading small", "1"
+    assert_select ".nd-factrow a.nd-src[href='#source-1']"
+  end
+
   test "link preview tags" do
     get plant_path(slug: "plant-vogtle")
 
