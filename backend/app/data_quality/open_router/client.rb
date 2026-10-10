@@ -1,0 +1,172 @@
+require "net/http"
+
+# Calls an LLM through OpenRouter and returns JSON that matches a schema.
+#
+#   client = DataQuality::OpenRouter::Client.new
+#   response = client.structured(role: :extract, schema: SCHEMA, crawl_run: run,
+#     messages: [ { role: "user", content: "..." } ])
+#   response.data # => parsed, schema-valid Hash
+#
+# The role picks the model (extract and verify use different ones; see
+# DataQuality::Config). Timeouts, rate limits, server errors and output that
+# doesn't match the schema are retried with exponential backoff. Token usage
+# of every attempt is added to crawl_run.stats["llm"].
+class DataQuality::OpenRouter::Client
+  ENDPOINT = URI("https://openrouter.ai/api/v1/chat/completions")
+  RETRYABLE_STATUSES = [ 408, 429, 500, 502, 503, 504 ].freeze
+  NETWORK_ERRORS = [ Net::OpenTimeout, Net::ReadTimeout, Errno::ECONNRESET, Errno::ECONNREFUSED,
+    Errno::EHOSTUNREACH, SocketError, EOFError, OpenSSL::SSL::SSLError ].freeze
+  MAX_RETRY_AFTER = 60
+
+  class Error < StandardError; end
+  # Bad request, bad key, unknown model: retrying won't help.
+  class RequestError < Error; end
+  # Still failing (network, rate limit, invalid output) after every attempt.
+  class RetriesExhausted < Error; end
+
+  Response = Data.define(:data, :model, :usage)
+
+  # A failure worth another attempt.
+  class Retryable < StandardError
+    attr_reader :retry_after
+
+    def initialize(message, retry_after: nil)
+      super(message)
+      @retry_after = retry_after
+    end
+  end
+
+  def initialize(config: DataQuality::Config.from_env, sleeper: ->(seconds) { sleep seconds })
+    @config = config.validate!
+    @sleeper = sleeper
+  end
+
+  def structured(role:, messages:, schema:, schema_name: "result", crawl_run: nil, temperature: 0)
+    model = @config.model_for(role)
+    body = {
+      model: model,
+      messages: messages,
+      temperature: temperature,
+      response_format: { type: "json_schema", json_schema: { name: schema_name, strict: true, schema: schema } },
+      # Only route to providers that support structured output.
+      provider: { require_parameters: true },
+      usage: { include: true }
+    }
+    validator = JSONSchemer.schema(schema)
+
+    with_retries do |attempt|
+      payload = post(body)
+      record_usage(crawl_run, model, payload["usage"], attempt:)
+
+      content = payload.dig("choices", 0, "message", "content")
+      data = parse_json(content)
+      errors = validator.validate(data).map { |e| e["error"] }
+      if errors.any?
+        record_invalid_output(crawl_run)
+        raise Retryable, "Output didn't match the schema: #{errors.first(3).join('; ')}"
+      end
+
+      Response.new(data: data, model: payload["model"] || model, usage: payload["usage"] || {})
+    end
+  end
+
+  private
+    def with_retries
+      attempt = 0
+      begin
+        attempt += 1
+        yield attempt
+      rescue Retryable => error
+        raise RetriesExhausted, "Gave up after #{attempt} attempts: #{error.message}" if attempt >= @config.max_attempts
+
+        @sleeper.call(error.retry_after || backoff(attempt))
+        retry
+      end
+    end
+
+    # 1s, 2s, 4s… plus up to 25% jitter so parallel workers don't retry in lockstep.
+    def backoff(attempt)
+      delay = @config.base_delay * (2**(attempt - 1))
+      delay + (delay * 0.25 * rand)
+    end
+
+    def post(body)
+      request = Net::HTTP::Post.new(ENDPOINT)
+      request["Authorization"] = "Bearer #{@config.api_key}"
+      request["Content-Type"] = "application/json"
+      request["HTTP-Referer"] = "https://nuclear-directory.org"
+      request["X-Title"] = "Nuclear Directory"
+      request.body = body.to_json
+
+      response = Net::HTTP.start(ENDPOINT.host, ENDPOINT.port, use_ssl: true,
+        open_timeout: @config.open_timeout, read_timeout: @config.read_timeout) { |http| http.request(request) }
+
+      handle(response)
+    rescue *NETWORK_ERRORS => error
+      raise Retryable, "Network error: #{error.class}: #{error.message}"
+    end
+
+    def handle(response)
+      status = response.code.to_i
+      payload = parse_body(response.body)
+      message = payload.dig("error", "message") || response.body.to_s.truncate(200)
+
+      if RETRYABLE_STATUSES.include?(status)
+        raise Retryable.new("OpenRouter #{status}: #{message}", retry_after: retry_after(response))
+      end
+      raise RequestError, "OpenRouter #{status}: #{message}" unless status.between?(200, 299)
+
+      # OpenRouter can return 200 with an error from the upstream provider.
+      if (error = payload["error"])
+        code = error["code"].to_i
+        raise RequestError, "OpenRouter error #{code}: #{message}" unless RETRYABLE_STATUSES.include?(code) || code.zero?
+
+        raise Retryable, "OpenRouter error #{code}: #{message}"
+      end
+
+      payload
+    end
+
+    def parse_body(body)
+      parsed = JSON.parse(body.to_s)
+      parsed.is_a?(Hash) ? parsed : {}
+    rescue JSON::ParserError
+      {}
+    end
+
+    def parse_json(content)
+      raise Retryable, "Empty response" if content.blank?
+
+      # Some models wrap JSON in a ```json fence despite being asked not to.
+      JSON.parse(content.strip.delete_prefix("```json").delete_prefix("```").delete_suffix("```"))
+    rescue JSON::ParserError => error
+      raise Retryable, "Response wasn't valid JSON: #{error.message.truncate(100)}"
+    end
+
+    def retry_after(response)
+      seconds = response["Retry-After"].to_s
+      seconds.match?(/\A\d+\z/) ? [ seconds.to_i, MAX_RETRY_AFTER ].min : nil
+    end
+
+    def record_usage(run, model, usage, attempt:)
+      return unless run
+
+      llm = run.stats.fetch("llm", {})
+      llm["calls"] = llm.fetch("calls", 0) + 1
+      llm["retries"] = llm.fetch("retries", 0) + 1 if attempt > 1
+      %w[prompt_tokens completion_tokens total_tokens].each do |key|
+        llm[key] = llm.fetch(key, 0) + usage.to_h.fetch(key, 0).to_i
+      end
+      llm["cost"] = (llm.fetch("cost", 0) + usage["cost"].to_f).round(6) if usage.to_h["cost"]
+
+      run.update!(stats: run.stats.merge("llm" => llm), model: run.model || model)
+    end
+
+    def record_invalid_output(run)
+      return unless run
+
+      llm = run.stats.fetch("llm", {})
+      llm["invalid_outputs"] = llm.fetch("invalid_outputs", 0) + 1
+      run.update!(stats: run.stats.merge("llm" => llm))
+    end
+end
