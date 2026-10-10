@@ -29,6 +29,7 @@ class DataQuality::Stages::Match < DataQuality::Stage
     "relationship" => { "from_organization" => :organization, "to_organization" => :organization },
     "facility_relationship" => { "organization" => :organization, "facility" => :facility }
   }.freeze
+  LINK_METADATA = %i[description started_on ended_on ownership_pct].freeze
 
   Found = Data.define(:record, :by)
   Review = Data.define(:reason)
@@ -91,7 +92,7 @@ class DataQuality::Stages::Match < DataQuality::Stage
         end
       end
 
-      write(candidate, attributes)
+      write(candidate, attributes.except(*LINK_METADATA))
     end
 
     # Found, Review or nil (nothing like it exists).

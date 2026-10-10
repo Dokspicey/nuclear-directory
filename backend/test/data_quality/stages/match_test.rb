@@ -221,6 +221,28 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
     assert_equal 3, run.stats["proposed"]
   end
 
+  test "matching an existing link leaves its curated attributes and verification alone" do
+    link = FacilityRelationship.create!(organization: organizations(:terrapower), facility: facilities(:vogtle),
+      relationship_type: "owns", description: "Curated description", ownership_pct: 40)
+    link.verify!(by: "human:tosin")
+    c = candidate("facility_relationship", {
+      "organization" => { "name" => "TerraPower" },
+      "facility" => { "name" => "Vogtle Electric Generating Plant" },
+      "relationship_type" => "owns",
+      "description" => "Candidate description",
+      "ownership_pct" => 75
+    })
+
+    match!
+
+    assert c.reload.status_matched?
+    assert_equal link.id, c.subject_id
+    link.reload
+    assert_equal [ "Curated description", 40 ], link.slice(:description, :ownership_pct).values
+    assert_equal "human:tosin", link.verified_by
+    assert link.verified?
+  end
+
   test "a link to a record that needs review waits in review too" do
     vogtle_site!
     candidate("facility", facility_payload("Vogtle 1", "05000424"))

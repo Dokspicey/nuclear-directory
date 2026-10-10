@@ -56,15 +56,51 @@ class DataQuality::DirectoryClientTest < ActiveSupport::TestCase
     assert_equal "agent:verifier/vendor/verifier", Organization.find(newco.id).verified_by
   end
 
-  test "a matched candidate updates its record instead of creating one" do
+  test "a matched existing record keeps its attributes and verification when published" do
     terrapower = organizations(:terrapower)
+    terrapower.update!(website: "https://curated.example")
+    terrapower.verify!(by: "human:tosin")
     matched = candidate("organization", { "name" => "TerraPower", "website" => "https://terrapower.com" })
     matched.update!(status: "matched", subject_type: "Organization", subject_id: terrapower.id)
 
     assert_no_difference -> { Organization.count } do
       assert @client.write_fact(matched, confidence: 0.8, crawl_run: @run).success?
     end
-    assert_equal "https://terrapower.com", terrapower.reload.website
+    terrapower.reload
+    assert_equal "https://curated.example", terrapower.website
+    assert_equal "human:tosin", terrapower.verified_by
+    assert_equal "verified", terrapower.verification_status
+  end
+
+  test "a matched existing facility keeps its attributes and verification when published" do
+    vogtle = facilities(:vogtle)
+    vogtle.verify!(by: "human:tosin")
+    matched = candidate("facility", { "name" => "Vogtle Electric Generating Plant", "state" => "AL" })
+    matched.update!(status: "matched", subject_type: "Facility", subject_id: vogtle.id)
+
+    assert @client.write_fact(matched, confidence: 0.8, crawl_run: @run).success?
+
+    vogtle.reload
+    assert_equal "GA", vogtle.state
+    assert_equal "human:tosin", vogtle.verified_by
+    assert_equal "verified", vogtle.verification_status
+  end
+
+  test "publishing a matched link applies its payload attributes" do
+    link = FacilityRelationship.create!(organization: organizations(:terrapower), facility: facilities(:vogtle),
+      relationship_type: "owns", description: "Curated description", ownership_pct: 40)
+    matched = candidate("facility_relationship", {
+      "organization" => { "name" => "TerraPower" },
+      "facility" => { "name" => "Vogtle Electric Generating Plant" },
+      "relationship_type" => "owns",
+      "description" => "Candidate description",
+      "ownership_pct" => 75
+    })
+    matched.update!(status: "matched", subject_type: "FacilityRelationship", subject_id: link.id)
+
+    assert @client.write_fact(matched, confidence: 0.8, crawl_run: @run).success?
+
+    assert_equal [ "Candidate description", 75 ], link.reload.slice(:description, :ownership_pct).values
   end
 
   test "returns the directory's errors instead of raising" do

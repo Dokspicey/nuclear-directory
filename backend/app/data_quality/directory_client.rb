@@ -22,6 +22,7 @@ class DataQuality::DirectoryClient
   # Kinds whose payload names other records instead of carrying attributes;
   # the match stage resolves those names to ids and writes the fact.
   LINK_KINDS = %w[organization_role organization_technology relationship facility_relationship].freeze
+  LINK_ENDS = %w[organization facility from_organization to_organization].freeze
 
   def initialize(lookup: nil, fact_writer: nil)
     @lookup = lookup
@@ -56,13 +57,25 @@ class DataQuality::DirectoryClient
   end
 
   # Writes a candidate as a verified fact, with the source it came from as
-  # evidence. A matched candidate updates its record (attributes id:); for
-  # link kinds the match stage already wrote the attributes, so only the
-  # verification and evidence are sent. Returns a WriteResult; never raises
+  # evidence. Matched records are identified by id without reapplying their
+  # attributes; non-pending records keep their verification. Link attributes
+  # are applied here, after verification. Returns a WriteResult; never raises
   # on validation problems.
   def write_fact(candidate, confidence:, crawl_run:)
-    attributes = LINK_KINDS.include?(candidate.kind) ? {} : candidate.payload.symbolize_keys
+    attributes =
+      if LINK_KINDS.include?(candidate.kind)
+        candidate.payload.except(*LINK_ENDS).symbolize_keys
+      elsif candidate.subject_id
+        {}
+      else
+        candidate.payload.symbolize_keys
+      end
     attributes[:id] = candidate.subject_id if candidate.subject_id
+    existing_record = case candidate.kind
+    when "organization" then lookup.organization(id: candidate.subject_id) if candidate.subject_id
+    when "facility" then lookup.facility(id: candidate.subject_id) if candidate.subject_id
+    end
+    preserve_verification = existing_record && existing_record.verification_status != "pending"
 
     result = fact_writer.write(
       candidate.kind,
@@ -74,7 +87,9 @@ class DataQuality::DirectoryClient
         confidence: confidence,
         crawl_run_id: crawl_run.id
       } ],
-      verification: { status: "verified", by: "agent:verifier/#{crawl_run.model || 'unknown'}" }
+      verification: unless preserve_verification
+        { status: "verified", by: "agent:verifier/#{crawl_run.model || 'unknown'}" }
+      end
     )
     write_result(result)
   end
