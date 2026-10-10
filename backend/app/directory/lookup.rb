@@ -95,24 +95,46 @@ module Directory
     ].to_set.freeze
     # Shorter brand keys ("x" from "X-energy") match too much to trust.
     MIN_BRAND_KEY_LENGTH = 4
+    # Brands that are their own company even though they look like an arm of
+    # another (Tosin, 2026-10-10: Southern Nuclear stays separate from Southern
+    # Company). Reducing a name stops here.
+    OWN_BRANDS = [ "southern nuclear" ].to_set.freeze
+    # Regions a utility brand names its operating companies after
+    # ("Duke Energy Carolinas, LLC" is Duke Energy).
+    REGION_WORDS = %w[carolinas carolina florida midwest indiana ohio kentucky texas virginia].to_set.freeze
 
-    # Organizations whose name or an alias is the same brand as name, i.e.
-    # equal once trailing entity words are dropped. More than one result means
-    # the brand is ambiguous (e.g. "Urenco" and "Urenco USA" are both records).
+    # Organizations whose name or an alias is the same brand as name: equal
+    # once trailing entity words, and a trailing plant or region name, are
+    # dropped. More than one result means the brand is ambiguous (e.g. "Urenco"
+    # and "Urenco USA" are both records).
     def same_brand_organizations(name)
-      key = brand_key(name) or return []
+      plants = plant_names
+      key = brand_key(name, plants:) or return []
 
       OrganizationAlias.where("organization_aliases.normalized_alias LIKE ?", "#{ActiveRecord::Base.sanitize_sql_like(key)}%")
-        .includes(:organization).select { |a| brand_key(a.alias) == key }
+        .includes(:organization).select { |a| brand_key(a.alias, plants:) == key }
         .map(&:organization).uniq.first(10).map { |org| OrganizationRef.from(org) }
     end
 
-    # "Southern Nuclear Operating Co." => "southern"; nil when too short to trust.
-    def brand_key(name)
-      words = OrganizationAlias.normalize(name).split
-      words.pop while words.size > 1 && ENTITY_WORDS.include?(words.last)
+    # "Constellation Energy Generation, LLC" => "constellation";
+    # "NextEra Energy Seabrook, LLC" => "nextera" (Seabrook is a known plant);
+    # "Duke Energy Carolinas, LLC" => "duke". nil when too short to trust.
+    def brand_key(name, plants: plant_names)
+      words = brand_words(name, plants)
       key = words.join(" ")
       key if key.delete(" ").length >= MIN_BRAND_KEY_LENGTH
+    end
+
+    # The brand part of a name as written, for naming a new company after its
+    # brand: "NextEra Energy Point Beach, LLC" => "NextEra Energy". nil when
+    # only legal or operating words were dropped, since the full name is
+    # then the company's own.
+    def brand_name(name, plants: plant_names)
+      tokens = name.to_s.gsub("&", " and ").scan(/[[:alnum:]]+/)
+      base = strip_entities(tokens.map(&:downcase))
+      place = place_words_at_end(base, plants) or return
+
+      tokens.first(base.size - place).join(" ")
     end
 
     def distinctive_words(name)
@@ -120,6 +142,44 @@ module Directory
     end
 
     private
+      # Normalized words of the brand: legal and operating words dropped from
+      # the end, then a trailing known plant or region name, then legal words
+      # again. Stops at an OWN_BRANDS name.
+      def brand_words(name, plants)
+        words = strip_entities(OrganizationAlias.normalize(name).split)
+        place = place_words_at_end(words, plants)
+        words = strip_entities(words.first(words.size - place)) if place
+        words
+      end
+
+      def strip_entities(words)
+        words = words.dup
+        words.pop while words.size > 1 && !OWN_BRANDS.include?(words.join(" ")) && ENTITY_WORDS.include?(words.last)
+        words
+      end
+
+      # How many words at the end name a known plant or a region, leaving at
+      # least one brand word; nil when none do.
+      def place_words_at_end(words, plants)
+        return if OWN_BRANDS.include?(words.join(" "))
+
+        3.downto(1).find do |size|
+          next if words.size <= size
+
+          tail = words.last(size).join(" ")
+          REGION_WORDS.include?(tail) || plants.include?(tail)
+        end
+      end
+
+      # Distinctive names of known plants ("seabrook", "point beach",
+      # "palisades"), from the facility records. One query per lookup.
+      def plant_names
+        Facility.pluck(:name).flat_map do |name|
+          words = distinctive_words(name).reject { |word| word.length < 3 }
+          [ words.join(" "), words.first(2).join(" "), (words.first if words.first.to_s.length >= 5) ]
+        end.compact_blank.to_set
+      end
+
       # The same leading distinctive word, which is usually the plant's or
       # company's own name ("Vogtle", "Susquehanna", "Southern"). Later words
       # tend to be places ("Hope Creek" vs "Lost Creek") and don't count. The

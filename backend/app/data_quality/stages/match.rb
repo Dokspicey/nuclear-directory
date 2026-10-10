@@ -92,8 +92,19 @@ class DataQuality::Stages::Match < DataQuality::Stage
           note: "New pending unit under the existing site #{found.site.name}")
       else
         # FactWriter may still find a record by a key match didn't use; trust its answer.
-        write(candidate, payload.symbolize_keys)
+        write(candidate, proposal(candidate, payload))
       end
+    end
+
+    # One company per brand: a new company from a per-plant or regional legal
+    # entity ("NextEra Energy Seabrook, LLC") is named after its brand
+    # ("NextEra Energy"), with the legal name kept as an alias.
+    def proposal(candidate, payload)
+      attributes = payload.symbolize_keys
+      brand = directory.brand_name(attributes[:name]) if candidate.kind_organization? && attributes[:name].present?
+      return attributes unless brand
+
+      attributes.merge(name: brand, aliases: [ *attributes[:aliases], attributes[:name] ])
     end
 
     # Only the fields that identify a link (LINK_KEYS and the resolved ends)

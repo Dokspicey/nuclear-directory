@@ -53,6 +53,10 @@ class DataQuality::DirectoryClient
     lookup.same_brand_organizations(name).map { |ref| record("Organization", ref) }
   end
 
+  # The brand a per-plant or regional company name stands for
+  # ("NextEra Energy Seabrook, LLC" => "NextEra Energy"), or nil.
+  def brand_name(name) = lookup.brand_name(name)
+
   def similar_facilities(name)
     lookup.similar_facilities(name).map { |ref| record("Facility", ref) }
   end

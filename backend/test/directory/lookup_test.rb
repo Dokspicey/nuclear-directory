@@ -84,10 +84,22 @@ class Directory::LookupTest < ActiveSupport::TestCase
 
   test "brand keys drop trailing legal-entity and operating-arm words" do
     assert_equal "constellation", Directory::Lookup.brand_key("Constellation Energy Generation, LLC")
-    assert_equal "southern", Directory::Lookup.brand_key("Southern Nuclear Operating Co., Inc.")
+    assert_equal "southern nuclear", Directory::Lookup.brand_key("Southern Nuclear Operating Co., Inc."), "its own brand"
+    assert_equal "pseg", Directory::Lookup.brand_key("PSEG Nuclear, LLC"), "other nuclear arms are their brand"
     assert_equal "ge vernova hitachi", Directory::Lookup.brand_key("GE Vernova Hitachi Nuclear Energy")
     assert_equal "energy northwest", Directory::Lookup.brand_key("Energy Northwest"), "leading words stay"
     assert_nil Directory::Lookup.brand_key("X-Energy, Inc."), "too short to trust"
+  end
+
+  test "a trailing known plant or region is dropped from the brand" do
+    Facility.create!(name: "Seabrook 1", nrc_docket: "05000443")
+
+    assert_equal "nextera", Directory::Lookup.brand_key("NextEra Energy Seabrook, LLC")
+    assert_equal "NextEra Energy", Directory::Lookup.brand_name("NextEra Energy Seabrook, LLC")
+    assert_equal "duke", Directory::Lookup.brand_key("Duke Energy Carolinas, LLC")
+    assert_equal "Duke Energy", Directory::Lookup.brand_name("Duke Energy Carolinas, LLC")
+    assert_nil Directory::Lookup.brand_name("Constellation Energy Generation, LLC"), "no place in it: keep the full name"
+    assert_equal "seabrook", Directory::Lookup.brand_key("Seabrook Holdings"), "a name that is only a place stays"
   end
 
   test "finds organizations of the same brand" do

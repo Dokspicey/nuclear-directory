@@ -222,18 +222,56 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
 
   test "one company per brand: a legal-entity variant is that company" do
     constellation = Directory::FactWriter.write(:organization, { name: "Constellation Energy Corporation" }).id
-    southern = Directory::FactWriter.write(:organization, { name: "Southern Company" }).id
+    dominion = Directory::FactWriter.write(:organization, { name: "Dominion Energy" }).id
     generation = candidate("organization", { "name" => "Constellation Energy Generation, LLC" })
-    operating = candidate("organization", { "name" => "Southern Nuclear Operating Co., Inc." })
+    arm = candidate("organization", { "name" => "Dominion Generation" })
 
     assert_no_difference "Organization.count" do
       match!
     end
 
-    assert_equal [ constellation, southern ], [ generation, operating ].map { |c| c.reload.subject_id }
+    assert_equal [ constellation, dominion ], [ generation, arm ].map { |c| c.reload.subject_id }
     assert_match "by brand", generation.notes
-    assert_equal southern, Directory::Lookup.organization(name: "Southern Nuclear Operating Co., Inc.").id,
+    assert_equal dominion, Directory::Lookup.organization(name: "Dominion Generation").id,
       "the variant is now an alias, so the next run matches it exactly"
+  end
+
+  test "Southern Nuclear is its own company, not Southern Company" do
+    Directory::FactWriter.write(:organization, { name: "Southern Company" })
+    c = candidate("organization", { "name" => "Southern Nuclear Operating Co., Inc." })
+
+    match!
+
+    assert c.reload.status_needs_review?, "similar to Southern Company, so a human decides; never merged into it"
+    assert_nil c.subject_id
+  end
+
+  test "a per-plant LLC belongs to its brand, which a new company is named after" do
+    Facility.create!(name: "Point Beach 1", nrc_docket: "05000266")
+    Facility.create!(name: "Seabrook 1", nrc_docket: "05000443")
+    point_beach = candidate("organization", { "name" => "NextEra Energy Point Beach, LLC" })
+    seabrook = candidate("organization", { "name" => "NextEra Energy Seabrook, LLC" })
+
+    assert_difference "Organization.count", 1 do
+      match!
+    end
+
+    nextera = Organization.find(point_beach.reload.subject_id)
+    assert_equal "NextEra Energy", nextera.name
+    assert_equal nextera.id, seabrook.reload.subject_id
+    assert_equal nextera.id, Directory::Lookup.organization(name: "NextEra Energy Point Beach, LLC").id, "legal name kept as an alias"
+  end
+
+  test "a regional operating company belongs to its brand" do
+    duke = Directory::FactWriter.write(:organization, { name: "Duke Energy" }).id
+    holtec = Directory::FactWriter.write(:organization, { name: "Holtec International" }).id
+    Facility.create!(name: "Palisades", nrc_docket: "05000255")
+    carolinas = candidate("organization", { "name" => "Duke Energy Carolinas, LLC" })
+    palisades = candidate("organization", { "name" => "Holtec Palisades, LLC" })
+
+    match!
+
+    assert_equal [ duke, holtec ], [ carolinas, palisades ].map { |c| c.reload.subject_id }
   end
 
   test "a brand shared by two companies goes to review" do
