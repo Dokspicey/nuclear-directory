@@ -186,6 +186,14 @@ class Directory::FactWriterTest < ActiveSupport::TestCase
     assert_equal "TerraPower", org.reload.name
   end
 
+  test "values equal once the model normalizes them aren't conflicts" do
+    site = facilities(:vogtle)
+    site.update!(country_code: "US", nrc_docket: "05000424")
+    site.verify!(by: "human:tosin")
+
+    assert write(:facility, { id: site.id, country_code: " us ", nrc_docket: " 05000424 " }, protect_human_verified: true).ok?
+  end
+
   test "a site fill rechecks the unit and the site's blanks with both locked" do
     site = facilities(:vogtle)
     site.update!(state: nil, status: "operating")
