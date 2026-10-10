@@ -79,16 +79,33 @@ Fonts come from techequity.us.
 
 ## Key screens
 
-Each pattern comes from a reference in the Refero board `nuclear-directory`.
+The approved high-fidelity designs are on the [Nuclear Directory Screens canvas](https://claude.ai/artifact/85Lq8zzKaeqp9wvjudHhqW) (private; ask Tosin for access). Where this table and the canvas differ, the canvas wins.
 
 | Screen | Pattern | Reference |
 |---|---|---|
-| Home / search | One `SearchField`, an A–Z index of organizations, role tabs | Cosmos brand index |
-| Directory | `FilterBar` above a grid of `OrgCard` or a `DirectoryTable`, toggled | GoFundMe nonprofit search, Mercury investor database |
-| No results | `EmptyState` that turns a dead end into "Suggest an organization" | Cosmos "not on Cosmos" |
+| Home | One job: search. Wordmark, one large `SearchField` with instant results grouped as Companies and Plants and sites, four suggested searches, the eight category boxes below. No intro text. | Google, Wikipedia |
+| Directory and search results | One page. Compact search in the header, the eight categories as pills, a heading with the count, Technology/State/Sort, then a dense list of rows that link to each page. No CSV export in v1. | Global Energy Monitor tracker, Fonts In Use |
+| No results | One line that names the query, with "Clear search" or "Suggest a company" | Cosmos "not on Cosmos" |
 | Organization page | Black `ProfileHeader`, `Tabs` (Overview · Relationships · Facilities · Sources), `OverviewPanel` pinned right | Parallel company profiles (Astronaut Monastery) |
 | Relationship map | `RelationshipGraph`: selected org in the center, hairline edges, detail panel on the right | Memotron graph, Fibery workspace map |
 | Landscape view (later) | The whole graph at once, for the home page only | Delphi |
+
+## Categories
+
+Home and the directory show eight categories in visitors' words (see `VOICE.md`). A category is presentation only: it is a saved filter over the data's roles, technologies or facilities, and the data model doesn't change. A company appears in every category its roles put it in.
+
+| Category on screen | What it selects | Order |
+|---|---|---|
+| Fuel suppliers | role `fuel`, including its children `enrichment` and `fabrication` | 1 |
+| Reactor developers | role `reactor_vendor` | 2 |
+| Power plants | facilities, not organizations (all facility types) | 3 |
+| Utilities and operators | roles `utility` or `operator` | 4 |
+| Repair and services | role `reactor_services` | 5 |
+| Power buyers | role `data_center_offtaker` | 6 |
+| Investors | role `venture_capital`, plus any organization with a verified *invests in* relationship (e.g. Amazon in X-energy) | 7 |
+| Fusion | technology `fusion` | 8 |
+
+Not on the home page: `coolant` and its sub-roles, `regulatory_consultant`, `government_agency` and `national_lab`. They stay reachable through search and directory filters. Coolant type belongs in the Technology filter. Each box shows two or three real example names, picked from the most connected verified organizations in that category.
 
 ## Relationship map visual language
 
