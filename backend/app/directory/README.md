@@ -106,7 +106,10 @@ Status is `pending`, `verified`, `rejected` or `unpublished`. `by` (required)
 names who decided: `human:<name>` or `agent:verifier/<model>`. `reason` and `context`
 (e.g. `{ "candidate_id" => 12, "crawl_run_id" => 4 }`) are optional and go
 into the audit trail. Re-applying the same decision keeps the original
-`verified_at` and records nothing new. What's public is what the
+`verified_at` and records nothing new, unless it's a human's and the same
+write changes values (an edit) or names a `context` (e.g. approving another
+candidate for the fact): then it's recorded, so the history shows it. What's
+public is what the
 `.published` scopes return (below).
 
 - **Unpublished** is a human taking a fact off the site (who and when are in

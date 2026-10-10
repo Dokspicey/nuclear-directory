@@ -111,7 +111,7 @@ module Verifiable
     # closed (rejected or unpublished). Rejecting is open to the pipeline, which
     # retires its own proposals.
     def closed_decisions_need_a_human
-      return unless will_save_change_to_verification_status? || will_save_change_to_verified_by?
+      return unless will_save_change_to_verification_status? || will_save_change_to_verified_by? || will_save_change_to_verified_at?
       # A change to an existing fact's decision must say who makes it (the
       # helpers and FactWriter do), so its audit event is never attributed to
       # whoever decided last. A new fact may start in any state.
