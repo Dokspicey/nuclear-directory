@@ -4,11 +4,13 @@ require "fugit"
 # The daily crawl (#53): config/recurring.yml runs the whole pipeline once a
 # day in production, NRC then EIA.
 class DataQuality::DailyCrawlScheduleTest < ActiveSupport::TestCase
+  include ActiveJob::TestHelper
+
   def task = YAML.load_file(Rails.root.join("config/recurring.yml")).fetch("production").fetch("daily_crawl")
 
   # Runs the job with Pipeline.run stubbed: records each call, and raises
   # what `fail` gives for a source kind.
-  def run_daily(fail: {})
+  def run_daily(*args, fail: {}, **options)
     ran = []
     pipeline = DataQuality::Pipeline.singleton_class
     original = pipeline.instance_method(:run)
@@ -18,7 +20,7 @@ class DataQuality::DailyCrawlScheduleTest < ActiveSupport::TestCase
       []
     end
     error = begin
-      DataQuality::DailyCrawlJob.new.perform
+      DataQuality::DailyCrawlJob.new.perform(*args, **options)
       nil
     rescue StandardError => raised
       raised
@@ -61,10 +63,34 @@ class DataQuality::DailyCrawlScheduleTest < ActiveSupport::TestCase
     assert_equal "NRC page changed", error.message
   end
 
-  test "a source already being run stops the job, so it retries instead of running EIA alongside NRC" do
-    ran, error = run_daily(fail: { "nrc_reactor_list" => DataQuality::Pipeline::AlreadyRunning.new })
+  test "a source already being run is retried later on its own, without running NRC again" do
+    busy = DataQuality::Pipeline::AlreadyRunning.new
 
-    assert_equal %w[nrc_reactor_list], ran.map(&:first)
+    ran, error = run_daily(fail: { "eia_generators" => busy })
+
+    assert_equal %w[nrc_reactor_list eia_generators], ran.map(&:first)
+    assert_nil error
+    assert_enqueued_with job: DataQuality::DailyCrawlJob, args: [ [ "eia_generators" ], { attempt: 2 } ]
+  end
+
+  test "a busy source doesn't run the ones after it alongside, and earlier failures still fail the job" do
+    ran, error = run_daily(fail: { "nrc_reactor_list" => DataQuality::Pipeline::AlreadyRunning.new })
+    assert_equal %w[nrc_reactor_list], ran.map(&:first), "EIA waits for NRC"
+    assert_nil error
+    assert_enqueued_with job: DataQuality::DailyCrawlJob, args: [ %w[nrc_reactor_list eia_generators], { attempt: 2 } ]
+
+    clear_enqueued_jobs
+    _, error = run_daily(fail: { "nrc_reactor_list" => RuntimeError.new("NRC page changed"),
+      "eia_generators" => DataQuality::Pipeline::AlreadyRunning.new })
+    assert_equal "NRC page changed", error.message
+    assert_enqueued_with job: DataQuality::DailyCrawlJob, args: [ [ "eia_generators" ], { attempt: 2 } ]
+  end
+
+  test "after the last attempt a busy source fails the job" do
+    _, error = run_daily([ "eia_generators" ], attempt: DataQuality::DailyCrawlJob::ATTEMPTS,
+      fail: { "eia_generators" => DataQuality::Pipeline::AlreadyRunning.new })
+
     assert_kind_of DataQuality::Pipeline::AlreadyRunning, error
+    assert_no_enqueued_jobs only: DataQuality::DailyCrawlJob
   end
 end
