@@ -4,7 +4,7 @@
 class PlantsController < ApplicationController
   def show
     # Only a unit the site's page actually lists (verified and sourced).
-    unit = Facility.verified.where.not(parent_id: nil).find_by(slug: params[:slug])
+    unit = Facility.published.where.not(parent_id: nil).find_by(slug: params[:slug])
     if unit && (site = PlantProfile.find(unit.parent.slug)) && site.units.include?(unit)
       return redirect_to plant_path(slug: site.slug, anchor: "unit-#{unit.slug}"), status: :moved_permanently
     end

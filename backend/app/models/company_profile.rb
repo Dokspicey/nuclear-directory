@@ -1,7 +1,9 @@
-# Everything the company page shows (#42), verified and sourced facts only
-# (VOICE.md: if we can't source it, we don't publish it). Deals count only
-# when the other company is verified too; plant links only when the plant is
-# public (DirectoryListing#public_facilities). Fields stored on the company
+# Everything the company page shows (#42), published and sourced facts only
+# (VOICE.md: if we can't source it, we don't publish it). Published means each
+# model's .published scope (#87, #98): verified, and what it hangs on is
+# published too, so unpublishing a company, partner or plant hides its facts
+# here. Deals count only when the other company is published; plant links
+# only when the plant is public (DirectoryListing#public_facilities). Fields stored on the company
 # record (description, website, headquarters...) show only when the record
 # has evidence of its own.
 #
@@ -13,9 +15,9 @@ class CompanyProfile
 
   attr_reader :organization, :citations
 
-  # nil unless the company exists and is verified.
+  # nil unless the company exists and is published.
   def self.find(slug)
-    organization = Organization.verified.find_by(slug:)
+    organization = Organization.published.find_by(slug:)
     new(organization) if organization
   end
 
@@ -38,7 +40,7 @@ class CompanyProfile
   def citations_for(fact) = @cited.fetch(fact) { [] }
 
   def roles
-    @roles ||= sourced_only(organization.organization_roles.verified.includes(:role, evidence: :source)).sort_by { |r| r.role.name }
+    @roles ||= sourced_only(organization.organization_roles.published.includes(:role, evidence: :source)).sort_by { |r| r.role.name }
   end
 
   # Roles to show: a general role is left out when a more specific one under
@@ -49,33 +51,34 @@ class CompanyProfile
   end
 
   def technologies
-    @technologies ||= sourced_only(organization.organization_technologies.verified.includes(:technology, evidence: :source)).sort_by { |t| t.technology.name }
+    @technologies ||= sourced_only(organization.organization_technologies.published.includes(:technology, evidence: :source)).sort_by { |t| t.technology.name }
   end
 
-  # Deals in both directions, with the other company verified, except
-  # "subsidiary of", which the key facts show as the parent company.
+  # Deals in both directions, with the other company published (the scope
+  # needs both ends published), except "subsidiary of", which the key facts
+  # show as the parent company.
   def deals
-    @deals ||= Relationship.verified
-      .where(from_organization: organization).or(Relationship.verified.where(to_organization: organization))
+    @deals ||= Relationship.published
+      .where(from_organization: organization).or(Relationship.published.where(to_organization: organization))
       .where.not(relationship_type: "subsidiary_of")
       .includes(:from_organization, :to_organization, evidence: :source).to_a
-      .select { |deal| other_party(deal).verified? && deal.evidence.any? }
+      .select { |deal| deal.evidence.any? }
       .sort_by { |deal| [ deal.relationship_type, other_party(deal).name ] }
   end
 
   def parents
-    @parents ||= Relationship.verified.subsidiary_of.where(from_organization: organization)
-      .includes(:to_organization, evidence: :source).select { |link| link.to_organization.verified? && link.evidence.any? }
+    @parents ||= Relationship.published.subsidiary_of.where(from_organization: organization)
+      .includes(:to_organization, evidence: :source).select { |link| link.evidence.any? }
   end
 
   def subsidiaries
-    @subsidiaries ||= Relationship.verified.subsidiary_of.where(to_organization: organization)
-      .includes(:from_organization, evidence: :source).select { |link| link.from_organization.verified? && link.evidence.any? }
+    @subsidiaries ||= Relationship.published.subsidiary_of.where(to_organization: organization)
+      .includes(:from_organization, evidence: :source).select { |link| link.evidence.any? }
   end
 
   def plant_links
     @plant_links ||= begin
-      organization.facility_relationships.verified
+      organization.facility_relationships.published
         .where(facility_id: DirectoryListing.new.public_facilities.select(:id))
         .includes({ facility: [ { evidence: :source }, { parent: { evidence: :source } } ] }, evidence: :source).to_a
         .select { |link| link.evidence.any? }
