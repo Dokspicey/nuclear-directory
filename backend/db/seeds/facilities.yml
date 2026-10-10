@@ -112,12 +112,12 @@ facilities:
   other_names:
   - Xe-100 plant at Dow UCC Seadrift Operations (Texas)
   facility_type:
-    value: null
+    value: power_reactor
     source_url: https://public-inspection.federalregister.gov/2026-10073.pdf
-    quote: If approved, the CP would authorize the construction of four Xe-100
+    quote: In addition, the NRC is issuing exemptions from certain NRC requirements which state that the NRC staff shall prepare and issue an environmental impact statement (EIS) to support the issuance of a CP for a nuclear power reactor facility.
     published: 2026-05
     confidence: 1.0
-    note: 'Left blank (Copilot on #83): the recorded quote stops before saying what the Xe-100s are. Four Xe-100 high-temperature gas-cooled reactors supplying electricity and industrial steam to Dow''s Seadrift Operations; load power_reactor once the full Federal Register sentence is copied. The same goes for Long Mott Energy''s smr tag.'
+    note: 'Four Xe-100 reactors replacing the cogeneration plant that supplies steam and electricity to Dow''s Seadrift Operations (same notice: ''LME stated that the need for the LMGS is to replace the existing fossil fuel facility which provides steam and electricity to SDO.'').'
   status:
     value: planned
     source_url: https://public-inspection.federalregister.gov/2026-10073.pdf

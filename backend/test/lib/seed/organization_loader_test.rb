@@ -80,13 +80,27 @@ class Seed::OrganizationLoaderTest < ActiveSupport::TestCase
     assert_equal 40, acme.facility_relationships.sole.ownership_pct
   end
 
-  test "a legal name no quote states is left blank" do
+  test "a legal name is cited by the quote that states it" do
     write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com", legal_name: "Acme Fuel, Inc.",
+      roles: [ item(key: "fuel", source_url: "https://example.com/role", quote: "Acme Fuel, Inc. supplies fuel.") ]))
+
+    Seed::OrganizationLoader.new(@dir).load!
+
+    acme = Organization.find_by!(slug: "acme-fuel")
+    assert_equal "Acme Fuel, Inc.", acme.legal_name
+    assert_equal [ "Acme Fuel, Inc. supplies fuel." ], acme.evidence.map(&:quote)
+  end
+
+  test "a legal name no quote states is left blank" do
+    write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com", legal_name: "Acme Fuel Holdings, Inc.",
+      aliases: [ "Acme", "Acme Fuel Holdings, Inc." ],
       description: { "text" => "Makes fuel.", "source_url" => "https://example.com/about", "quote" => "We make fuel." }))
 
     Seed::OrganizationLoader.new(@dir).load!
 
-    assert_nil Organization.find_by!(slug: "acme-fuel").legal_name
+    acme = Organization.find_by!(slug: "acme-fuel")
+    assert_nil acme.legal_name
+    assert_equal [ "Acme" ], acme.aliases.map(&:alias) - [ "Acme Fuel" ], "nor is it an alias"
   end
 
   test "a description's other quotes back the rest of its text" do

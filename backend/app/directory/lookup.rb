@@ -232,8 +232,10 @@ module Directory
       # "white").
       Facility.where.not(verification_status: "rejected").pluck(:name).flat_map do |name|
         words = distinctive_words(name).reject { |word| word.length < 3 }
+        full = words.join(" ")
         two = words.first(2).join(" ") if words.size >= 2
-        [ words.join(" "), (two unless owner_forms.include?(two)) ]
+        # A one-word name ("Palisades") is always the plant's own.
+        [ (full unless words.size >= 2 && owner_forms.include?(full)), (two unless owner_forms.include?(two)) ]
       end.compact_blank.to_set
     end
 

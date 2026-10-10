@@ -107,6 +107,16 @@ class Directory::LookupTest < ActiveSupport::TestCase
     assert_equal "acme urenco", Directory::Lookup.brand_key("Acme Urenco, LLC")
   end
 
+  test "a plant whose whole distinctive name is an owner's isn't a plant name" do
+    Facility.create!(name: "Urenco Eunice Enrichment Plant")
+    Facility.create!(name: "Palisades")
+
+    names = Directory::Lookup.plant_names(owners: [ "Urenco Eunice" ])
+    assert_not_includes names, "urenco eunice"
+    assert_includes names, "palisades", "a one-word plant name is the plant's own"
+    assert_includes Directory::Lookup.plant_names, "urenco eunice", "without that owner it's a plant name"
+  end
+
   test "a plant name of four or more words is recognized at the end of a company name" do
     Facility.create!(name: "Crane Clean Energy Center (Three Mile Island Unit 1)")
 
