@@ -59,6 +59,8 @@ class DataQuality::Plugins::NrcReactorList::Extractor
         schema: SCHEMA,
         schema_name: "nrc_reactor_units",
         crawl_run: run,
+        # Copying a table needs little thought; reasoning tokens are billed.
+        reasoning_effort: "low",
         messages: [
           { role: "system", content: INSTRUCTIONS },
           { role: "user", content: [ header, *batch ].join("\n") }

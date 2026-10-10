@@ -17,8 +17,8 @@ class DataQuality::Plugins::NrcReactorList::ExtractTest < ActiveSupport::TestCas
       @calls = []
     end
 
-    def structured(role:, messages:, schema:, schema_name:, crawl_run:)
-      @calls << { role:, schema_name: }
+    def structured(role:, messages:, schema:, schema_name:, crawl_run:, reasoning_effort: nil)
+      @calls << { role:, schema_name:, reasoning_effort: }
       _header, *rows = messages.last[:content].lines(chomp: true)
       units = @tamper.call(rows.map { |row| read(row) })
       errors = JSONSchemer.schema(schema).validate({ "units" => units }).to_a
@@ -57,7 +57,7 @@ class DataQuality::Plugins::NrcReactorList::ExtractTest < ActiveSupport::TestCas
     assert run.succeeded?
     assert_equal "nrc-extract-v1", run.prompt_version
     assert_equal 4, model.calls.size, "95 rows in batches of 25"
-    assert model.calls.all? { |call| call[:role] == :extract }
+    assert model.calls.all? { |call| call[:role] == :extract && call[:reasoning_effort] == "low" }
     assert_equal({ "table_units" => 95, "ai_units" => 95, "agreed" => 95, "disagreed" => 0, "missed" => 0, "made_up" => 0 },
       run.stats["ai_check"])
 
