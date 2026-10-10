@@ -54,9 +54,9 @@ class DataQuality::Stages::Verify < DataQuality::Stage
     end
 
     def apply(candidate, hold, verdict, run, stats)
-      # Asked again now the model has answered: a human may have closed the
-      # record (or a unit's site) meanwhile.
-      hold ||= closed_hold(directory.attached_record(candidate))
+      # Asked again now the model has answered: a human may have closed or
+      # verified the record (or closed a unit's site) meanwhile.
+      hold ||= hold_reason(candidate)
       if hold
         stat, reason = hold
         stats[stat] += 1
