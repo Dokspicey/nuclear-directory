@@ -216,24 +216,36 @@ class DataQuality::Stages::Match < DataQuality::Stage
     end
 
     # evidence: false for links, which may already exist; their quote is added on publish.
+    # The write, a new link's quote and the candidate's update happen in one
+    # transaction, so a stop part-way leaves nothing half-done for a rerun to
+    # mistake for an existing record.
     def write(candidate, attributes, existing: nil, note: nil, evidence: true)
-      result = directory.write_pending(candidate.kind, attributes, candidate:, crawl_run: @run, evidence:)
-      # A link written without evidence (so an existing one isn't changed) that
-      # turned out to be new is a proposal, and a proposal carries its quote.
-      if result.success? && result.created && !evidence
-        with_quote = directory.write_pending(candidate.kind, { id: result.ref.id }, candidate:, crawl_run: @run)
-        result = with_quote unless with_quote.success?
-      end
-      unless result.success?
-        return review(candidate, "Directory rejected the write: #{result.errors.join('; ')}", write_error: true)
+      result = nil
+      ActiveRecord::Base.transaction(requires_new: true) do
+        result = directory.write_pending(candidate.kind, attributes, candidate:, crawl_run: @run, evidence:)
+        # A link written without evidence (so an existing one isn't changed) that
+        # turned out to be new is a proposal, and a proposal carries its quote.
+        if result.success? && result.created && !evidence
+          with_quote = directory.write_pending(candidate.kind, { id: result.ref.id }, candidate:, crawl_run: @run)
+          unless with_quote.success?
+            result = with_quote
+            raise ActiveRecord::Rollback
+          end
+        end
+        next unless result.success?
+
+        existing = !result.created if existing.nil?
+        note ||= existing ? "Matched an existing record" : "No existing record; proposed a new pending one"
+        # Remembered so a rejection can retire what match created, and only that.
+        candidate.update!(status: "matched", subject_type: result.ref.type, subject_id: result.ref.id, notes: note,
+          proposed_subject: result.created)
       end
 
-      existing = !result.created if existing.nil?
-      @stats[existing ? "matched" : "proposed"] += 1
-      note ||= existing ? "Matched an existing record" : "No existing record; proposed a new pending one"
-      # Remembered so a rejection can retire what match created, and only that.
-      candidate.update!(status: "matched", subject_type: result.ref.type, subject_id: result.ref.id, notes: note,
-        proposed_subject: result.created)
+      if result.success?
+        @stats[existing ? "matched" : "proposed"] += 1
+      else
+        review(candidate, "Directory rejected the write: #{result.errors.join('; ')}", write_error: true)
+      end
     end
 
     def review(candidate, reason, write_error: false)
