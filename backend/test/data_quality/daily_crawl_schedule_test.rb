@@ -93,4 +93,13 @@ class DataQuality::DailyCrawlScheduleTest < ActiveSupport::TestCase
     assert_kind_of DataQuality::Pipeline::AlreadyRunning, error
     assert_no_enqueued_jobs only: DataQuality::DailyCrawlJob
   end
+
+  test "each source gets its own attempts: EIA's count starts over after NRC waited" do
+    ran, error = run_daily(attempt: DataQuality::DailyCrawlJob::ATTEMPTS - 1,
+      fail: { "eia_generators" => DataQuality::Pipeline::AlreadyRunning.new })
+
+    assert_equal %w[nrc_reactor_list eia_generators], ran.map(&:first)
+    assert_nil error
+    assert_enqueued_with job: DataQuality::DailyCrawlJob, args: [ [ "eia_generators" ], { attempt: 2 } ]
+  end
 end

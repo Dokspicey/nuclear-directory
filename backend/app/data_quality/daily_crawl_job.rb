@@ -7,6 +7,7 @@
 # If a source is already being run (from the console, say), the job queues
 # itself again for that source and the ones after it, so a retry never
 # repeats a source that already ran, and still fails for any that failed.
+# Each source gets its own ATTEMPTS.
 class DataQuality::DailyCrawlJob < ApplicationJob
   SOURCE_KINDS = %w[nrc_reactor_list eia_generators].freeze
   RETRY_WAIT = 10.minutes
@@ -20,8 +21,11 @@ class DataQuality::DailyCrawlJob < ApplicationJob
     source_kinds.each_with_index do |source_kind, index|
       DataQuality::Pipeline.run(source_kind)
     rescue DataQuality::Pipeline::AlreadyRunning
-      raise if attempt >= ATTEMPTS
-      self.class.set(wait: RETRY_WAIT).perform_later(source_kinds.drop(index), attempt: attempt + 1)
+      # `attempt` counts tries at the first source in the list; a source
+      # reached later in this run has had only this one.
+      tries = index.zero? ? attempt : 1
+      raise if tries >= ATTEMPTS
+      self.class.set(wait: RETRY_WAIT).perform_later(source_kinds.drop(index), attempt: tries + 1)
       break
     rescue StandardError => error
       errors << error
