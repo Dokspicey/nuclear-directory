@@ -82,7 +82,8 @@ Two tests keep the module and the directory in step:
 
 Sources belong to this module. Code outside it (e.g. the seed loader) gets one
 with `DataQuality::Sources.find_or_create(url:, source_kind:, published_on:)`,
-which returns a plain `SourceRef`.
+which returns a result: `ok?` with a plain `SourceRef` in `ref`, or `errors`. Only absolute http(s)
+URLs are accepted (no `javascript:`, `data:` or relative paths), since sources are shown as links.
 
 ## Matching and candidate payloads
 
