@@ -19,9 +19,28 @@
 # write changes nothing and returns errors instead of raising.
 module Directory
   class FactWriter
-    Result = Data.define(:kind, :id, :created, :errors) do
-      def ok? = errors.empty?
+    # conflicts: { "state" => [stored, incoming] } when a write disagreed with a
+    # human-reviewed fact (see protect_human_verified); nothing was written.
+    Result = Data.define(:kind, :id, :created, :errors, :conflicts) do
+      def initialize(kind:, id:, created:, errors:, conflicts: {}) = super
+      def ok? = errors.empty? && conflicts.empty?
+      def conflict? = conflicts.any?
     end
+
+    # Raised inside a write to undo it and report the disagreement.
+    class Conflict < StandardError
+      attr_reader :id, :conflicts
+
+      def initialize(id, conflicts)
+        @id = id
+        @conflicts = conflicts
+        super(conflicts.map { |name, (stored, incoming)| "human-verified #{name} is #{stored}; this source says #{incoming}" }.join("; "))
+      end
+    end
+
+    # Never compared for conflicts: names vary by legal form and spelling
+    # (aliases cover that), and slugs are internal.
+    NOT_COMPARED = %i[name slug].freeze
 
     class Invalid < StandardError; end
 
@@ -52,10 +71,49 @@ module Directory
     EVIDENCE_ATTRIBUTES = %i[source_id quote found_by confidence crawl_run_id].freeze
 
     def self.write(...) = new.write(...)
+    def self.fill_site_from_unit(...) = new.fill_site_from_unit(...)
+
+    # Fills a site's blank fields (from fields:) with its unit's stored
+    # values, with evidence, in one transaction that locks the unit and then
+    # the site. Only a verified unit speaks for its site, and only for fields
+    # still blank once both are locked, so a decision or a fill made
+    # meanwhile is seen. A protected write: a rejected site isn't changed (an
+    # error is returned), and when a human reviewed the site, a unit value
+    # that disagrees with one the site has is reported as a conflict and
+    # nothing is written. nil when there's nothing to fill.
+    def fill_site_from_unit(unit_id, fields:, evidence:)
+      ActiveRecord::Base.transaction(requires_new: true) do
+        unit = Facility.lock.find_by(id: unit_id)
+        next unless unit&.parent_id && unit.verified?
+
+        site = Facility.lock.find(unit.parent_id)
+        stated = fields.to_h { |name| [ name.to_sym, unit.public_send(name) ] }.compact_blank
+        if site.human_reviewed? && !site.rejected? && (conflicts = conflicts_with(site, stated)).any?
+          raise Conflict.new(site.id, conflicts)
+        end
+        values = stated.select { |name, _| site.public_send(name).blank? }
+        next if values.empty?
+
+        write(:facility, values.merge(id: site.id), fill_blank: true, protect_human_verified: true, evidence:)
+      end
+    rescue Conflict => e
+      Result.new(kind: :facility, id: e.id, created: false, errors: [ e.message ], conflicts: e.conflicts)
+    end
 
     # kind: a key of KINDS. attributes may include :id to update a known row.
     # verification: { status: "pending" | "verified" | "rejected", by: "human:tosin" }
-    def write(kind, attributes, evidence: [], verification: nil)
+    # fill_blank: true sets only attributes that are blank on an existing row,
+    # so new data can complete a record without overwriting anything.
+    # protect_human_verified: true treats a row a human has verified (or
+    # rejected) as curated, so a human's decision is never overwritten:
+    # - a rejected row (by anyone) isn't changed at all (an error is returned)
+    # - if an incoming value disagrees with a stored one, nothing is written
+    #   (no attributes, evidence or confidence change) and the result's
+    #   conflicts say what disagreed, for review
+    # - otherwise only blank attributes are filled, evidence is added, and the
+    #   verification is left alone
+    # Automated writers pass this.
+    def write(kind, attributes, evidence: [], verification: nil, fill_blank: false, protect_human_verified: false)
       kind = kind.to_sym
       spec = KINDS[kind] or return failure(kind, "unknown kind #{kind.inspect}")
       attributes = attributes.to_h.symbolize_keys
@@ -67,16 +125,36 @@ module Directory
       ActiveRecord::Base.transaction(requires_new: true) do
         record = find(kind, spec[:model], attributes) || spec[:model].new
         created = record.new_record?
-        record.assign_attributes(model_attributes(kind, attributes))
+        # Locked, so a human's decision made while this write runs is seen.
+        record.lock! if protect_human_verified && !created
+        # A rejected fact (by a human, or a retired proposal) only changes by a human's hand.
+        if protect_human_verified && !created && record.rejected?
+          raise Invalid, "#{record.model_name.human} was rejected by #{record.verified_by || 'review'}; not changed"
+        end
+        # No automated unit under a rejected site; the site is locked, so a
+        # rejection made while this write runs is seen.
+        if protect_human_verified && kind == :facility && attributes[:parent_id] &&
+            (site = Facility.lock.find_by(id: attributes[:parent_id]))&.rejected?
+          raise Invalid, "site #{site.name} was rejected by #{site.verified_by || 'review'}; no units under it"
+        end
+        curated = protect_human_verified && !created && record.human_reviewed?
+        changes = model_attributes(kind, attributes)
+        if curated && (conflicts = conflicts_with(record, changes)).any?
+          raise Conflict.new(record.id, conflicts)
+        end
+        changes = changes.select { |name, _| record.public_send(name).blank? } if (fill_blank || curated) && !created
+        record.assign_attributes(changes)
         record.save!
 
         write_aliases(record, [ record.name, *attributes[:aliases] ]) if kind == :organization
         Array(evidence).each { |item| write_evidence(record, item) }
-        apply_verification(record, verification) if verification
+        apply_verification(record, verification) if verification && !curated
         record.recompute_confidence!
       end
 
       Result.new(kind:, id: record.id, created:, errors: [])
+    rescue Conflict => e
+      Result.new(kind:, id: e.id, created: false, errors: [ e.message ], conflicts: e.conflicts)
     rescue Invalid, ArgumentError => e
       failure(kind, e.message)
     rescue ActiveRecord::RecordInvalid => e
@@ -87,6 +165,35 @@ module Directory
     end
 
     private
+      # Incoming values that differ from the stored ones, where both are
+      # present: { "state" => ["NJ", "DE"] }. Websites compare by domain.
+      def conflicts_with(record, changes)
+        changes.each_with_object({}) do |(name, incoming), found|
+          next if NOT_COMPARED.include?(name.to_sym)
+
+          stored = record.public_send(name)
+          next if incoming.blank? || stored.blank?
+          next if same_value?(record, name, stored, incoming)
+
+          found[name.to_s] = [ shown(stored), shown(incoming) ]
+        end
+      end
+
+      def same_value?(record, name, stored, incoming)
+        if name.to_sym == :website
+          # Same site if the same domain; a URL with no readable domain only equals itself.
+          domains = [ stored, incoming ].map { |url| Organization.domain_from(url) }
+          return domains.all?(&:present?) ? domains.uniq.one? : stored.strip == incoming.strip
+        end
+        return stored == incoming if incoming.is_a?(ActiveRecord::Base)
+
+        # Compared as the model would store it ("us" is "US" once normalized).
+        incoming = record.class.normalize_value_for(name.to_sym, incoming)
+        stored == record.class.type_for_attribute(name.to_s).cast(incoming)
+      end
+
+      def shown(value) = value.respond_to?(:key) ? value.key : value.to_s
+
       def failure(kind, errors)
         Result.new(kind:, id: nil, created: false, errors: Array(errors))
       end
