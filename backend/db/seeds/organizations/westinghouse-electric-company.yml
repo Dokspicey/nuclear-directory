@@ -1,43 +1,54 @@
 # Seed research for issue #8 - generated 2026-10-09. Quotes copied from pages fetched this session.
-name: Westinghouse Electric Company LLC
+name: Westinghouse
+legal_name: Westinghouse Electric Company LLC
 aliases:
 - Westinghouse
-website: "https://westinghousenuclear.com"
-hq: null
+- Westinghouse Electric Company LLC
+website: https://westinghousenuclear.com
+hq:
+  city: Cranberry Township
+  state: PA
+  source_url: https://www.westinghousenuclear.com/contact-us
+  quote: Westinghouse Electric Company LLC 1000 Westinghouse Drive Cranberry Township, PA 16066-5528
+  confidence: 0.8
 country_code: US
 status: active
 roles:
 - key: reactor_vendor
-  source_url: "https://info.westinghousenuclear.com/news/westinghouse-celebrates-milestone-achievement-as-ap1000-technology-powers-plant-vogtle-unit-4-into-commercial-operation"
-  quote: "Vogtle Units 3 and 4 were built using the most technologically advanced nuclear reactor technology available today – the AP1000 reactor."
+  source_url: https://info.westinghousenuclear.com/news/westinghouse-celebrates-milestone-achievement-as-ap1000-technology-powers-plant-vogtle-unit-4-into-commercial-operation
+  quote: Vogtle Units 3 and 4 were built using the most technologically advanced nuclear reactor technology available today – the AP1000 reactor.
   published: '2024-04-29'
   confidence: 1.0
 - key: reactor_services
-  source_url: "https://westinghousenuclear.com/"
-  quote: "Westinghouse technology powers 57% of the world's nuclear power plants, maintains nearly two-thirds of the world's nuclear fleet and fuels 40% of that fleet."
+  source_url: https://westinghousenuclear.com/
+  quote: Westinghouse technology powers 57% of the world's nuclear power plants, maintains nearly two-thirds of the world's nuclear fleet and fuels 40% of that fleet.
   confidence: 1.0
 - key: fuel
-  source_url: "https://westinghousenuclear.com/"
-  quote: "Westinghouse technology powers 57% of the world's nuclear power plants, maintains nearly two-thirds of the world's nuclear fleet and fuels 40% of that fleet."
+  source_url: https://westinghousenuclear.com/
+  quote: Westinghouse technology powers 57% of the world's nuclear power plants, maintains nearly two-thirds of the world's nuclear fleet and fuels 40% of that fleet.
   confidence: 1.0
 technologies:
 - key: fission
-  source_url: "https://info.westinghousenuclear.com/news/westinghouse-celebrates-milestone-achievement-as-ap1000-technology-powers-plant-vogtle-unit-4-into-commercial-operation"
-  quote: "Today, the second U.S.-based Gen III+ advanced nuclear Westinghouse AP1000® reactor entered commercial operation at Plant Vogtle, near Waynesboro, Georgia."
+  source_url: https://info.westinghousenuclear.com/news/westinghouse-celebrates-milestone-achievement-as-ap1000-technology-powers-plant-vogtle-unit-4-into-commercial-operation
+  quote: Today, the second U.S.-based Gen III+ advanced nuclear Westinghouse AP1000® reactor entered commercial operation at Plant Vogtle, near Waynesboro, Georgia.
   published: '2024-04-29'
   confidence: 1.0
 - key: smr
-  source_url: "https://content.govdelivery.com/accounts/USDOEINL/bulletins/3e78907"
-  quote: "Westinghouse (Etna, Pennsylvania) will test the eVinci Nuclear Test Reactor to inform the development of its commercial transportable microreactor that uses advanced heat pipe technology to passively cool the reactor."
+  source_url: https://content.govdelivery.com/accounts/USDOEINL/bulletins/3e78907
+  quote: Westinghouse (Etna, Pennsylvania) will test the eVinci Nuclear Test Reactor to inform the development of its commercial transportable microreactor that uses advanced heat pipe technology to passively cool the reactor.
   published: '2025-07-01'
   confidence: 1.0
 relationships: []
 facilities:
 - name: Plant Vogtle
   type: vendor_for
-  source_url: "https://info.westinghousenuclear.com/news/westinghouse-celebrates-milestone-achievement-as-ap1000-technology-powers-plant-vogtle-unit-4-into-commercial-operation"
-  quote: "The AP1000 units at Vogtle are the first new nuclear build projects in the U.S. in more than 30 years and are operated by Southern Nuclear."
+  source_url: https://info.westinghousenuclear.com/news/westinghouse-celebrates-milestone-achievement-as-ap1000-technology-powers-plant-vogtle-unit-4-into-commercial-operation
+  quote: The AP1000 units at Vogtle are the first new nuclear build projects in the U.S. in more than 30 years and are operated by Southern Nuclear.
   published: '2024-04-29'
   confidence: 1.0
-  note: "Units 3 and 4 (the AP1000 units)."
-notes: "HQ conflict: DOE/INL bulletin (2025) lists 'Westinghouse (Etna, Pennsylvania)'; Westinghouse's 2024 Vogtle release is datelined Cranberry Township, PA. Fuel sub-type (fabrication) not separately sourced. eVinci is a microreactor; 'smr' tag is approximate. DOE selected Westinghouse eVinci for first DOME tests at INL (see INL notes). Vogtle (2026-10-10): the vendor_for link sits on the Plant Vogtle site and covers Units 3 and 4 only; move it to NRC's Vogtle 3 and 4 unit records once those are verified."
+  note: Units 3 and 4 (the AP1000 units).
+notes: 'HQ conflict: DOE/INL bulletin (2025) lists ''Westinghouse (Etna, Pennsylvania)''; Westinghouse''s 2024 Vogtle release is datelined Cranberry Township, PA. Fuel sub-type (fabrication) not separately sourced. eVinci is a microreactor; ''smr'' tag is approximate. DOE selected Westinghouse eVinci for first DOME tests at INL (see INL notes). Vogtle (2026-10-10): the vendor_for link sits on the Plant Vogtle site and covers Units 3 and 4 only; move it to NRC''s Vogtle 3 and 4 unit records once those are verified. #63: HQ is the company address on the contact page (listed under the ethics office, not labeled headquarters); press releases also carry a Cranberry Township, PA dateline (https://info.westinghousenuclear.com/news/tag/carbon-free).'
+description:
+  text: Company whose reactor technology, services and fuel are used across the world's nuclear power plants.
+  source_url: https://westinghousenuclear.com
+  quote: Westinghouse technology powers 57% of the world's nuclear power plants, maintains nearly two-thirds of the world's nuclear fleet and fuels 40% of that fleet.

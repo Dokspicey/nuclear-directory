@@ -1,58 +1,64 @@
 # Seed research for issue #8 - generated 2026-10-09. Quotes copied from pages fetched this session.
-name: Global Nuclear Fuel–Americas, LLC
+name: Global Nuclear Fuel–Americas
+legal_name: Global Nuclear Fuel–Americas, LLC
 aliases:
 - GNF-A
 - Global Nuclear Fuel
 - GNF
-website: "https://www.gevernova.com/nuclear"
+- Global Nuclear Fuel–Americas, LLC
+website: https://www.gevernova.com/nuclear
 hq:
   city: Wilmington
   state: NC
-  source_url: "https://www.gevernova.com/news/press-releases/nrc-issues-first-us-construction-permit-bwrx-300-small-modular-reactor-tva-clinch-river"
-  quote: "GNF is a GE Vernova-led joint venture with Hitachi, Ltd. and operates primarily through Global Nuclear Fuel-Americas, LLC in Wilmington, N.C., and Global Nuclear Fuel-Japan Co., Ltd. in Kurihama, Japan."
+  source_url: https://www.gevernova.com/news/press-releases/nrc-issues-first-us-construction-permit-bwrx-300-small-modular-reactor-tva-clinch-river
+  quote: GNF is a GE Vernova-led joint venture with Hitachi, Ltd. and operates primarily through Global Nuclear Fuel-Americas, LLC in Wilmington, N.C., and Global Nuclear Fuel-Japan Co., Ltd. in Kurihama, Japan.
 country_code: US
 status: active
 roles:
 - key: fuel
   subtype: fabrication
-  source_url: "https://www.gevernova.com/news/press-releases/nrc-issues-first-us-construction-permit-bwrx-300-small-modular-reactor-tva-clinch-river"
-  quote: "GE Vernova’s Nuclear fuel business, Global Nuclear Fuel (GNF), is a world-leading supplier of boiling water reactor fuel and fuel-related engineering services."
+  source_url: https://www.gevernova.com/news/press-releases/nrc-issues-first-us-construction-permit-bwrx-300-small-modular-reactor-tva-clinch-river
+  quote: GE Vernova’s Nuclear fuel business, Global Nuclear Fuel (GNF), is a world-leading supplier of boiling water reactor fuel and fuel-related engineering services.
   published: '2026-09-29'
   confidence: 1.0
 technologies:
 - key: fission
-  source_url: "https://www.terrapower.com/global-nuclear-fuel-and-terrapower-announce-natrium-fuel-facility"
-  quote: "The Natrium Fuel Facility would utilize high-assay, low-enriched uranium (HALEU)."
+  source_url: https://www.terrapower.com/global-nuclear-fuel-and-terrapower-announce-natrium-fuel-facility
+  quote: The Natrium Fuel Facility would utilize high-assay, low-enriched uranium (HALEU).
   published: '2022-10-21'
   confidence: 1.0
 relationships:
 - type: supplies
   to: TerraPower, LLC
-  description: "Signed agreement (Oct 2022) to build the Natrium Fuel Facility at GNF-A's Wilmington site to fuel the Natrium demonstration plant; jointly funded by TerraPower and DOE (ARDP)."
-  source_url: "https://www.terrapower.com/global-nuclear-fuel-and-terrapower-announce-natrium-fuel-facility"
-  quote: "Global Nuclear Fuel–Americas (GNF-A), a GE-led joint venture, and TerraPower today announced an agreement to build the NatriumTM Fuel Facility at the site of GNF-A’s existing plant site near Wilmington."
+  description: Signed agreement (Oct 2022) to build the Natrium Fuel Facility at GNF-A's Wilmington site to fuel the Natrium demonstration plant; jointly funded by TerraPower and DOE (ARDP).
+  source_url: https://www.terrapower.com/global-nuclear-fuel-and-terrapower-announce-natrium-fuel-facility
+  quote: Global Nuclear Fuel–Americas (GNF-A), a GE-led joint venture, and TerraPower today announced an agreement to build the NatriumTM Fuel Facility at the site of GNF-A’s existing plant site near Wilmington.
   published: '2022-10-21'
   confidence: 1.0
 - type: subsidiary_of
   to: GE Vernova
-  description: "GNF is a GE Vernova-led joint venture with Hitachi, operating primarily through Global Nuclear Fuel-Americas, LLC (Wilmington, NC)."
-  source_url: "https://www.gevernova.com/news/press-releases/nrc-issues-first-us-construction-permit-bwrx-300-small-modular-reactor-tva-clinch-river"
-  quote: "GNF is a GE Vernova-led joint venture with Hitachi, Ltd. and operates primarily through Global Nuclear Fuel-Americas, LLC in Wilmington, N.C., and Global Nuclear Fuel-Japan Co., Ltd. in Kurihama, Japan."
+  description: GNF is a GE Vernova-led joint venture with Hitachi, operating primarily through Global Nuclear Fuel-Americas, LLC (Wilmington, NC).
+  source_url: https://www.gevernova.com/news/press-releases/nrc-issues-first-us-construction-permit-bwrx-300-small-modular-reactor-tva-clinch-river
+  quote: GNF is a GE Vernova-led joint venture with Hitachi, Ltd. and operates primarily through Global Nuclear Fuel-Americas, LLC in Wilmington, N.C., and Global Nuclear Fuel-Japan Co., Ltd. in Kurihama, Japan.
   published: '2026-09-29'
   confidence: 1.0
 - type: subsidiary_of
   to: Hitachi, Ltd.
-  description: "Hitachi, Ltd. is the joint-venture partner in GNF (GE Vernova-led). Ownership split not sourced."
-  source_url: "https://www.gevernova.com/news/press-releases/nrc-issues-first-us-construction-permit-bwrx-300-small-modular-reactor-tva-clinch-river"
-  quote: "GNF is a GE Vernova-led joint venture with Hitachi, Ltd. and operates primarily through Global Nuclear Fuel-Americas, LLC in Wilmington, N.C., and Global Nuclear Fuel-Japan Co., Ltd. in Kurihama, Japan."
+  description: Hitachi, Ltd. is the joint-venture partner in GNF (GE Vernova-led). Ownership split not sourced.
+  source_url: https://www.gevernova.com/news/press-releases/nrc-issues-first-us-construction-permit-bwrx-300-small-modular-reactor-tva-clinch-river
+  quote: GNF is a GE Vernova-led joint venture with Hitachi, Ltd. and operates primarily through Global Nuclear Fuel-Americas, LLC in Wilmington, N.C., and Global Nuclear Fuel-Japan Co., Ltd. in Kurihama, Japan.
   published: '2026-09-29'
   confidence: 1.0
 facilities:
-- name: Natrium Fuel Facility (Wilmington, NC)
+- name: Natrium Fuel Facility
   type: owns
-  source_url: "https://www.terrapower.com/global-nuclear-fuel-and-terrapower-announce-natrium-fuel-facility"
-  quote: "Global Nuclear Fuel–Americas (GNF-A), a GE-led joint venture, and TerraPower today announced an agreement to build the NatriumTM Fuel Facility at the site of GNF-A’s existing plant site near Wilmington."
+  source_url: https://www.terrapower.com/global-nuclear-fuel-and-terrapower-announce-natrium-fuel-facility
+  quote: Global Nuclear Fuel–Americas (GNF-A), a GE-led joint venture, and TerraPower today announced an agreement to build the NatriumTM Fuel Facility at the site of GNF-A’s existing plant site near Wilmington.
   published: '2022-10-21'
   confidence: 1.0
-  note: "Construction was anticipated to begin 2023 (2022 source); current status not verified. Ownership of the new facility (GNF-A vs TerraPower) not stated - 'owns' refers to the host site; verify."
-notes: "GE Vernova-led JV with Hitachi. Website is GE Vernova's nuclear page (no standalone GNF site checked)."
+  note: Construction was anticipated to begin 2023 (2022 source); current status not verified. Ownership of the new facility (GNF-A vs TerraPower) not stated - 'owns' refers to the host site; verify.
+notes: 'GE Vernova-led JV with Hitachi. Website is GE Vernova''s nuclear page (no standalone GNF site checked). #63: Wilmington from same boilerplate (already the seed HQ quote).'
+description:
+  text: GE Vernova-led fuel company in Wilmington, North Carolina that makes boiling water reactor fuel.
+  source_url: https://www.gevernova.com/news/press-releases/nrc-issues-first-us-construction-permit-bwrx-300-small-modular-reactor-tva-clinch-river
+  quote: GE Vernova’s Nuclear fuel business, Global Nuclear Fuel (GNF), is a world-leading supplier of boiling water reactor fuel and fuel-related engineering services.

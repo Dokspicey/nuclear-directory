@@ -1,33 +1,45 @@
 # Seed research for issue #8 - generated 2026-10-09. Quotes copied from pages fetched this session.
-name: Talen Energy Corporation
+name: Talen Energy
+legal_name: Talen Energy Corporation
 aliases:
 - Talen
-website: "https://talenenergy.com"
+- Talen Energy Corporation
+website: https://talenenergy.com
 hq:
   city: Houston
   state: TX
-  source_url: "https://www.sec.gov/Archives/edgar/data/1622536/000162828025030559/a20250611pressreleasebusin.htm"
+  source_url: https://www.sec.gov/Archives/edgar/data/1622536/000162828025030559/a20250611pressreleasebusin.htm
   quote: Talen is headquartered in Houston, Texas.
 country_code: US
 status: active
 roles:
 - key: utility
-  source_url: "https://www.sec.gov/Archives/edgar/data/1622536/000162828025030559/a20250611pressreleasebusin.htm"
-  quote: "Talen Energy Corporation (“Talen,” “we,” or “our”) (NASDAQ: TLN), an independent power producer dedicated to powering the future"
+  source_url: https://www.sec.gov/Archives/edgar/data/1622536/000162828025030559/a20250611pressreleasebusin.htm
+  quote: 'Talen Energy Corporation (“Talen,” “we,” or “our”) (NASDAQ: TLN), an independent power producer dedicated to powering the future'
   published: '2025-06-11'
   confidence: 1.0
 technologies:
 - key: fission
-  source_url: "https://www.sec.gov/Archives/edgar/data/1622536/000162828025030559/a20250611pressreleasebusin.htm"
-  quote: "to provide carbon-free energy from Talen’s Susquehanna nuclear power plant to Amazon Web Services"
+  source_url: https://www.sec.gov/Archives/edgar/data/1622536/000162828025030559/a20250611pressreleasebusin.htm
+  quote: to provide carbon-free energy from Talen’s Susquehanna nuclear power plant to Amazon Web Services
   published: '2025-06-11'
   confidence: 1.0
 relationships: []
 facilities:
 - name: Susquehanna Steam Electric Station
   type: owns
-  source_url: "https://www.sec.gov/Archives/edgar/data/1622536/000162828025030559/a20250611pressreleasebusin.htm"
-  quote: "to provide carbon-free energy from Talen’s Susquehanna nuclear power plant to Amazon Web Services"
+  source_url: https://www.sec.gov/Archives/edgar/data/1622536/000162828025030559/a20250611pressreleasebusin.htm
+  quote: to provide carbon-free energy from Talen’s Susquehanna nuclear power plant to Amazon Web Services
   published: '2025-06-11'
   confidence: 1.0
-notes: "Talen is an independent power producer (not a regulated utility); tagged utility per role mix, review. All Talen quotes were obtained via WebFetch's summarizer from the SEC 8-K exhibit (curl was blocked by SEC); quotes were returned in fragments and should be re-verified against the raw page. Its operator role is implied but not separately quoted."
+- name: Susquehanna Steam Electric Station
+  type: owns
+  ownership_pct: 90.0
+  source_url: https://www.talenenergy.com/plant/susquehanna-steam-electric-station/
+  quote: Susquehanna Nuclear, LLC, a division of Talen Energy, operates SSES and owns 90% of the station. Allegheny Electric owns 10%.
+  confidence: 1.0
+notes: 'Talen is an independent power producer (not a regulated utility); tagged utility per role mix, review. All Talen quotes were obtained via WebFetch''s summarizer from the SEC 8-K exhibit (curl was blocked by SEC); quotes were returned in fragments and should be re-verified against the raw page. Its operator role is implied but not separately quoted. #63: Same page: "Talen supplies power to Amazon for its Amazon Web Services data center campus near Susquehanna." and "Talen Energy is a leading independent power producer and energy infrastructure company". HQ already in seed.'
+description:
+  text: Independent power producer whose fleet is anchored by the Susquehanna nuclear plant.
+  source_url: https://talenenergy.com
+  quote: Our fleet is anchored by the Susquehanna nuclear facility, the sixth largest nuclear-powered generation facility in the U.S.

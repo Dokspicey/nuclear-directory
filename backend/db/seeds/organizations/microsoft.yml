@@ -1,44 +1,63 @@
 # Seed research for issue #8 - generated 2026-10-09. Quotes copied from pages fetched this session.
-name: Microsoft Corporation
+name: Microsoft
+legal_name: Microsoft Corporation
 aliases:
 - Microsoft
-website: "https://www.microsoft.com"
-hq: null
+- Microsoft Corporation
+website: https://www.microsoft.com
+hq:
+  city: Redmond
+  state: WA
+  source_url: https://news.microsoft.com/facts-about-microsoft/
+  quote: Microsoft Corporation One Microsoft Way Redmond, WA 98052-7329
+  confidence: 0.8
 country_code: US
 status: active
 roles:
 - key: data_center_offtaker
-  source_url: "https://www.constellationenergy.com/newsroom/2024/Constellation-to-Launch-Crane-Clean-Energy-Center-Restoring-Jobs-and-Carbon-Free-Power-to-The-Grid.html"
-  quote: "Under the agreement, Microsoft will purchase energy from the renewed plant as part of its goal to help match the power its data centers in PJM use with carbon-free energy."
+  source_url: https://www.constellationenergy.com/newsroom/2024/Constellation-to-Launch-Crane-Clean-Energy-Center-Restoring-Jobs-and-Carbon-Free-Power-to-The-Grid.html
+  quote: Under the agreement, Microsoft will purchase energy from the renewed plant as part of its goal to help match the power its data centers in PJM use with carbon-free energy.
   published: '2024-09-20'
   confidence: 1.0
-technologies: []
+technologies:
+- key: fusion
+  source_url: https://www.helionenergy.com/articles/helion-announces-worlds-first-fusion-ppa-with-microsoft/
+  quote: Helion Energy (Helion) today announced an agreement to provide Microsoft electricity from its first fusion power plant.
+  confidence: 1.0
+- key: fission
+  source_url: https://www.constellationenergy.com/newsroom/2024/Constellation-to-Launch-Crane-Clean-Energy-Center-Restoring-Jobs-and-Carbon-Free-Power-to-The-Grid.html
+  quote: Under the agreement, Microsoft will purchase energy from the renewed plant as part of its goal to help match the power its data centers in PJM use with carbon-free energy.
+  confidence: 0.9
 relationships:
 - type: offtake_with
   to: Constellation Energy Corporation
-  description: "Signed 20-year PPA (Sept 2024) for output of the restarted Crane Clean Energy Center (TMI Unit 1), ~835 MW; deliveries subject to NRC and other approvals."
-  source_url: "https://www.constellationenergy.com/newsroom/2024/Constellation-to-Launch-Crane-Clean-Energy-Center-Restoring-Jobs-and-Carbon-Free-Power-to-The-Grid.html"
-  quote: "Constellation (Nasdaq: CEG) announced today the signing of a 20-year power purchase agreement with Microsoft that will pave the way for the launch of the Crane Clean Energy Center (CCEC) and restart of Three Mile Island Unit 1"
+  description: Signed 20-year PPA (Sept 2024) for output of the restarted Crane Clean Energy Center (TMI Unit 1), ~835 MW; deliveries subject to NRC and other approvals.
+  source_url: https://www.constellationenergy.com/newsroom/2024/Constellation-to-Launch-Crane-Clean-Energy-Center-Restoring-Jobs-and-Carbon-Free-Power-to-The-Grid.html
+  quote: 'Constellation (Nasdaq: CEG) announced today the signing of a 20-year power purchase agreement with Microsoft that will pave the way for the launch of the Crane Clean Energy Center (CCEC) and restart of Three Mile Island Unit 1'
   published: '2024-09-20'
   confidence: 1.0
 - type: offtake_with
   to: Helion Energy
-  description: "Signed fusion PPA (May 2023): Helion to supply Microsoft electricity from its first fusion plant, 50 MW+ targeted from 2028."
-  source_url: "https://www.helionenergy.com/newsroom/helion-announces-worlds-first-fusion-ppa-with-microsoft"
-  quote: "Helion Energy (Helion) today announced an agreement to provide Microsoft electricity from its first fusion power plant."
+  description: 'Signed fusion PPA (May 2023): Helion to supply Microsoft electricity from its first fusion plant, 50 MW+ targeted from 2028.'
+  source_url: https://www.helionenergy.com/newsroom/helion-announces-worlds-first-fusion-ppa-with-microsoft
+  quote: Helion Energy (Helion) today announced an agreement to provide Microsoft electricity from its first fusion power plant.
   published: '2023-05-10'
   confidence: 1.0
 facilities:
-- name: Crane Clean Energy Center (Three Mile Island Unit 1)
+- name: Crane Clean Energy Center
   type: offtakes_from
-  source_url: "https://www.constellationenergy.com/newsroom/2024/Constellation-to-Launch-Crane-Clean-Energy-Center-Restoring-Jobs-and-Carbon-Free-Power-to-The-Grid.html"
-  quote: "Under the agreement, Microsoft will purchase energy from the renewed plant as part of its goal to help match the power its data centers in PJM use with carbon-free energy."
+  source_url: https://www.constellationenergy.com/newsroom/2024/Constellation-to-Launch-Crane-Clean-Energy-Center-Restoring-Jobs-and-Carbon-Free-Power-to-The-Grid.html
+  quote: Under the agreement, Microsoft will purchase energy from the renewed plant as part of its goal to help match the power its data centers in PJM use with carbon-free energy.
   published: '2024-09-20'
   confidence: 1.0
-- name: Orion fusion power plant (Malaga, Chelan County, WA)
+- name: Orion fusion power plant
   type: offtakes_from
-  source_url: "https://www.helionenergy.com/newsroom/helion-secures-land-and-begins-building-site-of-worlds-first-fusion-power-plant"
-  quote: "In 2023, Helion announced the world’s first power purchase agreement (PPA) that will provide energy from the plant to Microsoft by 2028, with Constellation Energy serving as power marketer."
+  source_url: https://www.helionenergy.com/newsroom/helion-secures-land-and-begins-building-site-of-worlds-first-fusion-power-plant
+  quote: In 2023, Helion announced the world’s first power purchase agreement (PPA) that will provide energy from the plant to Microsoft by 2028, with Constellation Energy serving as power marketer.
   published: '2025-07-30'
   confidence: 1.0
-notes: HQ not verified in this session.
+notes: 'HQ not verified in this session. #63: HQ is listed under "Corporate Address" on the Facts About Microsoft page. Fission tag: Crane (Three Mile Island Unit 1) restart PPA, from Constellation site.'
+description:
+  text: Technology company that makes software, cloud and AI platforms and tools.
+  source_url: https://news.microsoft.com/facts-about-microsoft/
+  quote: Microsoft creates platforms and tools powered by AI to deliver innovative solutions that meet the evolving needs of our customers.

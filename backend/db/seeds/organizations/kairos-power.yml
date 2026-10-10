@@ -2,49 +2,58 @@
 name: Kairos Power
 aliases:
 - Kairos Power, LLC
-website: "https://kairospower.com"
-hq: null
+website: https://kairospower.com
+hq:
+  city: Alameda
+  state: CA
+  source_url: https://kairospower.com/company/
+  quote: Our headquarters in Alameda anchors a national footprint
+  confidence: 1.0
 country_code: US
 status: active
 roles:
 - key: reactor_vendor
-  source_url: "https://kairospower.com/external_updates/google-and-kairos-power-partner-to-deploy-500-mw-of-clean-electricity-generation/"
-  quote: "Kairos Power is a mission-driven nuclear technology, engineering, and manufacturing company singularly focused on commercializing the fluoride salt-cooled, high-temperature reactor (KP-FHR) – a clean energy solution that can be deployed with robust safety at an affordable cost to enable deep decarbonization."
+  source_url: https://kairospower.com/external_updates/google-and-kairos-power-partner-to-deploy-500-mw-of-clean-electricity-generation/
+  quote: Kairos Power is a mission-driven nuclear technology, engineering, and manufacturing company singularly focused on commercializing the fluoride salt-cooled, high-temperature reactor (KP-FHR) – a clean energy solution that can be deployed with robust safety at an affordable cost to enable deep decarbonization.
   published: '2024-10-14'
   confidence: 1.0
 - key: coolant
   subtype: molten_salt
-  source_url: "https://www.kairospower.com/updates/what-is-flibe-five-fast-facts-about-kairos-powers-molten-salt-coolant"
-  quote: "Kairos Power is vertically integrating the production of Flibe to drive down costs and mitigate supply chain risks for our commercial fleet."
+  source_url: https://www.kairospower.com/updates/what-is-flibe-five-fast-facts-about-kairos-powers-molten-salt-coolant
+  quote: Kairos Power is vertically integrating the production of Flibe to drive down costs and mitigate supply chain risks for our commercial fleet.
   confidence: 1.0
 technologies:
 - key: smr
-  source_url: "https://kairospower.com/"
-  quote: "How Kairos Power is Putting “Modular” into its Small Modular Reactors"
+  source_url: https://kairospower.com/
+  quote: How Kairos Power is Putting “Modular” into its Small Modular Reactors
   confidence: 1.0
 - key: fission
-  source_url: "https://kairospower.com/external_updates/google-and-kairos-power-partner-to-deploy-500-mw-of-clean-electricity-generation/"
-  quote: "In 2023, the U.S. Nuclear Regulatory Commission issued a construction permit for Kairos Power’s Hermes demonstration reactor – the first non-water-cooled reactor to be approved for construction in the U.S. in more than 50 years."
+  source_url: https://kairospower.com/external_updates/google-and-kairos-power-partner-to-deploy-500-mw-of-clean-electricity-generation/
+  quote: In 2023, the U.S. Nuclear Regulatory Commission issued a construction permit for Kairos Power’s Hermes demonstration reactor – the first non-water-cooled reactor to be approved for construction in the U.S. in more than 50 years.
   published: '2024-10-14'
   confidence: 1.0
 relationships: []
 facilities:
-- name: Hermes Low-Power Demonstration Reactor (Oak Ridge, TN)
+- name: Hermes Low-Power Demonstration Reactor
   type: owns
-  source_url: "https://world-nuclear-news.org/articles/google-kairos-power-tva-announce-collaboration"
-  quote: "Hermes 2 will be a power-producing demonstration reactor built alongside the Hermes Low-Power Demonstration Reactor which is currently under construction at Oak Ridge, Tennessee."
+  source_url: https://world-nuclear-news.org/articles/google-kairos-power-tva-announce-collaboration
+  quote: Hermes 2 will be a power-producing demonstration reactor built alongside the Hermes Low-Power Demonstration Reactor which is currently under construction at Oak Ridge, Tennessee.
   published: '2025-08-18'
   confidence: 0.8
-- name: Hermes 2 (Kairos Power, Oak Ridge)
+- name: Hermes 2
   type: owns
-  source_url: "https://world-nuclear-news.org/articles/google-kairos-power-tva-announce-collaboration"
-  quote: "The US Nuclear Regulatory Commission issued construction permits for Hermes 2, two 35 MWt molten salt-cooled reactors with a shared power generation system, in November 2024."
+  source_url: https://world-nuclear-news.org/articles/google-kairos-power-tva-announce-collaboration
+  quote: The US Nuclear Regulatory Commission issued construction permits for Hermes 2, two 35 MWt molten salt-cooled reactors with a shared power generation system, in November 2024.
   published: '2025-08-18'
   confidence: 0.8
-  note: "Redesign announced Aug 2025: single reactor, 50 MWe, operations 2030."
-- name: Kairos Power Salt Production Facility (Albuquerque, NM)
+  note: 'Redesign announced Aug 2025: single reactor, 50 MWe, operations 2030.'
+- name: Kairos Power Salt Production Facility
   type: owns
-  source_url: "https://www.kairospower.com/updates/what-is-flibe-five-fast-facts-about-kairos-powers-molten-salt-coolant"
-  quote: "We’re currently building a new Salt Production Facility (SPF) at our Manufacturing Development Campus in Albuquerque, New Mexico, to produce Flibe for the Hermes 2 commercial-scale demonstration plant in Oak Ridge, Tennessee and our future commercial fleet."
+  source_url: https://www.kairospower.com/updates/what-is-flibe-five-fast-facts-about-kairos-powers-molten-salt-coolant
+  quote: We’re currently building a new Salt Production Facility (SPF) at our Manufacturing Development Campus in Albuquerque, New Mexico, to produce Flibe for the Hermes 2 commercial-scale demonstration plant in Oak Ridge, Tennessee and our future commercial fleet.
   confidence: 1.0
-notes: "Conflict: Hermes 2 was permitted (Nov 2024) as two 35 MWt reactors / 28 MWe total; Kairos said in Aug 2025 it will instead produce 50 MWe from a single reactor - the NRC permit may need amendment (not verified). Press release dateline is Alameda, CA, but HQ not explicitly stated; left blank. Kairos makes its own Flibe coolant, so it is tagged coolant/molten_salt."
+notes: 'Conflict: Hermes 2 was permitted (Nov 2024) as two 35 MWt reactors / 28 MWe total; Kairos said in Aug 2025 it will instead produce 50 MWe from a single reactor - the NRC permit may need amendment (not verified). Press release dateline is Alameda, CA, but HQ not explicitly stated; left blank. Kairos makes its own Flibe coolant, so it is tagged coolant/molten_salt. #63: State CA is not in the quote (Alameda, California implied; seed notes an Alameda, CA press-release dateline).'
+description:
+  text: Reactor developer based in Alameda, with a manufacturing hub in Albuquerque and Hermes reactors under construction in Oak Ridge.
+  source_url: https://kairospower.com/company/
+  quote: Our headquarters in Alameda anchors a national footprint—from a manufacturing hub in Albuquerque to the Hermes reactor series now under construction in Oak Ridge.

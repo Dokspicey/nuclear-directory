@@ -2,17 +2,22 @@
 name: U.S. Nuclear Regulatory Commission
 aliases:
 - NRC
-website: "https://www.nrc.gov"
-hq: null
+website: https://www.nrc.gov
+hq:
+  city: Rockville
+  state: MD
+  source_url: https://www.nrc.gov/about-nrc/locations.html
+  quote: The NRC has its Headquarters in Rockville, Maryland, and a number of other offices around the United States.
+  confidence: 1.0
 country_code: US
 status: active
 roles:
 - key: government_agency
-  source_url: "https://www.gevernova.com/news/press-releases/nrc-issues-first-us-construction-permit-bwrx-300-small-modular-reactor-tva-clinch-river"
-  quote: "GE Vernova Hitachi Nuclear Energy (GVH) today welcomed the U.S. Nuclear Regulatory Commission’s (NRC) issuance of a construction permit to the Tennessee Valley Authority (TVA) for a BWRX-300 small modular reactor at its Clinch River site in Oak Ridge, Tennessee."
+  source_url: https://www.gevernova.com/news/press-releases/nrc-issues-first-us-construction-permit-bwrx-300-small-modular-reactor-tva-clinch-river
+  quote: GE Vernova Hitachi Nuclear Energy (GVH) today welcomed the U.S. Nuclear Regulatory Commission’s (NRC) issuance of a construction permit to the Tennessee Valley Authority (TVA) for a BWRX-300 small modular reactor at its Clinch River site in Oak Ridge, Tennessee.
   published: '2026-09-29'
   confidence: 1.0
 technologies: []
 relationships: []
 facilities: []
-notes: "nrc.gov returned HTTP 403 to both curl and WebFetch in this session, so all NRC facts come from licensee/vendor releases or WNN. Licensing actions recorded (no matching relationship type): construction permit for TerraPower Kemmerer Unit 1 (Mar 2026); construction permit for TVA Clinch River BWRX-300 (Sept 2026); Hermes (2023) and Hermes 2 (Nov 2024) construction permits for Kairos; Part 70 license for TRISO-X TX-1/TX-2 (Feb 2026); acceptance of Holtec Palisades SMR-300 CPA Part 1 (Feb 2026). Consider a 'regulates'/'licenses' relationship type."
+notes: 'nrc.gov returned HTTP 403 to both curl and WebFetch in this session, so all NRC facts come from licensee/vendor releases or WNN. Licensing actions recorded (no matching relationship type): construction permit for TerraPower Kemmerer Unit 1 (Mar 2026); construction permit for TVA Clinch River BWRX-300 (Sept 2026); Hermes (2023) and Hermes 2 (Nov 2024) construction permits for Kairos; Part 70 license for TRISO-X TX-1/TX-2 (Feb 2026); acceptance of Holtec Palisades SMR-300 CPA Part 1 (Feb 2026). Consider a ''regulates''/''licenses'' relationship type. #63: nrc.gov blocks plain requests; fetched with full browser headers.'

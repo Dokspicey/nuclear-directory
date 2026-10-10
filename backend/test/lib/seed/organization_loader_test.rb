@@ -9,6 +9,9 @@ class Seed::OrganizationLoaderTest < ActiveSupport::TestCase
 
   teardown { FileUtils.remove_entry(@dir) }
 
+  # Kept out of @dir, which holds only organization files.
+  def facilities_file = @facilities_file ||= File.join(Dir.mktmpdir, "facilities.yml")
+
   def write_file(slug, doc)
     File.write(File.join(@dir, "#{slug}.yml"), doc.deep_stringify_keys.to_yaml)
   end
@@ -57,6 +60,47 @@ class Seed::OrganizationLoaderTest < ActiveSupport::TestCase
     vogtle = Facility.find_by!(name: "Plant Vogtle")
     assert_equal [ "Waynesboro", "GA" ], [ vogtle.city, vogtle.state ]
     assert_equal 2, vogtle.facility_relationships.count
+  end
+
+  test "loads brand names, descriptions, an HQ in two entries, and ownership stakes" do
+    write_file("acme-fuel", org("Acme Fuel, Inc.", website: "https://acmefuel.com",
+      legal_name: "Acme Fuel, Inc.",
+      description: { "text" => "Makes fuel.", "source_url" => "https://example.com/about", "quote" => "We make fuel." },
+      hq: [ { "state" => "TN" }, item(city: "Oak Ridge", source_url: "https://example.com/hq", quote: "Based in Oak Ridge.") ],
+      facilities: [ item(name: "Acme Plant", type: "owns", ownership_pct: 40.0) ]))
+
+    Seed::OrganizationLoader.new(@dir).load!
+
+    acme = Organization.find_by!(slug: "acme-fuel")
+    assert_equal [ "Acme Fuel, Inc.", "Makes fuel.", "Oak Ridge", "TN" ], [ acme.legal_name, acme.description, acme.hq_city, acme.hq_state ]
+    assert_equal 2, acme.evidence.count, "the description and the sourced HQ entry"
+    assert_equal 40, acme.facility_relationships.sole.ownership_pct
+  end
+
+  test "facilities.yml details are written field by field, each with its own quote" do
+    write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com", facilities: [ item(name: "Acme Plant", type: "owns") ]))
+    File.write(facilities_file, { "facilities" => [ {
+      "name" => "Acme Plant",
+      "status" => { "value" => "operating", "source_url" => "https://example.com/status", "quote" => "Running since 2020." },
+      "city" => { "value" => nil, "source_url" => "https://example.com/where", "quote" => "Near Sometown." }
+    } ] }.to_yaml)
+
+    Seed::OrganizationLoader.new(@dir, facilities: facilities_file).load!
+
+    plant = Facility.find_by!(name: "Acme Plant")
+    assert plant.operating?
+    assert_nil plant.city, "a blank value isn't written"
+    assert_includes plant.evidence.pluck(:quote), "Running since 2020."
+  end
+
+  test "a facilities.yml plant must be in an organization file" do
+    write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com"))
+    File.write(facilities_file, { "facilities" => [ { "name" => "Nowhere Plant" } ] }.to_yaml)
+
+    error = assert_raises(Seed::OrganizationLoader::Error) do
+      Seed::OrganizationLoader.new(@dir, facilities: facilities_file).load!
+    end
+    assert_match "Nowhere Plant", error.message
   end
 
   test "fails as a whole when any fact can't be written" do

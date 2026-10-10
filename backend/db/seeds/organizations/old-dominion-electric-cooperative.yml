@@ -1,0 +1,27 @@
+# Research for issue #60 - generated 2026-10-10. Quotes copied from pages fetched this session.
+name: Old Dominion Electric Cooperative
+aliases:
+- ODEC
+website: https://www.odec.com
+hq: null
+country_code: US
+status: active
+roles:
+- key: utility
+  source_url: https://www.odec.com/
+  quote: ODEC buys, makes, and moves power for 11 member distributions cooperatives across Virginia, Maryland, and Delaware, powering opportunity for the 1.5 million people at the end of the line.
+  confidence: 1.0
+technologies:
+- key: fission
+  source_url: https://www.dominionenergy.com/about/making-energy/nuclear-facilities/north-anna-power-station
+  quote: North Anna is owned by Dominion Energy and Old Dominion Electric Cooperative (ODEC). Dominion Energy owns 88.4% and ODEC owns 11.6%. Dominion Energy also operates the station.
+  confidence: 1.0
+relationships: []
+facilities:
+- name: North Anna Power Station
+  type: owns
+  ownership_pct: 11.6
+  source_url: https://www.dominionenergy.com/about/making-energy/nuclear-facilities/north-anna-power-station
+  quote: North Anna is owned by Dominion Energy and Old Dominion Electric Cooperative (ODEC). Dominion Energy owns 88.4% and ODEC owns 11.6%. Dominion Energy also operates the station.
+  confidence: 1.0
+notes: Generation and transmission cooperative. HQ not verified (odec.com/about-odec returned 404).

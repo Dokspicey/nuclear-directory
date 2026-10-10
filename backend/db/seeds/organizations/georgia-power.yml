@@ -2,33 +2,45 @@
 name: Georgia Power
 aliases:
 - Georgia Power Company
-website: "https://www.georgiapower.com"
+website: https://www.georgiapower.com
 hq: null
 country_code: US
 status: active
 roles:
 - key: utility
-  source_url: "https://www.georgiapower.com/news-hub/company-news/special-announcement-plant-vogtle-unit-4-has-officially-entered-commercial-operation.html"
-  quote: "Vogtle Units 3 & 4 are an essential part of Georgia Power’s commitment to delivering clean, safe, reliable and affordable energy."
+  source_url: https://www.georgiapower.com/news-hub/company-news/special-announcement-plant-vogtle-unit-4-has-officially-entered-commercial-operation.html
+  quote: Vogtle Units 3 & 4 are an essential part of Georgia Power’s commitment to delivering clean, safe, reliable and affordable energy.
   confidence: 1.0
 technologies:
 - key: fission
-  source_url: "https://info.westinghousenuclear.com/news/westinghouse-celebrates-milestone-achievement-as-ap1000-technology-powers-plant-vogtle-unit-4-into-commercial-operation"
-  quote: "Today, the second U.S.-based Gen III+ advanced nuclear Westinghouse AP1000® reactor entered commercial operation at Plant Vogtle, near Waynesboro, Georgia."
+  source_url: https://info.westinghousenuclear.com/news/westinghouse-celebrates-milestone-achievement-as-ap1000-technology-powers-plant-vogtle-unit-4-into-commercial-operation
+  quote: Today, the second U.S.-based Gen III+ advanced nuclear Westinghouse AP1000® reactor entered commercial operation at Plant Vogtle, near Waynesboro, Georgia.
   published: '2024-04-29'
   confidence: 1.0
 relationships:
 - type: subsidiary_of
   to: Southern Company
-  description: "Georgia Power is one of Southern Company's retail operating companies."
-  source_url: "https://www.southerncompany.com/about/our-business.html"
-  quote: "Southern Wholesale Energy (SWE) markets surplus generating capacity from our retail operating companies—Alabama Power, Georgia Power and Mississippi Power—to wholesale customers across the Southeast."
+  description: Georgia Power is one of Southern Company's retail operating companies.
+  source_url: https://www.southerncompany.com/about/our-business.html
+  quote: Southern Wholesale Energy (SWE) markets surplus generating capacity from our retail operating companies—Alabama Power, Georgia Power and Mississippi Power—to wholesale customers across the Southeast.
   confidence: 1.0
 facilities:
 - name: Plant Vogtle
   type: owns
-  source_url: "https://www.georgiapower.com/news-hub/company-news/special-announcement-plant-vogtle-unit-4-has-officially-entered-commercial-operation.html"
-  quote: "As we mark the completion of the expansion, we’re grateful for the leadership and foresight of the Georgia Public Service Commission, as well as the steadfast dedication from all the project’s co-owners (Oglethorpe Power, MEAG Power and Dalton Utilities) along the way."
+  source_url: https://www.georgiapower.com/news-hub/company-news/special-announcement-plant-vogtle-unit-4-has-officially-entered-commercial-operation.html
+  quote: As we mark the completion of the expansion, we’re grateful for the leadership and foresight of the Georgia Public Service Commission, as well as the steadfast dedication from all the project’s co-owners (Oglethorpe Power, MEAG Power and Dalton Utilities) along the way.
   confidence: 1.0
-  note: "Co-owned with Oglethorpe Power, MEAG Power and Dalton Utilities; operated by Southern Nuclear (per Westinghouse release). Ownership % not captured."
-notes: "Subsidiary of Southern Company (subsidiary_of edge; Southern Company describes Georgia Power as one of 'our retail operating companies'). Operator is Southern Nuclear, not separately added. HQ not verified."
+  note: Co-owned with Georgia Power, Oglethorpe Power, MEAG Power and Dalton Utilities; the ownership shares are for Units 3 and 4.
+- name: Plant Vogtle
+  type: owns
+  ownership_pct: 45.7
+  source_url: https://www.world-nuclear-news.org/Articles/Vogtle-progress-rests-on-Oglethorpe-vote
+  quote: Vogtle units 3 and 4, AP1000 units scheduled to enter service in November 2021 and November 2022 respectively, are co-owned by Georgia Power (45.7%), Oglethorpe Power (30%), MEAG Power (22.7%) and Dalton city (1.6%).
+  published: '2018-09-25'
+  confidence: 0.9
+  note: Co-owned with Georgia Power, Oglethorpe Power, MEAG Power and Dalton Utilities; the ownership shares are for Units 3 and 4.
+notes: 'Subsidiary of Southern Company (subsidiary_of edge; Southern Company describes Georgia Power as one of ''our retail operating companies''). Operator is Southern Nuclear, not separately added. HQ not verified. #63: Vogtle clause from same page: "Plant Vogtle units 3 and 4 will be the first new nuclear units built in the United States in the last three decades". HQ (Atlanta) not added: only SEC filings (blocked, 403) and third-party pages state it.'
+description:
+  text: Electric utility serving about 2.8 million customers in Georgia; Plant Vogtle units 3 and 4 are its newest nuclear units.
+  source_url: https://www.georgiapower.com/company/about-us/facts-and-financials.html
+  quote: 2,833,530 total Georgia Power customers

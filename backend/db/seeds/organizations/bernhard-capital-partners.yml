@@ -1,12 +1,21 @@
 # Seed research for issue #8 - generated 2026-10-09. Quotes copied from pages fetched this session.
 name: Bernhard Capital Partners
 aliases: []
-website: "https://www.bernhardcapital.com"
-hq: null
+website: https://www.bernhardcapital.com
+hq:
+  city: Baton Rouge
+  state: LA
+  source_url: https://www.businessreport.com/article/bernhard-capital-partners-reportedly-raises-700m-second-fund
+  quote: Bernhard Capital Partners, the Baton Rouge-based private equity firm
+  confidence: 1.0
 country_code: null
 status: active
 roles: []
 technologies: []
 relationships: []
 facilities: []
-notes: "Private equity owner of Allied Power (acquired Nov 2020) per Allied Power's Feb 2023 release, which describes it as 'a services and infrastructure-focused private equity management firm established in 2013'. Not tagged venture_capital (private equity). country_code left blank: no fetched page states its country/HQ."
+notes: 'Private equity owner of Allied Power (acquired Nov 2020) per Allied Power''s Feb 2023 release, which describes it as ''a services and infrastructure-focused private equity management firm established in 2013''. Not tagged venture_capital (private equity). country_code left blank: no fetched page states its country/HQ. #63: ROLE NEEDS REVIEW: firm is private equity, not venture capital; venture_capital is the closest allowed key. Drop it if the taxonomy should stay strict. HQ source is Baton Rouge Business Report (local business press; meta description). Firm site gives only an email contact.'
+description:
+  text: Private equity firm, founded in 2013, that invests in services and infrastructure businesses.
+  source_url: https://www.bernhardcapital.com/about
+  quote: Bernhard Capital Partners is a middle-market services and infrastructure-focused private equity management firm established in 2013 with a rich history of experience.

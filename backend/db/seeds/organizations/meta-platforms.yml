@@ -1,38 +1,48 @@
 # Seed research for issue #8 - generated 2026-10-09. Quotes copied from pages fetched this session.
-name: Meta Platforms, Inc.
+name: Meta
+legal_name: Meta Platforms, Inc.
 aliases:
 - Meta
-website: "https://about.meta.com"
+- Meta Platforms, Inc.
+website: https://about.meta.com
 hq: null
 country_code: US
 status: active
 roles:
 - key: data_center_offtaker
-  source_url: "https://world-nuclear-news.org/articles/meta-announces-landmark-agreements-for-new-nuclear"
-  quote: "These projects will deliver power to the grids that support Meta's operations, including its Prometheus supercluster in New Albany, Ohio, Meta said."
+  source_url: https://world-nuclear-news.org/articles/meta-announces-landmark-agreements-for-new-nuclear
+  quote: These projects will deliver power to the grids that support Meta's operations, including its Prometheus supercluster in New Albany, Ohio, Meta said.
   published: '2026-01-09'
   confidence: 0.8
-technologies: []
+technologies:
+- key: fission
+  source_url: https://about.fb.com/news/2025/06/meta-constellation-partner-clean-energy-project/
+  quote: We're announcing a 20-year corporate nuclear energy agreement with Constellation Energy for the Clinton Clean Energy Center.
+  confidence: 0.9
 relationships:
 - type: offtake_with
   to: Constellation Energy Corporation
-  description: "Signed 20-year PPA (June 2025) for 1,121 MW from the Clinton Clean Energy Center beginning June 2027."
-  source_url: "https://www.constellationenergy.com/newsroom/2025/constellation-meta-sign-20-year-deal-for-clean-reliable-nuclear-energy-in-illinois.html"
-  quote: "Constellation (Nasdaq: CEG) and Meta have signed a 20-year power purchase agreement (PPA) for the output of the Clinton Clean Energy Center to support Meta’s clean energy goals and operations in the region with 1,121 megawatts of emissions-free nuclear energy."
+  description: Signed 20-year PPA (June 2025) for 1,121 MW from the Clinton Clean Energy Center beginning June 2027.
+  source_url: https://www.constellationenergy.com/newsroom/2025/constellation-meta-sign-20-year-deal-for-clean-reliable-nuclear-energy-in-illinois.html
+  quote: 'Constellation (Nasdaq: CEG) and Meta have signed a 20-year power purchase agreement (PPA) for the output of the Clinton Clean Energy Center to support Meta’s clean energy goals and operations in the region with 1,121 megawatts of emissions-free nuclear energy.'
   published: '2025-06-03'
   confidence: 1.0
 - type: offtake_with
   to: TerraPower, LLC
-  description: "Agreement (Jan 2026): Meta funding for early development of two Natrium units (up to 690 MW, as early as 2032) plus rights to energy from up to six more units (2.1 GW by 2035). Reported via WNN; primary Meta/TerraPower release not fetched."
-  source_url: "https://world-nuclear-news.org/articles/meta-announces-landmark-agreements-for-new-nuclear"
-  quote: "TerraPower: funding to support the development of up to eight Natrium sodium fast reactors - two new units capable of generating up to 690 MW of firm power with delivery as early as 2032, plus the rights for energy from up to six other Natrium units capable of producing 2.1 GW and targeted for delivery by 2035."
+  description: 'Agreement (Jan 2026): Meta funding for early development of two Natrium units (up to 690 MW, as early as 2032) plus rights to energy from up to six more units (2.1 GW by 2035). Reported via WNN; primary Meta/TerraPower release not fetched.'
+  source_url: https://world-nuclear-news.org/articles/meta-announces-landmark-agreements-for-new-nuclear
+  quote: 'TerraPower: funding to support the development of up to eight Natrium sodium fast reactors - two new units capable of generating up to 690 MW of firm power with delivery as early as 2032, plus the rights for energy from up to six other Natrium units capable of producing 2.1 GW and targeted for delivery by 2035.'
   published: '2026-01-09'
   confidence: 0.8
 facilities:
 - name: Clinton Clean Energy Center
   type: offtakes_from
-  source_url: "https://www.constellationenergy.com/newsroom/2025/constellation-meta-sign-20-year-deal-for-clean-reliable-nuclear-energy-in-illinois.html"
-  quote: "Meta is purchasing the plant’s clean energy attributes as part of its commitment to match 100% of its electricity use with clean and renewable energy."
+  source_url: https://www.constellationenergy.com/newsroom/2025/constellation-meta-sign-20-year-deal-for-clean-reliable-nuclear-energy-in-illinois.html
+  quote: Meta is purchasing the plant’s clean energy attributes as part of its commitment to match 100% of its electricity use with clean and renewable energy.
   published: '2025-06-03'
   confidence: 1.0
-notes: "Meta also signed PPAs with Vistra (Perry, Davis-Besse, Beaver Valley uprates) and an agreement with Oklo (Pike County, OH) in Jan 2026; those counterparties are not in this seed. HQ not verified."
+notes: 'Meta also signed PPAs with Vistra (Perry, Davis-Besse, Beaver Valley uprates) and an agreement with Oklo (Pike County, OH) in Jan 2026; those counterparties are not in this seed. HQ not verified. #63: Clinton is an operating (fission) nuclear plant. Meta also ran a nuclear RFP (https://sustainability.atmeta.com/blog/2024/12/03/accelerating-the-next-wave-of-nuclear-to-power-ai-innovation/). HQ (Menlo Park) stated only in SEC 10-K (blocked, 403).'
+description:
+  text: Technology company behind Facebook, Messenger, Instagram and WhatsApp.
+  source_url: https://about.meta.com/company-info/
+  quote: When Facebook launched in 2004, it changed the way people connect. Apps like Messenger, Instagram and WhatsApp further empowered billions around the world.

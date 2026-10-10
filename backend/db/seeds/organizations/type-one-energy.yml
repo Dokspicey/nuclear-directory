@@ -1,34 +1,40 @@
 # Seed research for issue #8 - generated 2026-10-09. Quotes copied from pages fetched this session.
-name: Type One Energy Group
+name: Type One Energy
+legal_name: Type One Energy Group
 aliases:
 - Type One Energy
-website: "https://typeoneenergy.com"
+- Type One Energy Group
+website: https://typeoneenergy.com
 hq:
   city: Madison
   state: WI
-  source_url: "https://content.govdelivery.com/accounts/USDOEOS/bulletins/35d8483"
+  source_url: https://content.govdelivery.com/accounts/USDOEOS/bulletins/35d8483
   quote: Type One Energy Group (Madison, WI)
 country_code: US
 status: active
 roles:
 - key: reactor_vendor
-  source_url: "https://typeoneenergy.com/insights-announcements/tva-type-one-energy-accelerate-fusion-commercialization-tennessee/"
-  quote: "This LOI with TVA, and the role it establishes for Type One Energy as the fusion technology provider for their Infinity Two project, is therefore fully aligned with our goal of pursuing the lowest-risk approach to commercializing fusion energy."
+  source_url: https://typeoneenergy.com/insights-announcements/tva-type-one-energy-accelerate-fusion-commercialization-tennessee/
+  quote: This LOI with TVA, and the role it establishes for Type One Energy as the fusion technology provider for their Infinity Two project, is therefore fully aligned with our goal of pursuing the lowest-risk approach to commercializing fusion energy.
   published: '2025-09-19'
   confidence: 1.0
 technologies:
 - key: fusion
-  source_url: "https://typeoneenergy.com/insights-announcements/tva-type-one-energy-accelerate-fusion-commercialization-tennessee/"
-  quote: "Infinity Two is a first-generation 400 MWe baseload power plant utilizing Type One Energy’s stellarator fusion technology."
+  source_url: https://typeoneenergy.com/insights-announcements/tva-type-one-energy-accelerate-fusion-commercialization-tennessee/
+  quote: Infinity Two is a first-generation 400 MWe baseload power plant utilizing Type One Energy’s stellarator fusion technology.
   published: '2025-09-19'
   confidence: 1.0
 relationships: []
 facilities:
-- name: "Infinity Two fusion power plant (former Bull Run Fossil Plant site)"
+- name: Infinity Two fusion power plant
   type: vendor_for
-  source_url: "https://typeoneenergy.com/insights-announcements/tva-type-one-energy-accelerate-fusion-commercialization-tennessee/"
-  quote: "Infinity Two is a first-generation 400 MWe baseload power plant utilizing Type One Energy’s stellarator fusion technology."
+  source_url: https://typeoneenergy.com/insights-announcements/tva-type-one-energy-accelerate-fusion-commercialization-tennessee/
+  quote: Infinity Two is a first-generation 400 MWe baseload power plant utilizing Type One Energy’s stellarator fusion technology.
   published: '2025-09-19'
   confidence: 1.0
   note: Planned; based on a non-binding TVA Letter of Intent.
-notes: "Conflict: Infinity Two capacity was 350 MWe in the original Sept 2025 announcement; Type One's editor's note says it was upgraded to 400 MWe in early 2026 and the release was updated 2026-09-04."
+notes: 'Conflict: Infinity Two capacity was 350 MWe in the original Sept 2025 announcement; Type One''s editor''s note says it was upgraded to 400 MWe in early 2026 and the release was updated 2026-09-04. #63: Stellarator from same page: "We partner with energy producers worldwide to rapidly commercialize and scale stellarator fusion technology." HQ already in seed (Madison, WI), though recent releases carry a Knoxville, Tenn. dateline.'
+description:
+  text: Fusion company developing stellarator power plants; technology provider for TVA's Infinity Two project.
+  source_url: https://typeoneenergy.com
+  quote: Type One Energy is the technology provider and original equipment manufacturer to the Tennessee Valley Authority’s Infinity Two project, the world’s first grid-scale, commercial fusion power plant.

@@ -1,0 +1,30 @@
+# Research for issue #60 - generated 2026-10-10. Quotes copied from pages fetched this session.
+name: MEAG Power
+aliases:
+- Municipal Electric Authority of Georgia
+website: https://www.meagpower.org
+hq: null
+country_code: US
+status: active
+roles:
+- key: utility
+  source_url: https://www.meagpower.org/
+  quote: MEAG Power provides reliable, competitively priced, wholesale electric power to 49 Participant public power communities throughout Georgia.
+  confidence: 1.0
+technologies:
+- key: fission
+  source_url: https://www.world-nuclear-news.org/Articles/Vogtle-progress-rests-on-Oglethorpe-vote
+  quote: Vogtle units 3 and 4, AP1000 units scheduled to enter service in November 2021 and November 2022 respectively, are co-owned by Georgia Power (45.7%), Oglethorpe Power (30%), MEAG Power (22.7%) and Dalton city (1.6%).
+  published: '2018-09-25'
+  confidence: 0.9
+relationships: []
+facilities:
+- name: Plant Vogtle
+  type: owns
+  ownership_pct: 22.7
+  source_url: https://www.world-nuclear-news.org/Articles/Vogtle-progress-rests-on-Oglethorpe-vote
+  quote: Vogtle units 3 and 4, AP1000 units scheduled to enter service in November 2021 and November 2022 respectively, are co-owned by Georgia Power (45.7%), Oglethorpe Power (30%), MEAG Power (22.7%) and Dalton city (1.6%).
+  published: '2018-09-25'
+  confidence: 0.9
+  note: Co-owned with Georgia Power, Oglethorpe Power, MEAG Power and Dalton Utilities; the ownership shares are for Units 3 and 4.
+notes: Alias 'Municipal Electric Authority of Georgia' is the commonly used full name; not quoted from a fetched page this session - verify before loading the alias. HQ not verified. Stake % from 2018 WNN (some 2022 AP copies say 22.3%, per search snippets - not fetched).

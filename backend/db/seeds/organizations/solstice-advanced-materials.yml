@@ -3,36 +3,44 @@ name: Solstice Advanced Materials
 aliases:
 - Solstice Advanced Materials US, Inc.
 - Solstice
-website: "https://solstice.com"
+website: https://solstice.com
 hq: null
 country_code: US
 status: active
 roles:
 - key: fuel
   subtype: conversion
-  source_url: "https://world-nuclear-news.org/articles/solstice-plans-expansion-of-us-conversion-facility"
-  quote: "Solstice Advanced Materials announced that its Metropolis Works plant in Illinois - the USA's only domestic uranium conversion facility - is expected to produce more than 10,000 tonnes of uranium hexafluoride in 2026, which represents about a 20% increase from its planned output in 2024."
+  source_url: https://world-nuclear-news.org/articles/solstice-plans-expansion-of-us-conversion-facility
+  quote: Solstice Advanced Materials announced that its Metropolis Works plant in Illinois - the USA's only domestic uranium conversion facility - is expected to produce more than 10,000 tonnes of uranium hexafluoride in 2026, which represents about a 20% increase from its planned output in 2024.
   published: '2026-02-11'
   confidence: 0.8
-technologies: []
+technologies:
+- key: fission
+  source_url: https://www.solstice.com/us/en/applications/nuclear-energy-services
+  quote: After Solstice’s conversion process, UF₆ is enriched and fabricated by other service providers into nuclear fuel that powers reactors generating nearly 20% of U.S. electricity
+  confidence: 0.8
 relationships: []
 facilities:
-- name: Metropolis Works Uranium Conversion Facility (Metropolis, IL)
+- name: Metropolis Works Uranium Conversion Facility
   facility_type: fuel_facility
   city: Metropolis
   state: IL
   county: Massac County
   status: operating
   type: owns
-  source_url: "https://www.converdyn.com/"
-  quote: "Located in Metropolis, Illinois, this cutting-edge plant, owned and operated by Solstice Advanced Materials’ Specialty Materials division, produces a variety of fluorine products, including uranium hexafluoride (UF6) for nuclear fuel."
+  source_url: https://www.converdyn.com/
+  quote: Located in Metropolis, Illinois, this cutting-edge plant, owned and operated by Solstice Advanced Materials’ Specialty Materials division, produces a variety of fluorine products, including uranium hexafluoride (UF6) for nuclear fuel.
   confidence: 0.8
-  note: "Only US uranium conversion (U3O8 -> UF6) plant. NRC license SUB-526 (DOE EA-2184 FONSI, June 2022: 'License SUB-526 Metropolis Works Uranium Conversion Facility (Massac County, Illinois)'); WNN says the NRC license is valid until 2060. Restarted July 2023 after a 2017 suspension (WNN). Source is ConverDyn's site (a Solstice partnership), so 0.8; Solstice's own investor release returned HTTP 403."
-- name: Metropolis Works Uranium Conversion Facility (Metropolis, IL)
+  note: 'Only US uranium conversion (U3O8 -> UF6) plant. NRC license SUB-526 (DOE EA-2184 FONSI, June 2022: ''License SUB-526 Metropolis Works Uranium Conversion Facility (Massac County, Illinois)''); WNN says the NRC license is valid until 2060. Restarted July 2023 after a 2017 suspension (WNN). Source is ConverDyn''s site (a Solstice partnership), so 0.8; Solstice''s own investor release returned HTTP 403.'
+- name: Metropolis Works Uranium Conversion Facility
   facility_type: fuel_facility
   state: IL
   type: operates
-  source_url: "https://www.converdyn.com/"
-  quote: "Located in Metropolis, Illinois, this cutting-edge plant, owned and operated by Solstice Advanced Materials’ Specialty Materials division, produces a variety of fluorine products, including uranium hexafluoride (UF6) for nuclear fuel."
+  source_url: https://www.converdyn.com/
+  quote: Located in Metropolis, Illinois, this cutting-edge plant, owned and operated by Solstice Advanced Materials’ Specialty Materials division, produces a variety of fluorine products, including uranium hexafluoride (UF6) for nuclear fuel.
   confidence: 0.8
-notes: "Fuel sub-type: conversion. Spun off from Honeywell in October 2025 (WNN: 'spun-off from Honeywell in October last year', Feb 2026); Honeywell is not a seed org, so no edge. WNN reports a backlog of more than USD 2B 'driven by orders from long-term customers, many of which are domestic utility companies' - customers not named, so no link to seed utilities. Website domain taken from the investor-relations host (investor.solstice.com); homepage not fetched. HQ not verified."
+notes: 'Fuel sub-type: conversion. Spun off from Honeywell in October 2025 (WNN: ''spun-off from Honeywell in October last year'', Feb 2026); Honeywell is not a seed org, so no edge. WNN reports a backlog of more than USD 2B ''driven by orders from long-term customers, many of which are domestic utility companies'' - customers not named, so no link to seed utilities. Website domain taken from the investor-relations host (investor.solstice.com); homepage not fetched. HQ not verified. #63: Metropolis plant named on same page ("the Metropolis Works Facility in Metropolis, Illinois"). HQ not added: Morris Plains, NJ appears only as a press-release dateline and contact address (investor.solstice.com), not stated as headquarters. Fission tag inferred from fuel for (fission) power reactors.'
+description:
+  text: Specialty materials company that is the only U.S. supplier of uranium hexafluoride (UF6), made at its Metropolis, Illinois plant.
+  source_url: https://www.solstice.com/us/en/applications/nuclear-energy-services
+  quote: Solstice Advanced Materials is the sole U.S. supplier of uranium hexafluoride (UF₆), a critical and irreplaceable component in the production of nuclear fuel.

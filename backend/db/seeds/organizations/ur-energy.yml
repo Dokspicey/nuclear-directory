@@ -1,60 +1,71 @@
 # Gap research for issue #30 - generated 2026-10-10. Quotes copied from pages fetched this session.
-name: Ur-Energy Inc.
+name: Ur-Energy
+legal_name: Ur-Energy Inc.
 aliases:
 - Ur-Energy
 - Ur Energy
-website: "https://www.ur-energy.com"
-hq: null
+- Ur-Energy Inc.
+website: https://www.ur-energy.com
+hq:
+  city: Casper
+  state: WY
+  source_url: https://www.ur-energy.com/about
+  quote: The Company’s corporate headquarters is in Casper, Wyoming, and its registered office is in Ottawa, Ontario.
+  confidence: 1.0
 country_code: US
 status: active
 roles:
 - key: fuel
   subtype: mining
-  source_url: "https://www.ur-energy.com/about/overview"
-  quote: "Ur-Energy is the largest and fastest-growing ISR uranium mining company in the United States."
+  source_url: https://www.ur-energy.com/about/overview
+  quote: Ur-Energy is the largest and fastest-growing ISR uranium mining company in the United States.
   confidence: 1.0
 technologies: []
 relationships:
 - type: supplies
   to: U.S. Department of Energy
-  description: "Contract awarded (Dec 2022) by DOE's National Nuclear Security Administration to sell 100,000 lb U3O8 to the US strategic uranium reserve at USD 64.47/lb. Signed award; delivery not verified."
-  source_url: "https://world-nuclear-news.org/articles/us-uranium-producers-announce-contracts-and-produc"
-  quote: "Ur Energy announced it had been contracted to sell 100,000 pounds U3O8 to the reserve at a sales price of USD64.47."
+  description: Contract awarded (Dec 2022) by DOE's National Nuclear Security Administration to sell 100,000 lb U3O8 to the US strategic uranium reserve at USD 64.47/lb. Signed award; delivery not verified.
+  source_url: https://world-nuclear-news.org/articles/us-uranium-producers-announce-contracts-and-produc
+  quote: Ur Energy announced it had been contracted to sell 100,000 pounds U3O8 to the reserve at a sales price of USD64.47.
   published: '2022-12-20'
   confidence: 0.8
 facilities:
-- name: Lost Creek ISR uranium facility (Sweetwater County, WY)
+- name: Lost Creek ISR uranium facility
   facility_type: uranium_mine
   state: WY
   county: Sweetwater County
   status: operating
   type: owns
-  source_url: "https://www.ur-energy.com/about/overview"
-  quote: "It owns and operates the Lost Creek ISR uranium facility in south-central Wyoming, which has produced more than 3.5 million pounds of U₃O₈ since operations began, and the Shirley Basin ISR operation in central Wyoming, where uranium recovery commenced in April 2026."
+  source_url: https://www.ur-energy.com/about/overview
+  quote: It owns and operates the Lost Creek ISR uranium facility in south-central Wyoming, which has produced more than 3.5 million pounds of U₃O₈ since operations began, and the Shirley Basin ISR operation in central Wyoming, where uranium recovery commenced in April 2026.
   confidence: 1.0
-  note: "In-situ recovery (ISR) mine with processing plant; operating since 2013. County from Ur-Energy's Lost Creek page: \"Lost Creek ISR Mine, Sweetwater County, Wyoming\"."
-- name: Lost Creek ISR uranium facility (Sweetwater County, WY)
+  note: 'In-situ recovery (ISR) mine with processing plant; operating since 2013. County from Ur-Energy''s Lost Creek page: "Lost Creek ISR Mine, Sweetwater County, Wyoming".'
+- name: Lost Creek ISR uranium facility
   facility_type: uranium_mine
   state: WY
   type: operates
-  source_url: "https://www.ur-energy.com/about/overview"
-  quote: "It owns and operates the Lost Creek ISR uranium facility in south-central Wyoming, which has produced more than 3.5 million pounds of U₃O₈ since operations began, and the Shirley Basin ISR operation in central Wyoming, where uranium recovery commenced in April 2026."
+  source_url: https://www.ur-energy.com/about/overview
+  quote: It owns and operates the Lost Creek ISR uranium facility in south-central Wyoming, which has produced more than 3.5 million pounds of U₃O₈ since operations began, and the Shirley Basin ISR operation in central Wyoming, where uranium recovery commenced in April 2026.
   confidence: 1.0
-- name: Shirley Basin ISR operation (Carbon County, WY)
+- name: Shirley Basin ISR operation
   facility_type: uranium_mine
   state: WY
   county: Carbon County
   status: operating
   type: owns
-  source_url: "https://www.ur-energy.com/about/overview"
-  quote: "It owns and operates the Lost Creek ISR uranium facility in south-central Wyoming, which has produced more than 3.5 million pounds of U₃O₈ since operations began, and the Shirley Basin ISR operation in central Wyoming, where uranium recovery commenced in April 2026."
+  source_url: https://www.ur-energy.com/about/overview
+  quote: It owns and operates the Lost Creek ISR uranium facility in south-central Wyoming, which has produced more than 3.5 million pounds of U₃O₈ since operations began, and the Shirley Basin ISR operation in central Wyoming, where uranium recovery commenced in April 2026.
   confidence: 1.0
-  note: "Uranium recovery began April 2026. County from the same page: 'Shirley Basin ISR Uranium Project, Carbon County Wyoming'."
-- name: Shirley Basin ISR operation (Carbon County, WY)
+  note: 'Uranium recovery began April 2026. County from the same page: ''Shirley Basin ISR Uranium Project, Carbon County Wyoming''.'
+- name: Shirley Basin ISR operation
   facility_type: uranium_mine
   state: WY
   type: operates
-  source_url: "https://www.ur-energy.com/about/overview"
-  quote: "It owns and operates the Lost Creek ISR uranium facility in south-central Wyoming, which has produced more than 3.5 million pounds of U₃O₈ since operations began, and the Shirley Basin ISR operation in central Wyoming, where uranium recovery commenced in April 2026."
+  source_url: https://www.ur-energy.com/about/overview
+  quote: It owns and operates the Lost Creek ISR uranium facility in south-central Wyoming, which has produced more than 3.5 million pounds of U₃O₈ since operations began, and the Shirley Basin ISR operation in central Wyoming, where uranium recovery commenced in April 2026.
   confidence: 1.0
-notes: "Fuel sub-type: mining (ISR). HQ not stated on fetched pages; left blank. WNN (Dec 2022) also reports an unnamed-customer sales agreement expanded to 600,000 lb U3O8/yr from 2024; counterparties not named, so not linked. No documented link to the existing seed fuel companies was found."
+notes: 'Fuel sub-type: mining (ISR). HQ not stated on fetched pages; left blank. WNN (Dec 2022) also reports an unnamed-customer sales agreement expanded to 600,000 lb U3O8/yr from 2024; counterparties not named, so not linked. No documented link to the existing seed fuel companies was found. #63: Quote is from the homepage meta description. No fission tag: pages do not mention reactors.'
+description:
+  text: Uranium mining company that runs in-situ recovery uranium projects in Wyoming.
+  source_url: https://www.ur-energy.com
+  quote: Ur-Energy is a U.S. uranium mining company focused on developing and operating in-situ recovery (“ISR”) uranium projects in Wyoming.

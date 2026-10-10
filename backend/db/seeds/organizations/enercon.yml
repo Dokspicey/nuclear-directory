@@ -3,24 +3,37 @@ name: ENERCON
 aliases:
 - Enercon Services, Inc.
 - ENERCON Services
-website: "https://www.enercon.com"
-hq: null
+website: https://www.enercon.com
+hq:
+  city: Kennesaw
+  state: GA
+  source_url: https://www.enercon.com/locations-contact/
+  quote: Atlanta-Corporate Headquarters, GA 500 Townpark Lane Kennesaw, GA 30144
+  confidence: 1.0
 country_code: US
 status: active
 roles:
 - key: regulatory_consultant
-  source_url: "https://www.enercon.com/nrc-accepts-holtec/"
-  quote: "ENERCON is proud to have supported Holtec in preparation of the Construction Permit Application LWA and Comprehensive ER."
+  source_url: https://www.enercon.com/nrc-accepts-holtec/
+  quote: ENERCON is proud to have supported Holtec in preparation of the Construction Permit Application LWA and Comprehensive ER.
   published: 2026-02
   confidence: 1.0
-technologies: []
+technologies:
+- key: smr
+  source_url: https://www.enercon.com/markets/nuclear-power/advanced-nuclear-small-modular-reactors/
+  quote: ENERCON actively works to support the nuclear industry through engineering support for advanced nuclear and small modular reactors (SMR).
+  confidence: 1.0
 relationships:
 - type: supplies
   to: Holtec International
-  description: "Licensing services: ENERCON supported preparation of Holtec's construction permit application (Part 1: LWA and comprehensive ER) for Palisades Pioneer Units 1 & 2; NRC accepted it Feb 2026. Completed deliverable."
-  source_url: "https://www.enercon.com/nrc-accepts-holtec/"
-  quote: "ENERCON is proud to have supported Holtec in preparation of the Construction Permit Application LWA and Comprehensive ER."
+  description: 'Licensing services: ENERCON supported preparation of Holtec''s construction permit application (Part 1: LWA and comprehensive ER) for Palisades Pioneer Units 1 & 2; NRC accepted it Feb 2026. Completed deliverable.'
+  source_url: https://www.enercon.com/nrc-accepts-holtec/
+  quote: ENERCON is proud to have supported Holtec in preparation of the Construction Permit Application LWA and Comprehensive ER.
   published: 2026-02
   confidence: 1.0
 facilities: []
-notes: "Also an engineering services firm ('Engineer of Choice contracts at over 90% of nuclear power plants in the United States' per its June 2025 release) - could also qualify as reactor_services. Also prepared the industry's first 80-year subsequent license renewal application. HQ not verified."
+notes: 'Also an engineering services firm (''Engineer of Choice contracts at over 90% of nuclear power plants in the United States'' per its June 2025 release) - could also qualify as reactor_services. Also prepared the industry''s first 80-year subsequent license renewal application. HQ not verified. #63: Site labels the office "Atlanta-Corporate Headquarters" but the street address is in Kennesaw, GA; city recorded as Kennesaw.'
+description:
+  text: Engineering and environmental services company that supports utilities, nuclear operators and developers.
+  source_url: https://www.enercon.com
+  quote: We help utilities, nuclear operators, and developers solve complex engineering challenges

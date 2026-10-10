@@ -1,50 +1,61 @@
 # Seed research for issue #8 - generated 2026-10-09. Quotes copied from pages fetched this session.
-name: Centrus Energy Corp.
+name: Centrus Energy
+legal_name: Centrus Energy Corp.
 aliases:
 - Centrus
 - American Centrifuge Operating, LLC
-website: "https://www.centrusenergy.com"
-hq: null
+- Centrus Energy Corp.
+website: https://www.centrusenergy.com
+hq:
+  city: Bethesda
+  state: MD
+  source_url: https://www.centrusenergy.com/contact/office-bethesda-maryland/
+  quote: Centrus Energy’s corporate headquarters is in Bethesda, Maryland.
+  confidence: 1.0
 country_code: US
 status: active
 roles:
 - key: fuel
   subtype: enrichment
-  source_url: "https://www.centrusenergy.com/"
-  quote: "Centrus Energy is a trusted supplier of enriched uranium fuel for our utility customers in the United States and around the world."
+  source_url: https://www.centrusenergy.com/
+  quote: Centrus Energy is a trusted supplier of enriched uranium fuel for our utility customers in the United States and around the world.
   confidence: 1.0
 technologies:
 - key: fission
-  source_url: "https://www.centrusenergy.com/what-we-do/nuclear-fuel/high-assay-low-enriched-uranium/"
-  quote: "Centrus Energy is pioneering the development of a high-performance nuclear fuel component called High-Assay, Low-Enriched Uranium (HALEU), which is expected to be needed in the next few years to power both existing reactors and a new generation of advanced reactors to meet the world’s growing need for carbon-free electricity."
+  source_url: https://www.centrusenergy.com/what-we-do/nuclear-fuel/high-assay-low-enriched-uranium/
+  quote: Centrus Energy is pioneering the development of a high-performance nuclear fuel component called High-Assay, Low-Enriched Uranium (HALEU), which is expected to be needed in the next few years to power both existing reactors and a new generation of advanced reactors to meet the world’s growing need for carbon-free electricity.
   confidence: 1.0
 relationships:
 - type: supplies
   to: U.S. Department of Energy
-  description: "DOE enrichment services task order (Jan 2026): $900M to subsidiary American Centrifuge Operating to create domestic HALEU enrichment capacity, milestone-based (task order under DOE's HALEU enrichment IDIQ)."
-  source_url: "https://www.energy.gov/articles/us-department-energy-awards-27-billion-restore-american-uranium-enrichment"
-  quote: "American Centrifuge Operating ($900 million) to create domestic HALEU enrichment capacity"
+  description: 'DOE enrichment services task order (Jan 2026): $900M to subsidiary American Centrifuge Operating to create domestic HALEU enrichment capacity, milestone-based (task order under DOE''s HALEU enrichment IDIQ).'
+  source_url: https://www.energy.gov/articles/us-department-energy-awards-27-billion-restore-american-uranium-enrichment
+  quote: American Centrifuge Operating ($900 million) to create domestic HALEU enrichment capacity
   published: '2026-01-05'
   confidence: 1.0
 - type: supplies
   to: X-Energy, Inc.
-  description: "Signed definitive agreement (Aug 2026) for Centrus to provide LEU and HALEU enrichment services to X-energy, phased, with X-energy prepayments."
-  source_url: "https://x-energy.com/?p=11666"
-  quote: "X-Energy, Inc. (Nasdaq: XE) (“X-energy” or “the Company”), a leading developer of advanced nuclear reactors and fuel technology, and Centrus Energy Corp. (NYSE: LEU) (“Centrus”), a trusted supplier of nuclear fuel, services and technology, today announced a definitive agreement for Centrus to provide X-energy with enrichment services for Low-Enriched Uranium (“LEU”) and High-Assay Low-Enriched Uranium (“HALEU”)."
+  description: Signed definitive agreement (Aug 2026) for Centrus to provide LEU and HALEU enrichment services to X-energy, phased, with X-energy prepayments.
+  source_url: https://x-energy.com/?p=11666
+  quote: 'X-Energy, Inc. (Nasdaq: XE) (“X-energy” or “the Company”), a leading developer of advanced nuclear reactors and fuel technology, and Centrus Energy Corp. (NYSE: LEU) (“Centrus”), a trusted supplier of nuclear fuel, services and technology, today announced a definitive agreement for Centrus to provide X-energy with enrichment services for Low-Enriched Uranium (“LEU”) and High-Assay Low-Enriched Uranium (“HALEU”).'
   published: '2026-08-06'
   confidence: 1.0
 - type: supplies
   to: TRISO-X, LLC
-  description: "Under the Aug 2026 X-energy/Centrus definitive agreement, HALEU enriched at Piketon is to be supplied to TRISO-X for fuel fabrication."
-  source_url: "https://x-energy.com/?p=11666"
-  quote: "HALEU enriched by Centrus at the American Centrifuge Plant in Piketon, Ohio will be supplied to X-energy’s fuel subsidiary TRISO-X, LLC (“TRISO-X”) for the fabrication of TRISO-X coated particle fuel at its fuel fabrication campus in Oak Ridge, Tennessee."
+  description: Under the Aug 2026 X-energy/Centrus definitive agreement, HALEU enriched at Piketon is to be supplied to TRISO-X for fuel fabrication.
+  source_url: https://x-energy.com/?p=11666
+  quote: HALEU enriched by Centrus at the American Centrifuge Plant in Piketon, Ohio will be supplied to X-energy’s fuel subsidiary TRISO-X, LLC (“TRISO-X”) for the fabrication of TRISO-X coated particle fuel at its fuel fabrication campus in Oak Ridge, Tennessee.
   published: '2026-08-06'
   confidence: 1.0
 facilities:
-- name: American Centrifuge Plant (Piketon, OH)
+- name: American Centrifuge Plant
   type: operates
-  source_url: "https://www.centrusenergy.com/what-we-do/nuclear-fuel/high-assay-low-enriched-uranium/"
-  quote: "Under a contract with the U.S. Department of Energy, Centrus is deploying a cascade of AC100M centrifuges at the American Centrifuge Plant in Piketon, Ohio — the first facility licensed by the U.S. Nuclear Regulatory Commission for HALEU production."
+  source_url: https://www.centrusenergy.com/what-we-do/nuclear-fuel/high-assay-low-enriched-uranium/
+  quote: Under a contract with the U.S. Department of Energy, Centrus is deploying a cascade of AC100M centrifuges at the American Centrifuge Plant in Piketon, Ohio — the first facility licensed by the U.S. Nuclear Regulatory Commission for HALEU production.
   confidence: 1.0
-  note: "Search results indicate the plant is leased from DOE (not verified from a fetched primary page)."
-notes: "Centrus 2026 releases on investors.centrusenergy.com could not be fetched (connection failure). Older Centrus MOUs with TerraPower (2023) and Oklo (2023 MOU, 2026 LOI) were seen only in secondary search results; not cited. HQ: Q1 2026 results release on homepage is datelined Bethesda, Md.; not an explicit HQ statement."
+  note: Search results indicate the plant is leased from DOE (not verified from a fetched primary page).
+notes: 'Centrus 2026 releases on investors.centrusenergy.com could not be fetched (connection failure). Older Centrus MOUs with TerraPower (2023) and Oklo (2023 MOU, 2026 LOI) were seen only in secondary search results; not cited. HQ: Q1 2026 results release on homepage is datelined Bethesda, Md.; not an explicit HQ statement. #63: Description quote is the page meta description. HALEU wording from same page: "Centrus is pioneering production of High-Assay, Low-Enriched Uranium".'
+description:
+  text: Company that supplies enriched uranium fuel for nuclear power plants and is expanding HALEU production.
+  source_url: https://www.centrusenergy.com/who-we-are/
+  quote: Centrus Energy is a trusted supplier of enriched uranium fuel for commercial nuclear power plants in the United States and around the world.
