@@ -21,12 +21,12 @@ class SeedsTest < ActiveSupport::TestCase
   test "loads the hand-checked organizations as verified facts with evidence" do
     load_seeds
 
-    assert_equal 40, Organization.verified.count
-    assert_equal 51, OrganizationRole.verified.count
+    assert_equal 45, Organization.verified.count
+    assert_equal 60, OrganizationRole.verified.count
     assert_equal 27, OrganizationTechnology.verified.count
-    assert_equal 45, Relationship.verified.count
-    assert_equal 23, Facility.verified.count
-    assert_equal 36, FacilityRelationship.verified.count
+    assert_equal 53, Relationship.verified.count
+    assert_equal 28, Facility.verified.count
+    assert_equal 45, FacilityRelationship.verified.count
     assert_equal [ "human:tosin" ], Relationship.distinct.pluck(:verified_by)
     assert_equal [ 1 ], OrganizationRole.distinct.pluck(:confidence)
 
@@ -36,6 +36,21 @@ class SeedsTest < ActiveSupport::TestCase
     assert link.subsidiary_of?
     assert_equal "human", link.evidence.sole.found_by
     assert_match "Georgia Power", link.evidence.sole.quote
+  end
+
+  test "loads the fuel chain from the gap research" do
+    load_seeds
+
+    mill = Facility.find_by!(name: "White Mesa Mill")
+    assert mill.mill?
+    assert mill.operating?, "a later mention without status doesn't blank it"
+    assert_equal "UT", mill.state
+
+    converdyn = Directory::Lookup.organization(name: "ConverDyn")
+    solstice = Directory::Lookup.organization(name: "Solstice Advanced Materials")
+    assert Relationship.exists?(from_organization_id: converdyn.id, to_organization_id: solstice.id,
+      relationship_type: "subsidiary_of")
+    assert_includes Organization.find(converdyn.id).roles.pluck(:key), "conversion"
   end
 
   test "CFS and Dominion share one ARC facility" do

@@ -99,12 +99,19 @@ module Seed
         end
 
         Array(doc["facilities"]).each do |item|
-          facility = write(slug, :facility, { name: item["name"] }, evidence(item, sources))
+          facility = write(slug, :facility, facility_attributes(item), evidence(item, sources))
           next unless facility&.ok?
 
           write(slug, :facility_relationship, { organization_id: organization.id, facility_id: facility.id,
             relationship_type: item["type"], description: item["note"] }, evidence(item, sources))
         end
+      end
+
+      # A facility can be mentioned in several entries, each stating only some
+      # of its details, so blank details never overwrite ones already set.
+      # county isn't loaded (no column); it stays in the YAML.
+      def facility_attributes(item)
+        item.slice("name", "facility_type", "status", "city", "state").compact.symbolize_keys
       end
 
       # nil when the file gives no source (e.g. an HQ city stated without one).

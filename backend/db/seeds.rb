@@ -8,6 +8,8 @@
 
 ROLES = [
   [ "fuel", "Fuel", "Mines, converts, enriches or fabricates nuclear fuel (uranium, HALEU, TRISO)." ],
+  [ "mining", "Mining and milling", "Mines uranium (conventional or in-situ recovery) or mills ore into concentrate.", "fuel" ],
+  [ "conversion", "Conversion", "Converts uranium concentrate into UF6 for enrichment.", "fuel" ],
   [ "enrichment", "Enrichment", "Enriches uranium, including HALEU.", "fuel" ],
   [ "fabrication", "Fuel fabrication", "Makes finished fuel such as fuel assemblies or TRISO particles.", "fuel" ],
   [ "reactor_vendor", "Reactor vendor", "Designs and sells reactors, from large light-water plants to SMRs and microreactors." ],

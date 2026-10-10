@@ -1,0 +1,44 @@
+# Gap research for issue #30 - generated 2026-10-10. Quotes copied from pages fetched this session.
+name: Sargent & Lundy
+aliases:
+- Sargent & Lundy, L.L.C.
+- S&L
+website: "https://www.sargentlundy.com"
+hq: null
+country_code: US
+status: active
+roles:
+- key: regulatory_consultant
+  source_url: "https://www.sargentlundy.com/news/sargent-lundy-helps-industrial-smr-project-reach-major-milestone/"
+  quote: "Sargent & Lundy has worked with X-energy on the pre-application process since 2022 for site selection, site feasibility, site characterization and developing the necessary environmental report. The firm has also supported the preliminary safety analysis report."
+  published: '2025-08-13'
+  confidence: 1.0
+technologies: []
+relationships:
+- type: supplies
+  to: X-Energy, Inc.
+  description: "Licensing services for the Long Mott (Dow Seadrift, TX) four-unit Xe-100 construction permit application: site selection and characterization, environmental report, and support of the PSAR, working with X-energy since 2022. Completed deliverable (CPA submitted; NRC review ongoing per the Aug 2025 page)."
+  source_url: "https://www.sargentlundy.com/news/sargent-lundy-helps-industrial-smr-project-reach-major-milestone/"
+  quote: "Based on Sargent & Lundy’s site selection, licensing, and environmental services, materials science company Dow and advanced reactor developer X-energy recently announced they’re seeking Nuclear Regulatory Commission approval to build an SMR at Dow’s Seadrift, Texas, site."
+  published: '2025-08-13'
+  confidence: 1.0
+- type: supplies
+  to: TRISO-X, LLC
+  description: "Design and licensing support for the TRISO-X fuel fabrication facility (10 CFR 70) since 2018, including site selection, site characterization and the environmental report for the license application. Ongoing engagement; TRISO-X received its Part 70 license in Feb 2026 (per seed)."
+  source_url: "https://www.sargentlundy.com/services/nuclear-power/"
+  quote: "Since 2018, we have worked directly with TRISO-X, a wholly-owned subsidiary of X-energy, on the design and licensing of their currently-sized 5-MTU FFF."
+  confidence: 1.0
+- type: supplies
+  to: Tennessee Valley Authority
+  description: "Owner's engineer since 2021 for Clinch River; lists the construction permit application, PSAR development and environmental report for TVA's Clinch River BWRX-300 among its work. Completed deliverable (NRC issued the construction permit Sept 2026, per seed)."
+  source_url: "https://www.sargentlundy.com/services/nuclear-power/"
+  quote: "Environmental report for Tennessee Valley Authority to support the construction permit application for GE Hitachi Nuclear Energy’s (GEHs) BWRX-300 SMR at Clinch River."
+  confidence: 1.0
+- type: supplies
+  to: GE Vernova Hitachi Nuclear Energy
+  description: "Design and licensing support since 2023 for the BWRX-300: responsible for the reactor building standard plant design that supports NRC and CNSC licensing. Ongoing engagement; mostly design work, licensing-supporting."
+  source_url: "https://www.sargentlundy.com/services/nuclear-power/"
+  quote: "We have been working directly with General Electric Hitachi (GEH) since 2023 on the design and licensing of their tenth-generation boiling water reactor (BWR), a 300 MWe SMR."
+  confidence: 1.0
+facilities: []
+notes: "Engineering firm with a large NRC licensing practice; could also qualify as reactor_services. The services page is undated. Conflict with seed SUMMARY.md gap note ('Sargent & Lundy's TVA role is detailed design, not licensing'): the fetched services page explicitly lists 'Construction permit application for TVA’s Clinch River SMR' and 'Preliminary Safety Analysis Report (PSAR) development for TVA’s Clinch River BWRX-300', so the licensing role is now sourced. Facility links to Long Mott / Clinch River not added: a licensing consultant is not owns/operates/vendor_for/offtakes_from. HQ not stated explicitly on fetched pages (left blank)."
