@@ -216,6 +216,7 @@ module Directory
         # "Three Mile Island Unit 1" updates Crane, it doesn't rename it. Only a
         # write by id renames.
         changes.delete(:name) if kind == :facility && !created && !attributes.key?(:id)
+        lock_facility_names([ changes[:name], *Array(attributes[:aliases]) ]) if kind == :facility
         check_facility_name(record, changes[:name]) if kind == :facility && changes[:name]
         if curated && (conflicts = conflicts_with(record, changes)).any?
           raise Conflict.new(record.id, conflicts)
@@ -354,14 +355,17 @@ module Directory
       # A plant's name and other plants' aliases must never be the same name.
       # The unique index covers aliases only, so a rename and an alias write
       # for one normalized name take the same lock (held until the
-      # transaction ends) and check while holding it.
-      def lock_facility_name(normalized)
-        sql = ActiveRecord::Base.sanitize_sql_array([ "SELECT pg_advisory_xact_lock(hashtext(?))", "facility-name:#{normalized}" ])
-        ActiveRecord::Base.connection.execute(sql)
+      # transaction ends) and check while holding it. Every name a write
+      # touches is locked up front in sorted order, after the row lock, so
+      # two writes can't each hold a name the other waits for.
+      def lock_facility_names(names)
+        names.compact_blank.map { |name| FacilityAlias.normalize(name) }.uniq.sort.each do |normalized|
+          sql = ActiveRecord::Base.sanitize_sql_array([ "SELECT pg_advisory_xact_lock(hashtext(?))", "facility-name:#{normalized}" ])
+          ActiveRecord::Base.connection.execute(sql)
+        end
       end
 
       def check_facility_name(facility, name)
-        lock_facility_name(FacilityAlias.normalize(name))
         owner = FacilityAlias.find_by(normalized_alias: FacilityAlias.normalize(name))
         return if owner.nil? || owner.facility_id == facility.id
 
@@ -373,7 +377,6 @@ module Directory
           normalized = FacilityAlias.normalize(name)
           next if FacilityAlias.normalize(facility.name) == normalized
 
-          lock_facility_name(normalized)
           existing = FacilityAlias.find_by(normalized_alias: normalized)
           raise Invalid, "alias #{name.inspect} already belongs to #{existing.facility.name}" if existing && existing.facility_id != facility.id
           next if existing

@@ -83,6 +83,17 @@ class Directory::FacilityAliasesTest < ActiveSupport::TestCase
     assert_equal renamed, aliased
   end
 
+  test "every name a write touches is locked up front, in sorted order" do
+    other = Facility.create!(name: "Salem")
+    sql = []
+    ActiveSupport::Notifications.subscribed(->(*, payload) { sql << payload[:sql] }, "sql.active_record") do
+      write(:facility, { id: other.id, name: "Zion", aliases: [ "Beta Station", "Alpha" ] })
+    end
+
+    locked = sql.grep(/pg_advisory_xact_lock/).map { |statement| statement[/facility-name:([^']*)/, 1] }
+    assert_equal [ "alpha", "beta station", "zion" ], locked
+  end
+
   test "aliases that aren't names are refused" do
     [ { "old" => "name" }, [ "Crane Station", 7 ], 7 ].each do |aliases|
       result = write(:facility, { id: @crane.id, aliases: })
