@@ -49,6 +49,7 @@ class DataQuality::Plugins::NrcReactorList < DataQuality::Plugin
   #   review, with both values in the notes
   # - skips a unit: that unit's candidates go to review
   # - invents a unit: dropped and counted
+  # - an operator goes to review unless the model agreed on one of its rows
   # The tally is saved on the run as stats["ai_check"].
   # Per unit: the unit (facility), its operator (organization, one per
   # name) and the "operates" link, in the shape match expects (README).
@@ -79,7 +80,7 @@ class DataQuality::Plugins::NrcReactorList < DataQuality::Plugin
     end
 
     run.update!(stats: run.stats.merge("ai_check" => tally))
-    operator_candidates(table.values, lines) + units.flat_map { |unit, review| unit_candidates(unit, lines[unit.nrc_docket], review) }
+    operator_candidates(units, lines) + units.flat_map { |unit, review| unit_candidates(unit, lines[unit.nrc_docket], review) }
   end
 
   private
@@ -120,23 +121,33 @@ class DataQuality::Plugins::NrcReactorList < DataQuality::Plugin
     end
 
     # What the model got wrong about one unit, in words; [] when it agrees.
+    # The model is told to copy values exactly, so it's checked exactly:
+    # "DC Cook 1" for "D.C. Cook 1" is a disagreement, not a match.
     def disagreements(answer, unit, line)
-      problems = []
-      problems << differs("name", answer["name"], unit.name) unless normalize(answer["name"].to_s) == normalize(unit.name)
-      problems << differs("reactor type", answer["reactor_type"], unit.reactor_type) unless answer["reactor_type"] == unit.reactor_type
-      problems << differs("state", answer["state"], unit.state) unless answer["state"] == unit.state
-      unless answer["operator"].to_s.squish.casecmp?(unit.owner_operator)
-        problems << differs("operator", answer["operator"], unit.owner_operator)
-      end
-      problems << "its quote isn't the table row as written" unless answer["quote"].to_s.squish == line
-      problems
+      {
+        "name" => [ answer["name"], unit.name ],
+        "reactor type" => [ answer["reactor_type"], unit.reactor_type ],
+        "state" => [ answer["state"], unit.state ],
+        "operator" => [ answer["operator"], unit.owner_operator ]
+      }.filter_map { |field, (said, table)| differs(field, said, table) unless said == table }
+        .tap { |problems| problems << "its quote isn't the table row as written" unless answer["quote"] == line }
     end
 
     def differs(field, said, table) = "#{field}: model said #{said.inspect}, table says #{table.inspect}"
 
+    # One per operator name. An operator is only as confirmed as its units:
+    # it goes on as new if the model agreed on at least one of its rows
+    # (operator included), else to review. The quote is an agreed row when
+    # there is one.
     def operator_candidates(units, lines)
-      units.uniq(&:owner_operator).map do |unit|
-        { kind: "organization", payload: { "name" => unit.owner_operator }, quote: lines[unit.nrc_docket] }
+      units.group_by { |unit, _review| unit.owner_operator }.map do |operator, rows|
+        agreed = rows.find { |_unit, review| review.nil? }
+        quote_unit = (agreed || rows.first).first
+        candidate = { kind: "organization", payload: { "name" => operator }, quote: lines[quote_unit.nrc_docket] }
+        next candidate if agreed
+
+        candidate.merge(status: "needs_review",
+          notes: "The extractor model didn't confirm any row for this operator: #{rows.map { |_unit, review| review }.uniq.join(' / ')}")
       end
     end
 

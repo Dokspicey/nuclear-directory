@@ -110,6 +110,33 @@ class DataQuality::Plugins::NrcReactorList::ExtractTest < ActiveSupport::TestCas
     assert candidates_for("05200026").all?(&:status_new?), "other units are unaffected"
   end
 
+  test "values are checked exactly, so a tidied copy isn't counted as agreement" do
+    tidied = { "05000315" => { "name" => "DC Cook 1" },
+               "05000259" => { "operator" => "TENNESSEE VALLEY AUTHORITY" },
+               "05200026" => { "quote" => "Vogtle 4 |  05200026 | NPF-92 | PWR | 26 miles SE of Augusta, GA | Southern Nuclear Operating Co. | 2" } }
+    run = extract(FakeModel.new { |units| units.map { |u| u.merge(tidied.fetch(u["nrc_docket"], {})) } })
+
+    assert_equal 3, run.stats["ai_check"]["disagreed"]
+    assert_match 'name: model said "DC Cook 1", table says "D.C. Cook 1"', candidates_for("05000315").first.notes
+    assert_match "operator: model said", candidates_for("05000259").first.notes
+    assert_match "quote isn't the table row", candidates_for("05200026").first.notes
+  end
+
+  test "an operator is only confirmed through a row the model agreed on" do
+    extract(FakeModel.new do |units|
+      units.reject { |u| u["name"] == "Palisades" }.map { |u| u["nrc_docket"] == "05200025" ? u.merge("state" => "SC") : u }
+    end)
+    operator = ->(name) { @source.candidates.find { |c| c.kind_organization? && c.payload["name"] == name } }
+
+    holtec = operator.("Holtec Palisades, LLC")
+    assert holtec.status_needs_review?, "its only unit was skipped"
+    assert_match "didn't confirm any row for this operator", holtec.notes
+    southern = operator.("Southern Nuclear Operating Co.")
+    assert southern.status_new?, "Vogtle 3 was wrong, but the model agreed on its other units"
+    assert_no_match(/\AVogtle 3 \|/, southern.quote, "quoted from an agreed row, not the wrong one")
+    assert_match "| Southern Nuclear Operating Co. |", southern.quote
+  end
+
   test "a quote that isn't the row as written goes to review" do
     extract(FakeModel.new { |units| units.map { |u| u["nrc_docket"] == "05000416" ? u.merge("quote" => "Grand Gulf 1 is a BWR") : u } })
 

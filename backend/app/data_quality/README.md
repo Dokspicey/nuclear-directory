@@ -77,8 +77,10 @@ Never work around a block. `plugins/nrc_reactor_list.rb` is the reference plug-i
 | `quote` | The supporting text, copied exactly from the source |
 | `status`, `notes` | Optional: `status: "needs_review"` with the reason in `notes` sends a candidate straight to review |
 
-The extract stage adds `source_id` and `crawl_run_id`. Match turns candidates into `matched` or
-`needs_review`, and verify into `merged`, `needs_review` or `rejected`.
+The extract stage adds `source_id` and `crawl_run_id`. Candidates start `new` (or `needs_review` if
+the plug-in flagged them). Match links the ones it can to directory records (`matched`), and verify
+then publishes (`merged`), sends to review (`needs_review`) or rejects (`rejected`). See
+`stages/match.rb` for what match does with the rest.
 
 **NRC extract.** The extractor model (`OPENROUTER_EXTRACT_MODEL`, prompt `nrc-extract-v1`) reads the
 reactor table as plain lines and returns each unit with its row quoted. Every answer is checked

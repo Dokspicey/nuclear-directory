@@ -12,13 +12,16 @@ class DataQuality::Plugins::NrcReactorList::Page
     table.css("tr").filter_map { |row| unit_from(row.css("td")) }
   end
 
-  # The header and every row, cells separated by " | ". A cell's lines
-  # (e.g. name<br>docket) become separate cells:
+  # The header and every row, cells separated by " | ". The first cell
+  # holds two values (name<br>docket), so it becomes two columns; every
+  # other cell is one column, its lines joined ("Reactor<br>Type" =>
+  # "Reactor Type"). Header and rows line up at 7 columns:
   #   "Vogtle 3 | 05200025 | NPF-91 | PWR | 26 miles SE of Augusta, GA | Southern Nuclear Operating Co. | 2"
   def self.lines(html)
     table = table_in(html) or return []
     table.css("tr").map do |row|
-      row.css("th, td").flat_map { |cell| cell.xpath(".//text()").map { |node| node.text.squish } }.compact_blank.join(" | ")
+      first, *rest = row.css("th, td").map { |cell| cell.xpath(".//text()").map { |node| node.text.squish }.compact_blank }
+      [ *first, *rest.map { |pieces| pieces.join(" ") } ].join(" | ")
     end
   end
 

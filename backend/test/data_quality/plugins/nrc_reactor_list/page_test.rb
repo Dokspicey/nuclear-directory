@@ -22,8 +22,9 @@ class DataQuality::Plugins::NrcReactorList::PageTest < ActiveSupport::TestCase
     lines = Page.lines(file_fixture("nrc/list-power-reactor-units.html").read)
 
     assert_equal 96, lines.size, "the header plus 95 units"
-    assert_equal "Plant Name | Docket Number | License Number | Reactor | Type | Location | Owner/Operator | NRC Region", lines.first
+    assert_equal "Plant Name | Docket Number | License Number | Reactor Type | Location | Owner/Operator | NRC Region", lines.first
     assert_includes lines, "Vogtle 3 | 05200025 | NPF-91 | PWR | 26 miles SE of Augusta, GA | Southern Nuclear Operating Co. | 2"
+    assert_equal [ 7 ], lines.map { |line| line.split(" | ").size }.uniq, "every row lines up with the header"
   end
 
   test "no table, no units" do
