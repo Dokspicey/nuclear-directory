@@ -1,6 +1,6 @@
 # "Did you mean…" for a page that wasn't found (#110). Most 404s here are a
 # mistyped or renamed company or plant address, so the words in the path
-# ("/companies/kairos-powr") are matched against public company and plant
+# ("/companies/kairos-powr") are matched against published company and plant
 # names: each word, or its first four letters when it's long enough for a
 # typo near the end. Names matching more words come first, then the kind
 # the address was for (/companies/ or /plants/), then the shortest name.
@@ -25,8 +25,8 @@ class PageSuggestions
     return [] if words.empty?
 
     @matches ||= begin
-      companies = Organization.verified.where(name_matches("organizations.name")).to_a.map { |o| [ :company, o ] }
-      plants = DirectoryListing.new.public_sites.where(name_matches("facilities.name")).to_a.map { |f| [ :plant, f ] }
+      companies = Organization.published.where(name_matches("organizations.name")).to_a.map { |o| [ :company, o ] }
+      plants = Facility.published.where(parent_id: nil).where(name_matches("facilities.name")).to_a.map { |f| [ :plant, f ] }
       (companies + plants).sort_by { |kind, record| [ -score(record.name), kind == @kind ? 0 : 1, record.name.length, record.name ] }.first(LIMIT)
     end
   end

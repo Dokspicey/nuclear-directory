@@ -45,6 +45,13 @@ class ErrorsTest < ActionDispatch::IntegrationTest
     assert_select ".nd-list a[href='/plants/plant-vogtle']", /Plant Vogtle/
   end
 
+  test "an unpublished company is never suggested" do
+    company("Kairos Power").unpublish!(by: "human:test")
+    get "/companies/kairos-powr"
+
+    assert_select "body", text: /Kairos Power/, count: 0
+  end
+
   test "an address with nothing close shows no suggestions" do
     get "/zzzz-qqqq"
 
