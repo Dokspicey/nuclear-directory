@@ -140,4 +140,22 @@ class DirectoryTest < ActionDispatch::IntegrationTest
     assert_select "form.nd-filters input[type=hidden][name=category][value=reactor-developers]"
     assert_select "form.nd-filters button[type=submit]", "Apply filters"
   end
+
+  test "on phones the filters open in a sheet that counts the results before applying" do
+    get companies_path(category: "reactor-developers", state: "CA")
+
+    assert_select ".nd-filterwrap[data-controller=filter-sheet][data-filter-sheet-count-url-value='/companies.json']" do
+      assert_select "button.nd-filterwrap__open[aria-haspopup=dialog]", /Filters\s+\(1\)/
+      assert_select "dialog.nd-filtersheet[aria-labelledby=filters-title] form.nd-filters[data-action='change->filter-sheet#count']"
+      assert_select "button[data-action='filter-sheet#close']", "Close filters"
+    end
+  end
+
+  test "the count behind \"Show N results\" matches the list and isn't counted as a search" do
+    get companies_path(category: "reactor-developers", format: :json)
+    assert_equal({ "count" => 2 }, response.parsed_body)
+
+    get companies_path(category: "reactor-developers", state: "CA", format: :json)
+    assert_equal({ "count" => 1 }, response.parsed_body)
+  end
 end
