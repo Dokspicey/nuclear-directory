@@ -75,7 +75,22 @@ class PlantPageTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "a unit's address goes to its row on the site's page" do
+  test "the Sources column is left out when no unit has a source" do
+    @unit4.evidence.destroy_all
+    get plant_path(slug: "plant-vogtle")
+
+    assert_select "#units-heading ~ * th", text: "Sources", count: 0
+    assert_select "td[data-label=Sources]", count: 0
+  end
+
+  test "an ended link isn't shown as current" do
+    FacilityRelationship.find_by!(organization: @westinghouse).update!(ended_on: Date.new(2020, 1, 1))
+    get plant_path(slug: "plant-vogtle")
+
+    assert_select "body", text: /Westinghouse/, count: 0
+  end
+
+    test "a unit's address goes to its row on the site's page" do
     get plant_path(slug: "unit-3")
 
     assert_redirected_to plant_path(slug: "plant-vogtle", anchor: "unit-unit-3")
@@ -89,7 +104,7 @@ class PlantPageTest < ActionDispatch::IntegrationTest
     assert_select ".nd-overview dt", "Owner"
     assert_select ".nd-overview dd a[href='/companies/georgia-power']", "Georgia Power"
     assert_select ".nd-overview dt", "Operator"
-    assert_select ".nd-overview dt", "Reactor vendor"
+    assert_select ".nd-overview dt", "Reactor developer"
     assert_select ".nd-overview dd", text: /\AFission/
     assert_select ".nd-overview dd", text: /\AAP1000/
     assert_select ".nd-overview dd", text: /\A2,228 MWe/
@@ -123,6 +138,17 @@ class PlantPageTest < ActionDispatch::IntegrationTest
     assert_select "body", text: /Oak Ridge/, count: 0
     assert_select ".nd-gaps li", text: "Location"
     assert_select ".nd-overview__foot", /checked 2026-10-08/
+  end
+
+  test "a link to a pending site itself isn't shown, only links to its verified units" do
+    site = plant("Clinch River", verified: false)
+    unit = plant("Clinch River Unit 1", parent: site)
+    link(company("Site Owner"), "owns", site)
+    link(company("Unit Owner"), "owns", unit)
+    get plant_path(slug: "clinch-river")
+
+    assert_select "body", text: /Site Owner/, count: 0
+    assert_select ".nd-factrow", text: /Unit Owner\s+owns\s+Clinch River, Clinch River Unit 1/
   end
 
   test "link preview tags" do

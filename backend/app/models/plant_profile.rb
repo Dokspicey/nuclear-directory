@@ -42,9 +42,11 @@ class PlantProfile
     @units ||= Facility.verified.where(parent: site).includes(:technology, evidence: :source).order(:name).to_a
   end
 
-  # Companies linked to the site or one of its units, verified on both ends.
+  # Current links from a verified company to the site (once verified) or one
+  # of its verified units. A link that has ended isn't shown as current.
   def links
-    @links ||= FacilityRelationship.verified.where(facility: [ site, *units ])
+    @links ||= FacilityRelationship.verified.where(facility: [ (site if site_verified?), *units ].compact)
+      .where("facility_relationships.ended_on IS NULL OR facility_relationships.ended_on > ?", Date.current)
       .joins(:organization).merge(Organization.verified)
       .includes(:organization, :facility, evidence: :source).to_a
       .sort_by { |link| [ LINK_ORDER.index(link.relationship_type), link.organization.name, link.facility.name ] }

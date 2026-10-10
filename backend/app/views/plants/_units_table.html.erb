@@ -1,16 +1,17 @@
 <%# The site's verified units. A table on wide screens; on phones each row
     becomes a card with the column name before each value (#90). A column
-    no unit has a value for is left out. Locals: units, profile. %>
+    no unit has a value for is left out, Sources included. Locals: units, profile. %>
 <% columns = {
      "Reactor type" => ->(u) { u.reactor_type.presence },
      "Capacity" => ->(u) { "#{number_with_precision(u.capacity_mw, precision: 2, strip_insignificant_zeros: true, delimiter: ",")} MWe" if u.capacity_mw },
      "Status" => ->(u) { facility_status_label(u.status) },
      "NRC docket" => ->(u) { u.nrc_docket }
    }.select { |_, value| units.any? { |unit| value.(unit) } } %>
+<% sourced = units.any? { |unit| profile.citations_for(unit).any? } %>
 <div class="nd-table-wrap nd-table-wrap--cards">
   <table class="nd-table nd-table--cards">
     <thead>
-      <tr><th scope="col">Unit</th><% columns.each_key do |heading| %><th scope="col"><%= heading %></th><% end %><th scope="col">Sources</th></tr>
+      <tr><th scope="col">Unit</th><% columns.each_key do |heading| %><th scope="col"><%= heading %></th><% end %><% if sourced %><th scope="col">Sources</th><% end %></tr>
     </thead>
     <tbody>
       <% units.each do |unit| %>
@@ -19,7 +20,7 @@
           <% columns.each do |heading, value| %>
             <td data-label="<%= heading %>"<% if heading.in?([ "Capacity", "NRC docket" ]) %> class="type-data"<% end %>><%= value.(unit) %></td>
           <% end %>
-          <td data-label="Sources"><% profile.citations_for(unit).each do |number, source| %><%= render "shared/source_chip", number:, source:, compact: true %><% end %></td>
+          <% if sourced %><td data-label="Sources"><% profile.citations_for(unit).each do |number, source| %><%= render "shared/source_chip", number:, source:, compact: true %><% end %></td><% end %>
         </tr>
       <% end %>
     </tbody>
