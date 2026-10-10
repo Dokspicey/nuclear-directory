@@ -28,6 +28,7 @@ class Facility < ApplicationRecord
   validates :capacity_mw, numericality: { greater_than_or_equal_to: 0 }, allow_nil: true
   validates :latitude, numericality: { in: -90..90 }, allow_nil: true
   validates :longitude, numericality: { in: -180..180 }, allow_nil: true
+  validate :sites_and_units_only
 
   # What the public sees. A unit: verified, under a site that isn't rejected
   # or unpublished. A site: verified, or pending with at least one such unit
@@ -38,4 +39,16 @@ class Facility < ApplicationRecord
     sites = where(parent_id: nil)
     sites.verified.or(sites.pending.where(id: units.select(:parent_id))).or(units)
   end
+
+  private
+    # Two levels only: a site, and units under it. Publication (and the
+    # directory's rollups) rely on a unit's parent being its site.
+    def sites_and_units_only
+      # The parent record itself, so an unsaved chain (built in memory, saved
+      # together) is checked too, not just a saved parent_id.
+      return unless parent
+
+      errors.add(:parent, "must be a site, not a unit") if parent.parent_id || parent.parent
+      errors.add(:parent, "can't be set: this site has units of its own") if (persisted? && children.exists?) || children.any?
+    end
 end
