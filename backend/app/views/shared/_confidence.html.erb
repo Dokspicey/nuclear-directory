@@ -1,0 +1,7 @@
+<%# Confidence as three bars and a word. Locals: value (0–1, or nil to show nothing). %>
+<% level = confidence_level(local_assigns[:value]) %>
+<% if level %>
+  <span class="nd-conf">
+    <span class="nd-conf__bars" aria-hidden="true"><% 3.times do |i| %><i class="<%= "on" if i < level[:bars] %>"></i><% end %></span><%= level[:word] %><span class="sr-only"> confidence</span>
+  </span>
+<% end %>

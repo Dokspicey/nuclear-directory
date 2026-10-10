@@ -1,0 +1,10 @@
+<%# One line that says what's missing, and one way forward. Locals:
+    message:      e.g. "No results for “molten salt pump”."
+    action_label: e.g. "Clear search" (optional)
+    action_url:   where the action goes (optional) %>
+<div class="nd-notice" role="status">
+  <span><%= message %></span>
+  <% if local_assigns[:action_label] && local_assigns[:action_url] %>
+    <%= link_to action_label, action_url, class: "nd-btn nd-btn--sm no-underline" %>
+  <% end %>
+</div>
