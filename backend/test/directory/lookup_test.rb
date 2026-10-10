@@ -100,6 +100,12 @@ class Directory::LookupTest < ActiveSupport::TestCase
     assert_nil Directory::Lookup.brand_name("NextEra Energy Imaginary Point, LLC")
   end
 
+  test "a name made only of legal or operating words has no brand" do
+    assert_nil Directory::Lookup.brand_key("Nuclear Energy LLC")
+    assert_nil Directory::Lookup.brand_key("Nuclear Power, Inc.")
+    assert_equal "southern nuclear", Directory::Lookup.brand_key("Southern Nuclear Operating Company"), "own brands unaffected"
+  end
+
   test "a place word that starts a plant's name isn't a plant on its own" do
     Facility.create!(name: "North Anna Power Station")
     Facility.create!(name: "Palisades Pioneer Units 1 & 2")
