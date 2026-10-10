@@ -1,0 +1,214 @@
+require "test_helper"
+require_relative "../support/directory_builders"
+
+class CompanyPageTest < ActionDispatch::IntegrationTest
+  include DirectoryBuilders
+
+  setup do
+    @press = Source.create!(url: "https://kairospower.com/news/google", title: "Google and Kairos Power partner",
+      source_kind: "web_page", published_on: Date.new(2024, 10, 14))
+    @doe_page = Source.create!(url: "https://www.energy.gov/haleu", source_kind: "web_page")
+
+    @kairos = company("Kairos Power", city: "Alameda", state: "CA", roles: [ role("reactor_vendor") ],
+      techs: [ technology("smr", "Small modular reactor") ], aliases: [ "Kairos Power, LLC", "Kairos" ],
+      website: "https://kairospower.com", description: "Develops salt-cooled reactors.", verified_at: Time.zone.parse("2026-10-09"))
+    @google = company("Google", roles: [ role("data_center_offtaker") ])
+    @doe = company("US Department of Energy")
+    @ghost = company("Ghost Partner", verified: false)
+    cite!(@kairos, @google, @doe, source: @press)
+
+    deal = link(@google, "offtake_with", @kairos)
+    deal.update!(description: "500 MW by 2035.", verified_at: Time.zone.parse("2026-10-09"))
+    deal.evidence.create!(source: @press, quote: "Kairos Power and Google have signed", found_by: "human", confidence: 1)
+    link(@doe, "supplies", @kairos).evidence.create!(source: @doe_page, found_by: "human", confidence: 0.8)
+    cite!(link(@ghost, "invests_in", @kairos), link(@kairos, "funds", @google, verified: false))
+
+    @hermes = cite!(plant("Hermes", facility_type: "research_reactor", status: "under_construction", city: "Oak Ridge", state: "TN"), source: @press)
+    link(@kairos, "owns", @hermes).evidence.create!(source: @press, found_by: "human", confidence: 1)
+    hidden = plant("Hidden Site", verified: false)
+    cite!(link(@kairos, "owns", hidden))
+  end
+
+  test "a verified company's page shows its facts" do
+    get company_path(slug: "kairos-power")
+
+    assert_response :success
+    assert_select "title", "Kairos Power · Nuclear Directory"
+    assert_select "main", 1
+    assert_select "h1#profile-name", "Kairos Power"
+    assert_select ".nd-profile__desc", /Develops salt-cooled reactors./
+    assert_select ".nd-tag", "Reactor developer"
+    assert_select ".nd-tag", "Small modular reactor"
+    assert_select ".nd-crumbs a[href=?]", "/companies?category=reactor-developers", text: "Reactor developers"
+  end
+
+  test "deals read left to right, link the other company, and carry sources" do
+    get company_path(slug: "kairos-power")
+
+    assert_select "#deals-heading small", "2"
+    assert_select ".nd-factrow", text: /Google\s+offtakes from\s+Kairos Power/ do
+      assert_select "a[href='/companies/google']", "Google"
+      assert_select ".nd-factrow__detail", "500 MW by 2035."
+      assert_select ".nd-quote", "“Kairos Power and Google have signed”"
+      assert_select "a.nd-src[href='#source-1']", /kairospower.com · checked 2026-10-09/
+      assert_select ".nd-conf", /High/
+    end
+    assert_select ".nd-factrow", text: /US Department of Energy\s+supplies\s+Kairos Power/
+  end
+
+  test "unverified partners, deals and plants never appear" do
+    get company_path(slug: "kairos-power")
+
+    assert_select "body", text: /Ghost Partner/, count: 0
+    assert_select ".nd-factrow", text: /funds/, count: 0
+    assert_select "body", text: /Hidden Site/, count: 0
+  end
+
+  test "a plant's type, status and place show beside a link only when the plant has its own source" do
+    bare = plant("Bare Reactor", facility_type: "power_reactor", status: "operating", city: "Nowhere", state: "OR")
+    cite!(link(@kairos, "operates", bare))
+    get company_path(slug: "kairos-power")
+
+    assert_select ".nd-factrow", text: /Kairos Power\s+operates\s+Bare Reactor/ do
+      assert_select ".nd-factrow__detail", count: 0
+    end
+  end
+
+  test "plants and sites link to the plant page" do
+    get company_path(slug: "kairos-power")
+
+    assert_select ".nd-factrow", text: /Kairos Power\s+owns\s+Hermes/ do
+      assert_select "a[href='/plants/hermes']", "Hermes"
+      assert_select ".nd-factrow__detail", "Test reactor · Under construction · Oak Ridge, TN"
+    end
+  end
+
+  test "sources are numbered once, in reading order" do
+    get company_path(slug: "kairos-power")
+
+    assert_select "#sources-heading small", "2"
+    assert_select "li#source-1 a[href='https://kairospower.com/news/google']", "Google and Kairos Power partner"
+    assert_select "li#source-2 small", "energy.gov"
+  end
+
+  test "key facts" do
+    get company_path(slug: "kairos-power")
+
+    assert_select ".nd-overview dt", text: "Website"
+    assert_select ".nd-overview dd a[href='https://kairospower.com']", "kairospower.com"
+    assert_select ".nd-overview dd", text: /\AKairos\s*1\z/
+    assert_select ".nd-overview dd", text: /\AAlameda, CA\s*1\z/
+    assert_select ".nd-overview dt", text: "Founded", count: 0
+    assert_select ".nd-overview__foot", /checked 2026-10-09/
+  end
+
+  test "a parent company shows in the key facts, not as a deal" do
+    parent = company("Southern Company")
+    cite!(link(@kairos, "subsidiary_of", parent))
+    get company_path(slug: "kairos-power")
+
+    assert_select ".nd-overview dt", "Parent company"
+    assert_select ".nd-overview dd a[href='/companies/southern-company']", "Southern Company"
+    assert_select ".nd-factrow", text: /subsidiary/, count: 0
+  end
+
+  test "a general role is left out when a more specific one under it is there" do
+    coolant = role("coolant")
+    [ coolant, role("molten_salt", parent: coolant) ].each do |r|
+      cite!(OrganizationRole.create!(organization: @kairos, role: r, verification_status: "verified"))
+    end
+    get company_path(slug: "kairos-power")
+
+    assert_select ".nd-tag", text: "Molten salt coolant"
+    assert_select ".nd-tag", text: "Coolant", count: 0
+  end
+
+  test "a hidden general role's sources aren't shown" do
+    coolant = role("coolant")
+    general = OrganizationRole.create!(organization: @kairos, role: coolant, verification_status: "verified")
+    general.evidence.create!(source: Source.create!(url: "https://example.com/coolant", source_kind: "web_page"), found_by: "human", confidence: 1)
+    cite!(OrganizationRole.create!(organization: @kairos, role: role("molten_salt", parent: coolant), verification_status: "verified"))
+    get company_path(slug: "kairos-power")
+
+    assert_select ".nd-tag", text: "Molten salt coolant"
+    assert_select "body", text: /example\.com/, count: 0
+  end
+
+  test "a unit under a rejected site isn't linked" do
+    rejected = Facility.create!(name: "Rejected Station", verification_status: "rejected")
+    cite!(link(@kairos, "owns", cite!(plant("Rejected Unit", parent: rejected))))
+    get company_path(slug: "kairos-power")
+
+    assert_select "body", text: /Rejected/, count: 0
+  end
+
+  test "key facts come first in the page, before deals" do
+    get company_path(slug: "kairos-power")
+
+    assert_select ".nd-columns--profile > :first-child.nd-columns__side"
+  end
+
+  test "facts without a source aren't shown" do
+    bare = company("Bare Co", city: "Austin", state: "TX", roles: [ role("utility") ], website: "https://bare.example", description: "Runs plants.")
+    link(bare, "supplies", @kairos)
+    get company_path(slug: "bare-co")
+
+    assert_response :success
+    assert_select "body", text: /Runs plants|Austin|bare\.example|Kairos/, count: 0
+    assert_select ".nd-tag", count: 0
+    assert_select ".nd-gaps li", text: "One-line description"
+    assert_select ".nd-gaps li", text: "Headquarters"
+  end
+
+  test "a company with only an invests-in deal gets the Investors breadcrumb" do
+    backer = cite!(company("Backer Fund"))
+    cite!(link(backer, "invests_in", @kairos))
+    get company_path(slug: "backer-fund")
+
+    assert_select ".nd-crumbs a[href=?]", "/companies?category=investors", text: "Investors"
+  end
+
+  test "a hidden invests-in deal doesn't make a company an investor" do
+    backer = cite!(company("Quiet Fund"))
+    link(backer, "invests_in", @kairos)
+    get company_path(slug: "quiet-fund")
+
+    assert_select ".nd-crumbs a", count: 0
+  end
+
+  test "missing must-have fields are listed, not guessed" do
+    get company_path(slug: "google")
+
+    assert_select ".nd-gaps li", text: "One-line description"
+    assert_select ".nd-gaps li", text: "Headquarters"
+    assert_select ".nd-profile__desc", count: 0
+  end
+
+  test "long lists collapse behind Show all" do
+    (CompanyProfile::VISIBLE_ITEMS + 1).times do |i|
+      cite!(link(company("Supplier #{i}"), "supplies", @kairos))
+    end
+    get company_path(slug: "kairos-power")
+
+    assert_select "#deals-heading ~ ul.nd-list > li", CompanyProfile::VISIBLE_ITEMS
+    assert_select "details.nd-more summary .nd-more__open", "Show all #{CompanyProfile::VISIBLE_ITEMS + 3} deals"
+    assert_select "details.nd-more summary .nd-more__close", "Show fewer deals"
+  end
+
+  test "link preview tags" do
+    get company_path(slug: "kairos-power")
+
+    assert_select "meta[property='og:title'][content='Kairos Power']"
+    assert_select "meta[property='og:description'][content='Develops salt-cooled reactors.']"
+    assert_select "meta[name=description][content=?]", "Kairos Power: Develops salt-cooled reactors. Deals, plants and sources."
+    assert_select "link[rel=canonical][href=?]", "http://www.example.com/companies/kairos-power"
+  end
+
+  test "an unverified or unknown company is not found" do
+    get company_path(slug: "ghost-partner")
+    assert_response :not_found
+
+    get company_path(slug: "nobody")
+    assert_response :not_found
+  end
+end
