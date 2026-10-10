@@ -38,6 +38,17 @@ class Directory::PublishedTest < ActiveSupport::TestCase
     assert [ @role, @link, @owns ].all? { |fact| fact.class.exists?(fact.id) }, "nothing is deleted"
   end
 
+  test "a pending site is public once it has a published unit (#73)" do
+    site = Facility.create!(name: "Hope Creek")
+    assert_not_includes Facility.published, site
+
+    Facility.create!(name: "Hope Creek 1", parent: site).verify!(by: "human:tosin")
+    assert_includes Facility.published, site
+
+    site.reject!(by: "human:tosin")
+    assert_not_includes Facility.published, site, "never once a human closed it"
+  end
+
   test "unpublishing a plant's site hides its units and their links" do
     @site.unpublish!(by: "human:tosin")
 

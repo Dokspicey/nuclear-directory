@@ -124,13 +124,21 @@ module Directory
         statement =
           case record
           when Organization, Facility then return record.name
-          when OrganizationRole then "#{record.organization.name} is a #{ROLE_WORDS.fetch(record.role.key, record.role.name.downcase)}"
-          when OrganizationTechnology then "#{record.organization.name} works on #{record.technology.name.downcase}"
+          when OrganizationRole then "#{record.organization.name} is #{with_article(ROLE_WORDS.fetch(record.role.key) { in_sentence(record.role.name) })}"
+          when OrganizationTechnology then "#{record.organization.name} works on #{in_sentence(record.technology.name)}"
           when Relationship then "#{record.from_organization.name} #{LINK_VERBS.fetch(record.relationship_type)} #{record.to_organization.name}"
           when FacilityRelationship then "#{record.organization.name} #{LINK_VERBS.fetch(record.relationship_type)} #{record.facility.name}"
           end
         "the fact “#{statement}”"
       end
+
+      # A display name inside a sentence: lowercased, except acronyms ("SMR",
+      # "HALEU") and words with capitals inside ("TRISO-X").
+      def in_sentence(name)
+        name.split.map { |word| word.match?(/\A[[:upper:]][[:lower:]]+\z/) ? word.downcase : word }.join(" ")
+      end
+
+      def with_article(phrase) = "#{phrase.match?(/\A[aeiou]/i) ? 'an' : 'a'} #{phrase}"
 
       # The same leading distinctive word, which is usually the plant's or
       # company's own name ("Vogtle", "Susquehanna", "Southern"). Later words
