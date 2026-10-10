@@ -12,9 +12,13 @@ class DataQuality::DirectoryClient
   Ref = Data.define(:type, :id)
   # What a lookup found: enough to match on and to explain a match.
   Record = Data.define(:type, :id, :name, :nrc_docket, :parent_id, :facility_type, :status, :state, :country_code,
-    :verification_status) do
+    :verification_status, :verified_by, :verified_at) do
     def ref = Ref.new(type:, id:)
     def rejected? = verification_status == "rejected"
+    def unpublished? = verification_status == "unpublished"
+    # Rejected or unpublished: a decision the pipeline never reopens on its own.
+    def closed? = rejected? || unpublished?
+    def decision = "#{verification_status} by #{verified_by || 'review'}#{" on #{verified_at.to_date}" if verified_at}"
   end
   # conflicts: { "state" => [stored, incoming] } when the write disagreed with
   # a human-verified fact; nothing was written, and ref points at that fact.
@@ -136,7 +140,8 @@ class DataQuality::DirectoryClient
     def record(type, ref)
       Record.new(type:, id: ref.id, name: ref.name, nrc_docket: ref.try(:nrc_docket), parent_id: ref.try(:parent_id),
         facility_type: ref.try(:facility_type), status: ref.try(:status), state: ref.try(:state),
-        country_code: ref.try(:country_code), verification_status: ref.verification_status) if ref
+        country_code: ref.try(:country_code), verification_status: ref.verification_status,
+        verified_by: ref.try(:verified_by), verified_at: ref.try(:verified_at)) if ref
     end
 
     def write_result(result)

@@ -31,6 +31,17 @@ module Directory
       OrganizationRef.from(record) if record
     end
 
+    # Every change of a fact's verification, newest first, as plain values:
+    # who, when, from -> to, why. type is the fact's class name ("Organization").
+    def verification_history(type:, id:)
+      raise ArgumentError, "not a fact type: #{type.inspect}" unless FACT_TYPES.include?(type.to_s)
+
+      VerificationEvent.where(subject_type: type.to_s, subject_id: id).order(created_at: :desc, id: :desc)
+        .map { |event| VerificationEventRef.from(event) }
+    end
+
+    FACT_TYPES = %w[Organization OrganizationRole OrganizationTechnology Facility Relationship FacilityRelationship].freeze
+
     # Pass exactly one of id, slug, name or nrc_docket.
     # name is matched case-insensitively; names aren't unique, so the oldest
     # match wins.

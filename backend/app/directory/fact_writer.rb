@@ -73,12 +73,14 @@ module Directory
     def self.write(...) = new.write(...)
 
     # kind: a key of KINDS. attributes may include :id to update a known row.
-    # verification: { status: "pending" | "verified" | "rejected", by: "human:tosin" }
+    # verification: { status: "pending" | "verified" | "rejected" | "unpublished",
+    #   by: "human:tosin", reason: "optional, kept in the audit trail",
+    #   context: { "candidate_id" => 12 } (optional, kept with the reason) }
     # fill_blank: true sets only attributes that are blank on an existing row,
     # so new data can complete a record without overwriting anything.
     # protect_human_verified: true treats a row a human has verified (or
     # rejected) as curated, so a human's decision is never overwritten:
-    # - a rejected row (by anyone) isn't changed at all (an error is returned)
+    # - a rejected or unpublished row isn't changed at all (an error is returned)
     # - if an incoming value disagrees with a stored one, nothing is written
     #   (no attributes, evidence or confidence change) and the result's
     #   conflicts say what disagreed, for review
@@ -99,9 +101,10 @@ module Directory
         created = record.new_record?
         # Locked, so a human's decision made while this write runs is seen.
         record.lock! if protect_human_verified && !created
-        # A rejected fact (by a human, or a retired proposal) only changes by a human's hand.
-        if protect_human_verified && !created && record.rejected?
-          raise Invalid, "#{record.model_name.human} was rejected by #{record.verified_by || 'review'}; not changed"
+        # A rejected or unpublished fact only changes by a human's hand.
+        if protect_human_verified && !created && record.closed?
+          raise Invalid, "#{record.model_name.human} was #{record.verification_status} by #{record.verified_by || 'review'}" \
+            "#{" on #{record.verified_at.to_date}" if record.verified_at}; not changed"
         end
         curated = protect_human_verified && !created && record.human_reviewed?
         changes = model_attributes(kind, attributes)
@@ -224,10 +227,18 @@ module Directory
 
       # Re-applying the same decision leaves verified_at alone, so re-runs
       # don't look like fresh reviews.
+      VERIFICATION_KEYS = %i[status by reason context].freeze
+
       def apply_verification(record, verification)
-        status, by = verification.to_h.symbolize_keys.values_at(:status, :by)
+        verification = verification.to_h.symbolize_keys
+        unknown = verification.keys - VERIFICATION_KEYS
+        raise Invalid, "unknown verification keys: #{unknown.join(", ")}" if unknown.any?
+
+        status, by = verification.values_at(:status, :by)
         return if record.verification_status == status.to_s && record.verified_by == by
 
+        record.verification_reason = verification[:reason]
+        record.verification_context = verification[:context]
         record.update!(verification_status: status, verified_by: by, verified_at: status.to_s == "pending" ? nil : Time.current)
       end
   end

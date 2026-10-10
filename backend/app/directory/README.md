@@ -100,10 +100,31 @@ and quote, so writing the same item again updates it and never duplicates it.
 
 ### Verification
 
-`verification: { status: "verified", by: "human:tosin" }`. Status is
-`pending`, `verified` or `rejected`. `by` names who decided: `human:<name>` or
-`agent:verifier/<model>`. Re-applying the same decision keeps the original
-`verified_at`. Only verified facts are public.
+`verification: { status: "verified", by: "human:tosin", reason: "…", context: { … } }`.
+Status is `pending`, `verified`, `rejected` or `unpublished`. `by` names who
+decided: `human:<name>` or `agent:verifier/<model>`. `reason` and `context`
+(e.g. `{ "candidate_id" => 12, "crawl_run_id" => 4 }`) are optional and go
+into the audit trail. Re-applying the same decision keeps the original
+`verified_at` and records nothing new. Only verified facts are public.
+
+- **Unpublished** is a human taking a fact off the site (who and when are in
+  `verified_by` / `verified_at`). Like `rejected`, it's a closed decision:
+  automated writers (`protect_human_verified: true`) can't change the fact at
+  all, and match sends a candidate citing it to review ("…which was
+  unpublished by human:tosin on 2026-10-10"). A human republishes by writing
+  `status: "verified"` again.
+- **Human actions** (approve, unpublish, republish) are written *without*
+  `protect_human_verified`: the human is the authority.
+
+### Audit trail
+
+Every change of a fact's verification is recorded in `verification_events`
+(who, when, from → to, reason, context), append-only. Read it with:
+
+```ruby
+Directory::Lookup.verification_history(type: "Organization", id: 12)
+# => [VerificationEventRef(from_status:, to_status:, by:, reason:, context:, at:), …] newest first
+```
 
 ### Confidence
 
