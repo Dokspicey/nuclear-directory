@@ -9,12 +9,7 @@ hq: null
 country_code: US
 status: active
 roles: []
-technologies:
-- key: smr
-  source_url: https://public-inspection.federalregister.gov/2026-10073.pdf
-  quote: If approved, the CP would authorize the construction of four Xe-100
-  published: 2026-05
-  confidence: 1.0
+technologies: []
 relationships: []
 facilities:
 - name: Long Mott Generating Station

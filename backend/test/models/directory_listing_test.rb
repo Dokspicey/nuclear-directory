@@ -102,15 +102,29 @@ class DirectoryListingTest < ActiveSupport::TestCase
     assert_nil DirectoryListing.new(category: "plants", technology: "molten_salt").technology
   end
 
-  test "state options come from companies and public sites, not units" do
+  test "state options come from companies and verified sites, not units or a pending site's own place" do
     plant("Unit In Nevada", parent: @vogtle, state: "NV")
     pending_site = plant("Pending Station", verified: false, state: "OR")
     plant("Pending Unit 1", parent: pending_site)
 
     options = DirectoryListing.new(category: "plants").state_options
     assert_not_includes options, "NV"
-    assert_includes options, "OR"
-    assert_equal [ "Pending Station" ], DirectoryListing.new(category: "plants", state: "OR").plants.map(&:name)
+    assert_not_includes options, "OR"
+    assert_includes options, "GA"
+    assert_nil DirectoryListing.new(category: "plants", state: "OR").state
+  end
+
+  test "a pending site's own technology doesn't match; its verified unit's does" do
+    fusion = technology("fusion_magnetic", "Magnetic confinement")
+    plant("Pending Fusion", verified: false, technology: fusion).tap { |site| plant("Pending Fusion Unit", parent: site) }
+    shown = plant("Shown Site", verified: false).tap { |site| plant("Shown Unit", parent: site, technology: fusion) }
+
+    assert_equal [ shown.name ], DirectoryListing.new(category: "plants", technology: "fusion_magnetic").plants.map(&:name)
+    assert_equal [ shown.name ], DirectoryListing.new(q: "magnetic").plants.map(&:name)
+
+    own_only = technology("pebble_bed", "Pebble bed")
+    plant("Pebble Site", verified: false, technology: own_only).tap { |site| plant("Pebble Unit", parent: site) }
+    assert_not_includes DirectoryListing.new(category: "plants").technology_options.map(&:last), "pebble_bed"
   end
 
   test "a rejected site never appears, even with a verified unit" do
@@ -168,6 +182,25 @@ class DirectoryListingTest < ActiveSupport::TestCase
     assert_includes search.state_options, "CA"
   end
 
+  test "a link on a pending site itself doesn't make the site searchable" do
+    site = plant("Quiet Site", verified: false).tap { |s| plant("Quiet Unit", parent: s) }
+    FacilityRelationship.create!(organization: @kairos, facility: site, relationship_type: "owns", verification_status: "verified", verified_by: "human:test", description: "Zebra deal.")
+
+    assert_empty DirectoryListing.new(q: "zebra").plants
+  end
+
+  test "search ignores unsourced and ended links, which plant pages hide" do
+    unsourced = FacilityRelationship.find_by!(facility: @unit)
+    unsourced.update!(description: "Yak deal.")
+    assert_empty DirectoryListing.new(q: "yak").plants
+
+    unsourced.evidence.create!(source: default_source, found_by: "human", confidence: 1)
+    assert_equal [ "Plant Vogtle" ], DirectoryListing.new(q: "yak").plants.map(&:name)
+
+    unsourced.update!(ended_on: Date.new(2020, 1, 1))
+    assert_empty DirectoryListing.new(q: "yak").plants
+  end
+
   test "a parent technology filter includes its sub-technologies" do
     assert_equal [ "Kairos Power" ], names(DirectoryListing.new(technology: "fission"))
   end
@@ -177,7 +210,7 @@ class DirectoryListingTest < ActiveSupport::TestCase
   end
 
   test "search matches plant link descriptions, finding the company and the site" do
-    FacilityRelationship.find_by!(facility: @unit).update!(description: "Co-owned with MEAG Power.")
+    cite!(FacilityRelationship.find_by!(facility: @unit)).update!(description: "Co-owned with MEAG Power.")
     listing = DirectoryListing.new(q: "meag")
 
     assert_equal [ "Kairos Power" ], names(listing)

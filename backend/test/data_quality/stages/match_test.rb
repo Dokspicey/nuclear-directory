@@ -336,7 +336,7 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
   test "brand checks read the plant names once per run, and again after a facility is written" do
     lookup = SimpleDelegator.new(Directory::Lookup)
     reads = 0
-    lookup.define_singleton_method(:plant_names) { reads += 1; __getobj__.plant_names }
+    lookup.define_singleton_method(:plant_names) { |owners: []| reads += 1; __getobj__.plant_names(owners:) }
     client = DataQuality::DirectoryClient.new(lookup:)
 
     client.same_brand_organizations("NextEra Energy Seabrook, LLC")
@@ -350,6 +350,17 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
       crawl_run: Struct.new(:id).new(nil))
     client.brand_name("NextEra Energy Seabrook, LLC")
     assert_equal 3, reads, "company names change which short forms count as plants"
+  end
+
+  test "a company proposed in the same run counts as an owner, whatever the order" do
+    candidate("organization", { "name" => "Acme Urenco Eunice, LLC" })
+    candidate("organization", { "name" => "Urenco Eunice" })
+    candidate("facility", { "name" => "Urenco Eunice Enrichment Plant", "facility_type" => "enrichment" })
+
+    match!
+
+    assert Organization.exists?(name: "Acme Urenco Eunice, LLC"),
+      "Urenco Eunice is a company in this run, so it is the plant's owner, not a plant name to strip"
   end
 
   test "a plant proposed in the same run is known when companies are matched" do

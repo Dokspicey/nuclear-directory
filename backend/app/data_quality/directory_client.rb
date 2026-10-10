@@ -34,6 +34,7 @@ class DataQuality::DirectoryClient
   LINK_ENDS = %w[organization facility from_organization to_organization].freeze
 
   def initialize(lookup: nil, fact_writer: nil)
+    @owner_hints = []
     @lookup = lookup
     @fact_writer = fact_writer
   end
@@ -78,6 +79,15 @@ class DataQuality::DirectoryClient
   # Organizations that are the same brand as name (legal-entity variants).
   def same_brand_organizations(name)
     lookup.same_brand_organizations(name, plants: plant_names).map { |ref| record("Organization", ref) }
+  end
+
+  # Company names coming up in this run, so the brand rule treats them as
+  # owners from the start, whatever order the candidates are matched in.
+  attr_reader :owner_hints
+
+  def owner_hints=(names)
+    @owner_hints = Array(names).compact_blank.uniq
+    @plant_names = nil
   end
 
   # The brand a per-plant or regional company name stands for
@@ -215,7 +225,7 @@ class DataQuality::DirectoryClient
     def fact_writer = @fact_writer ||= "Directory::FactWriter".constantize
 
     # Read once and reused for every brand check, until a facility or company is written.
-    def plant_names = @plant_names ||= lookup.plant_names
+    def plant_names = @plant_names ||= lookup.plant_names(owners: owner_hints)
 
     def record(type, ref)
       Record.new(type:, id: ref.id, name: ref.name, domain: ref.try(:domain), nrc_docket: ref.try(:nrc_docket), parent_id: ref.try(:parent_id),

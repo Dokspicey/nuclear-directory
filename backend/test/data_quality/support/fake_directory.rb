@@ -28,7 +28,7 @@ module FakeDirectory
     def same_brand_organizations(name, plants: nil) = []
     def brand_name(name, plants: nil) = nil
     def brand_key(name, plants: nil) = nil
-    def plant_names = Set.new
+    def plant_names(owners: []) = Set.new
 
     def fact_state(type:, id:) = nil
     def similar_facilities(name) = []

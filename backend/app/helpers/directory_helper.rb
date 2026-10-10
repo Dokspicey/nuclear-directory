@@ -11,11 +11,11 @@ module DirectoryHelper
     "subsidiary_of" => "is a subsidiary of"
   }.freeze
 
-  # "<company> <verb> <plant>", e.g. "Westinghouse is the reactor vendor for Plant Vogtle".
+  # "<company> <verb> <plant>", e.g. "Westinghouse is the reactor developer for Plant Vogtle".
   FACILITY_RELATIONSHIP_VERBS = {
     "owns" => "owns",
     "operates" => "operates",
-    "vendor_for" => "is the reactor vendor for",
+    "vendor_for" => "is the reactor developer for",
     "offtakes_from" => "offtakes from"
   }.freeze
 
@@ -69,14 +69,13 @@ module DirectoryHelper
     [ 0.0, 1, "Low" ]
   ].freeze
 
-  # Public URLs. The plant page arrives with #43; until then its path is
-  # built here, so that issue only swaps in the route helper.
+  # Public URLs, so views link to pages without knowing the routes.
   def directory_url_for(category: nil, q: nil, **filters)
     companies_path({ category: category&.to_param, q: q.presence }.merge(filters).compact_blank)
   end
 
   def company_url_for(organization) = company_path(slug: organization.slug)
-  def plant_url_for(facility) = "/plants/#{facility.slug}"
+  def plant_url_for(facility) = plant_path(slug: facility.slug)
 
   def relationship_verb(type) = RELATIONSHIP_VERBS.fetch(type.to_s)
   def facility_relationship_verb(type) = FACILITY_RELATIONSHIP_VERBS.fetch(type.to_s)

@@ -1,6 +1,8 @@
 <%# The side panel of key facts on company and power plant pages. Locals:
     rows:        [[label, value, citations], ...]; a row with a blank value is skipped
     verified_at: when the record was last checked
+    verified:    false for a page whose own record isn't verified yet (a pending
+                 site shown for its units): the date is labelled as the units' (optional)
     correction_url: where "Report a correction" goes (optional) %>
 <% shown = rows.select { |_, value, _| value.present? } %>
 <aside class="nd-overview" aria-label="Key facts">
@@ -13,7 +15,12 @@
     </dl>
   <% end %>
   <div class="nd-overview__foot">
-    <%= render "shared/verified_badge", verified_at: local_assigns[:verified_at] %>
+    <% if local_assigns.fetch(:verified, true) %>
+      <%= render "shared/verified_badge", verified_at: local_assigns[:verified_at] %>
+    <% else %>
+      <span class="nd-badge nd-badge--pending"><%= icon("clock", size: 12) %>Site not verified yet</span>
+      <% if local_assigns[:verified_at] %><span class="type-data-sm text-ink-muted">units checked <%= data_date(verified_at) %></span><% end %>
+    <% end %>
   </div>
   <% if local_assigns[:correction_url] %>
     <p class="type-small mt-3"><%= link_to "Report a correction", correction_url, class: "nd-link nd-link--muted" %></p>
