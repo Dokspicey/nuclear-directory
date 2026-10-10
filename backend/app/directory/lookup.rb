@@ -46,7 +46,7 @@ module Directory
 
     # Facts of one kind waiting for a human's decision (verification_status
     # pending; never rejected or unpublished), oldest first, as
-    # Directory::PendingFactRefs. Page with after_id: the last id seen.
+    # an array of Directory::PendingFactRef. Page with after_id: the last id seen.
     #
     #   Directory::Lookup.pending_facts(kind: "facility_relationship", limit: 50)
     def pending_facts(kind:, after_id: nil, limit: 50)
