@@ -1,0 +1,11 @@
+<%# A list whose first few rows show and the rest sit behind "Show all"
+    (#90: only lists longer than CompanyProfile::VISIBLE_ITEMS collapse).
+    Locals: rows (rendered <li> HTML), label (e.g. "deals"). %>
+<% visible = CompanyProfile::VISIBLE_ITEMS %>
+<ul class="nd-list"><%= safe_join(rows.first(visible)) %></ul>
+<% if rows.size > visible %>
+  <details class="nd-more">
+    <summary>Show all <%= rows.size %> <%= label %></summary>
+    <ul class="nd-list"><%= safe_join(rows.drop(visible)) %></ul>
+  </details>
+<% end %>

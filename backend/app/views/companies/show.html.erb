@@ -1,0 +1,72 @@
+<%
+  p = @profile
+  role_tags = p.shown_roles.map { |r| role_label(r.role) }
+  tech_tags = p.technologies.map { |t| t.technology.name }
+  summary = p.description.presence || [ role_tags.first, place(p.hq_city, p.hq_state) ].compact.join(" in ").presence
+  content_for :title, "#{p.name} · Nuclear Directory"
+%>
+<% content_for :head do %>
+  <meta name="description" content="<%= [ p.name, summary ].compact.join(": ") %>. Deals, plants and sources.">
+  <meta property="og:type" content="profile">
+  <meta property="og:site_name" content="Nuclear Directory">
+  <meta property="og:title" content="<%= p.name %>">
+  <meta property="og:description" content="<%= summary || "Deals, plants and sources." %>">
+  <link rel="canonical" href="<%= company_url(slug: p.slug) %>">
+<% end %>
+<%= render "shared/site_header" %>
+
+<main class="nd-page">
+  <nav class="nd-crumbs" aria-label="Breadcrumb">
+    <% if p.category %><%= link_to p.category.name, directory_url_for(category: p.category), class: "nd-link nd-link--muted" %> / <% end %><span aria-current="page"><%= p.name %></span>
+  </nav>
+
+  <%= render "shared/profile_header", name: p.name, kind: :company, description: p.description,
+        citations: p.description_citations, tags: role_tags + tech_tags %>
+
+  <div class="nd-columns nd-columns--profile">
+    <div class="nd-columns__main">
+      <% if p.deals.any? %>
+        <section aria-labelledby="deals-heading">
+          <h2 id="deals-heading" class="nd-sec-h">Deals and links <small><%= p.deals.size %></small></h2>
+          <%= render "companies/collapsible_list", label: "deals",
+                rows: p.deals.map { |deal| render("companies/deal_row", deal:, profile: p) } %>
+        </section>
+      <% end %>
+
+      <% if p.plant_links.any? %>
+        <section aria-labelledby="plants-heading">
+          <h2 id="plants-heading" class="nd-sec-h">Plants and sites <small><%= p.plant_links.size %></small></h2>
+          <%= render "companies/collapsible_list", label: "plants and sites",
+                rows: p.plant_links.map { |link| render("companies/plant_link_row", link:, profile: p) } %>
+        </section>
+      <% end %>
+
+      <%= render "shared/missing_fields", fields: p.missing_fields %>
+
+      <% if p.citations.sources.any? %>
+        <section aria-labelledby="sources-heading">
+          <h2 id="sources-heading" class="nd-sec-h">Sources <small><%= p.citations.sources.size %></small></h2>
+          <%= render "shared/sources_list", sources: p.citations.sources %>
+        </section>
+      <% end %>
+    </div>
+
+    <div class="nd-columns__side">
+      <%= render "shared/overview_panel", verified_at: p.verified_at, rows: [
+            [ "Website", (link_to(p.website.sub(%r{\Ahttps?://(www\.)?}, "").chomp("/"), p.website, class: "nd-link", rel: "noopener noreferrer", target: "_blank") if p.website.present? && p.website.match?(%r{\Ahttps?://}i)), nil ],
+            [ "Also known as", p.aliases.join(", ").presence, nil ],
+            [ "Licensee", p.legal_name, nil ],
+            [ role_tags.size > 1 ? "Roles" : "Role", role_tags.join(", ").presence, p.roles.flat_map { |r| p.citations_for(r) }.uniq(&:first) ],
+            [ "Technology", tech_tags.join(", ").presence, p.technologies.flat_map { |t| p.citations_for(t) }.uniq(&:first) ],
+            [ "Headquarters", place(p.hq_city, p.hq_state), (p.citations_for(p.organization) if p.hq_city.present? || p.hq_state.present?) ],
+            [ "Founded", p.founded_year, nil ],
+            [ p.parents.size > 1 ? "Parent companies" : "Parent company",
+              (safe_join(p.parents.map { |l| link_to(l.to_organization.name, company_url_for(l.to_organization), class: "nd-link") }, ", ") if p.parents.any?),
+              p.parents.flat_map { |l| p.citations_for(l) }.uniq(&:first) ],
+            [ "Subsidiaries",
+              (safe_join(p.subsidiaries.map { |l| link_to(l.from_organization.name, company_url_for(l.from_organization), class: "nd-link") }, ", ") if p.subsidiaries.any?),
+              p.subsidiaries.flat_map { |l| p.citations_for(l) }.uniq(&:first) ]
+          ] %>
+    </div>
+  </div>
+</main>
