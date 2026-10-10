@@ -68,9 +68,15 @@ class DataQuality::Fetcher
     @last_request_at = {}
   end
 
-  def get(url, etag: nil, last_modified: nil, max_bytes: MAX_BYTES)
+  # binary: true returns the body as raw bytes (e.g. a spreadsheet) instead
+  # of converting it to UTF-8 text.
+  # Every fetch is https, on its starting host (www. or not) and on public
+  # addresses (see check_url! and public_address!). same_origin: true is
+  # stricter still: the exact starting host, no www. switch.
+  def get(url, etag: nil, last_modified: nil, max_bytes: MAX_BYTES, binary: false, same_origin: false)
     redirects = 0
     first_host = nil
+    origin = URI.parse(url).then { |start| [ start.scheme, start.host, start.port ] }
 
     loop do
       uri = URI.parse(url)
@@ -85,11 +91,16 @@ class DataQuality::Fetcher
 
       if http.is_a?(Net::HTTPRedirection) && http["Location"] && redirects < MAX_REDIRECTS
         redirects += 1
-        url = URI.join(url, http["Location"]).to_s
+        target = URI.join(url, http["Location"])
+        if same_origin && [ target.scheme, target.host, target.port ] != origin
+          return response(url, :error, status: http.code.to_i, reason: "Redirected to #{target.host}, another site; not followed")
+        end
+
+        url = target.to_s
         next
       end
 
-      return classify(url, fetched)
+      return classify(url, fetched, binary:)
     end
   rescue Refused, URI::InvalidURIError => error
     response(url, :error, reason: "Not fetched: #{error.message}")
@@ -205,13 +216,14 @@ class DataQuality::Fetcher
       @last_request_at[host] = @clock.call
     end
 
-    def classify(url, fetched)
+    def classify(url, fetched, binary: false)
       http = fetched.http
       status = http.code.to_i
 
       case status
       when 200..299
-        response(url, :ok, status:, body: body_of(fetched), etag: http["ETag"], last_modified: http["Last-Modified"],
+        body = binary ? fetched.body.b : body_of(fetched)
+        response(url, :ok, status:, body:, etag: http["ETag"], last_modified: http["Last-Modified"],
           content_type: http.content_type, truncated: fetched.truncated)
       when 304
         response(url, :not_modified, status:, etag: http["ETag"], last_modified: http["Last-Modified"])
