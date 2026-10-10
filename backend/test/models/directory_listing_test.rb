@@ -95,7 +95,7 @@ class DirectoryListingTest < ActiveSupport::TestCase
     pending_site = plant("Pending Station", verified: false, state: "OR")
     plant("Pending Unit 1", parent: pending_site)
 
-    options = DirectoryListing.new.state_options
+    options = DirectoryListing.new(category: "plants").state_options
     assert_not_includes options, "NV"
     assert_includes options, "OR"
     assert_equal [ "Pending Station" ], DirectoryListing.new(category: "plants", state: "OR").plants.map(&:name)
@@ -111,9 +111,49 @@ class DirectoryListingTest < ActiveSupport::TestCase
   test "technologies used only by plants are filter options, and coolants aren't offered for plants" do
     plant("Orion", technology: technology("fusion_magnetic", "Magnetic confinement"))
 
-    assert_includes DirectoryListing.new.technology_options.map(&:last), "fusion_magnetic"
+    assert_includes DirectoryListing.new(category: "plants").technology_options.map(&:last), "fusion_magnetic"
     assert_equal "fusion_magnetic", DirectoryListing.new(category: "plants", technology: "fusion_magnetic").technology
     assert_not_includes DirectoryListing.new(category: "plants").technology_options.map(&:last), "molten_salt"
+  end
+
+  test "filter options come only from companies and plants the public can see" do
+    hidden_tech = technology("pebble_bed", "Pebble bed")
+    company("Pending Pebbles", techs: [ hidden_tech ], verified: false)
+    rejected = Facility.create!(name: "Rejected Site", verification_status: "rejected")
+    plant("Rejected Unit", parent: rejected, technology: technology("sfr", "Sodium fast reactor"))
+    OrganizationRole.create!(organization: @pending, role: role("lead_coolant", parent: Role.find_by!(key: "coolant")), verification_status: "verified")
+
+    options = DirectoryListing.new.technology_options.map(&:last)
+    assert_not_includes options, "pebble_bed"
+    assert_not_includes options, "sfr"
+    assert_not_includes options, "lead_coolant"
+    assert_includes options, "molten_salt"
+  end
+
+  test "searching a technology finds plants of that technology, through the site or a unit" do
+    site = plant("Fermi America", technology: Technology.find_by!(key: "smr"))
+    plant("Clinch River", verified: false).tap do |river|
+      plant("Clinch River Unit 1", parent: river, technology: Technology.find_by!(key: "smr"))
+    end
+
+    assert_equal [ "Clinch River", site.name ], DirectoryListing.new(q: "SMR").plants.map(&:name).sort
+  end
+
+  test "filter options come only from the kinds of record the listing shows" do
+    plant("Orion", state: "NM", technology: technology("fusion_magnetic", "Magnetic confinement"))
+
+    companies_page = DirectoryListing.new
+    assert_not_includes companies_page.technology_options.map(&:last), "fusion_magnetic"
+    assert_not_includes companies_page.state_options, "NM"
+
+    plants_page = DirectoryListing.new(category: "plants")
+    assert_includes plants_page.technology_options.map(&:last), "fusion_magnetic"
+    assert_not_includes plants_page.technology_options.map(&:last), "smr"
+    assert_not_includes plants_page.state_options, "CA"
+
+    search = DirectoryListing.new(q: "o")
+    assert_includes search.technology_options.map(&:last), "fusion_magnetic"
+    assert_includes search.state_options, "CA"
   end
 
   test "a parent technology filter includes its sub-technologies" do
@@ -144,6 +184,21 @@ class DirectoryListingTest < ActiveSupport::TestCase
 
     assert_equal 2, site.units_count
     assert_equal 2234, site.units_capacity_mw
+  end
+
+  test "search puts name matches before matches through roles or deals" do
+    Relationship.find_by!(from_organization: @amazon).update!(description: "Backs Kairos with equity.")
+    company("Akairos Labs")
+
+    assert_equal [ "Kairos Power", "Akairos Labs", "Amazon" ], names(DirectoryListing.new(q: "kairos"))
+  end
+
+  test "an alias that starts with the query ranks with name matches" do
+    Relationship.find_by!(from_organization: @amazon).update!(description: "Backs Kairos with equity.")
+    company("Akairos Labs")
+    company("Zephyr Energy", aliases: [ "Kairos Fuel Co" ])
+
+    assert_equal [ "Kairos Power", "Zephyr Energy", "Akairos Labs", "Amazon" ], names(DirectoryListing.new(q: "kairos"))
   end
 
   test "search within a category" do
@@ -198,6 +253,6 @@ class DirectoryListingTest < ActiveSupport::TestCase
 
     assert_equal [ [ "Small modular reactor", "smr" ], [ "Molten salt coolant", "molten_salt" ] ],
       listing.technology_options.select { |_, key| %w[smr molten_salt].include?(key) }
-    assert_equal %w[CA GA MD], listing.state_options
+    assert_equal %w[CA MD], listing.state_options
   end
 end

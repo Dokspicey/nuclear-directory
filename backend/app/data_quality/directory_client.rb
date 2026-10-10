@@ -123,11 +123,11 @@ class DataQuality::DirectoryClient
   # After a unit is verified, fills its site's blank fields (state, type,
   # status) from the unit, with the unit's quote as evidence. Never
   # overwrites a field the site already has, and leaves the site's
-  # verification alone. Returns a WriteResult, or nil when the unit has no site
-  # or the site has nothing blank to fill. Only the site's blank fields are
-  # sent, so the quote is evidence just for what it fills, and the write is
-  # protected like any automated one: a site a human rejected isn't changed
-  # (the result has an error).
+  # verification alone. Returns nil when the unit has no site or nothing is
+  # left to fill, else a WriteResult: success; an error when a human rejected
+  # the site; or a conflict when the unit disagrees with a value a human
+  # recorded for the site (nothing written, even if no field was blank). The
+  # quote is evidence just for the fields it fills.
   # The values come from the unit as stored, not from the candidate, since
   # a curated unit may have kept its own values over the candidate's.
   # Only a unit that ended up verified speaks for its site (a human may have
