@@ -323,7 +323,8 @@
      (phones, tablets, #90). From 960px both columns always fit (560 + 280 +
      48 gap + gutters), and a grid places key facts on the right; below that
      the columns stack in page order, so focus order matches what's seen. */
-  .nd-columns--profile { display: flex; flex-direction: column; }
+  .nd-columns--profile { display: flex; flex-direction: column; align-items: stretch; }
+  .nd-columns--profile .nd-columns__side, .nd-columns--profile .nd-columns__main { flex: none; }
   .nd-columns--profile .nd-columns__side, .nd-columns--profile .nd-overview { max-width: none; }
   @media (min-width: 960px) {
     .nd-columns--profile { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 340px); }
