@@ -47,6 +47,11 @@ class DataQuality::Stages::Verify < DataQuality::Stage
     def fill_site(candidate, unit_id, run, stats)
       result = directory.fill_site_from_unit(unit_id, candidate, crawl_run: run)
       return if result.nil? || result.success?
+      # The unit disagrees with what a human recorded for its site: published,
+      # but a human should look (e.g. NRC's state is a nearby city's).
+      if result.conflict?
+        return send_to_review(candidate, "Published, but its site disagrees: #{result.errors.join('; ')}", stats)
+      end
 
       stats["site_not_filled"] = stats.fetch("site_not_filled", 0) + 1
       candidate.update!(notes: [ candidate.notes, "Site not filled: #{result.errors.join('; ')}" ].compact_blank.join(". "))

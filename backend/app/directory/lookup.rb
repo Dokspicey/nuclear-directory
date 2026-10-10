@@ -122,6 +122,9 @@ module Directory
     # "Duke Energy Carolinas, LLC" => "duke". nil when too short to trust.
     def brand_key(name, plants: plant_names)
       words = brand_words(name, plants)
+      # Nothing but legal or operating words ("Nuclear Energy LLC") is no brand.
+      return if words.all? { |word| ENTITY_WORDS.include?(word) }
+
       key = words.join(" ")
       key if key.delete(" ").length >= MIN_BRAND_KEY_LENGTH
     end
