@@ -11,8 +11,10 @@ class DataQuality::DirectoryClient
   # type is what candidates store in subject_type.
   Ref = Data.define(:type, :id)
   # What a lookup found: enough to match on and to explain a match.
-  Record = Data.define(:type, :id, :name, :nrc_docket, :parent_id, :facility_type, :status, :state, :country_code) do
+  Record = Data.define(:type, :id, :name, :nrc_docket, :parent_id, :facility_type, :status, :state, :country_code,
+    :verification_status) do
     def ref = Ref.new(type:, id:)
+    def rejected? = verification_status == "rejected"
   end
   WriteResult = Data.define(:ref, :errors, :created) do
     def initialize(ref:, errors:, created: false) = super
@@ -67,6 +69,8 @@ class DataQuality::DirectoryClient
   def write_fact(candidate, confidence:, crawl_run:)
     attributes = candidate.payload.except(*LINK_ENDS).symbolize_keys
     attributes[:id] = candidate.subject_id if candidate.subject_id
+    # The name it was found under becomes an alias only once a verdict accepts it.
+    attributes[:aliases] = [ *attributes[:aliases], attributes[:name] ].compact_blank.uniq if candidate.kind == "organization"
 
     result = fact_writer.write(
       candidate.kind,
@@ -123,7 +127,7 @@ class DataQuality::DirectoryClient
     def record(type, ref)
       Record.new(type:, id: ref.id, name: ref.name, nrc_docket: ref.try(:nrc_docket), parent_id: ref.try(:parent_id),
         facility_type: ref.try(:facility_type), status: ref.try(:status), state: ref.try(:state),
-        country_code: ref.try(:country_code)) if ref
+        country_code: ref.try(:country_code), verification_status: ref.verification_status) if ref
     end
 
     def write_result(result)

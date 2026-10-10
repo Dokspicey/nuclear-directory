@@ -160,14 +160,28 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
     assert_equal "TerraPower", terrapower.name
   end
 
-  test "an organization matched by domain under another name gains that name as an alias" do
+  test "the name a match was found under becomes an alias only once it's published" do
     c = candidate("organization", { "name" => "TP Nuclear Holdings", "domain" => "terrapower.com" })
 
     match!
 
     assert_equal organizations(:terrapower).id, c.reload.subject_id
     assert_match "by domain", c.notes
+    assert_nil Directory::Lookup.organization(name: "TP Nuclear Holdings"), "not yet: the match might be rejected"
+
+    DataQuality::Stages::Verify.call(plugin: DummyPlugin.new, verifier: PublishEverything.new)
     assert_equal organizations(:terrapower).id, Directory::Lookup.organization(name: "TP Nuclear Holdings").id
+  end
+
+  test "a record that was rejected is never attached to" do
+    rejected = Directory::FactWriter.write(:organization, { name: "Imaginary Fission Co" }).id
+    Organization.find(rejected).reject!(by: "agent:verifier/x")
+    c = candidate("organization", { "name" => "Imaginary Fission Co" })
+
+    match!
+
+    assert c.reload.status_needs_review?
+    assert_match "which was rejected", c.notes
   end
 
   test "name and domain pointing at different organizations goes to review" do

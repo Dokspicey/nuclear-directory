@@ -34,13 +34,14 @@ class DataQuality::PipelineTest < ActiveSupport::TestCase
     assert_equal 1001, created.subject_id, "verify publishes the record match proposed"
 
     match_writes, verify_writes = @writer.writes.partition { |write| write[:verification].nil? }
-    assert_equal [ { id: 7, aliases: [ "Acme Nuclear" ] }, { name: "NewCo Fission" } ], match_writes.map { |w| w[:attributes] },
+    assert_equal [ { id: 7 }, { name: "NewCo Fission" } ], match_writes.map { |w| w[:attributes] },
       "match attaches to the existing record and proposes the new one, both pending"
 
     assert_equal 2, verify_writes.size
     write = verify_writes.first
     assert_equal "organization", write[:kind]
-    assert_equal({ name: "Acme Nuclear", id: 7 }, write[:attributes], "a matched candidate updates its record")
+    assert_equal({ name: "Acme Nuclear", id: 7, aliases: [ "Acme Nuclear" ] }, write[:attributes],
+      "a published match updates its record and keeps the name it was found under")
     evidence = write[:evidence].sole
     assert_equal "crawler", evidence[:found_by]
     assert_equal existing.source_id, evidence[:source_id]

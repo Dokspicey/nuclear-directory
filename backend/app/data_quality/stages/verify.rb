@@ -42,15 +42,17 @@ class DataQuality::Stages::Verify < DataQuality::Stage
       end
     end
 
-    # A rejected candidate whose record match created (a proposal) takes that
-    # record with it, unless another live candidate is attached to it too. A
-    # rejected candidate attached to an existing record leaves it alone.
+    # When the last live candidate attached to a record match created (a
+    # proposal) is rejected, the proposal is retired. Which candidate created
+    # it doesn't matter. A record that existed before match is left alone.
     def retire_proposal(candidate, run)
-      return unless candidate.proposed_subject? && candidate.subject_id
+      return unless candidate.subject_id
 
-      others = Candidate.where(subject_type: candidate.subject_type, subject_id: candidate.subject_id)
-        .where.not(id: candidate.id).where(status: %w[new matched merged needs_review])
-      directory.retire(candidate, crawl_run: run) unless others.exists?
+      attached = Candidate.where(subject_type: candidate.subject_type, subject_id: candidate.subject_id)
+      return unless attached.where(proposed_subject: true).exists?
+      return if attached.where.not(id: candidate.id).where(status: %w[new matched merged needs_review]).exists?
+
+      directory.retire(candidate, crawl_run: run)
     end
 
     def send_to_review(candidate, reason, stats)

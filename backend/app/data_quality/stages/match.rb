@@ -84,9 +84,8 @@ class DataQuality::Stages::Match < DataQuality::Stage
       case (found = resolve(candidate.kind.to_sym, payload))
       when Review then review(candidate, found.reason)
       when Found
-        attributes = { id: found.record.id }
-        attributes[:aliases] = [ payload["name"] ] if candidate.kind_organization? && payload["name"].present?
-        write(candidate, attributes, existing: true, note: "Matched existing #{found.record.name} (by #{found.by})")
+        # Attach only; the name it was found under becomes an alias if and when it's published.
+        write(candidate, { id: found.record.id }, existing: true, note: "Matched existing #{found.record.name} (by #{found.by})")
       when Under
         write(candidate, payload.symbolize_keys.merge(parent_id: found.site.id), existing: false,
           note: "New pending unit under the existing site #{found.site.name}")
@@ -121,9 +120,14 @@ class DataQuality::Stages::Match < DataQuality::Stage
       write(candidate, attributes)
     end
 
-    # Found, Review or nil (nothing like it exists).
+    # Found, Review or nil (nothing like it exists). A record that was rejected
+    # (a retired proposal, or one a human turned down) is never attached to:
+    # the candidate goes to review instead.
     def resolve(type, payload)
-      type == :organization ? resolve_organization(payload) : resolve_facility(payload)
+      found = type == :organization ? resolve_organization(payload) : resolve_facility(payload)
+      return found unless found.is_a?(Found) && found.record.rejected?
+
+      Review.new("matches #{found.record.name} (by #{found.by}), which was rejected. The same thing again, or a new record?")
     end
 
     def resolve_organization(payload)

@@ -48,6 +48,26 @@ class DataQuality::Stages::VerifyTest < ActiveSupport::TestCase
     assert Organization.find(first.subject_id).pending?
   end
 
+  test "a shared proposal is retired when its last candidate is rejected, whichever created it" do
+    first, second = 2.times.map { candidate("organization", { "name" => "Imaginary Fission Co" }) }
+    run_stage("match")
+    assert_equal [ true, false ], [ first, second ].map { |c| c.reload.proposed_subject? }
+
+    run_stage("verify", verifier: RejectEverything.new)
+
+    assert Organization.find(first.subject_id).rejected?
+  end
+
+  test "a rejected match leaves no alias behind" do
+    c = candidate("organization", { "name" => "TP Nuclear Holdings", "domain" => "terrapower.com" })
+    run_stage("match")
+    assert_equal organizations(:terrapower).id, c.reload.subject_id
+
+    run_stage("verify", verifier: RejectEverything.new)
+
+    assert_nil Directory::Lookup.organization(name: "TP Nuclear Holdings")
+  end
+
   test "a link's details arrive when it's published, not at match" do
     candidate("organization", { "name" => "Example Operating Co" })
     candidate("facility", { "name" => "Example 1", "nrc_docket" => "05000999", "facility_type" => "power_reactor" })
