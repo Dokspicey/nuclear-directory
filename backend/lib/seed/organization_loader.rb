@@ -81,11 +81,12 @@ module Seed
       end
 
       # A legal name is public only when one of the file's quotes states it
-      # word for word; otherwise it's left blank rather than shown unsourced.
-      def quoted_legal_name(doc)
+      # word for word (that quote is then its evidence); otherwise it's left
+      # blank, and isn't loaded as an alias either, rather than shown
+      # unsourced.
+      def legal_name_item(doc)
         name = doc["legal_name"].presence or return
-        quotes = evidence_items(doc).flat_map { |item| [ item["quote"], *Array(item["also"]).map { |extra| extra["quote"] } ] }
-        name if quotes.compact.any? { |quote| quote.include?(name) }
+        evidence_items(doc).find { |item| item["quote"].to_s.include?(name) }
       end
 
       def read(path) = YAML.safe_load_file(path, permitted_classes: [ Date ])
@@ -104,14 +105,17 @@ module Seed
       def write_organization(slug, doc, sources, shared)
         hq = hq_entries(doc)
         description = doc["description"] || {}
+        legal = legal_name_item(doc)
         attributes = {
-          name: doc["name"], slug: slug, legal_name: quoted_legal_name(doc), website: doc["website"], aliases: doc["aliases"],
+          name: doc["name"], slug: slug, legal_name: (doc["legal_name"] if legal), website: doc["website"],
+          aliases: legal ? doc["aliases"] : Array(doc["aliases"]) - [ doc["legal_name"] ],
           country_code: doc["country_code"], status: doc["status"], description: description["text"],
           hq_city: hq.filter_map { |entry| entry["city"].presence }.last, hq_state: hq.filter_map { |entry| entry["state"].presence }.last
         }
         attributes[:domain] = nil if shared.include?(Organization.domain_from(doc["website"]))
 
-        write(slug, :organization, attributes, [ *hq, *description_items(doc) ].filter_map { |item| evidence(item, sources) })
+        items = [ *hq, *description_items(doc), legal ].compact.uniq
+        write(slug, :organization, attributes, items.filter_map { |item| evidence(item, sources) })
       end
 
       def write_facts(slug, doc, sources)
