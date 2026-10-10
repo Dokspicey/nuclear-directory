@@ -105,6 +105,131 @@ class Directory::FactWriterTest < ActiveSupport::TestCase
     assert_equal "Owned via subsidiary US SFR Owner.", FacilityRelationship.find(link.id).description
   end
 
+  test "fill_blank sets only fields that are blank on an existing record" do
+    site = facilities(:vogtle)
+    site.update!(state: "GA")
+
+    result = write(:facility, { id: site.id, state: "TX", status: "operating" }, fill_blank: true)
+
+    assert result.ok?
+    site.reload
+    assert_equal [ "GA", "operating" ], [ site.state, site.status ]
+  end
+
+  test "protect_human_verified fills blanks when the values agree, and keeps a human's decision" do
+    site = facilities(:vogtle)
+    site.update!(state: "GA")
+    site.verify!(by: "human:tosin")
+
+    result = write(:facility, { id: site.id, state: "GA", status: "operating" }, protect_human_verified: true,
+      evidence: [ @evidence ], verification: { status: "verified", by: "agent:verifier/x" })
+
+    assert result.ok?
+    site.reload
+    assert_equal [ "GA", "operating" ], [ site.state, site.status ]
+    assert_equal "human:tosin", site.verified_by
+    assert_equal 1, site.evidence.count
+  end
+
+  test "protect_human_verified reports a disagreement and writes nothing" do
+    site = facilities(:vogtle)
+    site.update!(state: "NJ", capacity_mw: 1150)
+    site.verify!(by: "human:tosin")
+
+    result = write(:facility, { id: site.id, state: "DE", capacity_mw: "1150.0", city: "Waynesboro" },
+      protect_human_verified: true, evidence: [ @evidence ])
+
+    assert_not result.ok?
+    assert result.conflict?
+    assert_equal({ "state" => [ "NJ", "DE" ] }, result.conflicts, "equal numbers in another form aren't a conflict")
+    assert_equal site.id, result.id
+    site.reload
+    assert_nil site.city, "not even the blanks are filled"
+    assert_empty site.evidence
+  end
+
+  test "a rejected fact isn't changed by an automated write, whoever rejected it" do
+    org = organizations(:terrapower)
+    org.reject!(by: "agent:verifier/x")
+
+    result = write(:organization, { id: org.id, hq_city: "Bellevue" }, protect_human_verified: true, evidence: [ @evidence ],
+      verification: { status: "verified", by: "agent:verifier/x" })
+
+    assert_not result.ok?
+    assert_match "was rejected by agent:verifier/x", result.errors.join
+    org.reload
+    assert org.rejected?
+    assert_nil org.hq_city
+    assert_empty org.evidence
+  end
+
+  test "websites agree when their domains do; unreadable ones only when identical" do
+    org = organizations(:terrapower)
+    org.update!(website: "https://www.terrapower.com/about")
+    org.verify!(by: "human:tosin")
+
+    same = write(:organization, { id: org.id, website: "https://terrapower.com/news" }, protect_human_verified: true)
+    assert same.ok?, same.errors.inspect
+
+    org.update_column(:website, "https://bad host one")
+    identical = write(:organization, { id: org.id, website: "https://bad host one" }, protect_human_verified: true)
+    assert identical.ok?, identical.errors.inspect
+    clash = write(:organization, { id: org.id, website: "https://bad host two" }, protect_human_verified: true)
+    assert_equal({ "website" => [ "https://bad host one", "https://bad host two" ] }, clash.conflicts)
+  end
+
+  test "names never count as conflicts" do
+    org = organizations(:terrapower)
+    org.verify!(by: "human:tosin")
+
+    assert write(:organization, { id: org.id, name: "TerraPower, LLC" }, protect_human_verified: true).ok?
+    assert_equal "TerraPower", org.reload.name
+  end
+
+  test "values equal once the model normalizes them aren't conflicts" do
+    site = facilities(:vogtle)
+    site.update!(country_code: "US", nrc_docket: "05000424")
+    site.verify!(by: "human:tosin")
+
+    assert write(:facility, { id: site.id, country_code: " us ", nrc_docket: " 05000424 " }, protect_human_verified: true).ok?
+  end
+
+  test "a site fill rechecks the unit and the site's blanks with both locked" do
+    site = facilities(:vogtle)
+    site.update!(state: nil, status: "operating")
+    unit = Facility.create!(name: "Vogtle 3", parent: site, state: "GA", status: "planned")
+    fill = -> { Directory::FactWriter.fill_site_from_unit(unit.id, fields: %w[state status], evidence: [ @evidence ]) }
+
+    unit.reject!(by: "human:tosin")
+    assert_nil fill.call, "a unit that isn't verified (any more) fills nothing"
+
+    unit.verify!(by: "human:tosin")
+    assert fill.call.ok?
+    site.reload
+    assert_equal [ "GA", "operating" ], [ site.state, site.status ], "only the blank field is filled"
+    assert_nil fill.call, "nothing left to fill"
+  end
+
+  test "no automated unit under a rejected site, checked inside the write" do
+    site = facilities(:vogtle)
+    site.reject!(by: "human:tosin")
+
+    result = write(:facility, { name: "Vogtle 3", nrc_docket: "05200025", parent_id: site.id }, protect_human_verified: true)
+
+    assert_match "site #{site.name} was rejected by human:tosin; no units under it", result.errors.join
+    assert_not Facility.exists?(nrc_docket: "05200025")
+    assert write(:facility, { name: "Vogtle 3", nrc_docket: "05200025", parent_id: site.id }).ok?, "a human may still"
+  end
+
+  test "protect_human_verified doesn't hold back records no human has reviewed" do
+    site = facilities(:vogtle)
+    site.update!(state: "GA")
+
+    write(:facility, { id: site.id, state: "AL" }, protect_human_verified: true, verification: { status: "verified", by: "agent:verifier/x" })
+
+    assert_equal [ "AL", "agent:verifier/x" ], [ site.reload.state, site.verified_by ]
+  end
+
   test "returns errors instead of raising" do
     org_id = organizations(:terrapower).id
 

@@ -38,6 +38,16 @@ Directory::Lookup.facility(name: "Plant Vogtle Units 3 & 4")  # case-insensitive
 Every verification status is returned, so check `verification_status` before
 treating a match as public.
 
+```ruby
+Directory::Lookup.similar_facilities("Vogtle 3")                       # => [FacilityRef, …] (up to 10)
+Directory::Lookup.similar_organizations("Southern Nuclear Operating Co.")
+```
+
+These find likely duplicates that an exact lookup misses: records that share
+the same leading distinctive word, ignoring unit numbers and generic words
+like "nuclear", "station" or "company". Used to send a candidate to review
+instead of creating a duplicate.
+
 Names are compared after `OrganizationAlias.normalize`: lowercased, `&` becomes
 "and", punctuation removed, trailing Inc / LLC / Co / Corp / Ltd and similar
 dropped. "TerraPower, LLC" and "terrapower" match.
@@ -75,6 +85,12 @@ Pass `id:` to update a fact you already know. Get ids for other records from
 - **Relationship types**: `supplies`, `invests_in` (equity), `funds` (grants
   and awards), `offtake_with`, `subsidiary_of` (child → parent).
 - **Facility link types**: `owns`, `operates`, `vendor_for`, `offtakes_from`.
+
+### Filling blanks
+
+`fill_blank: true` sets only the attributes that are blank on an existing
+row and leaves the rest alone, e.g. to complete a site's state and status
+from one of its units without overwriting what's already there.
 
 ### Evidence
 

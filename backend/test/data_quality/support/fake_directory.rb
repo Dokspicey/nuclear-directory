@@ -19,8 +19,13 @@ module FakeDirectory
     def facility(id: nil, slug: nil, name: nil, nrc_docket: nil)
       one_of!(id:, slug:, name:, nrc_docket:)
       Directory::FacilityRef.new(id: @facilities[name], slug: nil, name: name, nrc_docket: nil, parent_id: nil,
-        verification_status: "verified") if @facilities.key?(name)
+        verification_status: "verified", facility_type: nil, status: nil, state: nil, country_code: nil,
+        latitude: nil, longitude: nil) if @facilities.key?(name)
     end
+
+    # The fake knows nothing similar; match tests that need it use the real directory.
+    def similar_organizations(name) = []
+    def similar_facilities(name) = []
 
     private
       # Same rule as the real Lookup.
@@ -38,13 +43,16 @@ module FakeDirectory
       @next_id = 1000
     end
 
-    def write(kind, attributes, evidence: [], verification: nil)
-      @writes << { kind:, attributes:, evidence:, verification: }
+    def write(kind, attributes, evidence: [], verification: nil, fill_blank: false, protect_human_verified: false)
+      @writes << { kind:, attributes:, evidence:, verification:, fill_blank: }
       return Directory::FactWriter::Result.new(kind: kind.to_sym, id: nil, created: false, errors: [ @fail_with ]) if @fail_with
 
       id = attributes[:id] || (@next_id += 1)
       Directory::FactWriter::Result.new(kind: kind.to_sym, id: id, created: !attributes[:id], errors: [])
     end
+
+    # The fake directory has no sites to fill.
+    def fill_site_from_unit(unit_id, fields:, evidence:) = nil
   end
 
   def self.client(lookup: Lookup.new, fact_writer: FactWriter.new)
