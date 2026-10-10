@@ -77,9 +77,13 @@ class DataQuality::Stages::Verify < DataQuality::Stage
       when :publish then recommend(candidate, verdict, run, stats, model:)
       when :review then send_to_review(candidate, verdict.reason, run, stats, confidence: verdict.confidence, model:)
       when :reject
-        candidate.update!(status: "rejected", notes: verdict.reason)
-        stats["rejected"] += 1
-        retire_proposal(candidate, run)
+        # Rejected only while the fact is still open, under its lock.
+        closed = directory.unless_closed(candidate) do
+          candidate.update!(status: "rejected", notes: verdict.reason)
+          stats["rejected"] += 1
+          retire_proposal(candidate, run)
+        end
+        apply(candidate, closed_hold(closed), verdict, run, stats) if closed
       end
     end
 

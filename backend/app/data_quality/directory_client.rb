@@ -47,6 +47,15 @@ class DataQuality::DirectoryClient
     record("Facility", lookup.facility(id:, name:, nrc_docket:))
   end
 
+  # Runs the block with the candidate's attached fact locked, unless it was
+  # rejected or unpublished meanwhile: then returns that fact's Record and
+  # doesn't run the block. A candidate with no fact just runs the block.
+  def unless_closed(candidate, &)
+    return yield.then { nil } unless candidate.subject_id
+
+    record(candidate.subject_type, fact_writer.while_open(type: candidate.subject_type, id: candidate.subject_id, &))
+  end
+
   # The fact a candidate is attached to (any kind, links included), with its
   # current decision, or nil when it has none. Organizations and facilities
   # come with their values, so verify can compare them; a link has only its
