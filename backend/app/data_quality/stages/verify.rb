@@ -30,6 +30,8 @@ class DataQuality::Stages::Verify < DataQuality::Stage
       stats = { "candidates" => 0, "recommended" => 0, "needs_review" => 0, "rejected" => 0,
         "quote_missing" => 0, "human_decision" => 0, "conflicts" => 0, "already_recommended" => 0, "decided_meanwhile" => 0 }
       pending = candidates.where(status: %w[new matched]).includes(:source).order(:id).to_a
+      # Enrichment still waiting for its NRC unit: nothing to verify yet.
+      pending.reject! { |candidate| candidate.status_new? && directory.enrichment?(candidate) }
       stats["candidates"] = pending.size
 
       # Code checks first; only what passes goes to the model.

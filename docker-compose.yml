@@ -34,6 +34,15 @@ services:
       db:
         condition: service_healthy
 
+  # Backup and restore tools (backup/, issue #54). Not started by `up`; used
+  # by backup/restore-latest through `docker compose run`.
+  backup:
+    build: ./backup
+    profiles: ["tools"]
+    depends_on:
+      db:
+        condition: service_healthy
+
 volumes:
   pgdata:
   bundle:

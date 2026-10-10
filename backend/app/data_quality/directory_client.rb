@@ -79,6 +79,12 @@ class DataQuality::DirectoryClient
     lookup.similar_facilities(name).map { |ref| record("Facility", ref) }
   end
 
+  # NRC units whose names fit name: in a state, or (state: nil) anywhere,
+  # by a stricter rule. Returns Records.
+  def facility_units(name:, state: nil)
+    lookup.facility_units(name:, state:).map { |ref| record("Facility", ref) }
+  end
+
   # Writes a fact the match stage found or proposed, with the candidate's
   # source as evidence (found_by: crawler). Verification is left alone, so a
   # new fact starts pending and an existing one keeps its status. A fact a
@@ -106,9 +112,14 @@ class DataQuality::DirectoryClient
   # protected: it applies the candidate's values even over a human-verified
   # fact, and records the candidate and run in the audit trail. Without by:,
   # it's the automated writer described above.
+  #
+  # An enrichment candidate (see enrichment?) sets only its values and leaves
+  # the record's verification alone, since it doesn't vouch for the record
+  # itself; even when a human approves it, it doesn't overwrite a
+  # human-verified value (that comes back as a conflict).
   def write_fact(candidate, confidence:, crawl_run:, by: nil, reason: nil)
     # The record written is the one match attached, never an id in the payload.
-    attributes = candidate.payload.except(*LINK_ENDS, "id").symbolize_keys
+    attributes = candidate.payload.except(*LINK_ENDS, ENRICHMENT_KEY, "id").symbolize_keys
     attributes[:id] = candidate.subject_id if candidate.subject_id
     if candidate.kind == "organization"
       # The name it was found under becomes an alias only once a verdict accepts
@@ -116,9 +127,10 @@ class DataQuality::DirectoryClient
       attributes[:aliases] = [ *attributes[:aliases], attributes[:name] ].compact_blank.uniq
       attributes.delete(:name) if candidate.subject_id
     end
-
+    enrichment = enrichment?(candidate)
     verification =
-      if by
+      if enrichment then nil
+      elsif by
         { status: "verified", by:, reason:, context: { "candidate_id" => candidate.id, "crawl_run_id" => crawl_run&.id } }.compact
       else
         { status: "verified", by: "agent:verifier/#{crawl_run&.model || 'unknown'}" }
@@ -126,7 +138,8 @@ class DataQuality::DirectoryClient
     evidence = [ { source_id: candidate.source_id, quote: candidate.quote, found_by: "crawler", confidence:, crawl_run_id: crawl_run&.id } ]
     return write_alias(candidate, verification:, evidence:, by:) if candidate.kind == "organization_alias"
 
-    result = fact_writer.write(candidate.kind, attributes, evidence:, verification:, protect_human_verified: by.nil?)
+    result = fact_writer.write(candidate.kind, attributes, evidence:, verification:,
+      protect_human_verified: by.nil? || enrichment)
     write_result(result)
   end
 
@@ -139,8 +152,14 @@ class DataQuality::DirectoryClient
     write_result(result)
   end
 
+  # Payload key of an enrichment candidate: how to find the existing record
+  # it adds values to. Enrichment never creates records.
+  ENRICHMENT_KEY = "identify"
+
+  def enrichment?(candidate) = candidate.payload.to_h.key?(ENRICHMENT_KEY)
+
   # Site fields a verified unit can fill in when the site has none.
-  SITE_FIELDS_FROM_UNIT = %w[state facility_type status country_code].freeze
+  SITE_FIELDS_FROM_UNIT = %w[state facility_type status country_code latitude longitude].freeze
 
   # After a unit is verified, fills its site's blank fields (state, type,
   # status) from the unit, with the unit's quote as evidence. Never
@@ -155,8 +174,14 @@ class DataQuality::DirectoryClient
   # Only a unit that ended up verified speaks for its site (a human may have
   # kept it rejected); FactWriter checks that, and which fields are blank,
   # with both records locked.
+  # Only the fields this candidate states are filled, so the site's evidence
+  # is the document that stated them (an NRC row doesn't vouch for EIA's
+  # coordinates; the EIA candidate fills those when it's published).
   def fill_site_from_unit(facility_id, candidate, crawl_run:)
-    result = fact_writer.fill_site_from_unit(facility_id, fields: SITE_FIELDS_FROM_UNIT,
+    stated = candidate.payload.keys & SITE_FIELDS_FROM_UNIT
+    return if stated.empty?
+
+    result = fact_writer.fill_site_from_unit(facility_id, fields: stated,
       evidence: [ { source_id: candidate.source_id, quote: candidate.quote, found_by: "crawler", crawl_run_id: crawl_run&.id } ])
     write_result(result) if result
   end
