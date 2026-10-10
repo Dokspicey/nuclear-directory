@@ -1,5 +1,7 @@
 # nuclear-directory
 
+[![CI](https://github.com/tosinoladokun/nuclear-directory/actions/workflows/ci.yml/badge.svg)](https://github.com/tosinoladokun/nuclear-directory/actions/workflows/ci.yml)
+
 Open directory and relationship map of the US nuclear industry supply chain.
 
 ## Layout
@@ -36,6 +38,13 @@ new migrations.
 
 ```bash
 docker compose run --rm web bin/rails db:test:prepare test
+```
+
+CI runs the same tests plus RuboCop (the style checker) on every pull
+request and on `main`. Run the linter locally with:
+
+```bash
+docker compose run --rm web bin/rubocop
 ```
 
 Tests use a separate `nuclear_directory_test` database, so they never touch
