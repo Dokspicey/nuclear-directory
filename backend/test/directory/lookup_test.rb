@@ -82,6 +82,94 @@ class Directory::LookupTest < ActiveSupport::TestCase
     assert_nil Directory::Lookup.facility(nrc_docket: " "), "the Vogtle fixture has no docket"
   end
 
+  test "brand keys drop trailing legal-entity and operating-arm words" do
+    assert_equal "constellation", Directory::Lookup.brand_key("Constellation Energy Generation, LLC")
+    assert_equal "southern nuclear", Directory::Lookup.brand_key("Southern Nuclear Operating Co., Inc."), "its own brand"
+    assert_equal "pseg", Directory::Lookup.brand_key("PSEG Nuclear, LLC"), "other nuclear arms are their brand"
+    assert_equal "ge vernova hitachi", Directory::Lookup.brand_key("GE Vernova Hitachi Nuclear Energy")
+    assert_equal "energy northwest", Directory::Lookup.brand_key("Energy Northwest"), "leading words stay"
+    assert_nil Directory::Lookup.brand_key("X-Energy, Inc."), "too short to trust"
+  end
+
+  test "no brand name from a key too short to trust, and rejected plants don't count" do
+    Facility.create!(name: "Seabrook 1", nrc_docket: "05000443")
+    assert_nil Directory::Lookup.brand_name("X-Energy Seabrook, LLC"), "reduces to 'x'"
+
+    Facility.create!(name: "Imaginary Point 1", nrc_docket: "05000998").reject!(by: "agent:verifier/x")
+    assert_equal "nextera energy imaginary point", Directory::Lookup.brand_key("NextEra Energy Imaginary Point, LLC")
+    assert_nil Directory::Lookup.brand_name("NextEra Energy Imaginary Point, LLC")
+  end
+
+  test "a plant named after its owner doesn't make the owner's name a plant name" do
+    Directory::FactWriter.write(:organization, { name: "Urenco" })
+    Facility.create!(name: "Urenco USA enrichment facility")
+
+    assert_equal "acme urenco", Directory::Lookup.brand_key("Acme Urenco, LLC")
+  end
+
+  test "a plant name of four or more words is recognized at the end of a company name" do
+    Facility.create!(name: "Crane Clean Energy Center (Three Mile Island Unit 1)")
+
+    assert_equal "constellation", Directory::Lookup.brand_key("Constellation Crane Three Mile Island, LLC")
+  end
+
+  test "dotted legal suffixes are dropped like plain ones" do
+    assert_equal "acme", Directory::Lookup.brand_key("Acme Holdings, L.P.")
+    assert_equal "acme", Directory::Lookup.brand_key("Acme Holdings, LP")
+    assert_equal "acme", Directory::Lookup.brand_key("Acme P.L.C.")
+  end
+
+  test "a leading 'the' doesn't get past the own-brand rule" do
+    assert_equal "southern nuclear", Directory::Lookup.brand_key("The Southern Nuclear Operating Co.")
+    assert_equal "southern", Directory::Lookup.brand_key("The Southern Company")
+  end
+
+  test "a leading 'the' is ignored everywhere the brand is worked out" do
+    Directory::FactWriter.write(:organization, { name: "The Acme Company" })
+    Facility.create!(name: "Acme enrichment facility")
+    Facility.create!(name: "Seabrook Station")
+
+    assert_equal [ "The Acme Company" ], Directory::Lookup.same_brand_organizations("Acme Operations LLC").map(&:name)
+    assert_equal "other acme", Directory::Lookup.brand_key("Other Acme LLC"), "Acme is the owner, not a plant"
+    assert_equal "NextEra Energy", Directory::Lookup.brand_name("The NextEra Energy Seabrook, LLC")
+  end
+
+  test "a name made only of legal or operating words has no brand" do
+    assert_nil Directory::Lookup.brand_key("Nuclear Energy LLC")
+    assert_nil Directory::Lookup.brand_key("Nuclear Power, Inc.")
+    assert_equal "southern nuclear", Directory::Lookup.brand_key("Southern Nuclear Operating Company"), "own brands unaffected"
+  end
+
+  test "a place word that starts a plant's name isn't a plant on its own" do
+    Facility.create!(name: "North Anna Power Station")
+    Facility.create!(name: "Palisades Pioneer Units 1 & 2")
+
+    assert_equal "acme north", Directory::Lookup.brand_key("Acme North, LLC"), "North alone isn't a plant"
+    assert_equal "dominion", Directory::Lookup.brand_key("Dominion Energy North Anna, LLC"), "North Anna is"
+    assert_equal "holtec", Directory::Lookup.brand_key("Holtec Palisades, LLC"), "a plant's own first word still counts"
+  end
+
+  test "a trailing known plant or region is dropped from the brand" do
+    Facility.create!(name: "Seabrook 1", nrc_docket: "05000443")
+
+    assert_equal "nextera", Directory::Lookup.brand_key("NextEra Energy Seabrook, LLC")
+    assert_equal "NextEra Energy", Directory::Lookup.brand_name("NextEra Energy Seabrook, LLC")
+    assert_equal "Sargent & Lundy", Directory::Lookup.brand_name("Sargent & Lundy Seabrook, LLC"), "keeps its own spelling"
+    assert_equal "Babcock-Wilcox", Directory::Lookup.brand_name("Babcock-Wilcox Seabrook LLC")
+    assert_equal "NextEra Energy", Directory::Lookup.brand_name("NextEra Energy Seabrook, L.L.C."), "dotted LLC"
+    assert_equal "duke", Directory::Lookup.brand_key("Duke Energy Carolinas, LLC")
+    assert_equal "Duke Energy", Directory::Lookup.brand_name("Duke Energy Carolinas, LLC")
+    assert_equal "duke", Directory::Lookup.brand_key("Duke Energy Progress, LLC"), "Progress is a legacy brand of Duke"
+    assert_nil Directory::Lookup.brand_name("Constellation Energy Generation, LLC"), "no place in it: keep the full name"
+    assert_equal "seabrook", Directory::Lookup.brand_key("Seabrook Holdings"), "a name that is only a place stays"
+  end
+
+  test "finds organizations of the same brand" do
+    assert_equal [ organizations(:westinghouse).id ],
+      Directory::Lookup.same_brand_organizations("Westinghouse Electric Company Holdings").map(&:id)
+    assert_empty Directory::Lookup.same_brand_organizations("Westinghouse Government Services Division")
+  end
+
   test "a link's decision reads as a plain fact, in the words visitors use" do
     org = organizations(:terrapower)
     role = OrganizationRole.create!(organization: org, role: Role.create!(key: "reactor_vendor", name: "Reactor vendor"))
