@@ -40,9 +40,11 @@ class Facility < ApplicationRecord
     # Two levels only: a site, and units under it. Publication (and the
     # directory's rollups) rely on a unit's parent being its site.
     def sites_and_units_only
-      return unless parent_id
+      # The parent record itself, so an unsaved chain (built in memory, saved
+      # together) is checked too, not just a saved parent_id.
+      return unless parent
 
-      errors.add(:parent, "must be a site, not a unit") if parent&.parent_id
-      errors.add(:parent, "can't be set: this site has units of its own") if persisted? && children.exists?
+      errors.add(:parent, "must be a site, not a unit") if parent.parent_id || parent.parent
+      errors.add(:parent, "can't be set: this site has units of its own") if (persisted? && children.exists?) || children.any?
     end
 end
