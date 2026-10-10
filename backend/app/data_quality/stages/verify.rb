@@ -21,6 +21,7 @@ class DataQuality::Stages::Verify < DataQuality::Stage
         when :reject
           candidate.update!(status: "rejected", notes: verdict.reason)
           stats["rejected"] += 1
+          retire_proposal(candidate, run)
         end
       end
 
@@ -39,6 +40,17 @@ class DataQuality::Stages::Verify < DataQuality::Stage
         stats["write_errors"] += 1
         send_to_review(candidate, "Directory rejected the write: #{result.errors.join('; ')}", stats)
       end
+    end
+
+    # A rejected candidate whose record match created (a proposal) takes that
+    # record with it, unless another live candidate is attached to it too. A
+    # rejected candidate attached to an existing record leaves it alone.
+    def retire_proposal(candidate, run)
+      return unless candidate.proposed_subject? && candidate.subject_id
+
+      others = Candidate.where(subject_type: candidate.subject_type, subject_id: candidate.subject_id)
+        .where.not(id: candidate.id).where(status: %w[new matched merged needs_review])
+      directory.retire(candidate, crawl_run: run) unless others.exists?
     end
 
     def send_to_review(candidate, reason, stats)

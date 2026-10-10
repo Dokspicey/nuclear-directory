@@ -84,6 +84,15 @@ class DataQuality::DirectoryClient
     write_result(result)
   end
 
+  # Marks a record match proposed as rejected, once its candidate is
+  # rejected, so lookups stop treating it as a live record. A record a human
+  # has reviewed is left alone.
+  def retire(candidate, crawl_run:)
+    result = fact_writer.write(candidate.kind, { id: candidate.subject_id }, protect_human_verified: true,
+      verification: { status: "rejected", by: "agent:verifier/#{crawl_run.model || 'unknown'}" })
+    write_result(result)
+  end
+
   # Site fields a verified unit can fill in when the site has none.
   SITE_FIELDS_FROM_UNIT = %w[state facility_type status country_code].freeze
 
@@ -95,7 +104,8 @@ class DataQuality::DirectoryClient
   # a curated unit may have kept its own values over the candidate's.
   def fill_site_from_unit(facility_id, candidate, crawl_run:)
     unit = lookup.facility(id: facility_id)
-    return unless unit&.parent_id
+    # Only a unit that ended up verified speaks for its site (a human may have kept it rejected).
+    return unless unit&.parent_id && unit.verification_status == "verified"
 
     fields = unit.to_h.slice(*SITE_FIELDS_FROM_UNIT.map(&:to_sym)).compact_blank
     return if fields.empty?

@@ -96,6 +96,10 @@ class DataQuality::Stages::Match < DataQuality::Stage
       end
     end
 
+    # Only the fields that identify a link (LINK_KEYS and the resolved ends)
+    # are written at match; its description, dates and ownership are applied
+    # when it's published, so an existing link never takes on unverified
+    # values. (A new link is pending, so nothing public is missing meanwhile.)
     def match_link(candidate, payload)
       attributes = payload.slice(*LINK_KEYS.fetch(candidate.kind)).symbolize_keys
 
@@ -203,7 +207,9 @@ class DataQuality::Stages::Match < DataQuality::Stage
       existing = !result.created if existing.nil?
       @stats[existing ? "matched" : "proposed"] += 1
       note ||= existing ? "Matched an existing record" : "No existing record; proposed a new pending one"
-      candidate.update!(status: "matched", subject_type: result.ref.type, subject_id: result.ref.id, notes: note)
+      # Remembered so a rejection can retire what match created, and only that.
+      candidate.update!(status: "matched", subject_type: result.ref.type, subject_id: result.ref.id, notes: note,
+        proposed_subject: result.created)
     end
 
     def review(candidate, reason, write_error: false)

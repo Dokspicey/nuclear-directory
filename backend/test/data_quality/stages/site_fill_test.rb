@@ -43,6 +43,15 @@ class DataQuality::Stages::SiteFillTest < ActiveSupport::TestCase
     assert_equal "GA", @site.reload.state
   end
 
+  test "a unit a human rejected doesn't fill its site" do
+    run_stage("match")
+    Facility.find_by!(nrc_docket: "05200025").reject!(by: "human:tosin")
+
+    run_stage("verify", verifier: PublishEverything.new)
+
+    assert_nil @site.reload.facility_type
+  end
+
   test "nothing is filled until the unit is verified" do
     run_stage("match")
     run_stage("verify") # default verifier sends everything to review
