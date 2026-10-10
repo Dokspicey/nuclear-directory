@@ -27,10 +27,15 @@ class DataQuality::Plugins::EiaGenerators::Workbook
   }.freeze
   TECHNOLOGY = "Technology"
   NUCLEAR = "Nuclear"
+  # Columns that must be a plain number when present. Anything else (say
+  # "N/A") means the layout changed, and is reported rather than read as 0.
+  NUMERIC = %w[net_summer_capacity_mw nameplate_capacity_mw latitude longitude].freeze
+  NUMBER = /\A-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?\z/
 
   # Returns an array of hashes keyed by COLUMNS' names. Raises Unreadable
-  # when the file isn't a workbook, the sheet or a column is missing, or no
-  # nuclear rows are found (EIA may have changed the layout).
+  # when the file isn't a workbook, the sheet or a column is missing, a
+  # number column holds something that isn't a number, or no nuclear rows
+  # are found (EIA may have changed the layout).
   def self.nuclear_generators(bytes)
     new(bytes).nuclear_generators
   end
@@ -57,7 +62,7 @@ class DataQuality::Plugins::EiaGenerators::Workbook
       end
       next unless cells[header[TECHNOLOGY]].to_s.strip == NUCLEAR
 
-      generators << COLUMNS.transform_values { |title| cells[header[title]]&.strip.presence }
+      generators << COLUMNS.transform_values { |title| cells[header[title]]&.strip.presence }.tap { |row| check_numbers!(row) }
     end
 
     raise Unreadable, "No header row with #{COLUMNS['eia_plant_id'].inspect} on the #{SHEET} sheet" unless header
@@ -71,6 +76,15 @@ class DataQuality::Plugins::EiaGenerators::Workbook
   # Namespaces are dropped throughout: a row read from the stream on its
   # own doesn't carry the sheet's namespace declarations.
   private
+    def check_numbers!(row)
+      NUMERIC.each do |column|
+        value = row[column]
+        next if value.nil? || value.match?(NUMBER)
+
+        raise Unreadable, "#{COLUMNS[column]} is #{value.inspect} for #{row['plant_name']} #{row['generator_id']}, not a number"
+      end
+    end
+
     def sheet_path
       sheet = xml("xl/workbook.xml").at_xpath("//sheet[@name='#{SHEET}']") or raise Unreadable, "No #{SHEET.inspect} sheet"
       target = xml("xl/_rels/workbook.xml.rels").at_xpath("//Relationship[@Id='#{sheet['id']}']")&.[]("Target")
@@ -79,9 +93,11 @@ class DataQuality::Plugins::EiaGenerators::Workbook
       target.start_with?("/") ? target.delete_prefix("/") : "xl/#{target}"
     end
 
-    # Yields each row as { "A" => "Plant ID", "B" => … }.
+    # Yields each row as { "A" => "Plant ID", "B" => … }. The sheet is read
+    # from the zip as a stream, never held whole in memory.
     def each_row(path)
-      Nokogiri::XML::Reader(read(path)).each do |node|
+      entry = @zip.find_entry(path) or raise Unreadable, "Missing #{path}"
+      Nokogiri::XML::Reader(entry.get_input_stream).each do |node|
         next unless node.name == "row" && node.node_type == Nokogiri::XML::Reader::TYPE_ELEMENT
 
         row = Nokogiri::XML(node.outer_xml).remove_namespaces!

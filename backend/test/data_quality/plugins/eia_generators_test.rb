@@ -89,6 +89,18 @@ class DataQuality::Plugins::EiaGeneratorsTest < ActiveSupport::TestCase
     assert_equal "needs_human", crawl!["snapshot"]
     assert source.crawl_needs_human?
     assert_match "Couldn't read the EIA workbook", source.status_reason
+
+    assert source.fetched_at, "a file that can't be read still counts as today's fetch"
+    crawl!
+    assert_requested :get, FILE, times: 1
+  end
+
+  test "a number column holding something else is reported, not read as zero" do
+    row = { "plant_name" => "Vogtle", "generator_id" => "1", "net_summer_capacity_mw" => "1150", "latitude" => "N/A" }
+
+    error = assert_raises(Workbook::Unreadable) { Workbook.allocate.send(:check_numbers!, row) }
+    assert_equal 'Latitude is "N/A" for Vogtle 1, not a number', error.message
+    assert_nothing_raised { Workbook.allocate.send(:check_numbers!, row.merge("latitude" => "-81.76", "longitude" => nil)) }
   end
 
   test "extract quotes each generator's row verbatim and rounds the values" do

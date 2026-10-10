@@ -28,7 +28,7 @@ class DataQuality::Snapshot
         return :error
       end
 
-      text = to_text ? to_text.call(response.body) : response.body
+      text = convert(response.body, source, attempt, &to_text)
       sha = Digest::SHA256.hexdigest(text)
       changed = sha != source.content_sha256
       title = DataQuality::PageTitle.from(response.body, content_type: response.content_type) unless binary
@@ -54,6 +54,16 @@ class DataQuality::Snapshot
       :error
     end
   end
+
+  # The body as the text to store. A conversion that fails still counts as
+  # today's fetch, so a rerun the same day doesn't download the file again.
+  def self.convert(body, source, attempt)
+    block_given? ? yield(body) : body
+  rescue StandardError
+    source.update!(attempt)
+    raise
+  end
+  private_class_method :convert
 
   # A successful fetch clears any block. Validators are only replaced when
   # the server sends new ones (a 304 may omit them).

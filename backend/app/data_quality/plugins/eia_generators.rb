@@ -78,5 +78,6 @@ class DataQuality::Plugins::EiaGenerators < DataQuality::Plugin
       URI.join(INDEX_URL, newest).to_s if newest
     end
 
-    def number(value, digits) = value.present? ? value.to_d.round(digits).to_s : nil
+    # Strict: the workbook reader already refused anything that isn't a number.
+    def number(value, digits) = value.present? ? BigDecimal(value).round(digits).to_s : nil
 end
