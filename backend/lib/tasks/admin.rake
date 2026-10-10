@@ -1,15 +1,22 @@
 namespace :admin do
-  desc "Create the admin account, or set a new password for it (asks for the password; never pass it as an argument)"
+  desc "Create the admin account, or update it (new email, handle or password); asks for the password, never pass it as an argument"
   task create: :environment do
     require "io/console"
 
-    email = ENV["EMAIL"].presence || ($stdout.print("Email address: ") && $stdin.gets.to_s.strip)
-    handle = ENV["HANDLE"].presence || ($stdout.print("Handle, as decisions will show it (human:<handle>): ") && $stdin.gets.to_s.strip)
+    ask = ->(prompt) { $stdout.print(prompt); $stdin.gets.to_s.strip }
+    email = ENV["EMAIL"].presence || ask.("Email address: ")
+    handle = ENV["HANDLE"].presence || ask.("Handle, as decisions will show it (human:<handle>): ")
     password = $stdin.getpass("Password (12 characters or more): ")
 
-    user = User.find_or_initialize_by(email_address: email.strip.downcase)
-    if user.update(handle:, password:)
-      puts "#{user.previously_new_record? ? 'Created' : 'Updated'} #{user.email_address}. Decisions are recorded as #{user.actor}."
+    # One admin: an existing account is updated (a new email doesn't add a
+    # second administrator), and its sessions end, so a reset also signs out
+    # anyone holding an old session.
+    user = User.order(:id).first || User.new
+    created = user.new_record?
+    if user.update(email_address: email, handle:, password:)
+      user.sessions.destroy_all unless created
+      puts "#{created ? 'Created' : 'Updated'} #{user.email_address}. Decisions are recorded as #{user.actor}." \
+        "#{' Existing sessions were signed out.' unless created}"
     else
       abort user.errors.full_messages.to_sentence
     end

@@ -212,6 +212,9 @@ class DataQuality::DirectoryClient
     record(type, state, values: lookup.fact_attributes(type:, id:))
   end
 
+  # Whether a fact has any evidence (a source) at all.
+  def sourced?(type:, id:) = lookup.sourced?(type:, id:)
+
   # Facts of one kind waiting for a human (Directory::PendingFactRef), oldest first.
   def pending_facts(kind:, after_id: nil, limit: 50) = lookup.pending_facts(kind:, after_id:, limit:)
 

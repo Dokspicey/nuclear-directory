@@ -36,7 +36,8 @@ module Authentication
     end
 
     def request_authentication
-      session[:return_to_after_authenticating] = request.url
+      # Only a page can be returned to; a form's POST can't be replayed as a GET.
+      session[:return_to_after_authenticating] = request.url if request.get?
       redirect_to new_session_path
     end
 

@@ -106,13 +106,8 @@ module DataQuality::Review
     def approve(candidate_ids, by:, reason: nil, only_recommended: false, directory: DataQuality::DirectoryClient.new)
       human!(by)
       Candidate.transaction do
-        recommended = Candidate.recommended.where(id: candidate_ids).pluck(:id).to_set if only_recommended
         Candidate.where(id: candidate_ids).includes(:crawl_run, :verify_run).order(:id).map do |candidate|
-          if recommended && !recommended.include?(candidate.id)
-            next Result.new(candidate_id: candidate.id, ref: nil, errors: [ "it isn't recommended, so approve it on its own" ])
-          end
-
-          approve_one(candidate, by:, reason:, directory:)
+          approve_one(candidate, by:, reason:, directory:, only_recommended:)
         end
       end
     end
@@ -186,8 +181,10 @@ module DataQuality::Review
 
     # Approves (or republishes) a directory fact, optionally with edited
     # values; the edit is recorded in its history.
+    # A fact with no source isn't published (VOICE.md: if we can't source it,
+    # we don't publish it).
     def approve_fact(type:, id:, by:, reason: nil, attributes: {}, directory: DataQuality::DirectoryClient.new)
-      decide_fact(type, id, "verified", by:, reason:, attributes:, directory:)
+      decide_fact(type, id, "verified", by:, reason:, attributes:, directory:, require_source: true)
     end
 
     def reject_fact(type:, id:, by:, reason: nil, directory: DataQuality::DirectoryClient.new)
@@ -239,10 +236,15 @@ module DataQuality::Review
       # Locked, and in one transaction with the directory write: two people
       # approving at once publish once, and a crash can't leave a published
       # fact still waiting for approval.
-      def approve_one(candidate, by:, reason:, directory:, edited: false)
+      # only_recommended (bulk approval): checked under the lock, so a claim a
+      # verify run moved to review a moment ago isn't published in bulk.
+      def approve_one(candidate, by:, reason:, directory:, edited: false, only_recommended: false)
         Candidate.transaction do
           lock_for_decision(candidate)
           next Result.new(candidate_id: candidate.id, ref: nil, errors: [ already(candidate) ]) unless open?(candidate)
+          if only_recommended && !(candidate.ai_recommendation == "recommend_publish" && !candidate.status_needs_review?)
+            next Result.new(candidate_id: candidate.id, ref: nil, errors: [ "it isn't recommended, so approve it on its own" ])
+          end
           if lapsed?(candidate)
             next Result.new(candidate_id: candidate.id, ref: nil,
               errors: [ "its source changed after the verifier checked it; the next verify run checks it again" ])
@@ -324,10 +326,13 @@ module DataQuality::Review
         scope.where("candidates.notes ILIKE ANY (ARRAY[?])", reason_patterns(reason))
       end
 
-      def decide_fact(type, id, status, by:, reason:, attributes: {}, directory:)
+      def decide_fact(type, id, status, by:, reason:, attributes: {}, directory:, require_source: false)
         human!(by)
         if (locked = attributes.to_h.stringify_keys.keys & locked_keys(type.to_s.underscore)).any?
           return Result.new(candidate_id: nil, ref: nil, errors: [ "can't edit #{locked.to_sentence} here" ])
+        end
+        if require_source && !directory.sourced?(type: type.to_s.camelize, id:)
+          return Result.new(candidate_id: nil, ref: nil, errors: [ "it has no source; add one before publishing it" ])
         end
 
         result = directory.decide_fact(type.to_s.underscore, id:, status:, by:, reason:, attributes:)
