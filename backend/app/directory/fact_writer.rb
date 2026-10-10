@@ -19,9 +19,28 @@
 # write changes nothing and returns errors instead of raising.
 module Directory
   class FactWriter
-    Result = Data.define(:kind, :id, :created, :errors) do
-      def ok? = errors.empty?
+    # conflicts: { "state" => [stored, incoming] } when a write disagreed with a
+    # human-reviewed fact (see protect_human_verified); nothing was written.
+    Result = Data.define(:kind, :id, :created, :errors, :conflicts) do
+      def initialize(kind:, id:, created:, errors:, conflicts: {}) = super
+      def ok? = errors.empty? && conflicts.empty?
+      def conflict? = conflicts.any?
     end
+
+    # Raised inside a write to undo it and report the disagreement.
+    class Conflict < StandardError
+      attr_reader :id, :conflicts
+
+      def initialize(id, conflicts)
+        @id = id
+        @conflicts = conflicts
+        super(conflicts.map { |name, (stored, incoming)| "human-verified #{name} is #{stored}; this source says #{incoming}" }.join("; "))
+      end
+    end
+
+    # Never compared for conflicts: names vary by legal form and spelling
+    # (aliases cover that), and slugs are internal.
+    NOT_COMPARED = %i[name slug].freeze
 
     class Invalid < StandardError; end
 
@@ -58,9 +77,14 @@ module Directory
     # fill_blank: true sets only attributes that are blank on an existing row,
     # so new data can complete a record without overwriting anything.
     # protect_human_verified: true treats a row a human has verified (or
-    # rejected) as curated: only its blank attributes are filled and its
-    # verification is left alone (evidence is still added). Automated writers
-    # pass this, so a human's decision is never overwritten.
+    # rejected) as curated, so a human's decision is never overwritten:
+    # - a rejected row isn't changed at all (an error is returned)
+    # - if an incoming value disagrees with a stored one, nothing is written
+    #   (no attributes, evidence or confidence change) and the result's
+    #   conflicts say what disagreed, for review
+    # - otherwise only blank attributes are filled, evidence is added, and the
+    #   verification is left alone
+    # Automated writers pass this.
     def write(kind, attributes, evidence: [], verification: nil, fill_blank: false, protect_human_verified: false)
       kind = kind.to_sym
       spec = KINDS[kind] or return failure(kind, "unknown kind #{kind.inspect}")
@@ -80,6 +104,9 @@ module Directory
         end
         curated = protect_human_verified && !created && record.human_reviewed?
         changes = model_attributes(kind, attributes)
+        if curated && (conflicts = conflicts_with(record, changes)).any?
+          raise Conflict.new(record.id, conflicts)
+        end
         changes = changes.select { |name, _| record.public_send(name).blank? } if (fill_blank || curated) && !created
         record.assign_attributes(changes)
         record.save!
@@ -91,6 +118,8 @@ module Directory
       end
 
       Result.new(kind:, id: record.id, created:, errors: [])
+    rescue Conflict => e
+      Result.new(kind:, id: e.id, created: false, errors: [ e.message ], conflicts: e.conflicts)
     rescue Invalid, ArgumentError => e
       failure(kind, e.message)
     rescue ActiveRecord::RecordInvalid => e
@@ -101,6 +130,29 @@ module Directory
     end
 
     private
+      # Incoming values that differ from the stored ones, where both are
+      # present: { "state" => ["NJ", "DE"] }. Websites compare by domain.
+      def conflicts_with(record, changes)
+        changes.each_with_object({}) do |(name, incoming), found|
+          next if NOT_COMPARED.include?(name.to_sym)
+
+          stored = record.public_send(name)
+          next if incoming.blank? || stored.blank?
+          next if same_value?(record, name, stored, incoming)
+
+          found[name.to_s] = [ shown(stored), shown(incoming) ]
+        end
+      end
+
+      def same_value?(record, name, stored, incoming)
+        return Organization.domain_from(stored) == Organization.domain_from(incoming) if name.to_sym == :website
+        return stored == incoming if incoming.is_a?(ActiveRecord::Base)
+
+        stored == record.class.type_for_attribute(name.to_s).cast(incoming)
+      end
+
+      def shown(value) = value.respond_to?(:key) ? value.key : value.to_s
+
       def failure(kind, errors)
         Result.new(kind:, id: nil, created: false, errors: Array(errors))
       end

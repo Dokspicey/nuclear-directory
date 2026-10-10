@@ -116,18 +116,44 @@ class Directory::FactWriterTest < ActiveSupport::TestCase
     assert_equal [ "GA", "operating" ], [ site.state, site.status ]
   end
 
-  test "protect_human_verified fills only blanks and keeps a human's decision" do
+  test "protect_human_verified fills blanks when the values agree, and keeps a human's decision" do
     site = facilities(:vogtle)
     site.update!(state: "GA")
     site.verify!(by: "human:tosin")
 
-    result = write(:facility, { id: site.id, state: "AL", status: "operating" }, protect_human_verified: true,
-      verification: { status: "verified", by: "agent:verifier/x" })
+    result = write(:facility, { id: site.id, state: "GA", status: "operating" }, protect_human_verified: true,
+      evidence: [ @evidence ], verification: { status: "verified", by: "agent:verifier/x" })
 
     assert result.ok?
     site.reload
     assert_equal [ "GA", "operating" ], [ site.state, site.status ]
     assert_equal "human:tosin", site.verified_by
+    assert_equal 1, site.evidence.count
+  end
+
+  test "protect_human_verified reports a disagreement and writes nothing" do
+    site = facilities(:vogtle)
+    site.update!(state: "NJ", capacity_mw: 1150)
+    site.verify!(by: "human:tosin")
+
+    result = write(:facility, { id: site.id, state: "DE", capacity_mw: "1150.0", city: "Waynesboro" },
+      protect_human_verified: true, evidence: [ @evidence ])
+
+    assert_not result.ok?
+    assert result.conflict?
+    assert_equal({ "state" => [ "NJ", "DE" ] }, result.conflicts, "equal numbers in another form aren't a conflict")
+    assert_equal site.id, result.id
+    site.reload
+    assert_nil site.city, "not even the blanks are filled"
+    assert_empty site.evidence
+  end
+
+  test "names never count as conflicts" do
+    org = organizations(:terrapower)
+    org.verify!(by: "human:tosin")
+
+    assert write(:organization, { id: org.id, name: "TerraPower, LLC" }, protect_human_verified: true).ok?
+    assert_equal "TerraPower", org.reload.name
   end
 
   test "protect_human_verified doesn't hold back records no human has reviewed" do

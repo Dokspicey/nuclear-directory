@@ -16,9 +16,12 @@ class DataQuality::DirectoryClient
     def ref = Ref.new(type:, id:)
     def rejected? = verification_status == "rejected"
   end
-  WriteResult = Data.define(:ref, :errors, :created) do
-    def initialize(ref:, errors:, created: false) = super
-    def success? = errors.empty?
+  # conflicts: { "state" => [stored, incoming] } when the write disagreed with
+  # a human-verified fact; nothing was written, and ref points at that fact.
+  WriteResult = Data.define(:ref, :errors, :created, :conflicts) do
+    def initialize(ref:, errors:, created: false, conflicts: {}) = super
+    def success? = errors.empty? && conflicts.empty?
+    def conflict? = conflicts.any?
   end
 
   # Kinds whose payload names other records instead of carrying attributes;
@@ -133,6 +136,9 @@ class DataQuality::DirectoryClient
     def write_result(result)
       if result.ok?
         WriteResult.new(ref: Ref.new(type: type_for(result.kind), id: result.id), errors: [], created: result.created)
+      elsif result.conflict?
+        WriteResult.new(ref: Ref.new(type: type_for(result.kind), id: result.id), errors: Array(result.errors),
+          conflicts: result.conflicts)
       else
         WriteResult.new(ref: nil, errors: Array(result.errors).presence || [ "unknown error" ])
       end

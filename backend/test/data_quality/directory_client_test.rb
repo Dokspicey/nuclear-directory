@@ -63,9 +63,14 @@ class DataQuality::DirectoryClientTest < ActiveSupport::TestCase
     matched = candidate("organization", { "name" => "TerraPower", "website" => "https://terrapower.com" })
     matched.update!(status: "matched", subject_type: "Organization", subject_id: terrapower.id)
 
-    assert_no_difference -> { Organization.count } do
-      assert @client.write_fact(matched, confidence: 0.8, crawl_run: @run).success?
+    result = nil
+    assert_no_difference [ -> { Organization.count }, -> { Evidence.count } ] do
+      result = @client.write_fact(matched, confidence: 0.8, crawl_run: @run)
     end
+
+    assert result.conflict?, "a disagreement with a human-verified value is reported, for review"
+    assert_equal({ "website" => [ "https://curated.example", "https://terrapower.com" ] }, result.conflicts)
+    assert_equal terrapower.id, result.ref.id
     terrapower.reload
     assert_equal "https://curated.example", terrapower.website
     assert_equal "human:tosin", terrapower.verified_by
@@ -78,8 +83,10 @@ class DataQuality::DirectoryClientTest < ActiveSupport::TestCase
     matched = candidate("facility", { "name" => "Vogtle Electric Generating Plant", "state" => "AL" })
     matched.update!(status: "matched", subject_type: "Facility", subject_id: vogtle.id)
 
-    assert @client.write_fact(matched, confidence: 0.8, crawl_run: @run).success?
+    result = @client.write_fact(matched, confidence: 0.8, crawl_run: @run)
 
+    assert_equal({ "state" => [ "GA", "AL" ] }, result.conflicts)
+    assert_match "human-verified state is GA; this source says AL", result.errors.join
     vogtle.reload
     assert_equal "GA", vogtle.state
     assert_equal "human:tosin", vogtle.verified_by
@@ -109,11 +116,13 @@ class DataQuality::DirectoryClientTest < ActiveSupport::TestCase
       "description" => "Candidate description", "ownership_pct" => 75 })
     matched.update!(status: "matched", subject_type: "FacilityRelationship", subject_id: link.id)
 
-    assert @client.write_fact(matched, confidence: 0.8, crawl_run: @run).success?
+    result = @client.write_fact(matched, confidence: 0.8, crawl_run: @run)
 
+    assert_equal %w[description ownership_pct], result.conflicts.keys.sort
     link.reload
     assert_equal [ "Curated description", 40 ], link.slice(:description, :ownership_pct).values
     assert_equal [ "verified", "human:tosin" ], [ link.verification_status, link.verified_by ]
+    assert_empty link.evidence, "nothing written, so the disagreeing quote can't raise confidence"
   end
 
   test "an agent never overturns a human's rejection" do

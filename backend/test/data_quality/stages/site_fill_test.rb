@@ -35,7 +35,9 @@ class DataQuality::Stages::SiteFillTest < ActiveSupport::TestCase
     run_stage("match")
     unit = Facility.find_by!(nrc_docket: "05200025")
     unit.update!(state: "GA")
-    unit.verify!(by: "human:tosin") # curated: the candidate's "TX" won't be applied
+    unit.verify!(by: "human:tosin")
+    # The candidate no longer says where the unit is; the site gets the unit's own state.
+    Candidate.find_by!(subject_id: unit.id).then { |c| c.update!(payload: c.payload.except("state")) }
     @site.update!(state: nil)
 
     run_stage("verify", verifier: PublishEverything.new)
