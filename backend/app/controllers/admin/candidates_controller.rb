@@ -13,13 +13,15 @@ class Admin::CandidatesController < Admin::BaseController
     @reasons = DataQuality::Review.reasons(queue: @queue, run_id: @run_id)
   end
 
-  # One claim (candidate_id) or the selected ones (candidate_ids[]).
+  # One claim (candidate_id), or the selected ones (candidate_ids[]): bulk
+  # approval covers recommended claims only.
   def approve
-    ids = params[:candidate_id].present? ? [ params[:candidate_id] ] : Array(params[:candidate_ids])
+    single = params[:candidate_id].present?
+    ids = single ? [ params[:candidate_id] ] : Array(params[:candidate_ids])
     if ids.empty?
       flash[:alert] = "Select at least one claim to approve."
     else
-      flash_results(DataQuality::Review.approve(ids.map(&:to_i), by: actor), "Approved")
+      flash_results(DataQuality::Review.approve(ids.map(&:to_i), by: actor, only_recommended: !single), "Approved")
     end
     redirect_to queue_path
   end

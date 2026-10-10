@@ -95,9 +95,16 @@ module DataQuality::Review
     # candidate that disagrees with a human-verified value applies the new
     # value; the admin shows `differences` first. An approved unit fills its
     # site's blank fields. Already-decided candidates are refused.
-    def approve(candidate_ids, by:, reason: nil, directory: DataQuality::DirectoryClient.new)
+    # only_recommended: true for bulk approval, which covers the Recommended
+    # queue only; anything else needs a look on its own (#86).
+    def approve(candidate_ids, by:, reason: nil, only_recommended: false, directory: DataQuality::DirectoryClient.new)
       human!(by)
+      recommended = Candidate.recommended.where(id: candidate_ids).pluck(:id).to_set if only_recommended
       Candidate.where(id: candidate_ids).includes(:crawl_run, :verify_run).order(:id).map do |candidate|
+        if recommended && !recommended.include?(candidate.id)
+          next Result.new(candidate_id: candidate.id, ref: nil, errors: [ "it isn't recommended, so approve it on its own" ])
+        end
+
         approve_one(candidate, by:, reason:, directory:)
       end
     end

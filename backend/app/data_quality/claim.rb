@@ -22,11 +22,11 @@ module DataQuality::Claim
 
     case candidate.kind
     when "organization"
-      "There is a company named #{payload['name'].inspect}#{details(payload.except('name'))}."
+      "There is a company named “#{payload['name']}”#{details(payload.except('name'))}."
     when "organization_alias"
-      "#{name_of(payload['organization'])} is also known as #{payload['alias'].inspect}."
+      "#{name_of(payload['organization'])} is also known as “#{payload['alias']}”."
     when "facility"
-      "There is a plant named #{payload['name'].inspect}#{details(payload.except('name'))}."
+      "There is a plant named “#{payload['name']}”#{details(payload.except('name'))}."
     # Links carry every detail approval would publish (ownership %, dates,
     # description), so nothing is published that the verifier didn't check.
     when "facility_relationship"

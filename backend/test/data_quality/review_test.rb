@@ -28,7 +28,7 @@ class DataQuality::ReviewTest < ActiveSupport::TestCase
 
     item = Review.candidates(queue: :recommended).sole
 
-    assert_equal [ c.id, "organization", 'There is a company named "Imaginary Fission Co".', "a quote" ],
+    assert_equal [ c.id, "organization", "There is a company named “Imaginary Fission Co”.", "a quote" ],
       [ item.candidate_id, item.kind, item.claim, item.quote ]
     assert_equal [ @source.url, "NRC test page" ], [ item.source.url, item.source.title ]
     assert_equal [ "recommend_publish", 0.9, verify.id ], [ item.ai_recommendation, item.ai_confidence.to_f, item.verify_run_id ]

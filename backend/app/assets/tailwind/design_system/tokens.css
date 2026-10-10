@@ -120,6 +120,11 @@
   font: 400 19px/28px var(--font-text);
   @media (max-width: 560px) { font-size: 16px; }
 }
+/* Form fields: body text, 16px on phones so iOS doesn't zoom (#90). */
+@utility type-input {
+  font: 400 15px/24px var(--font-text);
+  @media (max-width: 560px) { font-size: 16px; }
+}
 @utility type-title-md {
   font: 600 20px/28px var(--font-text);
 }

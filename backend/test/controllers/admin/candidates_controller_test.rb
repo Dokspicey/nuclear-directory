@@ -36,7 +36,7 @@ class Admin::CandidatesControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_equal "noindex, nofollow", response.headers["X-Robots-Tag"]
     assert_select "#claim-#{c.id}" do
-      assert_select ".nd-item__claim", 'There is a company named "Imaginary Fission Co".'
+      assert_select ".nd-item__claim", "There is a company named “Imaginary Fission Co”."
       assert_select ".nd-quote", "“a quote”"
       assert_select "a[href=?]", @source.url, text: /NRC test page/
       assert_select ".nd-item__why", /Verifier recommends publishing.*92% sure.*The row names Imaginary Fission Co/m
@@ -74,6 +74,28 @@ class Admin::CandidatesControllerTest < ActionDispatch::IntegrationTest
     assert [ a, b ].all? { |x| x.reload.status_merged? }
   end
 
+  test "bulk approval is for recommended claims only" do
+    recommended = candidate("organization", { "name" => "Imaginary Fission Co" })
+    unsure = candidate("organization", { "name" => "Quoted Co" }, quote: "not in the source")
+    @source.update!(content_text: "Imaginary Fission Co appears here, and a quote too: a quote")
+    match_and_verify
+    assert unsure.reload.status_needs_review?
+    sign_in_as users(:admin)
+
+    get admin_candidates_path(queue: "needs_review")
+    assert_select ".nd-bulk", 0
+    assert_select "input[name='candidate_ids[]']", 0
+
+    post approve_admin_candidates_path, params: { candidate_ids: [ recommended.id, unsure.id ] }
+
+    assert_equal "Approved 1 item.", flash[:notice]
+    assert_match "Claim #{unsure.id}: it isn't recommended, so approve it on its own", flash[:alert]
+    assert unsure.reload.status_needs_review?
+
+    post approve_admin_candidates_path, params: { candidate_id: unsure.id }
+    assert unsure.reload.status_merged?, "on its own, it can be approved"
+  end
+
   test "rejecting a claim with a reason" do
     c = candidate("organization", { "name" => "Imaginary Fission Co" })
     match_and_verify
@@ -95,7 +117,7 @@ class Admin::CandidatesControllerTest < ActionDispatch::IntegrationTest
     get admin_candidates_path(queue: "needs_review")
 
     assert_select "#claim-#{c.id}" do
-      assert_select ".nd-item__why", /human-verified state is NJ; this source says DE/
+      assert_select ".nd-item__why", /Human-verified state is NJ; this source says DE/
       assert_select "tbody tr", 1 do
         assert_select "th", "State"
         assert_select "td", "NJ"
@@ -142,7 +164,7 @@ class Admin::CandidatesControllerTest < ActionDispatch::IntegrationTest
     patch admin_candidate_path(c), params: { values: { founded_year: "not a year" } }
 
     assert_response :unprocessable_content
-    assert_select ".nd-flash--alert"
+    assert_select ".nd-flash[role=alert]"
     assert c.reload.status_matched?, "nothing approved"
   end
 end

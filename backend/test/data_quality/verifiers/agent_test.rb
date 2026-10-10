@@ -45,7 +45,7 @@ class DataQuality::Verifiers::AgentTest < ActiveSupport::TestCase
     assert_equal "verify-v2", @run.reload.prompt_version
     call = model.calls.sole
     assert_equal [ :verify, "low" ], [ call[:role], call[:reasoning_effort] ]
-    assert_equal 'There is a company named "Acme Nuclear".', call[:claims].sole["claim"]
+    assert_equal "There is a company named “Acme Nuclear”.", call[:claims].sole["claim"]
     assert_includes call[:claims].sole["excerpt"], "Acme Nuclear and NewCo Fission signed"
   end
 

@@ -25,9 +25,9 @@
       <%= form.hidden_field :run_id, value: @run_id if @run_id %>
       <label class="nd-select">
         <b>Reason</b>
-        <%= form.select :reason, options_for_select([ [ "All reasons", "" ] ] + @reasons.map { |reason, count| [ "#{reason} (#{count})", reason ] }, @reason) %>
+        <%= form.select :reason, options_for_select([ [ "All reasons", "" ] ] + @reasons.map { |reason, count| [ "#{reason.upcase_first} (#{count})", reason ] }, @reason), {}, class: "type-input" %>
       </label>
-      <%= form.submit "Filter", class: "nd-btn nd-btn--sm", name: nil %>
+      <%= form.submit "Apply filters", class: "nd-btn nd-btn--sm", name: nil %>
       <% if @reason || @run_id %><%= link_to "Clear filters", admin_candidates_path(queue: @queue), class: "nd-link nd-link--muted type-small" %><% end %>
     <% end %>
   <% end %>
@@ -37,21 +37,23 @@
   <%= render "shared/empty_state", message: (@reason || @run_id ? "No claims match these filters." : "Nothing is waiting in this queue."),
     action_label: ("Clear filters" if @reason || @run_id), action_url: admin_candidates_path(queue: @queue) %>
 <% else %>
-  <%= form_with url: approve_admin_candidates_path(filters), data: { controller: "select-all" } do %>
+  <%# Bulk approval is for recommended claims only; each one needing review gets a look on its own. %>
+  <% bulk = @queue == "recommended" %>
+  <%= form_with url: approve_admin_candidates_path(filters), data: { controller: ("select-all" if bulk) } do %>
     <%# Enter in a reason field submits with the form's first button; a disabled
         one makes Enter do nothing, so every decision takes a deliberate click. %>
     <button type="submit" disabled hidden aria-hidden="true" tabindex="-1"></button>
-    <div class="nd-bulk">
-      <label><input type="checkbox" class="nd-check" data-select-all-target="all" data-action="select-all#toggle"> Select all on this page</label>
+    <% if bulk %><div class="nd-bulk">
+      <label class="type-ui"><input type="checkbox" class="nd-check" data-select-all-target="all" data-action="select-all#toggle"> Select all on this page</label>
       <span class="nd-row">
         <span class="type-small text-ink-muted" data-select-all-target="count" aria-live="polite"></span>
         <button type="submit" class="nd-btn nd-btn--primary nd-btn--sm" data-turbo-confirm="Approve and publish every selected claim?">Approve selected</button>
       </span>
-    </div>
+    </div><% end %>
 
     <ol class="nd-items">
       <% @items.each do |item| %>
-        <%= render "item", item:, filters: %>
+        <%= render "item", item:, filters:, bulk: %>
       <% end %>
     </ol>
   <% end %>

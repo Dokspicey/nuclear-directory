@@ -298,30 +298,30 @@
     <p class="type-small text-ink-muted m-0">Only behind sign-in. Desktop-first; on phones the bulk bar and checkboxes are hidden and buttons are 44px tall.</p>
 
     <div class="flex flex-col gap-3">
-      <div class="nd-flash" role="status">Approved 3 items.</div>
-      <div class="nd-flash nd-flash--alert" role="alert"><strong><%= icon("warning-circle") %></strong> Claim 12: the record was unpublished by human:tosin.</div>
+      <div class="nd-flash" role="status"><p class="type-body">Approved 3 items.</p></div>
+      <div class="nd-flash" role="alert"><%= icon("warning-circle") %><p class="type-body-strong">Claim 12: TerraPower was unpublished by human:tosin; not changed.</p></div>
     </div>
 
     <div class="nd-stack max-w-prose">
       <div class="nd-field">
-        <label for="design-field">Reason <small>(optional, kept in the record's history)</small></label>
-        <input id="design-field" class="nd-input" type="text" value="NRC lists the nearby city's state">
+        <label for="design-field" class="type-ui">Reason <span class="type-small text-ink-muted">(optional, kept in the record's history)</span></label>
+        <input id="design-field" class="nd-input type-input" type="text" value="NRC lists the nearby city's state">
       </div>
       <label class="nd-row type-ui"><input type="checkbox" class="nd-check" checked> Select all on this page</label>
     </div>
 
     <div class="nd-bulk">
-      <label><input type="checkbox" class="nd-check"> Select all on this page</label>
+      <label class="type-ui"><input type="checkbox" class="nd-check"> Select all on this page</label>
       <span class="nd-row"><span class="type-small text-ink-muted">2 selected</span><button class="nd-btn nd-btn--primary nd-btn--sm" type="button">Approve selected</button></span>
     </div>
     <ol class="nd-items">
       <li class="nd-item">
         <div class="nd-item__select"><input type="checkbox" class="nd-check" aria-label="Select claim 7"></div>
         <div class="nd-item__main">
-          <p class="nd-item__claim">There is a plant named "Hope Creek 1", with NRC docket 05000354 and state DE.</p>
+          <p class="nd-item__claim type-body-strong">There is a plant named “Hope Creek 1”, with NRC docket 05000354 and state DE.</p>
           <blockquote class="nd-quote">“Hope Creek 1 | 05000354 | NPF-57 | BWR | 18 miles SE of Wilmington, DE”</blockquote>
-          <div class="nd-item__meta"><a class="nd-link nd-link--muted" href="#">List of Power Reactor Units <%= icon("arrow-square-out", size: 12) %></a><span>Found by <span class="nd-num">openai/gpt-6-luna</span></span><span class="nd-num">Claim 7</span><a class="nd-link nd-link--muted" href="#">Open record</a></div>
-          <p class="nd-item__why"><strong>Why it's here:</strong> human-verified state is NJ; this source says DE</p>
+          <div class="nd-item__meta type-small"><a class="nd-link nd-link--muted" href="#">List of Power Reactor Units <%= icon("arrow-square-out", size: 12) %></a><span>Found by <span class="nd-num">openai/gpt-6-luna</span></span><span class="nd-num">Claim 7</span><a class="nd-link nd-link--muted" href="#">Open record</a></div>
+          <p class="nd-item__why type-body"><strong>Why it's here:</strong> Human-verified state is NJ; this source says DE</p>
           <div class="nd-table-wrap">
             <table class="nd-table">
               <thead><tr><th scope="col">Field</th><th scope="col">Human-verified</th><th scope="col">This source</th></tr></thead>
@@ -337,10 +337,10 @@
       </li>
     </ol>
 
-    <dl class="nd-kv">
-      <dt>NRC docket</dt><dd class="nd-num">05000354</dd>
-      <dt>State</dt><dd>NJ</dd>
-      <dt>Description</dt><dd><span class="text-ink-muted">Not set</span></dd>
+    <dl class="nd-kv type-body">
+      <dt class="type-label">NRC docket</dt><dd class="nd-num">05000354</dd>
+      <dt class="type-label">State</dt><dd>NJ</dd>
+      <dt class="type-label">Description</dt><dd><span class="text-ink-muted">Not set</span></dd>
     </dl>
     <div class="nd-row">
       <span class="nd-badge nd-badge--pending">Unpublished</span>

@@ -2,12 +2,12 @@
 <% source_url = safe_url(@item.source.url) %>
 
 <div class="nd-stack max-w-prose">
-  <p class="type-small m-0"><%= link_to "Back to the queue", admin_candidates_path(queue: @item.status == "needs_review" ? "needs_review" : "recommended"), class: "nd-link nd-link--muted" %></p>
+  <p class="type-small m-0"><%= link_to "Back to the queue", admin_candidates_path(queue: @item.status == "needs_review" ? "needs_review" : "recommended"), class: "nd-link nd-link--muted nd-tap" %></p>
   <h1 class="type-title-md m-0">Edit, then approve</h1>
-  <p class="nd-item__claim"><%= @item.claim %></p>
+  <p class="nd-item__claim type-body-strong"><%= @item.claim %></p>
   <% if @item.quote.present? %><blockquote class="nd-quote">“<%= @item.quote %>”</blockquote><% end %>
   <% if source_url %>
-    <p class="type-small m-0"><%= link_to source_url, class: "nd-link nd-link--muted", target: "_blank", rel: "noopener" do %><%= @item.source.title.presence || source_host(source_url) %> <%= icon("arrow-square-out", size: 12) %><% end %></p>
+    <p class="type-small m-0"><%= link_to source_url, class: "nd-link nd-link--muted nd-tap", target: "_blank", rel: "noopener" do %><%= @item.source.title.presence || source_host(source_url) %> <%= icon("arrow-square-out", size: 12) %><% end %></p>
   <% end %>
   <% if @item.differences.any? %>
     <p class="m-0"><strong>Differs from the human-verified record:</strong>
@@ -18,18 +18,18 @@
     <% @fields.each do |name| %>
       <% value = @item.payload[name] %>
       <div class="nd-field">
-        <%= label_tag "values_#{name}", field_label(name) %>
+        <%= label_tag "values_#{name}", field_label(name), class: "type-ui" %>
         <% if value.is_a?(Array) || value.is_a?(Hash) %>
           <span><%= field_value(value) %></span>
-          <small>Can't be edited here.</small>
+          <span class="type-small text-ink-muted">Can't be edited here.</span>
         <% else %>
-          <%= text_field_tag "values[#{name}]", value, id: "values_#{name}", class: "nd-input" %>
+          <%= text_field_tag "values[#{name}]", value, id: "values_#{name}", class: "nd-input type-input" %>
         <% end %>
       </div>
     <% end %>
     <div class="nd-field">
-      <label for="note">What you changed and why <small>(optional, kept in the record's history)</small></label>
-      <%= text_field_tag :note, params[:note], class: "nd-input" %>
+      <label for="note" class="type-ui">What you changed and why <span class="type-small text-ink-muted">(optional, kept in the record's history)</span></label>
+      <%= text_field_tag :note, params[:note], class: "nd-input type-input" %>
     </div>
     <div class="nd-row">
       <%= form.submit "Approve with these values", class: "nd-btn nd-btn--primary" %>

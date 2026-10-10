@@ -27,7 +27,7 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to new_session_path
     assert_nil cookies[:session_id]
     follow_redirect!
-    assert_select ".nd-flash--alert", /don't match/
+    assert_select ".nd-flash[role=alert]", /don't match/
   end
 
   test "signing out" do

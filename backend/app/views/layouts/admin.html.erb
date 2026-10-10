@@ -19,9 +19,9 @@
     <header class="nd-sitebar">
       <div class="nd-sitebar__inner">
         <a class="nd-wordmark" href="<%= authenticated? ? admin_root_path : root_path %>">Nuclear Directory</a>
-        <span class="nd-label">Admin</span>
+        <span class="type-label">Admin</span>
         <% if authenticated? %>
-          <nav class="nd-adminnav" aria-label="Admin">
+          <nav class="nd-adminnav type-ui" aria-label="Admin">
             <%= link_to "Review queue", admin_candidates_path, aria: { current: ("page" if controller_name == "candidates") } %>
             <%= link_to "Pending facts", admin_pending_facts_path, aria: { current: ("page" if controller_name == "pending_facts") } %>
             <%= button_to "Sign out", session_path, method: :delete, class: "nd-btn nd-btn--ghost nd-btn--sm" %>
@@ -31,8 +31,8 @@
     </header>
 
     <main class="nd-page">
-      <% if notice %><div class="nd-flash" role="status"><%= notice %></div><% end %>
-      <% if alert %><div class="nd-flash nd-flash--alert" role="alert"><strong><%= icon("warning-circle") %></strong> <%= alert %></div><% end %>
+      <% if notice %><div class="nd-flash" role="status"><p class="type-body"><%= notice %></p></div><% end %>
+      <% if alert %><div class="nd-flash" role="alert"><%= icon("warning-circle") %><p class="type-body-strong"><%= alert %></p></div><% end %>
       <%= yield %>
     </main>
   </body>

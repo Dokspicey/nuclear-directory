@@ -1,15 +1,18 @@
-<%# One claim in the review queue. Locals: item (DataQuality::Review::Item), filters (the queue's). %>
+<%# One claim in the review queue. Locals: item (DataQuality::Review::Item), filters (the queue's),
+    bulk (show the checkbox for Approve selected). %>
 <% source_url = safe_url(item.source.url) %>
-<li class="nd-item" id="claim-<%= item.candidate_id %>">
-  <div class="nd-item__select">
-    <input type="checkbox" class="nd-check" name="candidate_ids[]" value="<%= item.candidate_id %>"
-      aria-label="Select claim <%= item.candidate_id %>" data-select-all-target="item" data-action="select-all#refresh">
-  </div>
+<li class="nd-item<%= " nd-item--single" unless bulk %>" id="claim-<%= item.candidate_id %>">
+  <% if bulk %>
+    <div class="nd-item__select">
+      <input type="checkbox" class="nd-check" name="candidate_ids[]" value="<%= item.candidate_id %>"
+        aria-label="Select claim <%= item.candidate_id %>" data-select-all-target="item" data-action="select-all#refresh">
+    </div>
+  <% end %>
   <div class="nd-item__main">
-    <p class="nd-item__claim"><%= item.claim %></p>
+    <p class="nd-item__claim type-body-strong"><%= item.claim %></p>
     <% if item.quote.present? %><blockquote class="nd-quote">“<%= item.quote %>”</blockquote><% end %>
 
-    <div class="nd-item__meta">
+    <div class="nd-item__meta type-small">
       <span>
         <% if source_url %>
           <%= link_to source_url, class: "nd-link nd-link--muted", target: "_blank", rel: "noopener" do %><%= item.source.title.presence || source_host(source_url) %> <%= icon("arrow-square-out", size: 12) %><% end %>
@@ -23,9 +26,9 @@
     </div>
 
     <% if item.ai_recommendation == "recommend_publish" %>
-      <p class="nd-item__why"><strong>Verifier recommends publishing</strong><% if item.ai_confidence %> (<%= percent(item.ai_confidence) %> sure)<% end %>: <%= item.ai_reason %></p>
+      <p class="nd-item__why type-body"><strong>Verifier recommends publishing</strong><% if item.ai_confidence %> (<%= percent(item.ai_confidence) %> sure)<% end %>: <%= item.ai_reason %></p>
     <% elsif item.notes.present? %>
-      <p class="nd-item__why"><strong>Why it's here:</strong> <%= item.notes %></p>
+      <p class="nd-item__why type-body"><strong>Why it's here:</strong> <%= item.notes.upcase_first %></p>
     <% end %>
 
     <% if item.differences.any? %>
@@ -51,8 +54,8 @@
         <summary class="nd-btn nd-btn--sm">Reject…</summary>
         <div class="nd-item__reject">
           <div class="nd-field">
-            <label for="reason-<%= item.candidate_id %>">Reason <small>(optional, kept in the record's history)</small></label>
-            <input type="text" class="nd-input" id="reason-<%= item.candidate_id %>" name="reasons[<%= item.candidate_id %>]">
+            <label for="reason-<%= item.candidate_id %>" class="type-ui">Reason <span class="type-small text-ink-muted">(optional, kept in the record's history)</span></label>
+            <input type="text" class="nd-input type-input" id="reason-<%= item.candidate_id %>" name="reasons[<%= item.candidate_id %>]">
           </div>
           <button type="submit" class="nd-btn nd-btn--sm" name="candidate_id" value="<%= item.candidate_id %>"
             formaction="<%= reject_admin_candidates_path(filters) %>">Reject claim</button>

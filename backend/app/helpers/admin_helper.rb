@@ -55,6 +55,8 @@ module AdminHelper
     when Hash then value.values_at("name", "domain", "nrc_docket").compact.join(", ")
     when Date, Time then tag.span(data_date(value), class: "nd-num")
     when Numeric then tag.span(value.to_s, class: "nd-num")
+    # Stored keys such as "power_reactor" or "active" read as words.
+    when /\A[a-z]+(_[a-z]+)*\z/ then value.humanize
     else value.to_s
     end
   end

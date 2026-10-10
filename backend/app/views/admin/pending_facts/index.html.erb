@@ -20,16 +20,16 @@
       <% @facts.each do |fact| %>
         <li class="nd-item nd-item--single" id="fact-<%= fact.id %>">
           <div class="nd-item__main">
-            <p class="nd-item__claim"><%= link_to fact_heading(fact), admin_fact_path(type: fact.type, id: fact.id), class: "nd-link" %></p>
-            <dl class="nd-kv">
+            <p class="nd-item__claim type-body-strong"><%= link_to fact_heading(fact), admin_fact_path(type: fact.type, id: fact.id), class: "nd-link" %></p>
+            <dl class="nd-kv type-body">
               <% fact.attributes.compact_blank.except(*AdminHelper::HIDDEN_FIELDS).each do |name, value| %>
-                <dt><%= field_label(name) %></dt><dd><%= field_value(value) %></dd>
+                <dt class="type-label"><%= field_label(name) %></dt><dd><%= field_value(value) %></dd>
               <% end %>
             </dl>
             <% fact.evidence.each do |evidence| %>
               <% url = evidence.source && safe_url(evidence.source.url) %>
               <% if evidence.quote.present? %><blockquote class="nd-quote">“<%= evidence.quote %>”</blockquote><% end %>
-              <div class="nd-item__meta">
+              <div class="nd-item__meta type-small">
                 <% if url %><%= link_to url, class: "nd-link nd-link--muted", target: "_blank", rel: "noopener" do %><%= evidence.source.title.presence || source_host(url) %> <%= icon("arrow-square-out", size: 12) %><% end %><% end %>
                 <span>Found by <%= evidence.found_by %></span>
               </div>
@@ -41,8 +41,8 @@
                 <summary class="nd-btn nd-btn--sm">Reject…</summary>
                 <div class="nd-item__reject">
                   <div class="nd-field">
-                    <label for="reason-<%= fact.id %>">Reason <small>(optional, kept in the fact's history)</small></label>
-                    <input type="text" class="nd-input" id="reason-<%= fact.id %>" name="reasons[<%= fact.id %>]">
+                    <label for="reason-<%= fact.id %>" class="type-ui">Reason <span class="type-small text-ink-muted">(optional, kept in the fact's history)</span></label>
+                    <input type="text" class="nd-input type-input" id="reason-<%= fact.id %>" name="reasons[<%= fact.id %>]">
                   </div>
                   <button type="submit" class="nd-btn nd-btn--sm" name="id" value="<%= fact.id %>"
                     formaction="<%= reject_admin_pending_facts_path(kind: @kind) %>">Reject fact</button>
