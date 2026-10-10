@@ -47,6 +47,17 @@ class DataQuality::DirectoryClient
     record("Facility", lookup.facility(id:, name:, nrc_docket:))
   end
 
+  # The organization or facility a candidate is attached to, as it is now,
+  # or nil (links, or no subject).
+  def attached_record(candidate)
+    return unless candidate.subject_id
+
+    case candidate.subject_type
+    when "Organization" then record("Organization", lookup.organization(id: candidate.subject_id))
+    when "Facility" then record("Facility", lookup.facility(id: candidate.subject_id))
+    end
+  end
+
   # Likely duplicates an exact lookup misses. Returns Records.
   def similar_organizations(name)
     lookup.similar_organizations(name).map { |ref| record("Organization", ref) }

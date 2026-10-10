@@ -18,6 +18,7 @@ module Verifiable
     has_many :verification_events, as: :subject, dependent: nil
 
     validates :confidence, numericality: { in: 0..1 }, allow_nil: true
+    validate :closed_decisions_need_a_human
 
     # Why and in what context the next verification change is made; stored on
     # its event (see Directory::FactWriter's verification: reason:/context:).
@@ -90,6 +91,25 @@ module Verifiable
         self.verification_reason = reason
         update!(verification_status: status, verified_at: Time.current, verified_by: by)
         recompute_confidence!
+      rescue ActiveRecord::RecordInvalid
+        # A refused decision leaves the fact as it was, in memory too.
+        restore_attributes(%w[verification_status verified_at verified_by])
+        raise
+      end
+    end
+
+    # Only a human unpublishes, and only a human changes a decision once it's
+    # closed (rejected or unpublished). Rejecting is open to the pipeline, which
+    # retires its own proposals.
+    def closed_decisions_need_a_human
+      return unless will_save_change_to_verification_status? || will_save_change_to_verified_by?
+      return if verified_by.to_s.start_with?("human:")
+
+      from = verification_status_in_database
+      if unpublished?
+        errors.add(:verification_status, "can only be set to unpublished by a human")
+      elsif CLOSED_STATUSES.include?(from)
+        errors.add(:verification_status, "was #{from}; only a human can change it")
       end
     end
 

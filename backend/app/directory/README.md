@@ -113,6 +113,9 @@ into the audit trail. Re-applying the same decision keeps the original
   all, and match sends a candidate citing it to review ("…which was
   unpublished by human:tosin on 2026-10-10"). A human republishes by writing
   `status: "verified"` again.
+- **Only a human** (`by: "human:…"`) can unpublish, or change a fact that's
+  rejected or unpublished. Any other write fails with an error. The pipeline
+  may still reject, to retire its own proposals.
 - **Human actions** (approve, unpublish, republish) are written *without*
   `protect_human_verified`: the human is the authority.
 
