@@ -93,6 +93,20 @@ class DirectoryTest < ActionDispatch::IntegrationTest
     assert_select "select[name=state] option[selected]", count: 0
   end
 
+  test "the page has one main landmark, after the site header" do
+    get companies_path
+
+    assert_select "main", 1
+    assert_select "header.nd-sitebar + main"
+  end
+
+  test "the root shows the directory until the home page lands" do
+    get root_path
+
+    assert_response :success
+    assert_select "h1", /All companies/
+  end
+
   test "filters work without JavaScript" do
     get companies_path(category: "reactor-developers")
 

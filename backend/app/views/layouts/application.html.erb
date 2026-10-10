@@ -29,8 +29,8 @@
   </head>
 
   <body>
-    <main>
-      <%= yield %>
-    </main>
+    <%# Each page renders its own <main> after the site header, so the header
+        stays outside the main landmark and there's only ever one. %>
+    <%= yield %>
   </body>
 </html>
