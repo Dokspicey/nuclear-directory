@@ -81,7 +81,9 @@ class SharedPartialsTest < ActionView::TestCase
       citations: [ [ 1, @source ], [ 2, @untitled ] ], checked: Date.new(2026, 10, 9) }
 
     assert_select "a.nd-src[href='#source-1']", /checked 2026-10-09/
+    assert_select "a.nd-src[href='#source-1'][aria-label=?]", "Source 1: kairospower.com, checked 2026-10-09"
     assert_select "a.nd-src[href='#source-2']", text: /checked/, count: 0
+    assert_select "a.nd-src[href='#source-2'][aria-label=?]", "Source 2: energy.gov"
   end
 
   test "overview panel skips rows without a value" do
