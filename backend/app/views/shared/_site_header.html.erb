@@ -1,11 +1,9 @@
 <%# Wordmark and the compact search used on every page except home.
-    Locals: query (optional) fills the search field. %>
+    Locals: query (optional) fills the search field; search_id (optional)
+    names the search box when a page shows two headers. %>
 <header class="nd-sitebar">
   <div class="nd-sitebar__inner">
     <a class="nd-wordmark" href="/">Nuclear Directory</a>
-    <form class="nd-search" action="<%= directory_url_for %>" method="get" role="search">
-      <%= icon("magnifying-glass", size: 20) %>
-      <input type="search" name="q" value="<%= local_assigns[:query] %>" aria-label="Search a company, plant or site" placeholder="Search a company, plant or site" autocomplete="off">
-    </form>
+    <%= render "shared/search_box", size: :compact, query: local_assigns[:query], id: local_assigns[:search_id] %>
   </div>
 </header>
