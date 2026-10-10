@@ -1,8 +1,14 @@
 <%# One power plant or site in a list. Locals:
-    facility:    a Facility
+    facility:    a Facility (a site). When it comes from DirectoryListing it
+                 also carries units_count and units_capacity_mw from its
+                 verified units.
     connections: number of verified links (optional)
-    Type, status and place are left out when not known. %>
-<% kind = [ facility_type_label(facility.facility_type), facility_status_label(facility.status) ].compact.join(" · ").presence %>
+    Type, status, units, capacity and place are left out when not known. %>
+<% units = facility.try(:units_count).to_i %>
+<% capacity = facility.try(:units_capacity_mw) %>
+<% kind = [ facility_type_label(facility.facility_type), facility_status_label(facility.status),
+            (pluralize(units, "unit") if units.positive?),
+            ("#{number_with_delimiter(capacity.round)} MWe" if capacity.present?) ].compact.join(" · ").presence %>
 <% where = place(facility.city, facility.state) %>
 <% connections = local_assigns[:connections] %>
 <li>

@@ -5,7 +5,11 @@
             else "All companies"
             end
   total = @companies.size + @plants.size
-  noun = listing.category&.plants ? "plant" : (listing.searching? && listing.category.nil? ? "result" : "company")
+  # The plants category mixes plants, mines and test reactors (VOICE.md).
+  noun, plural = if listing.category&.plants then [ "plant or site", "plants and sites" ]
+                 elsif listing.searching? && listing.category.nil? then [ "result", "results" ]
+                 else [ "company", "companies" ]
+                 end
   content_for :title, "#{heading} · Nuclear Directory"
 %>
 <%= render "shared/site_header", query: listing.query %>
@@ -14,23 +18,23 @@
   <%= render "shared/category_pills", current: listing.category, counts: @counts %>
 
   <div class="nd-listhead">
-    <h1 class="nd-listhead__title"><%= heading %> <span class="nd-num"><%= pluralize(total, noun) %></span></h1>
+    <h1 class="nd-listhead__title"><%= heading %> <span class="nd-num"><%= pluralize(total, noun, plural:) %></span></h1>
 
-    <%= form_with url: companies_path, method: :get, class: "nd-filters", data: { controller: "autosubmit" } do %>
+    <%= form_with url: companies_path, method: :get, class: "nd-filters" do %>
       <%= hidden_field_tag :category, listing.category&.key, id: nil if listing.category %>
       <%= hidden_field_tag :q, listing.query, id: nil if listing.searching? %>
       <% unless listing.category&.plants %>
         <label class="nd-select"><b>Technology</b>
-          <%= select_tag :technology, options_for_select(listing.technology_options, listing.technology), include_blank: "Any", data: { action: "autosubmit#submit" } %>
+          <%= select_tag :technology, options_for_select(listing.technology_options, listing.technology), include_blank: "Any" %>
         </label>
       <% end %>
       <label class="nd-select"><b>State</b>
-        <%= select_tag :state, options_for_select(listing.state_options, listing.state), include_blank: "Any", data: { action: "autosubmit#submit" } %>
+        <%= select_tag :state, options_for_select(listing.state_options, listing.state), include_blank: "Any" %>
       </label>
       <label class="nd-select"><b>Sort</b>
-        <%= select_tag :sort, options_for_select(DirectoryListing::SORTS.invert, listing.sort), data: { action: "autosubmit#submit" } %>
+        <%= select_tag :sort, options_for_select(DirectoryListing::SORTS.invert, listing.sort) %>
       </label>
-      <button type="submit" class="nd-btn nd-btn--sm" data-autosubmit-target="button">Apply</button>
+      <button type="submit" class="nd-btn nd-btn--sm">Apply</button>
     <% end %>
   </div>
 

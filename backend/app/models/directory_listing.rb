@@ -15,8 +15,10 @@ class DirectoryListing
   def initialize(category: nil, q: nil, technology: nil, state: nil, sort: nil)
     @category = Category.find(category)
     @query = q.to_s.strip.first(100).presence
-    @technology = technology.to_s.presence
-    @state = state.to_s.strip.upcase.presence
+    # A filter value that isn't one of the options is dropped, so a stale or
+    # mistyped URL can't silently narrow the list behind an "Any" control.
+    @technology = technology.to_s.presence&.presence_in(technology_options.map(&:last))
+    @state = state.to_s.strip.upcase.presence&.presence_in(state_options)
     @sort = SORTS.key?(sort.to_s) ? sort.to_s : "name"
   end
 
@@ -33,8 +35,10 @@ class DirectoryListing
     ordered(company_scope.select("organizations.*", "(#{company_connections_sql}) AS connections_count"), "organizations.name")
   end
 
+  # Each site also gets #units_count and #units_capacity_mw, from its verified units.
   def plants
-    ordered(plant_scope.select("facilities.*", "(#{plant_connections_sql}) AS connections_count"), "facilities.name")
+    ordered(plant_scope.select("facilities.*", "(#{plant_connections_sql}) AS connections_count",
+      "(#{units_sql("COUNT(*)")}) AS units_count", "(#{units_sql("SUM(u.capacity_mw)")}) AS units_capacity_mw"), "facilities.name")
   end
 
   # Companies are listed unless the Plants and sites category is chosen.
@@ -56,7 +60,7 @@ class DirectoryListing
     return Facility.none if category.nil? && query.nil?
 
     scope = Facility.verified.where(parent_id: nil)
-    scope = scope.where("facilities.name ILIKE ?", like(query)) if query
+    scope = matching_plants(scope) if query
     scope = scope.where(state:) if state
     scope
   end
@@ -66,14 +70,17 @@ class DirectoryListing
 
   # Filter choices that actually occur in verified data.
   def technology_options
-    techs = Technology.where(id: OrganizationTechnology.verified.select(:technology_id)).order(:name).map { |t| [ t.name, t.key ] }
-    coolants = Role.where(parent: Role.find_by(key: "coolant")).where(id: OrganizationRole.verified.select(:role_id))
-      .order(:name).map { |r| [ "#{r.name} coolant", r.key ] }
-    techs + coolants
+    @technology_options ||= begin
+      techs = Technology.where(id: OrganizationTechnology.verified.select(:technology_id)).order(:name).map { |t| [ t.name, t.key ] }
+      coolants = Role.where(parent: Role.find_by(key: "coolant")).where(id: OrganizationRole.verified.select(:role_id))
+        .order(:name).map { |r| [ "#{r.name} coolant", r.key ] }
+      techs + coolants
+    end
   end
 
   def state_options
-    (Organization.verified.distinct.pluck(:hq_state) + Facility.verified.distinct.pluck(:state)).compact_blank.uniq.sort
+    @state_options ||= (Organization.verified.distinct.pluck(:hq_state) + Facility.verified.distinct.pluck(:state))
+      .compact_blank.uniq.sort
   end
 
   private
@@ -95,20 +102,34 @@ class DirectoryListing
     end
 
     # Name or any alias (compared normalized, as the matcher does); a role or
-    # technology whose name or key matches ("SMR", "enrichment"); or either
-    # side of a verified deal whose description matches ("HALEU"). Role
-    # descriptions aren't searched: they're too general to point at anyone.
+    # technology whose name or key matches ("SMR", "enrichment"); or any
+    # party to a verified deal or plant link whose description matches
+    # ("HALEU"). Role descriptions aren't searched: they're too general to
+    # point at anyone.
     def matching_companies(scope)
-      normalized = OrganizationAlias.normalize(query)
-      by_alias = OrganizationAlias.where("normalized_alias LIKE ?", like(normalized)).select(:organization_id)
       by_role = OrganizationRole.verified.joins(:role)
         .where("roles.name ILIKE :q OR roles.key ILIKE :q", q: like(query)).select(:organization_id)
       by_tech = OrganizationTechnology.verified.joins(:technology)
         .where("technologies.name ILIKE :q OR technologies.key ILIKE :q", q: like(query)).select(:organization_id)
       deals = Relationship.verified.where("relationships.description ILIKE ?", like(query))
+      plant_links = FacilityRelationship.verified.where("facility_relationships.description ILIKE ?", like(query))
+      matches = [ by_role, by_tech, deals.select(:from_organization_id), deals.select(:to_organization_id), plant_links.select(:organization_id) ]
 
-      [ by_alias, by_role, by_tech, deals.select(:from_organization_id), deals.select(:to_organization_id) ]
-        .reduce(scope.where("organizations.name ILIKE ?", like(query))) { |all, ids| all.or(scope.where(id: ids)) }
+      # A query of only punctuation normalizes to "", which would match every alias.
+      normalized = OrganizationAlias.normalize(query)
+      matches << OrganizationAlias.where("normalized_alias LIKE ?", like(normalized)).select(:organization_id) if normalized.present?
+
+      matches.reduce(scope.where("organizations.name ILIKE ?", like(query))) { |all, ids| all.or(scope.where(id: ids)) }
+    end
+
+    # The site's name, a verified unit's name ("Vogtle Unit 3" finds Plant
+    # Vogtle), or a verified link to the site or a unit whose description matches.
+    def matching_plants(scope)
+      units = Facility.verified.where.not(parent_id: nil).where("facilities.name ILIKE ?", like(query)).select(:parent_id)
+      linked = Facility.where(id: FacilityRelationship.verified.where("facility_relationships.description ILIKE ?", like(query)).select(:facility_id))
+      linked_sites = Facility.where(id: linked.select(:id)).or(Facility.where(id: linked.select(:parent_id))).select(:id)
+
+      scope.where("facilities.name ILIKE ?", like(query)).or(scope.where(id: units)).or(scope.where(id: linked_sites))
     end
 
     # A technology key (fission, smr) or a coolant sub-role key (molten_salt).
@@ -138,6 +159,11 @@ class DirectoryListing
         SELECT COUNT(*) FROM facility_relationships fr WHERE fr.verification_status = 'verified'
           AND fr.facility_id IN (SELECT u.id FROM facilities u WHERE u.id = facilities.id OR u.parent_id = facilities.id)
       SQL
+    end
+
+    # An aggregate over a site's verified units.
+    def units_sql(aggregate)
+      "SELECT #{aggregate} FROM facilities u WHERE u.parent_id = facilities.id AND u.verification_status = 'verified'"
     end
 
     def ordered(scope, name_column)

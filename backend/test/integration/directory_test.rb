@@ -56,7 +56,7 @@ class DirectoryTest < ActionDispatch::IntegrationTest
   end
 
   test "filters that match nothing offer to clear them" do
-    get companies_path(category: "reactor-developers", state: "WY")
+    get companies_path(category: "reactor-developers", state: "GA")
 
     assert_select ".nd-notice", /Nothing matches these filters./
     assert_select ".nd-notice a", "Clear filters"
@@ -67,7 +67,24 @@ class DirectoryTest < ActionDispatch::IntegrationTest
 
     assert_select "select[name=technology]", count: 0
     assert_select "select[name=state]"
-    assert_select "h1 .nd-num", "1 plant"
+    assert_select "h1 .nd-num", "1 plant or site"
+  end
+
+  test "a site row shows its verified units and their total capacity" do
+    vogtle = Facility.find_by!(name: "Plant Vogtle")
+    plant("Vogtle Unit 3", parent: vogtle, capacity_mw: 1117)
+    plant("Vogtle Unit 4", parent: vogtle, capacity_mw: 1117)
+    plant("Vogtle Unit 5", parent: vogtle, capacity_mw: 999, verified: false)
+    get companies_path(category: "plants")
+
+    assert_select "a.nd-listrow[href='/plants/plant-vogtle'] .nd-listrow__desc", "Power plant · Operating · 2 units · 2,234 MWe"
+  end
+
+  test "an unknown filter value is ignored, not applied behind an Any control" do
+    get companies_path(category: "reactor-developers", state: "ZZ")
+
+    assert_select "h1 .nd-num", "2 companies"
+    assert_select "select[name=state] option[selected]", count: 0
   end
 
   test "filters work without JavaScript" do

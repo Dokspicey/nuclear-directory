@@ -70,6 +70,32 @@ class DirectoryListingTest < ActiveSupport::TestCase
     assert_equal [ "Amazon", "Kairos Power" ], names(DirectoryListing.new(q: "haleu"))
   end
 
+  test "a unit's name finds its site" do
+    assert_equal [ "Plant Vogtle" ], DirectoryListing.new(q: "Unit 3").plants.map(&:name)
+  end
+
+  test "search matches plant link descriptions, finding the company and the site" do
+    FacilityRelationship.find_by!(facility: @unit).update!(description: "Co-owned with MEAG Power.")
+    listing = DirectoryListing.new(q: "meag")
+
+    assert_equal [ "Kairos Power" ], names(listing)
+    assert_equal [ "Plant Vogtle" ], listing.plants.map(&:name)
+  end
+
+  test "a query of only punctuation doesn't match every company" do
+    assert_empty names(DirectoryListing.new(q: "..."))
+  end
+
+  test "sites carry their verified units' count and capacity" do
+    @unit.update!(capacity_mw: 1117)
+    plant("Vogtle Unit 4", parent: @vogtle, capacity_mw: 1117)
+    plant("Vogtle Unit 5", parent: @vogtle, capacity_mw: 500, verified: false)
+    site = DirectoryListing.new(category: "plants").plants.first
+
+    assert_equal 2, site.units_count
+    assert_equal 2234, site.units_capacity_mw
+  end
+
   test "search within a category" do
     assert_empty names(DirectoryListing.new(category: "fuel", q: "kairos"))
   end
@@ -98,11 +124,14 @@ class DirectoryListingTest < ActiveSupport::TestCase
   end
 
   test "unknown values from the URL are ignored" do
-    listing = DirectoryListing.new(category: "nope", sort: "nope", q: "  ")
+    listing = DirectoryListing.new(category: "nope", sort: "nope", q: "  ", technology: "nope", state: "ZZ")
 
     assert_nil listing.category
     assert_equal "name", listing.sort
     assert_not listing.searching?
+    assert_nil listing.technology
+    assert_nil listing.state
+    assert_not listing.filtered?
   end
 
   test "category counts for the pills" do
