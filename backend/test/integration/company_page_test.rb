@@ -23,7 +23,7 @@ class CompanyPageTest < ActionDispatch::IntegrationTest
     link(@doe, "supplies", @kairos).evidence.create!(source: @doe_page, found_by: "human", confidence: 0.8)
     cite!(link(@ghost, "invests_in", @kairos), link(@kairos, "funds", @google, verified: false))
 
-    @hermes = plant("Hermes", facility_type: "research_reactor", status: "under_construction", city: "Oak Ridge", state: "TN")
+    @hermes = cite!(plant("Hermes", facility_type: "research_reactor", status: "under_construction", city: "Oak Ridge", state: "TN"), source: @press)
     link(@kairos, "owns", @hermes).evidence.create!(source: @press, found_by: "human", confidence: 1)
     hidden = plant("Hidden Site", verified: false)
     cite!(link(@kairos, "owns", hidden))
@@ -62,6 +62,16 @@ class CompanyPageTest < ActionDispatch::IntegrationTest
     assert_select "body", text: /Ghost Partner/, count: 0
     assert_select ".nd-factrow", text: /funds/, count: 0
     assert_select "body", text: /Hidden Site/, count: 0
+  end
+
+  test "a plant's type, status and place show beside a link only when the plant has its own source" do
+    bare = plant("Bare Reactor", facility_type: "power_reactor", status: "operating", city: "Nowhere", state: "OR")
+    cite!(link(@kairos, "operates", bare))
+    get company_path(slug: "kairos-power")
+
+    assert_select ".nd-factrow", text: /Kairos Power\s+operates\s+Bare Reactor/ do
+      assert_select ".nd-factrow__detail", count: 0
+    end
   end
 
   test "plants and sites link to the plant page" do
