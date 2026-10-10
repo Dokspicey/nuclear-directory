@@ -15,13 +15,29 @@ class DataQuality::DirectoryClientTest < ActiveSupport::TestCase
     Candidate.create!(source: sources(:press_release), kind: kind, payload: payload, quote: quote)
   end
 
-  test "finds organizations by name or alias, then by domain" do
-    assert_equal DataQuality::DirectoryClient::Ref.new(type: "Organization", id: organizations(:terrapower).id),
-      @client.find("organization", { "name" => "TerraPower, LLC" })
-    assert_equal organizations(:terrapower).id,
-      @client.find("organization", { "name" => "Unknown name", "domain" => "https://www.terrapower.com/news" }).id
-    assert_nil @client.find("organization", { "name" => "Nobody" })
-    assert_nil @client.find("organization", {})
+  test "finds organizations by name or alias, or by domain" do
+    terrapower = @client.organization(name: "TerraPower, LLC")
+    assert_equal DataQuality::DirectoryClient::Ref.new(type: "Organization", id: organizations(:terrapower).id), terrapower.ref
+    assert_equal "TerraPower", terrapower.name
+    assert_equal organizations(:terrapower).id, @client.organization(domain: "https://www.terrapower.com/news").id
+    assert_nil @client.organization(name: "Nobody")
+  end
+
+  test "finds similar records as module values" do
+    similar = @client.similar_facilities("Vogtle 3")
+    assert_equal [ facilities(:vogtle).id ], similar.map(&:id)
+    assert_kind_of DataQuality::DirectoryClient::Record, similar.first
+  end
+
+  test "writes a pending fact with crawler evidence" do
+    result = @client.write_pending("organization", { name: "Entergy Nuclear Operations, Inc." },
+      candidate: candidate("organization", {}, quote: "Entergy Nuclear Operations, Inc."), crawl_run: @run)
+
+    assert result.success?
+    assert result.created
+    org = Organization.find(result.ref.id)
+    assert org.pending?
+    assert_equal [ "crawler", @run.id ], org.evidence.sole.slice(:found_by, :crawl_run_id).values
   end
 
   test "writes a new fact with its evidence, verified by the agent" do
@@ -40,15 +56,91 @@ class DataQuality::DirectoryClientTest < ActiveSupport::TestCase
     assert_equal "agent:verifier/vendor/verifier", Organization.find(newco.id).verified_by
   end
 
-  test "a matched candidate updates its record instead of creating one" do
+  test "a matched existing record keeps its attributes and verification when published" do
     terrapower = organizations(:terrapower)
+    terrapower.update!(website: "https://curated.example")
+    terrapower.verify!(by: "human:tosin")
     matched = candidate("organization", { "name" => "TerraPower", "website" => "https://terrapower.com" })
     matched.update!(status: "matched", subject_type: "Organization", subject_id: terrapower.id)
 
     assert_no_difference -> { Organization.count } do
       assert @client.write_fact(matched, confidence: 0.8, crawl_run: @run).success?
     end
-    assert_equal "https://terrapower.com", terrapower.reload.website
+    terrapower.reload
+    assert_equal "https://curated.example", terrapower.website
+    assert_equal "human:tosin", terrapower.verified_by
+    assert_equal "verified", terrapower.verification_status
+  end
+
+  test "a matched existing facility keeps its attributes and verification when published" do
+    vogtle = facilities(:vogtle)
+    vogtle.verify!(by: "human:tosin")
+    matched = candidate("facility", { "name" => "Vogtle Electric Generating Plant", "state" => "AL" })
+    matched.update!(status: "matched", subject_type: "Facility", subject_id: vogtle.id)
+
+    assert @client.write_fact(matched, confidence: 0.8, crawl_run: @run).success?
+
+    vogtle.reload
+    assert_equal "GA", vogtle.state
+    assert_equal "human:tosin", vogtle.verified_by
+    assert_equal "verified", vogtle.verification_status
+  end
+
+  test "publishing fills a human-verified record's blanks, e.g. the NRC docket of a seed plant" do
+    columbia = Facility.create!(name: "Columbia Generating Station")
+    columbia.verify!(by: "human:tosin")
+    matched = candidate("facility", { "name" => "Columbia Generating Station", "nrc_docket" => "05000397",
+      "facility_type" => "power_reactor" })
+    matched.update!(status: "matched", subject_type: "Facility", subject_id: columbia.id)
+
+    assert @client.write_fact(matched, confidence: 0.9, crawl_run: @run).success?
+
+    columbia.reload
+    assert_equal [ "05000397", "power_reactor" ], [ columbia.nrc_docket, columbia.facility_type ]
+    assert_equal "human:tosin", columbia.verified_by
+  end
+
+  test "publishing never changes a human-verified link" do
+    link = FacilityRelationship.create!(organization: organizations(:terrapower), facility: facilities(:vogtle),
+      relationship_type: "owns", description: "Curated description", ownership_pct: 40)
+    link.verify!(by: "human:tosin")
+    matched = candidate("facility_relationship", { "organization" => { "name" => "TerraPower" },
+      "facility" => { "name" => "Vogtle Electric Generating Plant" }, "relationship_type" => "owns",
+      "description" => "Candidate description", "ownership_pct" => 75 })
+    matched.update!(status: "matched", subject_type: "FacilityRelationship", subject_id: link.id)
+
+    assert @client.write_fact(matched, confidence: 0.8, crawl_run: @run).success?
+
+    link.reload
+    assert_equal [ "Curated description", 40 ], link.slice(:description, :ownership_pct).values
+    assert_equal [ "verified", "human:tosin" ], [ link.verification_status, link.verified_by ]
+  end
+
+  test "an agent never overturns a human's rejection" do
+    terrapower = organizations(:terrapower)
+    terrapower.reject!(by: "human:tosin")
+    matched = candidate("organization", { "name" => "TerraPower" })
+    matched.update!(status: "matched", subject_type: "Organization", subject_id: terrapower.id)
+
+    assert @client.write_fact(matched, confidence: 0.9, crawl_run: @run).success?
+    assert terrapower.reload.rejected?
+  end
+
+  test "publishing a matched link applies its payload attributes" do
+    link = FacilityRelationship.create!(organization: organizations(:terrapower), facility: facilities(:vogtle),
+      relationship_type: "owns", description: "Curated description", ownership_pct: 40)
+    matched = candidate("facility_relationship", {
+      "organization" => { "name" => "TerraPower" },
+      "facility" => { "name" => "Vogtle Electric Generating Plant" },
+      "relationship_type" => "owns",
+      "description" => "Candidate description",
+      "ownership_pct" => 75
+    })
+    matched.update!(status: "matched", subject_type: "FacilityRelationship", subject_id: link.id)
+
+    assert @client.write_fact(matched, confidence: 0.8, crawl_run: @run).success?
+
+    assert_equal [ "Candidate description", 75 ], link.reload.slice(:description, :ownership_pct).values
   end
 
   test "returns the directory's errors instead of raising" do
@@ -72,6 +164,10 @@ class DataQuality::DirectoryClientTest < ActiveSupport::TestCase
     {
       "Lookup.organization" => [ Directory::Lookup.method(:organization), FakeDirectory::Lookup.instance_method(:organization) ],
       "Lookup.facility" => [ Directory::Lookup.method(:facility), FakeDirectory::Lookup.instance_method(:facility) ],
+      "Lookup.similar_organizations" => [ Directory::Lookup.method(:similar_organizations),
+        FakeDirectory::Lookup.instance_method(:similar_organizations) ],
+      "Lookup.similar_facilities" => [ Directory::Lookup.method(:similar_facilities),
+        FakeDirectory::Lookup.instance_method(:similar_facilities) ],
       # FactWriter.write forwards (...) to the instance method, which has the real signature.
       "FactWriter.write" => [ Directory::FactWriter.instance_method(:write), FakeDirectory::FactWriter.instance_method(:write) ]
     }.each do |name, (real, fake)|
