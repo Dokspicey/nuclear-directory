@@ -70,7 +70,7 @@ class DataQuality::Stages::Verify < DataQuality::Stage
     def hold_reason(candidate)
       record = directory.attached_record(candidate)
       if record&.closed?
-        return [ "human_decision", "#{record.name} was #{record.decision} after this was matched to it. " \
+        return [ "human_decision", "#{record.name.upcase_first} was #{record.decision} after this was matched to it. " \
           "The same thing again, or a new record?" ]
       end
 

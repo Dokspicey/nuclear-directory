@@ -106,7 +106,7 @@ class DataQuality::Stages::VerifyTest < ActiveSupport::TestCase
     run_stage("verify", verifier: RejectEverything.new)
 
     assert c.reload.status_needs_review?, "not rejected by the verifier"
-    assert_match "TerraPower owns #{facilities(:vogtle).name} was unpublished by human:tosin", c.notes
+    assert_match "The fact “TerraPower owns #{facilities(:vogtle).name}” was unpublished by human:tosin", c.notes
   end
 
   test "approving a match keeps the company's own name, adding the candidate's as an alias" do

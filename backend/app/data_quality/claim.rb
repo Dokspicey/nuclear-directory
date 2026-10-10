@@ -9,7 +9,7 @@ module DataQuality::Claim
   RELATIONSHIP_VERBS = {
     "supplies" => "supplies", "invests_in" => "invests in", "funds" => "funds",
     "offtake_with" => "has an offtake agreement with", "subsidiary_of" => "is a subsidiary of",
-    "owns" => "owns", "operates" => "operates", "vendor_for" => "is the vendor for", "offtakes_from" => "buys power from"
+    "owns" => "owns", "operates" => "operates", "vendor_for" => "is vendor for", "offtakes_from" => "offtakes from"
   }.freeze
   LABELS = { "nrc_docket" => "NRC docket", "facility_type" => "plant type", "ownership_pct" => "ownership",
     "hq_city" => "headquarters city", "hq_state" => "headquarters state", "capacity_mw" => "capacity" }.freeze

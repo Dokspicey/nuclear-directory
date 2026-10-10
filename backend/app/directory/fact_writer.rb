@@ -154,10 +154,11 @@ module Directory
         # two decisions at once are recorded in the order they happen.
         record.lock! if (protect_human_verified || verification) && !created
         # A rejected or unpublished fact only changes by a human's hand:
-        # protected writes never change it, and an unprotected one needs a
-        # human's decision.
+        # protected writes never change it, and any other write must carry a
+        # human's decision (verification: { by: "human:…" }), so the change is
+        # audited and attributed.
         human_decision = verification.to_h.symbolize_keys[:by].to_s.start_with?("human:")
-        if !created && record.closed? && (protect_human_verified || (verification && !human_decision))
+        if !created && record.closed? && (protect_human_verified || !human_decision)
           raise Invalid, "#{record.model_name.human} was #{record.verification_status} by #{record.verified_by || 'review'}" \
             "#{" on #{record.verified_at.to_date}" if record.verified_at}; not changed"
         end
