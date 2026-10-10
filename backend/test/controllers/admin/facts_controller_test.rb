@@ -50,7 +50,7 @@ class Admin::FactsControllerTest < ActionDispatch::IntegrationTest
     get admin_fact_path(type: "FacilityRelationship", id: link.id)
 
     assert_select "td", /ownership pct?\s*blank to 45\.7|ownership blank to 45\.7/
-    assert_select "td", "human:tosin"
+    assert_select "td", "tosin"
   end
 
   test "rejecting a pending fact with a reason" do

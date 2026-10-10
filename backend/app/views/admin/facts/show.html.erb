@@ -9,7 +9,7 @@
       <span class="type-small text-ink-muted">by <%= who(@fact.verified_by) %><% if @fact.verified_at %> on <span class="nd-num"><%= data_date(@fact.verified_at) %></span><% end %></span>
     <% end %>
     <% if (public_path = public_page_path(@fact)) %>
-      <%= link_to public_path, class: "nd-link type-small nd-tap", target: "_blank", rel: "noopener" do %>View on site <%= icon("arrow-square-out", size: 12) %><% end %>
+      <%= link_to public_path, class: "nd-link type-small nd-tap", target: "_blank", rel: "noopener" do %>View on site<% end %>
     <% end %>
   </div>
 </div>
@@ -27,7 +27,11 @@
   <h2 class="nd-sec-h">Publishing</h2>
   <% case @fact.verification_status %>
   <% when "verified" %>
-    <p class="m-0 max-w-prose">This fact is public. Unpublishing hides it from the site and keeps the pipeline from changing it, until you republish it.</p>
+    <% if @fact.published %>
+      <p class="m-0 max-w-prose">This fact is public. Unpublishing hides it from the site and keeps the pipeline from changing it, until you republish it.</p>
+    <% else %>
+      <p class="m-0 max-w-prose">Verified, but not public: something it depends on (its company, plant or site) is hidden. Unpublishing still keeps the pipeline from changing it.</p>
+    <% end %>
     <%= form_with url: admin_fact_unpublish_path(type: @fact.type, id: @fact.id), class: "nd-item__reject" do %>
       <button type="submit" disabled hidden aria-hidden="true" tabindex="-1"></button>
       <div class="nd-field">
@@ -37,7 +41,7 @@
       <button type="submit" class="nd-btn" data-turbo-confirm="Unpublish this fact? It disappears from the public site until you republish it.">Unpublish</button>
     <% end %>
   <% when "unpublished" %>
-    <p class="m-0 max-w-prose">This fact is hidden from the public site. Republishing makes it public again.</p>
+    <p class="m-0 max-w-prose">This fact is hidden from the public site. Republishing makes it public again if what it depends on (its company, plant or site) is public too.</p>
     <%= form_with url: admin_fact_republish_path(type: @fact.type, id: @fact.id), class: "nd-item__reject" do %>
       <button type="submit" disabled hidden aria-hidden="true" tabindex="-1"></button>
       <div class="nd-field">

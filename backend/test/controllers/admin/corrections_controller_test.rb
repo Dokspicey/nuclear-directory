@@ -52,6 +52,29 @@ class Admin::CorrectionsControllerTest < ActionDispatch::IntegrationTest
     assert_equal [ "open", nil, nil ], [ fixed.reload.status, fixed.resolution, fixed.decided_by ]
   end
 
+  test "a change from a stale page is refused, not applied" do
+    closed = report
+    closed.close!("fixed", by: "human:tosin")
+    sign_in_as users(:admin)
+
+    post start_admin_correction_path(closed)
+
+    assert_match "Not changed: it's already closed", flash[:alert]
+    assert_equal [ "closed", "fixed" ], [ closed.reload.status, closed.resolution ]
+  end
+
+  test "more than a page of reports pages on" do
+    (Admin::CorrectionsController::PAGE + 1).times { report }
+    sign_in_as users(:admin)
+
+    get admin_corrections_path
+    assert_select ".nd-item", Admin::CorrectionsController::PAGE
+    assert_select "a[href=?]", admin_corrections_path(tab: "open", page: 2)
+
+    get admin_corrections_path(tab: "open", page: 2)
+    assert_select ".nd-item", 1
+  end
+
   test "a report from a page that isn't a record has no record link; a stale id is an error, not a crash" do
     r = CorrectionReport.create!(subject: "Home page", page_path: "/", message: "Typo in the intro.")
     sign_in_as users(:admin)

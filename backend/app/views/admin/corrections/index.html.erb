@@ -17,7 +17,7 @@
 <% else %>
   <ol class="nd-items">
     <% @reports.each do |report| %>
-      <% record_path = correction_record_path(report) %>
+      <% record_path = @record_paths[report.id] %>
       <li class="nd-item nd-item--single" id="report-<%= report.id %>">
         <div class="nd-item__main">
           <p class="nd-item__claim type-body-strong"><%= report.subject %></p>
@@ -25,7 +25,7 @@
           <blockquote class="nd-quote type-body wrap-anywhere"><%= simple_format(report.message, {}, wrapper_tag: "span") %></blockquote>
           <div class="nd-item__meta type-small">
             <span>Received <span class="nd-num"><%= report.created_at.utc.strftime("%Y-%m-%d %H:%M") %></span> UTC</span>
-            <%= link_to report.page_path, class: "nd-link nd-link--muted nd-tap wrap-anywhere", target: "_blank", rel: "noopener" do %>From <%= report.page_path %> <%= icon("arrow-square-out", size: 12) %><% end %>
+            <%= link_to report.page_path, class: "nd-link nd-link--muted nd-tap wrap-anywhere", target: "_blank", rel: "noopener" do %>From <%= report.page_path %><% end %>
             <% if record_path %><%= link_to "Open record", record_path, class: "nd-link nd-link--muted nd-tap" %><% end %>
             <% if report.contact %><%= link_to "Reply to #{report.contact}", correction_reply_mailto(report), class: "nd-link nd-link--muted nd-tap wrap-anywhere" %><% end %>
           </div>
@@ -49,4 +49,7 @@
       </li>
     <% end %>
   </ol>
+  <% if @more %>
+    <div><%= link_to "Next #{Admin::CorrectionsController::PAGE}", admin_corrections_path(tab: @tab, page: @page + 1), class: "nd-btn nd-btn--sm" %></div>
+  <% end %>
 <% end %>

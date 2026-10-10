@@ -13,6 +13,11 @@ module AdminHelper
   }.freeze
   STATUS_WORDS = { "verified" => "Verified", "pending" => "Pending", "rejected" => "Rejected", "unpublished" => "Unpublished" }.freeze
 
+  CRAWL_STATUS_LABELS = { "ok" => "OK", "blocked" => "Blocked", "needs_human" => "Needs a human check", "pending" => "Not fetched yet" }.freeze
+
+  # A source's crawl status in one wording, wherever it's shown.
+  def crawl_status_label(status) = CRAWL_STATUS_LABELS.fetch(status.to_s, status.to_s.humanize)
+
   # Who decided, as the screen shows it: "tosin" for "human:tosin", "the
   # verifier (model)" for an agent. The data keeps the prefix.
   def who(by)
@@ -33,17 +38,6 @@ module AdminHelper
   HIDDEN_FIELDS = %i[organization_id facility_id from_organization_id to_organization_id parent_id].freeze
 
   def kind_label(kind) = KIND_LABELS.fetch(kind.to_s, kind.to_s.humanize)
-
-  # The admin fact page for the company or plant a correction came from
-  # (its page_path, e.g. "/companies/terrapower"), or nil.
-  def correction_record_path(report)
-    path = report.page_path.to_s.split(/[?#]/).first
-    type, slug = path.match(%r{\A/(companies|plants)/([^/]+)\z})&.captures
-    return unless slug
-
-    record = type == "companies" ? Directory::Lookup.organization(slug:) : Directory::Lookup.facility(slug:)
-    admin_fact_path(type: type == "companies" ? "Organization" : "Facility", id: record.id) if record
-  end
 
   # The public page of a published company or plant, or nil.
   def public_page_path(fact)

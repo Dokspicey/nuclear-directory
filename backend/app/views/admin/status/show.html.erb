@@ -14,7 +14,7 @@
   </p>
   <%# Present when the page loads, so status rather than alert (an alert is for the result of an action). %>
   <% if @spend.share >= 1 %>
-    <div class="nd-flash" role="status"><%= icon("warning-circle") %><p class="type-body-strong">The budget is used up. Model calls are refused until next month or until the budget is raised.</p></div>
+    <p class="m-0 type-body" role="status">The budget is used up. Model calls are refused until next month or until the budget is raised.</p>
   <% elsif @spend.share >= 0.8 %>
     <p class="m-0 type-body"><%= money(@spend.cost).upcase_first %> of <%= money(@spend.budget) %> used; model calls stop at 100%.</p>
   <% end %>
@@ -23,7 +23,7 @@
 <section class="nd-stack">
   <h2 class="nd-sec-h">Sources <small class="nd-num"><%= @sources.total %></small></h2>
   <p class="m-0 type-small text-ink-muted">
-    <%= safe_join(@sources.by_status.map { |status, n| "#{status.humanize} #{n}" }, " · ") %>
+    <%= safe_join(@sources.by_status.map { |status, n| "#{crawl_status_label(status)} #{n}" }, " · ") %>
   </p>
   <% if @sources.attention.empty? %>
     <p class="m-0">No source needs attention.</p>
@@ -34,7 +34,7 @@
         <li class="nd-item nd-item--single" id="source-<%= source.id %>">
           <div class="nd-item__main">
             <p class="nd-item__claim type-body-strong">
-              <%= source.crawl_status == "blocked" ? "Blocked" : "Needs a human check" %>:
+              <%= crawl_status_label(source.crawl_status) %>:
               <% if url %><%= link_to url, class: "nd-link", target: "_blank", rel: "noopener" do %><%= source.title.presence || source_host(url) %> <%= icon("arrow-square-out", size: 12) %><% end %><% else %><%= source.url %><% end %>
             </p>
             <p class="nd-item__why type-body"><%= source.status_reason.presence || "No reason recorded." %></p>
@@ -84,6 +84,6 @@
 <% if @analytics_url %>
   <section class="nd-stack">
     <h2 class="nd-sec-h">Visitors</h2>
-    <p class="m-0"><%= link_to @analytics_url, class: "nd-link", target: "_blank", rel: "noopener" do %>Open the PostHog dashboard <%= icon("arrow-square-out", size: 12) %><% end %></p>
+    <p class="m-0"><%= link_to @analytics_url, class: "nd-link", target: "_blank", rel: "noopener" do %>Open the PostHog dashboard<% end %></p>
   </section>
 <% end %>

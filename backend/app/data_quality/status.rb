@@ -14,7 +14,8 @@ module DataQuality::Status
     def failed? = status == "failed"
   end
   Spend = Data.define(:calls, :total_tokens, :cost, :budget) do
-    def share = budget.to_f.positive? ? (cost.to_f / budget.to_f) : 0
+    # A budget of 0 refuses every call (Budget.check!), so it reads as used up.
+    def share = budget.to_f.positive? ? (cost.to_f / budget.to_f) : 1.0
   end
 
   ATTENTION = %w[blocked needs_human].freeze

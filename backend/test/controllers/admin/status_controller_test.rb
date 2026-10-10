@@ -3,6 +3,14 @@ require "test_helper"
 # Sources and runs (#86): blocked sources with their CDN reference, the last
 # run per stage, and spend against the budget.
 class Admin::StatusControllerTest < ActionDispatch::IntegrationTest
+  # Sets (or clears, with nil) an environment variable for the block, then restores it.
+  def with_env(name, value)
+    saved = ENV[name]
+    value.nil? ? ENV.delete(name) : ENV[name] = value
+    yield
+  ensure
+    saved.nil? ? ENV.delete(name) : ENV[name] = saved
+  end
   test "needs a signed-in admin" do
     get admin_status_path
     assert_redirected_to new_session_path
@@ -17,7 +25,7 @@ class Admin::StatusControllerTest < ActionDispatch::IntegrationTest
       finished_at: 30.minutes.ago + 7, error: "RuntimeError: Error pulling: -1")
     sign_in_as users(:admin)
 
-    get admin_status_path
+    with_env("POSTHOG_DASHBOARD_URL", nil) { get admin_status_path }
 
     assert_response :success
     assert_select "#source-#{blocked.id}" do
@@ -60,18 +68,20 @@ class Admin::StatusControllerTest < ActionDispatch::IntegrationTest
 
     spent!(1.0)
     get admin_status_path
-    assert_select ".nd-flash[role=status]", /budget is used up/
+    assert_select "p[role=status]", /budget is used up/
     assert_select "[role=alert]", 0
+  end
+
+  test "a budget of 0 refuses every call, so it reads as used up" do
+    sign_in_as users(:admin)
+    with_env("DATA_QUALITY_MONTHLY_BUDGET", "0") { get admin_status_path }
+    assert_select "p[role=status]", /budget is used up/
   end
 
   test "links the PostHog dashboard when one is configured" do
     sign_in_as users(:admin)
-    ENV["POSTHOG_DASHBOARD_URL"] = "https://us.posthog.com/project/1/dashboard/2"
-
-    get admin_status_path
+    with_env("POSTHOG_DASHBOARD_URL", "https://us.posthog.com/project/1/dashboard/2") { get admin_status_path }
 
     assert_select "a[href=?]", "https://us.posthog.com/project/1/dashboard/2", text: /Open the PostHog dashboard/
-  ensure
-    ENV.delete("POSTHOG_DASHBOARD_URL")
   end
 end

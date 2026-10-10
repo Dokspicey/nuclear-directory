@@ -8,9 +8,14 @@ class Admin::CorrectionsController < Admin::BaseController
 
   def index
     @tab = params[:tab].presence_in(TABS) || "open"
+    @page = [ params[:page].to_i, 1 ].max
     scope = @tab == "open" ? CorrectionReport.where(status: %w[open reviewed]) : CorrectionReport.where(status: "closed")
-    @reports = scope.order(@tab == "open" ? :created_at : { decided_at: :desc }).limit(PAGE)
+    @reports = scope.order(@tab == "open" ? { created_at: :asc, id: :asc } : { decided_at: :desc, id: :desc })
+      .offset((@page - 1) * PAGE).limit(PAGE + 1).to_a
+    @more = @reports.size > PAGE
+    @reports = @reports.first(PAGE)
     @counts = { "open" => CorrectionReport.where(status: %w[open reviewed]).count, "closed" => CorrectionReport.where(status: "closed").count }
+    @record_paths = record_paths(@reports)
   end
 
   def start = decide("Marked as in progress.") { |report| report.start!(by: actor) }
@@ -28,5 +33,22 @@ class Admin::CorrectionsController < Admin::BaseController
         flash[:alert] = "That report no longer exists; refresh the inbox."
       end
       redirect_to admin_corrections_path(tab: params[:tab])
+    rescue CorrectionReport::InvalidTransition => error
+      flash[:alert] = "Not changed: #{error.message}. Refresh the inbox."
+      redirect_to admin_corrections_path(tab: params[:tab])
+    end
+
+    # Admin fact pages for the company or plant pages the reports came from,
+    # looked up in one query per kind: { report id => path }.
+    def record_paths(reports)
+      slugs = reports.to_h { |report| [ report.id, report.page_path.to_s.split(/[?#]/).first.match(%r{\A/(companies|plants)/([^/]+)\z})&.captures ] }.compact
+      ids = {
+        "companies" => Organization.where(slug: slugs.values.select { _1.first == "companies" }.map(&:last)).pluck(:slug, :id).to_h,
+        "plants" => Facility.where(slug: slugs.values.select { _1.first == "plants" }.map(&:last)).pluck(:slug, :id).to_h
+      }
+      slugs.filter_map do |report_id, (kind, slug)|
+        id = ids.fetch(kind)[slug] or next
+        [ report_id, helpers.admin_fact_path(type: kind == "companies" ? "Organization" : "Facility", id:) ]
+      end.to_h
     end
 end
