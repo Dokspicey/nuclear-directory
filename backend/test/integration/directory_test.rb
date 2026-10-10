@@ -55,6 +55,12 @@ class DirectoryTest < ActionDispatch::IntegrationTest
     assert_select ".nd-notice a[href=?]", "/companies?category=reactor-developers", text: "Clear search"
   end
 
+  test "clearing the search keeps the other filters" do
+    get companies_path(category: "reactor-developers", q: "nothing like this", state: "CA", sort: "connections")
+
+    assert_select ".nd-notice a[href=?]", "/companies?category=reactor-developers&sort=connections&state=CA", text: "Clear search"
+  end
+
   test "filters that match nothing offer to clear them" do
     get companies_path(category: "reactor-developers", state: "GA")
 

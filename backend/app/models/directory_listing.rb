@@ -54,12 +54,15 @@ class DirectoryListing
   end
 
   # Plants show for the Plants and sites category, and alongside companies in
-  # search results. Only sites are listed; reactor units sit under them.
+  # search results. Only sites are listed; reactor units sit under them. A
+  # site is public when it's verified, or when at least one of its units is
+  # (#73: sites created from NRC units go public with their first verified unit).
   def plant_scope
     return Facility.none if category && !category.plants
     return Facility.none if category.nil? && query.nil?
 
-    scope = Facility.verified.where(parent_id: nil)
+    sites = Facility.where(parent_id: nil)
+    scope = sites.verified.or(sites.where(id: Facility.verified.where.not(parent_id: nil).select(:parent_id)))
     scope = matching_plants(scope) if query
     scope = scope.where(state:) if state
     scope
@@ -71,7 +74,10 @@ class DirectoryListing
   # Filter choices that actually occur in verified data.
   def technology_options
     @technology_options ||= begin
-      techs = Technology.where(id: OrganizationTechnology.verified.select(:technology_id)).order(:name).map { |t| [ t.name, t.key ] }
+      used = Technology.where(id: OrganizationTechnology.verified.select(:technology_id))
+      # A parent of a technology in use is offered too: SMR in use offers Fission.
+      techs = Technology.where(id: used.select(:id)).or(Technology.where(id: used.select(:parent_id)))
+        .order(:name).map { |t| [ t.name, t.key ] }
       coolants = Role.where(parent: Role.find_by(key: "coolant")).where(id: OrganizationRole.verified.select(:role_id))
         .order(:name).map { |r| [ "#{r.name} coolant", r.key ] }
       techs + coolants
@@ -133,9 +139,11 @@ class DirectoryListing
     end
 
     # A technology key (fission, smr) or a coolant sub-role key (molten_salt).
+    # A technology includes its sub-technologies: Fission includes SMR.
     def with_technology(scope)
       if (technology_record = Technology.find_by(key: technology))
-        scope.where(id: OrganizationTechnology.verified.where(technology: technology_record).select(:organization_id))
+        tech_ids = Technology.where(id: technology_record.id).or(Technology.where(parent_id: technology_record.id)).select(:id)
+        scope.where(id: OrganizationTechnology.verified.where(technology_id: tech_ids).select(:organization_id))
       elsif (coolant = Role.where(parent: Role.find_by(key: "coolant")).find_by(key: technology))
         scope.where(id: OrganizationRole.verified.where(role: coolant).select(:organization_id))
       else

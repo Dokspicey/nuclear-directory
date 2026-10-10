@@ -70,6 +70,19 @@ class DirectoryListingTest < ActiveSupport::TestCase
     assert_equal [ "Amazon", "Kairos Power" ], names(DirectoryListing.new(q: "haleu"))
   end
 
+  test "a pending site appears once one of its units is verified" do
+    pending_site = plant("Salem Nuclear Generating Station", verified: false)
+    plant("Hope Creek", verified: false)
+    plant("Salem Unit 1", parent: pending_site)
+
+    assert_equal [ "Plant Vogtle", "Salem Nuclear Generating Station" ], DirectoryListing.new(category: "plants").plants.map(&:name)
+    assert_equal 2, DirectoryListing.category_counts["plants"]
+  end
+
+  test "a parent technology filter includes its sub-technologies" do
+    assert_equal [ "Kairos Power" ], names(DirectoryListing.new(technology: "fission"))
+  end
+
   test "a unit's name finds its site" do
     assert_equal [ "Plant Vogtle" ], DirectoryListing.new(q: "Unit 3").plants.map(&:name)
   end
