@@ -390,6 +390,23 @@
   /* The summary stays, so the list can be collapsed again. */
   .nd-more:not([open]) .nd-more__close, .nd-more[open] .nd-more__open { display: none; }
 
+  /* Units table: row headers read like cells; :target marks the unit a link pointed at. */
+  .nd-table--cards tbody th { text-align: left; font: 600 14px/20px var(--font-text); letter-spacing: normal; text-transform: none; color: var(--nd-ink); white-space: normal; padding: var(--nd-space-3) var(--nd-space-4); border-bottom: var(--nd-hairline) solid var(--nd-rule); background: var(--nd-paper-raised); }
+  .nd-table--cards tbody tr:last-child th { border-bottom: 0; }
+  .nd-table--cards tr:target th, .nd-table--cards tr:target td { background: var(--nd-paper-sunken); }
+
+  /* Phones: each unit is a card, labels before values (#90). */
+  @media (max-width: 560px) {
+    .nd-table-wrap--cards { overflow: visible; border: 0; }
+    .nd-table--cards thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    .nd-table--cards, .nd-table--cards tbody, .nd-table--cards tr, .nd-table--cards th, .nd-table--cards td { display: block; }
+    .nd-table--cards tr { border: var(--nd-hairline) solid var(--nd-rule); margin-bottom: var(--nd-space-3); }
+    .nd-table--cards tbody th, .nd-table--cards tbody tr:last-child th { border-bottom: var(--nd-hairline) solid var(--nd-rule); }
+    .nd-table--cards td { display: grid; grid-template-columns: 9rem minmax(0, 1fr); gap: var(--nd-space-3); padding: var(--nd-space-2) var(--nd-space-4); border-bottom: 0; }
+    .nd-table--cards td::before { content: attr(data-label); font: 700 11px/20px var(--font-text); letter-spacing: .08em; text-transform: uppercase; color: var(--nd-ink-muted); }
+    .nd-table--cards td:empty { display: none; }
+  }
+
   /* Key facts come first in the page, so they lead when the columns stack
      (phones, tablets, #90). From 960px both columns always fit (560 + 280 +
      48 gap + gutters), and a grid places key facts on the right; below that

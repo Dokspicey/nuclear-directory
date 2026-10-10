@@ -33,12 +33,18 @@ class SharedPartialsTest < ActionView::TestCase
   end
 
   test "power plant row with and without type, status and place" do
-    render partial: "shared/plant_row", locals: { facility: facilities(:vogtle) }
+    render partial: "shared/plant_row", locals: { facility: facilities(:vogtle).tap { |f| f.verification_status = "verified" } }
     assert_select ".nd-listrow__desc", "Power plant · Operating"
     assert_select ".nd-listrow__side", /GA/
 
     render partial: "shared/plant_row", locals: { facility: Facility.new(name: "Hermes 2", slug: "hermes-2") }
     assert_select "a[href='/plants/hermes-2'] .nd-listrow__desc", count: 0
+  end
+
+  test "a pending site's row leaves out its own type, status and place" do
+    render partial: "shared/plant_row", locals: { facility: facilities(:vogtle).tap { |f| f.verification_status = "pending" } }
+    assert_select ".nd-listrow__desc", count: 0
+    assert_select ".nd-listrow__side", count: 0
   end
 
   test "fact row shows the sentence, detail, quote, sources and confidence" do
