@@ -18,6 +18,12 @@ class FacilityTest < ActiveSupport::TestCase
     assert Facility.create!(name: "No docket 2", facility_type: "other", status: "planned").persisted?
   end
 
+  test "fuel chain facility types" do
+    %w[uranium_mine mill].each do |type|
+      assert Facility.create!(name: "A #{type}", facility_type: type).persisted?
+    end
+  end
+
   test "type and status must be known values" do
     assert_not Facility.new(name: "X", facility_type: "spaceship", status: "operating").valid?
     assert_not Facility.new(name: "X", facility_type: "other", status: "vibing").valid?

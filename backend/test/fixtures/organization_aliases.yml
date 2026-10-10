@@ -1,0 +1,10 @@
+# Each organization's own name is an alias too (Directory::FactWriter adds it).
+westinghouse_name:
+  organization: westinghouse
+  alias: Westinghouse Electric Company
+  normalized_alias: westinghouse electric
+
+terrapower_name:
+  organization: terrapower
+  alias: TerraPower
+  normalized_alias: terrapower

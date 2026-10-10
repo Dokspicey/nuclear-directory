@@ -16,11 +16,21 @@ class Organization < ApplicationRecord
   has_many :facility_relationships, dependent: :destroy
   has_many :facilities, -> { distinct }, through: :facility_relationships
 
-  normalizes :domain, with: ->(domain) { domain.strip.downcase.delete_prefix("www.").presence }
-  normalizes :country_code, with: ->(code) { code.strip.upcase }
+  normalizes :domain, with: ->(domain) { Organization.domain_from(domain) }
+  normalizes :country_code, with: ->(code) { code.strip.upcase.presence }
 
   validates :name, presence: true
   validates :domain, uniqueness: true, allow_nil: true
-  validates :country_code, length: { is: 2 }
+  # Blank when no source states it yet.
+  validates :country_code, length: { is: 2 }, allow_nil: true
   validates :founded_year, numericality: { only_integer: true, in: 1800..2100 }, allow_nil: true
+
+  # "https://www.TerraPower.com/news" and " terrapower.com " both give "terrapower.com".
+  def self.domain_from(url_or_domain)
+    text = url_or_domain.to_s.strip
+    host = text.include?("://") ? URI.parse(text).host : text.split("/").first
+    host.to_s.downcase.delete_prefix("www.").presence
+  rescue URI::InvalidURIError
+    nil
+  end
 end

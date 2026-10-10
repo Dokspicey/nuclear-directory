@@ -17,9 +17,12 @@ class Evidence < ApplicationRecord
   after_destroy :refresh_subject_confidence, unless: :destroyed_by_association
 
   # The v1 confidence rule, kept in one place so it is easy to change:
-  # the strongest single piece of evidence, bumped when independent sources
-  # agree. Returns nil when no evidence has a confidence.
-  def self.combined_confidence(evidence)
+  # a fact a human has verified scores 1. Otherwise it is the strongest
+  # single piece of evidence, bumped when independent sources agree.
+  # Returns nil when nothing has a confidence.
+  def self.combined_confidence(evidence, human_verified: false)
+    return 1.to_d if human_verified
+
     scored = evidence.reject { |e| e.confidence.nil? }
     return if scored.empty?
 

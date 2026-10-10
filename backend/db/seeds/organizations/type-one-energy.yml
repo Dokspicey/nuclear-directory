@@ -1,0 +1,34 @@
+# Seed research for issue #8 - generated 2026-10-09. Quotes copied from pages fetched this session.
+name: Type One Energy Group
+aliases:
+- Type One Energy
+website: "https://typeoneenergy.com"
+hq:
+  city: Madison
+  state: WI
+  source_url: "https://content.govdelivery.com/accounts/USDOEOS/bulletins/35d8483"
+  quote: Type One Energy Group (Madison, WI)
+country_code: US
+status: active
+roles:
+- key: reactor_vendor
+  source_url: "https://typeoneenergy.com/insights-announcements/tva-type-one-energy-accelerate-fusion-commercialization-tennessee/"
+  quote: "This LOI with TVA, and the role it establishes for Type One Energy as the fusion technology provider for their Infinity Two project, is therefore fully aligned with our goal of pursuing the lowest-risk approach to commercializing fusion energy."
+  published: '2025-09-19'
+  confidence: 1.0
+technologies:
+- key: fusion
+  source_url: "https://typeoneenergy.com/insights-announcements/tva-type-one-energy-accelerate-fusion-commercialization-tennessee/"
+  quote: "Infinity Two is a first-generation 400 MWe baseload power plant utilizing Type One Energy’s stellarator fusion technology."
+  published: '2025-09-19'
+  confidence: 1.0
+relationships: []
+facilities:
+- name: "Infinity Two fusion power plant (former Bull Run Fossil Plant site)"
+  type: vendor_for
+  source_url: "https://typeoneenergy.com/insights-announcements/tva-type-one-energy-accelerate-fusion-commercialization-tennessee/"
+  quote: "Infinity Two is a first-generation 400 MWe baseload power plant utilizing Type One Energy’s stellarator fusion technology."
+  published: '2025-09-19'
+  confidence: 1.0
+  note: Planned; based on a non-binding TVA Letter of Intent.
+notes: "Conflict: Infinity Two capacity was 350 MWe in the original Sept 2025 announcement; Type One's editor's note says it was upgraded to 400 MWe in early 2026 and the release was updated 2026-09-04."

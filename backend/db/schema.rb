@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_09_100001) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_10_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -71,8 +71,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_09_100001) do
     t.string "name", null: false
     t.string "slug", null: false
     t.bigint "parent_id"
-    t.string "facility_type", null: false
-    t.string "status", null: false
+    t.string "facility_type"
+    t.string "status"
     t.bigint "technology_id"
     t.string "reactor_type"
     t.decimal "capacity_mw", precision: 8, scale: 2
@@ -94,7 +94,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_09_100001) do
     t.index ["technology_id"], name: "index_facilities_on_technology_id"
     t.index ["verification_status"], name: "index_facilities_on_verification_status"
     t.check_constraint "confidence IS NULL OR confidence >= 0::numeric AND confidence <= 1::numeric", name: "facilities_confidence_check"
-    t.check_constraint "facility_type::text = ANY (ARRAY['power_reactor'::character varying, 'research_reactor'::character varying, 'fuel_facility'::character varying, 'enrichment'::character varying, 'fusion_facility'::character varying, 'other'::character varying]::text[])", name: "facilities_facility_type_check"
+    t.check_constraint "facility_type::text = ANY (ARRAY['power_reactor'::character varying, 'research_reactor'::character varying, 'fuel_facility'::character varying, 'enrichment'::character varying, 'fusion_facility'::character varying, 'other'::character varying, 'uranium_mine'::character varying, 'mill'::character varying]::text[])", name: "facilities_facility_type_check"
     t.check_constraint "status::text = ANY (ARRAY['operating'::character varying, 'under_construction'::character varying, 'planned'::character varying, 'shut_down'::character varying, 'decommissioning'::character varying]::text[])", name: "facilities_status_check"
     t.check_constraint "verification_status::text = ANY (ARRAY['pending'::character varying, 'verified'::character varying, 'rejected'::character varying]::text[])", name: "facilities_verification_status_check"
   end
@@ -112,6 +112,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_09_100001) do
     t.string "verified_by"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.text "description"
     t.index ["facility_id"], name: "index_facility_relationships_on_facility_id"
     t.index ["organization_id", "facility_id", "relationship_type"], name: "index_facility_relationships_uniqueness", unique: true
     t.index ["organization_id"], name: "index_facility_relationships_on_organization_id"
@@ -175,7 +176,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_09_100001) do
     t.text "description"
     t.string "hq_city"
     t.string "hq_state"
-    t.string "country_code", limit: 2, default: "US", null: false
+    t.string "country_code", limit: 2, default: "US"
     t.integer "founded_year"
     t.string "status", default: "active", null: false
     t.decimal "confidence", precision: 3, scale: 2
@@ -211,7 +212,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_09_100001) do
     t.index ["verification_status"], name: "index_relationships_on_verification_status"
     t.check_constraint "confidence IS NULL OR confidence >= 0::numeric AND confidence <= 1::numeric", name: "relationships_confidence_check"
     t.check_constraint "from_organization_id <> to_organization_id", name: "relationships_not_self_check"
-    t.check_constraint "relationship_type::text = ANY (ARRAY['supplies'::character varying, 'invests_in'::character varying, 'funds'::character varying, 'offtake_with'::character varying]::text[])", name: "relationships_relationship_type_check"
+    t.check_constraint "relationship_type::text = ANY (ARRAY['supplies'::character varying, 'invests_in'::character varying, 'funds'::character varying, 'offtake_with'::character varying, 'subsidiary_of'::character varying]::text[])", name: "relationships_relationship_type_check"
     t.check_constraint "verification_status::text = ANY (ARRAY['pending'::character varying, 'verified'::character varying, 'rejected'::character varying]::text[])", name: "relationships_verification_status_check"
   end
 
@@ -409,6 +410,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_09_100001) do
     t.text "content_text"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.date "published_on"
     t.index ["domain"], name: "index_sources_on_domain"
     t.index ["source_kind"], name: "index_sources_on_source_kind"
     t.index ["url"], name: "index_sources_on_url", unique: true

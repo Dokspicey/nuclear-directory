@@ -1,0 +1,17 @@
+# Seed research for issue #8 - generated 2026-10-09. Quotes copied from pages fetched this session.
+name: Southern Company
+aliases:
+- The Southern Company
+website: "https://www.southerncompany.com"
+hq:
+  city: Atlanta
+  state: GA
+  source_url: "https://www.southerncompany.com/about.html"
+  quote: "While Atlanta is our home, our energy reaches homes and businesses across the country."
+country_code: US
+status: active
+roles: []
+technologies: []
+relationships: []
+facilities: []
+notes: "Parent of Georgia Power. Southern Nuclear (Vogtle operator, per Westinghouse) is also a Southern Company subsidiary per common knowledge but not sourced here; not added. Roles not added (no role quote captured)."

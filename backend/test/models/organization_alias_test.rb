@@ -14,13 +14,13 @@ class OrganizationAliasTest < ActiveSupport::TestCase
   end
 
   test "normalized_alias is set on save" do
-    a = organizations(:terrapower).aliases.create!(alias: "TerraPower LLC")
-    assert_equal "terrapower", a.normalized_alias
+    a = organizations(:terrapower).aliases.create!(alias: "US SFR Owner LLC")
+    assert_equal "us sfr owner", a.normalized_alias
   end
 
   test "two spellings of the same name can't both be aliases" do
-    organizations(:terrapower).aliases.create!(alias: "TerraPower, Inc.")
-    dup = organizations(:westinghouse).aliases.build(alias: "terrapower inc")
+    organizations(:terrapower).aliases.create!(alias: "US SFR Owner, Inc.")
+    dup = organizations(:westinghouse).aliases.build(alias: "us sfr owner inc")
     assert_not dup.valid?
     assert_includes dup.errors[:normalized_alias], "has already been taken"
   end
