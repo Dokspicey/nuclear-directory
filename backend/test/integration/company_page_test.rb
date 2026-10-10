@@ -21,13 +21,12 @@ class CompanyPageTest < ActionDispatch::IntegrationTest
     deal.update!(description: "500 MW by 2035.", verified_at: Time.zone.parse("2026-10-09"))
     deal.evidence.create!(source: @press, quote: "Kairos Power and Google have signed", found_by: "human", confidence: 1)
     link(@doe, "supplies", @kairos).evidence.create!(source: @doe_page, found_by: "human", confidence: 0.8)
-    link(@ghost, "invests_in", @kairos)
-    link(@kairos, "funds", @google, verified: false)
+    cite!(link(@ghost, "invests_in", @kairos), link(@kairos, "funds", @google, verified: false))
 
     @hermes = plant("Hermes", facility_type: "research_reactor", status: "under_construction", city: "Oak Ridge", state: "TN")
     link(@kairos, "owns", @hermes).evidence.create!(source: @press, found_by: "human", confidence: 1)
     hidden = plant("Hidden Site", verified: false)
-    link(@kairos, "owns", hidden)
+    cite!(link(@kairos, "owns", hidden))
   end
 
   test "a verified company's page shows its facts" do
@@ -118,15 +117,16 @@ class CompanyPageTest < ActionDispatch::IntegrationTest
     coolant = role("coolant")
     general = OrganizationRole.create!(organization: @kairos, role: coolant, verification_status: "verified")
     general.evidence.create!(source: Source.create!(url: "https://example.com/coolant", source_kind: "web_page"), found_by: "human", confidence: 1)
-    OrganizationRole.create!(organization: @kairos, role: role("molten_salt", parent: coolant), verification_status: "verified")
+    cite!(OrganizationRole.create!(organization: @kairos, role: role("molten_salt", parent: coolant), verification_status: "verified"))
     get company_path(slug: "kairos-power")
 
+    assert_select ".nd-tag", text: "Molten salt coolant"
     assert_select "body", text: /example\.com/, count: 0
   end
 
   test "a unit under a rejected site isn't linked" do
     rejected = Facility.create!(name: "Rejected Station", verification_status: "rejected")
-    link(@kairos, "owns", plant("Rejected Unit", parent: rejected))
+    cite!(link(@kairos, "owns", cite!(plant("Rejected Unit", parent: rejected))))
     get company_path(slug: "kairos-power")
 
     assert_select "body", text: /Rejected/, count: 0
