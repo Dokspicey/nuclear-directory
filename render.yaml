@@ -21,6 +21,11 @@ services:
     # deploy and the previous version keeps serving.
     preDeployCommand: bin/rails db:migrate
     healthCheckPath: /up
+    # Custom domain (#57). Render adds it as unverified until the Namecheap
+    # records point here, then issues certificates. Adding the bare domain
+    # also adds www.nuclear-directory.org, which redirects to it.
+    domains:
+      - nuclear-directory.org
     # Deploy a commit on main only after its GitHub checks (CI) pass.
     autoDeployTrigger: checksPass
     # Only app changes trigger a build; README-only merges don't redeploy.
