@@ -8,4 +8,4 @@
                             " #{facility_relationship_verb(link.relationship_type)} ", plant ]),
       detail: [ share, link.description, since ].compact_blank.join(" · ").presence,
       quote: link.evidence.max_by { |e| e.confidence || 0 }&.quote,
-      citations: profile.citations_for(link), confidence: link.confidence, checked: link.verified_at %>
+      citations: profile.citations_for(link), confidence: link.confidence, checked: link.verified_at, correctable: true %>

@@ -4,7 +4,8 @@
     quote:      the passage from the source that supports it (optional)
     citations:  [[number, source], ...]
     confidence: 0–1 (optional)
-    checked:    when the fact was last checked, shown on its first source chip (optional) %>
+    checked:    when the fact was last checked, shown on its first source chip (optional)
+    correctable: true adds "Report a correction", prefilled with this fact (optional) %>
 <li class="nd-factrow">
   <div class="nd-factrow__main">
     <span><%= sentence %></span>
@@ -16,5 +17,8 @@
       <%= render "shared/source_chip", number:, source:, checked: (local_assigns[:checked] if index.zero?) %>
     <% end %>
     <%= render "shared/confidence", value: local_assigns[:confidence] %>
+    <% if local_assigns[:correctable] %>
+      <%= link_to correction_url_for(strip_tags(sentence).squish), class: "nd-link nd-link--muted nd-factrow__fix" do %>Report a correction<span class="sr-only">: <%= strip_tags(sentence).squish %></span><% end %>
+    <% end %>
   </div>
 </li>
