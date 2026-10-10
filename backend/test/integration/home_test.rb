@@ -48,7 +48,7 @@ class HomeTest < ActionDispatch::IntegrationTest
     assert_select ".nd-searchbox[data-controller=instant-search][data-instant-search-url-value='/search']"
     assert_select "input#search-large[role=combobox][aria-haspopup=dialog][aria-controls='search-large-results'][aria-expanded=false]"
     assert_select "#search-large-results[role=dialog][aria-label='Search results']"
-    assert_select "#search-large-results[hidden] turbo-frame#instant-results"
+    assert_select "#search-large-results[hidden] turbo-frame#search-large-frame"
     assert_select "#search-large-status[role=status][aria-live=polite]"
   end
 

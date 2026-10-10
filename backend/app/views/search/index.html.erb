@@ -1,6 +1,6 @@
 <%# Instant results, loaded into the search box's frame. Links leave the frame
     (target _top) and go to the full page. %>
-<turbo-frame id="instant-results" target="_top">
+<turbo-frame id="<%= @frame_id %>" target="_top">
   <% if @query %>
     <% total = @companies.size + @plants.size %>
     <div class="nd-instant" data-instant-search-count="<%= total %>">

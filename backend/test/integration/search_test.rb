@@ -32,6 +32,14 @@ class SearchTest < ActionDispatch::IntegrationTest
     assert_select ".nd-instant__empty", "No results for “ghost”"
   end
 
+  test "the response fills the frame Turbo asked for" do
+    get search_path(q: "kairos"), headers: { "Turbo-Frame" => "search-compact-frame" }
+    assert_select "turbo-frame#search-compact-frame"
+
+    get search_path(q: "kairos"), headers: { "Turbo-Frame" => "<bad id>" }
+    assert_select "turbo-frame#instant-results"
+  end
+
   test "a query shorter than two characters returns an empty frame" do
     get search_path(q: "k")
 

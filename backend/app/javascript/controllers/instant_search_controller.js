@@ -17,6 +17,7 @@ export default class extends Controller {
     if (event?.type === "focus" && this.movingFocus) return
 
     clearTimeout(this.timer)
+    this.pending = false
     this.timer = setTimeout(() => this.load(), this.delayValue)
   }
 
@@ -75,7 +76,10 @@ export default class extends Controller {
 
   // A click anywhere outside the search box closes the results.
   outside(event) {
-    if (!this.element.contains(event.target)) this.close()
+    if (this.element.contains(event.target)) return
+    // Focus left on a hidden result would be lost; a clicked control keeps it.
+    if (this.resultsTarget.contains(document.activeElement)) this.focusInput()
+    this.close()
   }
 
   open() {

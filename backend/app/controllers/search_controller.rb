@@ -18,6 +18,14 @@ class SearchController < ApplicationController
       @roles = OrganizationRole.verified.where(organization_id: @companies.map(&:id)).includes(:role).group_by(&:organization_id)
     end
 
+    @frame_id = frame_id
     render layout: false
   end
+
+  private
+    # Each search box has its own frame; Turbo names it in this header.
+    def frame_id
+      requested = request.headers["Turbo-Frame"].to_s
+      requested.match?(/\A[a-z0-9-]+\z/) ? requested : "instant-results"
+    end
 end
