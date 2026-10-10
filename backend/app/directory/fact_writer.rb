@@ -220,9 +220,12 @@ module Directory
           edited["aliases"] = [ aliases_before, aliases_after ] if edited && aliases_after != aliases_before
         end
         if kind == :facility
+          aliases_before = record.aliases.pluck(:alias).sort
           # A name that was one of the plant's aliases is now its name.
           record.aliases.where(normalized_alias: FacilityAlias.normalize(record.name)).delete_all
           write_facility_aliases(record, attributes[:aliases])
+          aliases_after = record.aliases.reload.pluck(:alias).sort
+          edited["aliases"] = [ aliases_before, aliases_after ] if edited && aliases_after != aliases_before
         end
         Array(evidence).each { |item| write_evidence(record, item) }
         apply_verification(record, verification, edited:) if verification && !curated
@@ -342,7 +345,7 @@ module Directory
       end
 
       def write_facility_aliases(facility, names)
-        names.to_a.compact_blank.uniq.each do |name|
+        Array(names).compact_blank.uniq.each do |name|
           normalized = FacilityAlias.normalize(name)
           next if FacilityAlias.normalize(facility.name) == normalized
 

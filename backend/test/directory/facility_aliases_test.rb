@@ -68,6 +68,19 @@ class Directory::FacilityAliasesTest < ActiveSupport::TestCase
     assert_empty other.aliases
   end
 
+  test "a single alias can be given as plain text" do
+    assert write(:facility, { id: @crane.id, aliases: "Crane Station" }).ok?
+    assert_includes @crane.aliases.pluck(:alias), "Crane Station"
+  end
+
+  test "a human adding or promoting an alias is in the plant's history" do
+    @crane.verify!(by: "human:tosin")
+    write(:facility, { id: @crane.id, aliases: [ "Crane Station" ] }, verification: { status: "verified", by: "human:tosin" })
+
+    before, after = Directory::Lookup.verification_history(type: "Facility", id: @crane.id).first.changed_values["aliases"]
+    assert_equal [ "Crane Station" ], after - before
+  end
+
   test "aliases go with their plant" do
     @crane.destroy!
     assert_equal 0, FacilityAlias.count
