@@ -187,6 +187,9 @@ class Directory::VerificationAuditTest < ActiveSupport::TestCase
 
     assert_equal [ false, true ], results.map(&:ok?)
     assert_match "missing write keys: kind", results.first.errors.join
+
+    odd = Directory::FactWriter.write_many([ { kind: nil, attributes: { id: @org.id } }, { kind: 12, attributes: { id: @org.id } } ])
+    assert_equal [ false, false ], odd.map(&:ok?), "a bad kind fails its own write, never the batch"
   end
 
   test "write_many fails a write with a misspelled key instead of dropping it" do

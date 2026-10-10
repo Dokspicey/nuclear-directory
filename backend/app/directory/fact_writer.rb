@@ -132,8 +132,11 @@ module Directory
           write = write.to_h.symbolize_keys
           unknown = write.keys - WRITE_KEYS
           next new.send(:failure, write[:kind], "unknown write keys: #{unknown.join(", ")}") if unknown.any?
-          missing = %i[kind attributes].reject { |key| write.key?(key) }
+          missing = %i[kind attributes].reject { |key| write[key].present? || write[key] == {} }
           next new.send(:failure, write[:kind], "missing write keys: #{missing.join(", ")}") if missing.any?
+          unless write[:kind].respond_to?(:to_sym)
+            next new.send(:failure, nil, "kind must be a name, not #{write[:kind].inspect}")
+          end
 
           new.write(write.fetch(:kind), write.fetch(:attributes), **write.except(:kind, :attributes))
         end
