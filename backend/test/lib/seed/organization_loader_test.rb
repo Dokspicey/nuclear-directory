@@ -198,6 +198,18 @@ class Seed::OrganizationLoaderTest < ActiveSupport::TestCase
     assert_match "Nowhere Plant", error.message
   end
 
+  test "a plant whose organization-file write failed is reported, not crashed on, by its details" do
+    write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com",
+      facilities: [ item(name: "Acme Plant", type: "owns", facility_type: "not_a_type") ]))
+    File.write(facilities_file, { "facilities" => [ { "name" => "Acme Plant",
+      "city" => { "value" => "Oak Ridge", "source_url" => "https://example.com/news", "quote" => "In Oak Ridge." } } ] }.to_yaml)
+
+    error = assert_raises(Seed::OrganizationLoader::Error) do
+      Seed::OrganizationLoader.new(@dir, facilities: facilities_file).load!
+    end
+    assert_match "Acme Plant", error.message
+  end
+
   test "a seed file citing a non-web URL fails the load and names it" do
     write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com",
       roles: [ item(key: "fuel", source_url: "javascript:alert(1)") ]))

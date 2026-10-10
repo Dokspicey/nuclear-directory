@@ -184,7 +184,8 @@ module Seed
         # from an earlier load or a crawl doesn't let an orphan entry through.
         return @errors << "facilities.yml: #{name.inspect} isn't in any organization file" unless in_docs.include?(name)
 
-        facility = Directory::Lookup.facility(name:)
+        # Its organization-file write failed (already in @errors): nothing to fill.
+        facility = Directory::Lookup.facility(name:) or return
 
         FACILITY_FIELDS.each do |field|
           detail = entry[field]

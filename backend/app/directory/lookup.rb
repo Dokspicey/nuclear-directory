@@ -203,11 +203,6 @@ module Directory
       text[0, words[base.size - place - 1].last].strip
     end
 
-    # Words that start many place names ("North Anna", "Point Beach"); on its
-    # own, one of these isn't a plant's name, so "Acme North" keeps "North".
-    PLACE_PREFIXES = %w[north south east west new upper lower lake river point fort mount port saint grand great
-      little big old].to_set.freeze
-
     # Distinctive names of known plants ("seabrook", "point beach",
     # "palisades"), from the facility records, leaving out rejected ones: the
     # full distinctive name and its first two words (a one-word plant like
