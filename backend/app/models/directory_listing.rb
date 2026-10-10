@@ -62,7 +62,8 @@ class DirectoryListing
     return Facility.none if category.nil? && query.nil?
 
     sites = Facility.where(parent_id: nil)
-    scope = sites.verified.or(sites.where(id: Facility.verified.where.not(parent_id: nil).select(:parent_id)))
+    # Only a pending site gets the unit fallback; a rejected site never shows.
+    scope = sites.verified.or(sites.pending.where(id: Facility.verified.where.not(parent_id: nil).select(:parent_id)))
     scope = matching_plants(scope) if query
     scope = scope.where(state:) if state
     scope = plants_with_technology(scope) if technology
@@ -73,15 +74,18 @@ class DirectoryListing
   def filtered? = technology.present? || state.present?
 
   # Filter choices that actually occur in verified data.
+  # Technologies used by verified companies, plants or units, plus their
+  # parents (SMR in use offers Fission); then coolant types, which only
+  # apply to companies and so aren't offered on the plants list.
   def technology_options
     @technology_options ||= begin
       used = Technology.where(id: OrganizationTechnology.verified.select(:technology_id))
-      # A parent of a technology in use is offered too: SMR in use offers Fission.
+        .or(Technology.where(id: Facility.verified.where.not(technology_id: nil).select(:technology_id)))
       techs = Technology.where(id: used.select(:id)).or(Technology.where(id: used.select(:parent_id)))
         .order(:name).map { |t| [ t.name, t.key ] }
       coolants = Role.where(parent: Role.find_by(key: "coolant")).where(id: OrganizationRole.verified.select(:role_id))
         .order(:name).map { |r| [ "#{r.name} coolant", r.key ] }
-      techs + coolants
+      category&.plants ? techs : techs + coolants
     end
   end
 

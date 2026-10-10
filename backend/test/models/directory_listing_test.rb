@@ -85,7 +85,24 @@ class DirectoryListingTest < ActiveSupport::TestCase
 
     assert_equal [ "Plant Vogtle" ], DirectoryListing.new(category: "plants", technology: "fission").plants.map(&:name)
     assert_equal [ fusion_site.name ], DirectoryListing.new(category: "plants", technology: "fusion").plants.map(&:name)
-    assert_empty DirectoryListing.new(category: "plants", technology: "molten_salt").plants
+    # Coolant is a company role: it hides plants in search results, and isn't an option on the plants list.
+    assert_empty DirectoryListing.new(q: "orion", technology: "molten_salt").plants
+    assert_nil DirectoryListing.new(category: "plants", technology: "molten_salt").technology
+  end
+
+  test "a rejected site never appears, even with a verified unit" do
+    rejected = Facility.create!(name: "Rejected Station", verification_status: "rejected")
+    plant("Rejected Unit 1", parent: rejected)
+
+    assert_not_includes DirectoryListing.new(category: "plants").plants.map(&:name), "Rejected Station"
+  end
+
+  test "technologies used only by plants are filter options, and coolants aren't offered for plants" do
+    plant("Orion", technology: technology("fusion_magnetic", "Magnetic confinement"))
+
+    assert_includes DirectoryListing.new.technology_options.map(&:last), "fusion_magnetic"
+    assert_equal "fusion_magnetic", DirectoryListing.new(category: "plants", technology: "fusion_magnetic").technology
+    assert_not_includes DirectoryListing.new(category: "plants").technology_options.map(&:last), "molten_salt"
   end
 
   test "a parent technology filter includes its sub-technologies" do

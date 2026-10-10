@@ -68,12 +68,20 @@ class DirectoryTest < ActionDispatch::IntegrationTest
     assert_select ".nd-notice a", "Clear filters"
   end
 
-  test "power plants have no technology filter" do
+  test "plants and sites show a technology filter without coolant types" do
     get companies_path(category: "plants")
 
-    assert_select "select[name=technology]", count: 0
+    assert_select "select[name=technology]"
+    assert_select "select[name=technology] option", text: /coolant/, count: 0
     assert_select "select[name=state]"
     assert_select "h1 .nd-num", "1 plant or site"
+  end
+
+  test "search results are grouped even when only one kind matches" do
+    get companies_path(q: "kairos")
+
+    assert_select "#companies-heading", "Companies"
+    assert_select "#plants-heading", count: 0
   end
 
   test "a site row shows its verified units and their total capacity" do
