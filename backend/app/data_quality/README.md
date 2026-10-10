@@ -56,6 +56,16 @@ The quotes stop zsh from treating `[...]` as a file pattern.
 Create `plugins/<source_kind>.rb` defining `DataQuality::Plugins::<SourceKind> < DataQuality::Plugin`
 with `crawl(run)` and `extract(source, run)` (see `plugin.rb`). Match and verify are shared.
 
+Fetch with `DataQuality::Snapshot.take(source, fetcher: DataQuality::Fetcher.new)`, never your own HTTP:
+- **`Fetcher`** identifies as `NuclearDirectoryBot`, obeys robots.txt, waits between requests to a host,
+  sends ETag / If-Modified-Since, and never retries.
+- **`Snapshot`** fetches a source at most once a day and records the result on it: content and hash,
+  `blocked` with the CDN reference on a 403 (`needs_human` after 3 in a row), or `needs_human` if
+  robots.txt disallows it.
+- **Extract skips** sources whose content hash hasn't changed since the last extraction.
+
+Never work around a block. `plugins/nrc_reactor_list.rb` is the reference plug-in.
+
 ## Talking to the directory
 
 The contract is in [`app/directory/README.md`](../directory/README.md).

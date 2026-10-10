@@ -21,7 +21,7 @@ class DataQuality::PipelineTest < ActiveSupport::TestCase
     assert_equal %w[crawl extract match verify], runs.map(&:stage)
     assert runs.all?(&:succeeded?)
     assert runs.all? { |run| run.source_kind == "dummy" && run.finished_at }
-    assert_equal({ "sources" => 1, "candidates" => 2 }, runs[1].stats)
+    assert_equal({ "sources" => 1, "candidates" => 2, "unchanged" => 0 }, runs[1].stats)
     assert_equal 1, runs[2].stats["matched"]
     assert_equal 2, runs[3].stats["published"]
 
@@ -61,12 +61,24 @@ class DataQuality::PipelineTest < ActiveSupport::TestCase
     assert_match "name taken", dummy_candidates.first.notes
   end
 
-  test "stages can be rerun alone; rerunning extract replaces unprocessed candidates" do
+  test "extract skips content it has already processed" do
     run_pipeline(only: %w[crawl extract])
+    rerun = run_pipeline(only: "extract").sole
+
+    assert_equal({ "sources" => 0, "candidates" => 0, "unchanged" => 1 }, rerun.stats)
+    assert_equal 2, dummy_candidates.count
+  end
+
+  test "changed content is extracted again, replacing unprocessed candidates" do
+    run_pipeline(only: %w[crawl extract])
+    source = Source.find_by!(url: DummyPlugin::URL)
+    source.update!(content_text: "new text", content_sha256: Digest::SHA256.hexdigest("new text"))
+
     run_pipeline(only: "extract")
 
     assert_equal 2, dummy_candidates.count
     assert dummy_candidates.all?(&:status_new?)
+    assert_equal source.content_sha256, source.reload.extracted_sha256
   end
 
   test "a failing stage is recorded and stops the pipeline" do
