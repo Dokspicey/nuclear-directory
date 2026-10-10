@@ -102,7 +102,7 @@ class DirectoryListingTest < ActiveSupport::TestCase
   end
 
   test "a rejected site never appears, even with a verified unit" do
-    rejected = Facility.create!(name: "Rejected Station", verification_status: "rejected")
+    rejected = Facility.create!(name: "Rejected Station", verification_status: "rejected", verified_by: "human:test")
     plant("Rejected Unit 1", parent: rejected)
 
     assert_not_includes DirectoryListing.new(category: "plants").plants.map(&:name), "Rejected Station"
