@@ -48,6 +48,6 @@ relationships:
 facilities: []
 notes: 'Engineering firm with a large NRC licensing practice; could also qualify as reactor_services. The services page is undated. Conflict with seed SUMMARY.md gap note (''Sargent & Lundy''s TVA role is detailed design, not licensing''): the fetched services page explicitly lists ''Construction permit application for TVA’s Clinch River SMR'' and ''Preliminary Safety Analysis Report (PSAR) development for TVA’s Clinch River BWRX-300'', so the licensing role is now sourced. Facility links to Long Mott / Clinch River not added: a licensing consultant is not owns/operates/vendor_for/offtakes_from. HQ not stated explicitly on fetched pages (left blank). #63: No technology tag: consulting covers all power types.'
 description:
-  text: Engineering and design company for the power industry, including nuclear power plant consulting.
+  text: Nuclear consulting company serving power plants across their full life cycle.
   source_url: https://www.sargentlundy.com
   quote: We provide comprehensive nuclear consulting services that support safe, reliable, and cost-effective power generation throughout the full nuclear power plant life cycle.

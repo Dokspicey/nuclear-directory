@@ -71,6 +71,34 @@ module Directory
     EVIDENCE_ATTRIBUTES = %i[source_id quote found_by confidence crawl_run_id].freeze
 
     def self.write(...) = new.write(...)
+    def self.fill_site_from_unit(...) = new.fill_site_from_unit(...)
+
+    # Fills a site's blank fields (from fields:) with its unit's stored
+    # values, with evidence, in one transaction that locks the unit and then
+    # the site. Only a verified unit speaks for its site, and only for fields
+    # still blank once both are locked, so a decision or a fill made
+    # meanwhile is seen. A protected write: a rejected site isn't changed (an
+    # error is returned), and when a human reviewed the site, a unit value
+    # that disagrees with one the site has is reported as a conflict and
+    # nothing is written. nil when there's nothing to fill.
+    def fill_site_from_unit(unit_id, fields:, evidence:)
+      ActiveRecord::Base.transaction(requires_new: true) do
+        unit = Facility.lock.find_by(id: unit_id)
+        next unless unit&.parent_id && unit.verified?
+
+        site = Facility.lock.find(unit.parent_id)
+        stated = fields.to_h { |name| [ name.to_sym, unit.public_send(name) ] }.compact_blank
+        if site.human_reviewed? && !site.rejected? && (conflicts = conflicts_with(site, stated)).any?
+          raise Conflict.new(site.id, conflicts)
+        end
+        values = stated.select { |name, _| site.public_send(name).blank? }
+        next if values.empty?
+
+        write(:facility, values.merge(id: site.id), fill_blank: true, protect_human_verified: true, evidence:)
+      end
+    rescue Conflict => e
+      Result.new(kind: :facility, id: e.id, created: false, errors: [ e.message ], conflicts: e.conflicts)
+    end
 
     # kind: a key of KINDS. attributes may include :id to update a known row.
     # verification: { status: "pending" | "verified" | "rejected", by: "human:tosin" }
@@ -164,6 +192,8 @@ module Directory
         end
         return stored == incoming if incoming.is_a?(ActiveRecord::Base)
 
+        # Compared as the model would store it ("us" is "US" once normalized).
+        incoming = record.class.normalize_value_for(name.to_sym, incoming)
         stored == record.class.type_for_attribute(name.to_s).cast(incoming)
       end
 

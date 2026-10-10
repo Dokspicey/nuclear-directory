@@ -130,19 +130,13 @@ class DataQuality::DirectoryClient
   # (the result has an error).
   # The values come from the unit as stored, not from the candidate, since
   # a curated unit may have kept its own values over the candidate's.
+  # Only a unit that ended up verified speaks for its site (a human may have
+  # kept it rejected); FactWriter checks that, and which fields are blank,
+  # with both records locked.
   def fill_site_from_unit(facility_id, candidate, crawl_run:)
-    unit = lookup.facility(id: facility_id)
-    # Only a unit that ended up verified speaks for its site (a human may have kept it rejected).
-    return unless unit&.parent_id && unit.verification_status == "verified"
-
-    site = lookup.facility(id: unit.parent_id) or return
-    fields = unit.to_h.slice(*SITE_FIELDS_FROM_UNIT.map(&:to_sym)).compact_blank
-      .select { |name, _| site.public_send(name).blank? }
-    return if fields.empty?
-
-    result = fact_writer.write("facility", fields.merge(id: site.id), fill_blank: true, protect_human_verified: true,
+    result = fact_writer.fill_site_from_unit(facility_id, fields: SITE_FIELDS_FROM_UNIT,
       evidence: [ { source_id: candidate.source_id, quote: candidate.quote, found_by: "crawler", crawl_run_id: crawl_run.id } ])
-    write_result(result)
+    write_result(result) if result
   end
 
   private
