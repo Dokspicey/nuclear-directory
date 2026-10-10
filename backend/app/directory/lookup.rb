@@ -184,7 +184,10 @@ module Directory
       # the end, then a trailing known plant or region name, then legal words
       # again. Stops at an OWN_BRANDS name.
       def brand_words(name, plants)
-        words = strip_entities(OrganizationAlias.normalize(join_initials(name)).split)
+        words = OrganizationAlias.normalize(join_initials(name)).split
+        # A leading "the" isn't part of a brand ("The Southern Company" is Southern).
+        words = words.drop(1) if words.first == "the" && words.size > 1
+        words = strip_entities(words)
         place = place_words_at_end(words, plants)
         words = strip_entities(words.first(words.size - place)) if place
         words

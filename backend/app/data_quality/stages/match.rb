@@ -175,6 +175,12 @@ class DataQuality::Stages::Match < DataQuality::Stage
       if by_domain && brand.one? && brand.first.id != by_domain.id
         return Review.new("name is the brand of #{brand.first.name} but domain matches #{by_domain.name}")
       end
+      # A per-plant name whose brand has no company yet ("NextEra Energy
+      # Seabrook, LLC") must still agree with a company found by domain.
+      if by_domain && brand.empty? && (inferred = directory.brand_name(name.to_s)) &&
+          directory.brand_key(inferred) != directory.brand_key(by_domain.name)
+        return Review.new("name is a #{inferred} company but domain matches #{by_domain.name}")
+      end
       return Found.new(by_domain, "domain") if by_domain
       return Found.new(brand.first, "brand, a legal-entity variant of its name") if brand.one?
 

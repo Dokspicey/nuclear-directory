@@ -119,6 +119,11 @@ class Directory::LookupTest < ActiveSupport::TestCase
     assert_equal "acme", Directory::Lookup.brand_key("Acme P.L.C.")
   end
 
+  test "a leading 'the' doesn't get past the own-brand rule" do
+    assert_equal "southern nuclear", Directory::Lookup.brand_key("The Southern Nuclear Operating Co.")
+    assert_equal "southern", Directory::Lookup.brand_key("The Southern Company")
+  end
+
   test "a name made only of legal or operating words has no brand" do
     assert_nil Directory::Lookup.brand_key("Nuclear Energy LLC")
     assert_nil Directory::Lookup.brand_key("Nuclear Power, Inc.")
