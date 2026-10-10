@@ -310,7 +310,7 @@
   }
 
   /* 44px tap targets on touch screens, without changing how small parts look. */
-  @media (pointer: coarse) {
+  @media (any-pointer: coarse) {
     .nd-pill, .nd-sugg, .nd-select, .nd-instant__row, .nd-instant__all { min-height: 44px; }
     .nd-src, .nd-az a, .nd-wordmark { position: relative; }
     .nd-src::after, .nd-az a::after, .nd-wordmark::after { content: ""; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); transform: translate(-50%, -50%); }
@@ -379,7 +379,7 @@
   @media (max-width: 560px) {
     .nd-form__actions .nd-btn { width: 100%; justify-content: center; height: 44px; }
   }
-  @media (pointer: coarse) {
+  @media (any-pointer: coarse) {
     .nd-factrow__fix, .nd-overview__fix, .nd-gaps .nd-btn { display: inline-flex; align-items: center; min-height: 44px; }
   }
 }
@@ -394,7 +394,7 @@
   .nd-footer { max-width: var(--nd-content-max); margin: 0 auto; padding: var(--nd-space-8) clamp(16px, 4vw, 32px) var(--nd-space-12); border-top: var(--nd-hairline) solid var(--nd-rule); display: flex; flex-direction: column; gap: var(--nd-space-2); }
   .nd-footer p { margin: 0; }
   .nd-footer__links { display: flex; flex-wrap: wrap; gap: var(--nd-space-2) var(--nd-space-4); }
-  @media (pointer: coarse) {
+  @media (any-pointer: coarse) {
     .nd-footer__links a { display: inline-flex; align-items: center; min-height: 44px; }
   }
 }
@@ -404,7 +404,7 @@
 @layer components {
   .nd-sheet { padding: 0; border: 0; background: transparent; color: var(--nd-ink); max-width: 480px; width: calc(100% - 2 * var(--nd-space-4)); }
   .nd-sheet::backdrop { background: rgb(0 0 0 / 0.5); }
-  .nd-sheet__panel { background: var(--nd-paper-raised); border: var(--nd-hairline) solid var(--nd-rule); border-radius: var(--nd-radius-md); padding: var(--nd-space-4); display: flex; flex-direction: column; gap: var(--nd-space-3); }
+  .nd-sheet__panel { max-height: 80vh; overflow-y: auto; overscroll-behavior: contain; background: var(--nd-paper-raised); border: var(--nd-hairline) solid var(--nd-rule); border-radius: var(--nd-radius-md); padding: var(--nd-space-4); display: flex; flex-direction: column; gap: var(--nd-space-3); }
   .nd-sheet__head { display: flex; align-items: center; justify-content: space-between; gap: var(--nd-space-3); }
   .nd-sheet__head h2 { margin: 0; }
   .nd-sheet__body { display: flex; flex-direction: column; gap: var(--nd-space-3); overflow-wrap: anywhere; }
