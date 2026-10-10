@@ -8,7 +8,7 @@
     <% if @fact.verified_by %>
       <span class="type-small text-ink-muted">by <%= @fact.verified_by %><% if @fact.verified_at %> on <span class="nd-num"><%= data_date(@fact.verified_at) %></span><% end %></span>
     <% end %>
-    <% if @fact.type == "Organization" && @fact.verification_status == "verified" && @fact.values["slug"].present? %>
+    <% if @fact.type == "Organization" && @fact.published && @fact.values["slug"].present? %>
       <%= link_to company_path(slug: @fact.values["slug"]), class: "nd-link type-small nd-tap", target: "_blank", rel: "noopener" do %>View on site <%= icon("arrow-square-out", size: 12) %><% end %>
     <% end %>
   </div>

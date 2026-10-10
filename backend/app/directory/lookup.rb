@@ -72,6 +72,14 @@ module Directory
     }.freeze
     private_constant :PENDING_INCLUDES
 
+    # Whether a fact is public now, by its model's .published scope (a unit
+    # under a closed site isn't, #104), so callers don't re-derive the rule.
+    def published?(type:, id:)
+      raise ArgumentError, "not a fact type: #{type.inspect}" unless FACT_TYPES.include?(type.to_s)
+
+      type.to_s.constantize.published.exists?(id:)
+    end
+
     # Any fact's stored values, as FactWriter names them (string keys; link
     # ends as ids, plus the linked records' names), or nil. Lets a caller
     # compare a link's values, which fact_state doesn't carry.

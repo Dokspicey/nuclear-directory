@@ -195,6 +195,7 @@ class DataQuality::DirectoryClientTest < ActiveSupport::TestCase
         FakeDirectory::Lookup.instance_method(:facility_units) ],
       # FactWriter.write forwards (...) to the instance method, which has the real signature.
       "Lookup.fact_state" => [ Directory::Lookup.method(:fact_state), FakeDirectory::Lookup.instance_method(:fact_state) ],
+      "Lookup.published?" => [ Directory::Lookup.method(:published?), FakeDirectory::Lookup.instance_method(:published?) ],
       "Lookup.fact_attributes" => [ Directory::Lookup.method(:fact_attributes),
         FakeDirectory::Lookup.instance_method(:fact_attributes) ],
       "FactWriter.write" => [ Directory::FactWriter.instance_method(:write), FakeDirectory::FactWriter.instance_method(:write) ],

@@ -368,6 +368,16 @@
     .nd-bulk, .nd-item__select { display: none; }
     .nd-item { grid-template-columns: minmax(0, 1fr); }
   }
+  /* The runs table becomes one card per run on phones: label above value
+     (until #97's .nd-table--cards is shared). */
+  @media (max-width: 560px) {
+    .nd-runs { border: 0; overflow: visible; }
+    .nd-runs table, .nd-runs tbody, .nd-runs tr, .nd-runs td { display: block; }
+    .nd-runs thead { display: none; }
+    .nd-runs tr { border: var(--nd-hairline) solid var(--nd-rule); margin-bottom: var(--nd-space-3); }
+    .nd-runs td { border-bottom: 0; padding: var(--nd-space-1) var(--nd-space-3); text-align: left; }
+    .nd-runs td::before { content: attr(data-label); display: block; font: 700 11px/16px var(--font-text); letter-spacing: .08em; text-transform: uppercase; color: var(--nd-ink-muted); }
+  }
   /* A fact's values stack on phones. */
   @media (max-width: 560px) {
     .nd-kv { grid-template-columns: minmax(0, 1fr); gap: 0; }

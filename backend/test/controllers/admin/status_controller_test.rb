@@ -31,6 +31,39 @@ class Admin::StatusControllerTest < ActionDispatch::IntegrationTest
     assert_select "a", text: /PostHog/, count: 0
   end
 
+  def spent!(cost)
+    CrawlRun.create!(stage: "verify", source_kind: "nrc_reactor_list", status: "succeeded", started_at: Time.current,
+      finished_at: Time.current, stats: { "llm" => { "calls" => 10, "total_tokens" => 1000, "cost" => cost } })
+  end
+
+  test "a failed run reads as an error; durations and stat names read as words" do
+    CrawlRun.create!(stage: "crawl", source_kind: "eia_generators", status: "failed", started_at: 2.hours.ago,
+      finished_at: 2.hours.ago + 4321, error: "RuntimeError: boom")
+    CrawlRun.create!(stage: "extract", source_kind: "nrc_reactor_list", status: "succeeded", started_at: 1.hour.ago,
+      finished_at: 1.hour.ago + 42.9, stats: { "ai_check" => { "agreed" => 95, "made_up" => 0 } })
+    sign_in_as users(:admin)
+
+    get admin_status_path
+
+    assert_select "td[data-label=Result] .text-critical", /Failed/
+    assert_select "td[data-label=Time]", "72 min"
+    assert_select "td[data-label=Time]", "42.9 s"
+    assert_select "td[data-label=Detail]", "AI check: agreed 95, made up 0"
+  end
+
+  test "spend: a plain line from 80%, a status message (not an alert) once it's used up" do
+    sign_in_as users(:admin)
+    spent!(4.2)
+    get admin_status_path
+    assert_select "p", /\$4\.20 of \$5\.00 used; model calls stop at 100%/
+    assert_select ".nd-flash", 0
+
+    spent!(1.0)
+    get admin_status_path
+    assert_select ".nd-flash[role=status]", /budget is used up/
+    assert_select "[role=alert]", 0
+  end
+
   test "links the PostHog dashboard when one is configured" do
     sign_in_as users(:admin)
     ENV["POSTHOG_DASHBOARD_URL"] = "https://us.posthog.com/project/1/dashboard/2"

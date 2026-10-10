@@ -12,8 +12,11 @@
     (<span class="nd-num"><%= (@spend.share * 100).floor %>%</span>), from <span class="nd-num"><%= number_with_delimiter(@spend.calls) %></span>
     <%= "call".pluralize(@spend.calls) %> and <span class="nd-num"><%= number_with_delimiter(@spend.total_tokens) %></span> tokens.
   </p>
+  <%# Present when the page loads, so status rather than alert (an alert is for the result of an action). %>
   <% if @spend.share >= 1 %>
-    <div class="nd-flash" role="alert"><%= icon("warning-circle") %><p class="type-body-strong">The budget is used up. Model calls are refused until next month or until the budget is raised.</p></div>
+    <div class="nd-flash" role="status"><%= icon("warning-circle") %><p class="type-body-strong">The budget is used up. Model calls are refused until next month or until the budget is raised.</p></div>
+  <% elsif @spend.share >= 0.8 %>
+    <p class="m-0 type-body"><%= money(@spend.cost).upcase_first %> of <%= money(@spend.budget) %> used; model calls stop at 100%.</p>
   <% end %>
 </section>
 
@@ -31,7 +34,7 @@
         <li class="nd-item nd-item--single" id="source-<%= source.id %>">
           <div class="nd-item__main">
             <p class="nd-item__claim type-body-strong">
-              <%= source.crawl_status == "blocked" ? "Blocked" : "Needs a person" %>:
+              <%= source.crawl_status == "blocked" ? "Blocked" : "Needs a human check" %>:
               <% if url %><%= link_to url, class: "nd-link", target: "_blank", rel: "noopener" do %><%= source.title.presence || source_host(url) %> <%= icon("arrow-square-out", size: 12) %><% end %><% else %><%= source.url %><% end %>
             </p>
             <p class="nd-item__why type-body"><%= source.status_reason.presence || "No reason recorded." %></p>
@@ -52,18 +55,25 @@
   <% if @runs.latest.empty? && @runs.running.empty? %>
     <p class="m-0 text-ink-muted">No runs yet.</p>
   <% else %>
-    <div class="nd-table-wrap">
+    <%# One card per run on phones (no sideways scrolling, #90): each cell carries its label. %>
+    <div class="nd-table-wrap nd-runs">
       <table class="nd-table">
         <thead><tr><th scope="col">Source kind</th><th scope="col">Stage</th><th scope="col">Result</th><th scope="col">Started (UTC)</th><th scope="col" class="nd-r">Time</th><th scope="col">Detail</th></tr></thead>
         <tbody>
           <% (@runs.running + @runs.latest).each do |run| %>
             <tr>
-              <td class="type-data-sm"><%= run.source_kind %></td>
-              <td><%= run.stage.humanize %></td>
-              <td><%= run.status.humanize %></td>
-              <td class="type-data-sm whitespace-nowrap"><%= run.started_at.utc.strftime("%Y-%m-%d %H:%M") %></td>
-              <td class="nd-num whitespace-nowrap"><%= run.duration ? "#{run.duration} s" : "running" %></td>
-              <td class="type-small"><%= run.failed? ? run.error.to_s.truncate(160) : run_detail(run.stats) %></td>
+              <td class="type-data-sm" data-label="Source kind"><%= run.source_kind %></td>
+              <td data-label="Stage"><%= run.stage.humanize %></td>
+              <td data-label="Result">
+                <% if run.failed? %>
+                  <span class="text-critical"><%= icon("warning-circle") %> Failed</span>
+                <% else %>
+                  <%= run.status.humanize %>
+                <% end %>
+              </td>
+              <td class="type-data-sm whitespace-nowrap" data-label="Started (UTC)"><%= run.started_at.utc.strftime("%Y-%m-%d %H:%M") %></td>
+              <td class="nd-num whitespace-nowrap" data-label="Time"><%= run_duration(run.duration) %></td>
+              <td class="type-small" data-label="Detail"><%= run.failed? ? run.error.to_s.truncate(160) : run_detail(run.stats) %></td>
             </tr>
           <% end %>
         </tbody>

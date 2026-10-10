@@ -59,6 +59,7 @@ class Admin::FactsControllerTest < ActionDispatch::IntegrationTest
     assert terrapower.reload.unpublished?
 
     follow_redirect!
+    assert_select "a", text: /View on site/, count: 0, message: "not public, so no link"
     assert_select ".nd-badge", /Unpublished/
     assert_select "td", "Merged into another company"
 

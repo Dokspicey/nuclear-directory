@@ -83,12 +83,28 @@ module AdminHelper
     amount.positive? && amount < 0.01.to_d ? "under $0.01" : format("$%.2f", amount)
   end
 
-  # A run's stats in words: "sources 1, candidates 95, ai check: agreed 95, missed 0".
+  ACRONYMS = { "ai" => "AI", "nrc" => "NRC", "eia" => "EIA", "llm" => "LLM", "url" => "URL" }.freeze
+
+  # A stats key in words, acronyms kept: "ai_check" => "AI check".
+  def stat_label(key)
+    key.to_s.humanize(capitalize: false).split.map { |word| ACRONYMS.fetch(word, word) }.join(" ").upcase_first
+  end
+
+  # A run's stats in words: "Sources 1; AI check: agreed 95, missed 0".
   def run_detail(stats)
     stats.map do |key, value|
-      value = value.map { |k, v| "#{k.humanize(capitalize: false)} #{v}" }.join(", ") if value.is_a?(Hash)
-      "#{key.humanize(capitalize: false)}#{':' if stats[key].is_a?(Hash)} #{value}"
+      value = value.map { |k, v| "#{stat_label(k).downcase_first} #{v}" }.join(", ") if value.is_a?(Hash)
+      "#{stat_label(key)}#{':' if stats[key].is_a?(Hash)} #{value}"
     end.join("; ").truncate(200)
+  end
+
+  # "42.9 s", "72 min", "1 h 12 min".
+  def run_duration(seconds)
+    return "running" if seconds.nil?
+    return "#{seconds} s" if seconds <= 90
+
+    minutes = (seconds / 60.0).round
+    minutes < 90 ? "#{minutes} min" : "#{minutes / 60} h #{minutes % 60} min"
   end
 
   # What happened, in a history row: "Pending to verified".
