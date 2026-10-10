@@ -12,7 +12,7 @@ class PlantPageTest < ActionDispatch::IntegrationTest
     @vogtle = plant("Plant Vogtle", facility_type: "power_reactor", status: "operating", city: "Waynesboro", state: "GA",
       technology: technology("fission", "Fission"), verified_at: Time.zone.parse("2026-10-09"))
     @vogtle.evidence.create!(source: @nrc, found_by: "human", confidence: 1)
-    @unit3 = plant("Unit 3", parent: @vogtle, reactor_type: "AP1000", capacity_mw: 1114, status: "operating", nrc_docket: "05200025")
+    @unit3 = cite!(plant("Unit 3", parent: @vogtle, reactor_type: "AP1000", capacity_mw: 1114, status: "operating", nrc_docket: "05200025"), source: @nrc)
     @unit4 = plant("Unit 4", parent: @vogtle, reactor_type: "AP1000", capacity_mw: 1114, status: "operating", nrc_docket: "05200026")
     @unit4.evidence.create!(source: @release, found_by: "human", confidence: 1)
     plant("Unit 5", parent: @vogtle, verified: false)
@@ -23,8 +23,7 @@ class PlantPageTest < ActionDispatch::IntegrationTest
     owns = link(@georgia, "owns", @unit3)
     owns.update!(ownership_pct: 45.7, description: "Co-owned with Oglethorpe Power and MEAG Power.")
     owns.evidence.create!(source: @release, quote: "the project's co-owners", found_by: "human", confidence: 1)
-    link(@southern, "operates", @vogtle)
-    link(@westinghouse, "vendor_for", @vogtle)
+    cite!(link(@southern, "operates", @vogtle), link(@westinghouse, "vendor_for", @vogtle), source: @nrc)
     link(company("Ghost Buyer", verified: false), "offtakes_from", @vogtle)
     link(company("Pending Owner"), "owns", @vogtle, verified: false)
   end
@@ -75,14 +74,6 @@ class PlantPageTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "the Sources column is left out when no unit has a source" do
-    @unit4.evidence.destroy_all
-    get plant_path(slug: "plant-vogtle")
-
-    assert_select "#units-heading ~ * th", text: "Sources", count: 0
-    assert_select "td[data-label=Sources]", count: 0
-  end
-
   test "an ended link isn't shown as current" do
     FacilityRelationship.find_by!(organization: @westinghouse).update!(ended_on: Date.new(2020, 1, 1))
     get plant_path(slug: "plant-vogtle")
@@ -130,7 +121,7 @@ class PlantPageTest < ActionDispatch::IntegrationTest
 
   test "a pending site with a verified unit shows the unit but not the site's own details" do
     site = plant("Clinch River", verified: false, facility_type: "power_reactor", city: "Oak Ridge", state: "TN")
-    plant("Clinch River Unit 1", parent: site, verified_at: Time.zone.parse("2026-10-08"))
+    cite!(plant("Clinch River Unit 1", parent: site, verified_at: Time.zone.parse("2026-10-08")))
     get plant_path(slug: "clinch-river")
 
     assert_response :success
@@ -142,13 +133,23 @@ class PlantPageTest < ActionDispatch::IntegrationTest
 
   test "a link to a pending site itself isn't shown, only links to its verified units" do
     site = plant("Clinch River", verified: false)
-    unit = plant("Clinch River Unit 1", parent: site)
-    link(company("Site Owner"), "owns", site)
-    link(company("Unit Owner"), "owns", unit)
+    unit = cite!(plant("Clinch River Unit 1", parent: site))
+    cite!(link(company("Site Owner"), "owns", site), link(company("Unit Owner"), "owns", unit))
     get plant_path(slug: "clinch-river")
 
     assert_select "body", text: /Site Owner/, count: 0
     assert_select ".nd-factrow", text: /Unit Owner\s+owns\s+Clinch River, Clinch River Unit 1/
+  end
+
+  test "facts without a source aren't shown" do
+    site = plant("Quiet Site", facility_type: "power_reactor", city: "Nowhere", state: "OR")
+    plant("Quiet Unit", parent: site, reactor_type: "BWR")
+    link(company("Quiet Owner"), "owns", site)
+    get plant_path(slug: "quiet-site")
+
+    assert_response :success
+    assert_select "body", text: /Nowhere|Quiet Unit|BWR|Quiet Owner/, count: 0
+    %w[Type Location Owner].each { |field| assert_select ".nd-gaps li", text: field }
   end
 
   test "link preview tags" do

@@ -1,6 +1,9 @@
-# Everything the company page shows (#42), verified facts only. Deals count
-# only when the other company is verified too; plant links only when the
-# plant is public (DirectoryListing#public_sites, or a verified unit).
+# Everything the company page shows (#42), verified and sourced facts only
+# (VOICE.md: if we can't source it, we don't publish it). Deals count only
+# when the other company is verified too; plant links only when the plant is
+# public (DirectoryListing#public_facilities). Fields stored on the company
+# record (description, website, headquarters...) show only when the record
+# has evidence of its own.
 #
 # Sources are numbered once, in reading order (description, key facts, deals,
 # then plants), so chips and the source list agree.
@@ -23,13 +26,19 @@ class CompanyProfile
     number_sources
   end
 
-  delegate :name, :slug, :description, :website, :hq_city, :hq_state, :founded_year, :legal_name, :verified_at, to: :organization
+  delegate :name, :slug, :verified_at, to: :organization
+
+  # The record's own fields, only when a source backs them.
+  def sourced? = organization.evidence.any?
+  %i[description website hq_city hq_state founded_year legal_name].each do |field|
+    define_method(field) { organization.public_send(field) if sourced? }
+  end
 
   # [[number, source], ...] for a fact on this page.
   def citations_for(fact) = @cited.fetch(fact) { [] }
 
   def roles
-    @roles ||= organization.organization_roles.verified.includes(:role, evidence: :source).sort_by { |r| r.role.name }
+    @roles ||= sourced_only(organization.organization_roles.verified.includes(:role, evidence: :source)).sort_by { |r| r.role.name }
   end
 
   # Roles to show: a general role is left out when a more specific one under
@@ -40,7 +49,7 @@ class CompanyProfile
   end
 
   def technologies
-    @technologies ||= organization.organization_technologies.verified.includes(:technology, evidence: :source).sort_by { |t| t.technology.name }
+    @technologies ||= sourced_only(organization.organization_technologies.verified.includes(:technology, evidence: :source)).sort_by { |t| t.technology.name }
   end
 
   # Deals in both directions, with the other company verified, except
@@ -50,18 +59,18 @@ class CompanyProfile
       .where(from_organization: organization).or(Relationship.verified.where(to_organization: organization))
       .where.not(relationship_type: "subsidiary_of")
       .includes(:from_organization, :to_organization, evidence: :source).to_a
-      .select { |deal| other_party(deal).verified? }
+      .select { |deal| other_party(deal).verified? && deal.evidence.any? }
       .sort_by { |deal| [ deal.relationship_type, other_party(deal).name ] }
   end
 
   def parents
     @parents ||= Relationship.verified.subsidiary_of.where(from_organization: organization)
-      .includes(:to_organization, evidence: :source).select { |link| link.to_organization.verified? }
+      .includes(:to_organization, evidence: :source).select { |link| link.to_organization.verified? && link.evidence.any? }
   end
 
   def subsidiaries
     @subsidiaries ||= Relationship.verified.subsidiary_of.where(to_organization: organization)
-      .includes(:from_organization, evidence: :source).select { |link| link.from_organization.verified? }
+      .includes(:from_organization, evidence: :source).select { |link| link.from_organization.verified? && link.evidence.any? }
   end
 
   def plant_links
@@ -69,6 +78,7 @@ class CompanyProfile
       organization.facility_relationships.verified
         .where(facility_id: DirectoryListing.new.public_facilities.select(:id))
         .includes(facility: :parent, evidence: :source).to_a
+        .select { |link| link.evidence.any? }
         .sort_by { |link| [ link.relationship_type, link.facility.name ] }
     end
   end
@@ -76,15 +86,22 @@ class CompanyProfile
   def other_party(deal) = deal.from_organization_id == organization.id ? deal.to_organization : deal.from_organization
 
   def aliases
+    return [] unless sourced?
+
     @aliases ||= organization.aliases.map(&:alias).reject { |name| OrganizationAlias.normalize(name) == OrganizationAlias.normalize(organization.name) }
   end
 
-  # The first category this company falls in, for the breadcrumb.
+  # The first category this company falls in, for the breadcrumb, by the
+  # same rules as the directory (DirectoryListing#in_category).
   def category
-    keys = roles.flat_map { |r| [ r.role.key, r.role.parent&.key ] }.compact
-    Category.all.find { |c| (c.role_keys & keys).any? } ||
-      (Category.find("fusion") if technologies.any? { |t| t.technology.key == "fusion" })
+    role_keys = roles.flat_map { |r| [ r.role.key, r.role.parent&.key ] }.compact
+    tech_keys = technologies.flat_map { |t| [ t.technology.key, t.technology.parent&.key ] }.compact
+    Category.all.find do |c|
+      (c.role_keys & role_keys).any? || (c.technology_key && tech_keys.include?(c.technology_key)) || (c.investors && investor?)
+    end
   end
+
+  def investor? = Relationship.verified.invests_in.where(from_organization: organization).exists?
 
   # Fields DESIGN.md marks "must" that this company doesn't have yet.
   def missing_fields
@@ -106,6 +123,8 @@ class CompanyProfile
       deals.each { |deal| cite(deal) }
       plant_links.each { |link| cite(link) }
     end
+
+    def sourced_only(records) = records.select { |record| record.evidence.any? }
 
     def cite(fact)
       @cited[fact] = citations.cite(fact.evidence)
