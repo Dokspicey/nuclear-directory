@@ -33,6 +33,7 @@ class PagesTest < ActionDispatch::IntegrationTest
   test "the sitemap lists public companies and plants, not hidden ones" do
     company("Kairos Power")
     company("Hidden Co", verified: false)
+    company("Unpublished Co").unpublish!(by: "human:test")
     plant("Plant Vogtle")
     plant("Hidden Site", verified: false)
 
@@ -45,6 +46,7 @@ class PagesTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "<loc>http://www.example.com/companies?category=reactor-developers</loc>"
     assert_not_includes response.body, "<lastmod>"
     assert_not_includes response.body, "hidden"
+    assert_not_includes response.body, "unpublished-co"
   end
 
   test "robots.txt keeps crawlers out of admin, forms and search, and points to the sitemap" do
