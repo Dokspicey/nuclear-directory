@@ -72,6 +72,20 @@ module Directory
 
     def self.write(...) = new.write(...)
 
+    # Many writes in one transaction (e.g. a bulk approve), each in its own
+    # savepoint so one failure doesn't undo the others. writes: an array of
+    # { kind:, attributes:, evidence:, verification:, protect_human_verified: }.
+    # Returns one Result per write, in order. Each write is audited as usual.
+    def self.write_many(writes)
+      ActiveRecord::Base.transaction do
+        writes.map do |write|
+          write = write.to_h.symbolize_keys
+          new.write(write.fetch(:kind), write.fetch(:attributes), **write.slice(:evidence, :verification, :fill_blank,
+            :protect_human_verified))
+        end
+      end
+    end
+
     # kind: a key of KINDS. attributes may include :id to update a known row.
     # verification: { status: "pending" | "verified" | "rejected" | "unpublished",
     #   by: "human:tosin", reason: "optional, kept in the audit trail",
@@ -114,10 +128,11 @@ module Directory
         changes = changes.select { |name, _| record.public_send(name).blank? } if (fill_blank || curated) && !created
         record.assign_attributes(changes)
         record.save!
+        edited = audited_values(record) unless created
 
         write_aliases(record, [ record.name, *attributes[:aliases] ]) if kind == :organization
         Array(evidence).each { |item| write_evidence(record, item) }
-        apply_verification(record, verification) if verification && !curated
+        apply_verification(record, verification, edited:) if verification && !curated
         record.recompute_confidence!
       end
 
@@ -229,17 +244,31 @@ module Directory
       # don't look like fresh reviews.
       VERIFICATION_KEYS = %i[status by reason context].freeze
 
-      def apply_verification(record, verification)
+      # edited: attribute changes this write made, { "state" => [before, after] },
+      # recorded on the audit event with the decision.
+      def apply_verification(record, verification, edited: {})
         verification = verification.to_h.symbolize_keys
         unknown = verification.keys - VERIFICATION_KEYS
         raise Invalid, "unknown verification keys: #{unknown.join(", ")}" if unknown.any?
 
         status, by = verification.values_at(:status, :by)
-        return if record.verification_status == status.to_s && record.verified_by == by
-
         record.verification_reason = verification[:reason]
         record.verification_context = verification[:context]
+        record.audited_changes = edited.presence
+
+        if record.verification_status == status.to_s && record.verified_by == by
+          # Same decision again: only a human's edit of the values is worth an event.
+          record.log_verification_event(from_status: record.verification_status, by:) if edited.present? && by.to_s.start_with?("human:")
+          return
+        end
+
         record.update!(verification_status: status, verified_by: by, verified_at: status.to_s == "pending" ? nil : Time.current)
+      end
+
+      AUDIT_IGNORED = %w[created_at updated_at confidence verification_reason verification_context audited_changes].freeze
+
+      def audited_values(record)
+        record.saved_changes.except(*AUDIT_IGNORED).transform_values { |(before, after)| [ before, after ] }
       end
   end
 end

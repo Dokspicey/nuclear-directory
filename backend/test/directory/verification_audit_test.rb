@@ -20,6 +20,37 @@ class Directory::VerificationAuditTest < ActiveSupport::TestCase
     assert latest.at
   end
 
+  test "an event records the values the same write changed, before and after" do
+    @org.update!(hq_state: "DE")
+    write(:organization, { id: @org.id, hq_state: "WA", hq_city: "Bellevue" },
+      verification: { status: "verified", by: "human:tosin", reason: "approved the crawl's HQ" })
+
+    event = history(@org).first
+    assert_equal({ "hq_state" => [ "DE", "WA" ], "hq_city" => [ nil, "Bellevue" ] }, event.changed_values)
+  end
+
+  test "a human editing values without changing the decision is recorded too" do
+    @org.verify!(by: "human:tosin")
+    write(:organization, { id: @org.id, hq_city: "Bellevue" }, verification: { status: "verified", by: "human:tosin" })
+
+    latest = history(@org).first
+    assert_equal [ "verified", "verified", { "hq_city" => [ nil, "Bellevue" ] } ],
+      latest.to_h.values_at(:from_status, :to_status, :changed_values)
+  end
+
+  test "write_many approves a batch in one transaction, each audited, failures kept separate" do
+    other = organizations(:westinghouse)
+    results = Directory::FactWriter.write_many([
+      { kind: :organization, attributes: { id: @org.id }, verification: { status: "verified", by: "human:tosin", reason: "bulk" } },
+      { kind: :organization, attributes: { id: other.id, status: "bogus" }, verification: { status: "verified", by: "human:tosin" } },
+      { kind: :organization, attributes: { id: other.id }, verification: { status: "verified", by: "human:tosin", reason: "bulk" } }
+    ])
+
+    assert_equal [ true, false, true ], results.map(&:ok?)
+    assert [ @org, other ].all? { |o| o.reload.verified? }
+    assert_equal [ "bulk", "bulk" ], [ history(@org).first.reason, history(other).first.reason ]
+  end
+
   test "re-applying the same decision records nothing new" do
     2.times { write(:organization, { id: @org.id }, verification: { status: "verified", by: "human:tosin" }) }
     assert_equal 1, history(@org).size

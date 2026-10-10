@@ -441,6 +441,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_10_220000) do
     t.string "by"
     t.text "reason"
     t.jsonb "context", default: {}, null: false
+    t.jsonb "changed_values", default: {}, null: false
     t.datetime "created_at", null: false
     t.index ["subject_type", "subject_id", "created_at"], name: "index_verification_events_on_subject_and_time"
   end

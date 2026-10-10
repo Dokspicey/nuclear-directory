@@ -116,14 +116,32 @@ into the audit trail. Re-applying the same decision keeps the original
 - **Human actions** (approve, unpublish, republish) are written *without*
   `protect_human_verified`: the human is the authority.
 
+### What's public
+
+Public pages read `<Model>.published`, not `.verified`: a fact is published
+when it's verified **and** what it hangs on is published. Unpublishing a
+company hides its roles, technologies, relationships and plant links;
+unpublishing a site hides its units and their links. Nothing is deleted, and
+each fact keeps its own decision, so republishing brings them all back.
+
+### Bulk writes
+
+`Directory::FactWriter.write_many([{ kind:, attributes:, evidence:, verification:, protect_human_verified: }, …])`
+runs a batch (e.g. a bulk approve) in one transaction, each write in its own
+savepoint, so one failure doesn't undo the rest. It returns one Result per
+write, in order. Each write is audited as usual.
+
 ### Audit trail
 
 Every change of a fact's verification is recorded in `verification_events`
-(who, when, from → to, reason, context), append-only. Read it with:
+(who, when, from → to, reason, context, and the attribute values the same
+write changed, before → after), append-only. A human editing values without
+changing the decision is recorded too. Read it with:
 
 ```ruby
 Directory::Lookup.verification_history(type: "Organization", id: 12)
-# => [VerificationEventRef(from_status:, to_status:, by:, reason:, context:, at:), …] newest first
+# => [VerificationEventRef(from_status:, to_status:, by:, reason:, context:, changed_values:, at:), …] newest first
+# changed_values: { "hq_state" => ["DE", "WA"] }
 ```
 
 ### Confidence

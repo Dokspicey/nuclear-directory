@@ -22,6 +22,8 @@ module Verifiable
     # its event (see Directory::FactWriter's verification: reason:/context:).
     attribute :verification_reason, :string
     attribute :verification_context
+    # Attribute changes made in the same write, kept on its event.
+    attribute :audited_changes
     after_save :record_verification_event, if: -> { saved_change_to_verification_status? || saved_change_to_verified_by? }
   end
 
@@ -48,8 +50,27 @@ module Verifiable
     !pending? && verified_by.to_s.start_with?("human:")
   end
 
+  class_methods do
+    # What public pages show: verified facts whose own records are verified
+    # too, so unpublishing a company or plant hides its facts. Models with
+    # parents (links, units) narrow this further.
+    def published = verified
+  end
+
   # Rejected or unpublished: automated writers may not change it at all.
   def closed? = CLOSED_STATUSES.include?(verification_status)
+
+  # Writes one audit event for the current verification, with any reason,
+  # context and attribute changes set for this write. Used by the callback
+  # below and by FactWriter for a human edit that changes values but not the
+  # status.
+  def log_verification_event(from_status:, by: verified_by)
+    verification_events.create!(from_status:, to_status: verification_status, by:, reason: verification_reason,
+      context: verification_context || {}, changed_values: audited_changes || {})
+    self.verification_reason = nil
+    self.verification_context = nil
+    self.audited_changes = nil
+  end
 
   # Called whenever this fact's evidence changes. The rule itself lives in
   # Evidence.combined_confidence.
@@ -68,9 +89,6 @@ module Verifiable
       from = verification_status_before_last_save
       return if from.nil? && pending? # a new fact starting out pending isn't a decision
 
-      verification_events.create!(from_status: from, to_status: verification_status, by: verified_by,
-        reason: verification_reason, context: verification_context || {})
-      self.verification_reason = nil
-      self.verification_context = nil
+      log_verification_event(from_status: from)
     end
 end

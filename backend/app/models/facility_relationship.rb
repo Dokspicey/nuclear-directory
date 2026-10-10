@@ -9,6 +9,11 @@ class FacilityRelationship < ApplicationRecord
   belongs_to :facility
 
   validates :relationship_type, uniqueness: { scope: [ :organization_id, :facility_id ] }
+
+  # Hidden when its company or plant isn't published.
+  def self.published
+    verified.where(organization_id: Organization.published.select(:id), facility_id: Facility.published.select(:id))
+  end
   validates :ownership_pct, numericality: { in: 0..100 }, allow_nil: true
   validate :ownership_pct_only_for_owns
   validate :ends_after_start

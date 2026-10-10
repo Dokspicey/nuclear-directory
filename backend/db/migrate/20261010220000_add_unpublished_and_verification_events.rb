@@ -20,6 +20,8 @@ class AddUnpublishedAndVerificationEvents < ActiveRecord::Migration[8.1]
       # e.g. { "candidate_id" => 12, "crawl_run_id" => 4 } for an approval; no
       # foreign keys, since candidates belong to the data quality module.
       t.jsonb :context, null: false, default: {}
+      # Attributes the same write changed: { "state" => ["DE", "NJ"] } (before, after).
+      t.jsonb :changed_values, null: false, default: {}
       t.datetime :created_at, null: false
 
       t.index [ :subject_type, :subject_id, :created_at ], name: "index_verification_events_on_subject_and_time"
