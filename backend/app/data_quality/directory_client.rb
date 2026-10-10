@@ -156,6 +156,11 @@ class DataQuality::DirectoryClient
     # aliases ("Three Mile Island Unit 1") mustn't rename Crane.
     attributes.delete(:name) if candidate.kind == "facility" && candidate.subject_id
     enrichment = enrichment?(candidate)
+    # One site per plant (#73): an enriched unit without a site goes under
+    # the site for its EIA plant.
+    if enrichment && candidate.kind == "facility" && (site_id = site_for_unit(candidate))
+      attributes[:parent_id] = site_id
+    end
     verification =
       if enrichment then nil
       elsif by
@@ -169,6 +174,15 @@ class DataQuality::DirectoryClient
     result = fact_writer.write(candidate.kind, attributes, evidence:, verification:,
       protect_human_verified: by.nil? || enrichment)
     write_result(result)
+  end
+
+  # Puts the unit a published enrichment candidate enriched under the site
+  # for its EIA plant, for enrichments published before #73. Nothing to do
+  # (nil) when the unit already has a site or there's no live site for the
+  # plant.
+  def group_unit(candidate)
+    site_id = site_for_unit(candidate) or return
+    write_result(fact_writer.write(:facility, { id: candidate.subject_id, parent_id: site_id }, protect_human_verified: true))
   end
 
   # Marks a record match proposed as rejected, once its candidate is
@@ -185,6 +199,19 @@ class DataQuality::DirectoryClient
   ENRICHMENT_KEY = "identify"
 
   def enrichment?(candidate) = candidate.payload.to_h.key?(ENRICHMENT_KEY)
+
+  # The site an enriched NRC unit belongs under: the live (not rejected or
+  # unpublished) site with the EIA plant ID the candidate named. nil when the
+  # unit already has a site, which is never changed (a seed site such as Plant
+  # Vogtle keeps its units), or when EIA hasn't proposed that site yet.
+  def site_for_unit(candidate)
+    plant = candidate.payload.to_h.dig(ENRICHMENT_KEY, "eia_plant_id").presence or return
+    unit = candidate.subject_id && lookup.facility(id: candidate.subject_id) or return
+    return if unit.parent_id || unit.nrc_docket.blank?
+
+    site = lookup.facility(eia_plant_id: plant) or return
+    site.id unless site.id == unit.id || %w[rejected unpublished].include?(site.verification_status)
+  end
 
   # Site fields a verified unit can fill in when the site has none.
   SITE_FIELDS_FROM_UNIT = %w[state facility_type status country_code latitude longitude].freeze

@@ -258,6 +258,49 @@ class DataQuality::Plugins::EiaGeneratorsTest < ActiveSupport::TestCase
     assert_equal [ "Vogtle 1" ], [ vogtle_1.name ], "EIA never renames"
   end
 
+  test "an enriched unit goes under the site for its EIA plant, one site per plant" do
+    farley = nrc_unit("Farley 1", "05000348", "AL")
+    crawl!
+
+    match_and_verify!
+
+    site = Facility.find_by!(eia_plant_id: "6001")
+    assert_equal site.id, farley.reload.parent_id
+    assert_nil site.nrc_docket
+  end
+
+  test "a unit that already has a site keeps it" do
+    seed_site = Facility.create!(name: "Farley Seed Site")
+    farley = nrc_unit("Farley 1", "05000348", "AL", parent: seed_site)
+    crawl!
+
+    match_and_verify!
+
+    assert_equal seed_site.id, farley.reload.parent_id
+  end
+
+  test "a unit isn't put under a rejected site" do
+    Facility.create!(name: "Joseph M Farley", eia_plant_id: "6001").reject!(by: "human:tosin")
+    farley = nrc_unit("Farley 1", "05000348", "AL")
+    crawl!
+
+    match_and_verify!
+
+    assert_nil farley.reload.parent_id
+  end
+
+  test "units enriched before #73 are grouped by the one-off task" do
+    farley = nrc_unit("Farley 1", "05000348", "AL")
+    crawl!
+    match_and_verify!
+    farley.reload.update_columns(parent_id: nil)
+
+    Rails.application.load_tasks unless Rake::Task.task_defined?("data_quality:group_units")
+    assert_output(/Grouped 1 units/) { Rake::Task["data_quality:group_units"].execute }
+
+    assert_equal Facility.find_by!(eia_plant_id: "6001").id, farley.reload.parent_id
+  end
+
   test "a single-unit plant takes EIA's generator whatever its number" do
     columbia = nrc_unit("Columbia Generating Station", "05000397", "WA")
     crawl!
