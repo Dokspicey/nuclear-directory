@@ -95,13 +95,20 @@ the new version and switches traffic once `/up` returns 200. If the build,
 the migration or the health check fails, the old version keeps serving.
 Pushes to `main` that change `backend/` deploy only after CI passes.
 
+Migrations run against the live database while the old version is still
+serving, and a failed deploy doesn't undo a migration that already ran. So
+every migration must also work with the code currently in production:
+add columns and tables first, and remove or rename them in a later deploy,
+once nothing reads them.
+
 **First deploy.** In the Render dashboard: New → Blueprint, pick this repo,
 fill in the secrets it asks for, then Apply. Render creates the database and
 the web service and deploys `main`. The app is at
 `https://nuclear-directory.onrender.com` (or the URL Render shows).
 
-**Seed production once**, after the first deploy succeeds. Open the web
-service → Shell and run:
+**Seed production** after the first deploy succeeds, and again after each
+deploy that changes `backend/db/seeds.rb` or `backend/db/seeds/`. Deploys
+don't seed on their own. Open the web service → Shell and run:
 
 ```bash
 bin/rails db:seed
