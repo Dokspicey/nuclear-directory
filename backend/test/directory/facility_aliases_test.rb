@@ -27,7 +27,9 @@ class Directory::FacilityAliasesTest < ActiveSupport::TestCase
     result = write(:facility, { name: "Three Mile Island Unit 1", state: "PA" })
 
     assert_equal [ @crane.id, false ], [ result.id, result.created ]
-    assert_equal "PA", @crane.reload.state
+    assert_equal [ "PA", "Crane Clean Energy Center" ], [ @crane.reload.state, @crane.name ], "updated, not renamed"
+    assert write(:facility, { id: @crane.id, name: "Crane Clean Energy Center at TMI" }).ok?
+    assert_equal "Crane Clean Energy Center at TMI", @crane.reload.name, "a write by id may rename"
   end
 
   test "aliases are written once, and the plant's own name isn't stored" do

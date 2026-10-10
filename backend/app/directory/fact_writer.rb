@@ -111,6 +111,10 @@ module Directory
         end
         curated = protect_human_verified && !created && record.human_reviewed?
         changes = model_attributes(kind, attributes)
+        # A plant found by its docket, name or an alias keeps its name: writing
+        # "Three Mile Island Unit 1" updates Crane, it doesn't rename it. Only a
+        # write by id renames.
+        changes.delete(:name) if kind == :facility && !created && !attributes.key?(:id)
         if curated && (conflicts = conflicts_with(record, changes)).any?
           raise Conflict.new(record.id, conflicts)
         end
