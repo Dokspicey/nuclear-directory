@@ -164,13 +164,15 @@ class DirectoryListing
     end
 
     # The site's name, a verified unit's name ("Vogtle Unit 3" finds Plant
-    # Vogtle), a technology of a verified site or unit ("SMR"), or a verified
-    # link to the site or a unit whose description matches.
+    # Vogtle), a technology of a verified site or unit ("SMR"), or a link to
+    # the site or a unit whose description matches, if the plant page shows
+    # that link (PlantProfile#links: published, sourced and current).
     def matching_plants(scope)
       units = Facility.verified.where.not(parent_id: nil).where("facilities.name ILIKE ?", like(query)).select(:parent_id)
-      # Only links a page shows: a verified company and a verified site or unit.
-      links = FacilityRelationship.verified.where("facility_relationships.description ILIKE ?", like(query))
-        .where(organization_id: Organization.verified.select(:id), facility_id: Facility.verified.select(:id))
+      links = FacilityRelationship.published.where("facility_relationships.description ILIKE ?", like(query))
+        .where(facility_id: Facility.verified.select(:id))
+        .where(id: Evidence.where(subject_type: "FacilityRelationship").select(:subject_id))
+        .where("facility_relationships.ended_on IS NULL OR facility_relationships.ended_on > ?", Date.current)
       linked = Facility.where(id: links.select(:facility_id))
       linked_sites = Facility.where(id: linked.select(:id)).or(Facility.where(id: linked.select(:parent_id))).select(:id)
       techs = Technology.where("technologies.name ILIKE :q OR technologies.key ILIKE :q", q: like(query)).select(:id)

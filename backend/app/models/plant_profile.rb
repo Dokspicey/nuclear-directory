@@ -14,7 +14,7 @@ class PlantProfile
 
   # nil unless the site is public.
   def self.find(slug)
-    site = DirectoryListing.new.public_sites.find_by(slug:)
+    site = Facility.published.where(parent_id: nil).find_by(slug:)
     new(site) if site
   end
 
@@ -39,13 +39,13 @@ class PlantProfile
   def nrc_docket = (site.nrc_docket if site_facts?)
 
   def units
-    @units ||= Facility.verified.where(parent: site).includes(:technology, evidence: :source).order(:name).select { |unit| unit.evidence.any? }
+    @units ||= Facility.published.where(parent: site).includes(:technology, evidence: :source).order(:name).select { |unit| unit.evidence.any? }
   end
 
   # Current links from a verified company to the site (once verified) or one
   # of its verified units. A link that has ended isn't shown as current.
   def links
-    @links ||= FacilityRelationship.verified.where(facility: [ (site if site.verified?), *units ].compact)
+    @links ||= FacilityRelationship.published.where(facility: [ (site if site.verified?), *units ].compact)
       .where("facility_relationships.ended_on IS NULL OR facility_relationships.ended_on > ?", Date.current)
       .joins(:organization).merge(Organization.verified)
       .includes(:organization, :facility, evidence: :source).to_a

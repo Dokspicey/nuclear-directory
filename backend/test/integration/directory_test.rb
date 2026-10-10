@@ -15,7 +15,7 @@ class DirectoryTest < ActionDispatch::IntegrationTest
 
   test "a pending site's row shows its name and verified units, not its own type or place" do
     site = Facility.create!(name: "Quiet Station", verification_status: "pending", facility_type: "power_reactor", status: "planned", city: "Nowhere", state: "OR")
-    Facility.create!(name: "Quiet Unit 1", parent: site, verification_status: "verified", capacity_mw: 300)
+    Facility.create!(name: "Quiet Unit 1", parent: site, verification_status: "verified", verified_by: "human:test", capacity_mw: 300)
     get companies_path(category: "plants")
 
     assert_select ".nd-listrow", text: /Quiet Station/ do
