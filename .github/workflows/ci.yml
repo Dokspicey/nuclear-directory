@@ -23,6 +23,17 @@ jobs:
       - name: RuboCop
         run: bin/rubocop -f github
 
+  blueprint:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check render.yaml
+        run: ruby .github/scripts/check_blueprint.rb
+
   test:
     runs-on: ubuntu-latest
 

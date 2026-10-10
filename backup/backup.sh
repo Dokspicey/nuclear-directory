@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+# Dumps the database, encrypts it with age and uploads it as a release asset
+# to a private GitHub repo, keeping the newest BACKUP_KEEP releases.
+# See "Backups" in README.md.
+#
+# Env:
+#   DATABASE_URL          database to dump
+#   BACKUP_AGE_RECIPIENT  age public key (age1...); only its private half decrypts
+#   BACKUP_REPO           owner/name of the private backups repo
+#   BACKUP_GITHUB_TOKEN   fine-grained token for BACKUP_REPO, Contents read/write
+#   BACKUP_KEEP           releases to keep (default 12)
+#   BACKUP_OUTPUT_DIR     if set, write the file there and skip GitHub (local tests)
+set -euo pipefail
+
+: "${DATABASE_URL:?}" "${BACKUP_AGE_RECIPIENT:?}"
+keep="${BACKUP_KEEP:-12}"
+stamp="$(date -u +%Y-%m-%dT%H%MZ)"
+name="nuclear-directory-${stamp}.dump.age"
+dir="${BACKUP_OUTPUT_DIR:-$(mktemp -d)}"
+file="${dir}/${name}"
+
+# Exact row counts, printed now and again by restore.sh, so a restore can be
+# checked against the database it came from. Counts and dump read the same
+# snapshot: a psql session holds a repeatable-read transaction open, exports
+# its snapshot, counts in it, and pg_dump --snapshot dumps exactly that.
+# ON_ERROR_STOP: on any SQL error psql exits, query() never sees its marker
+# and returns 1, and set -e stops the backup before anything is uploaded.
+coproc PSQL { psql "$DATABASE_URL" --no-psqlrc --quiet --tuples-only --no-align --field-separator=' ' --set ON_ERROR_STOP=1 2>&1; }
+query() {
+  printf '%s\nSELECT %s;\n' "$1" "'__done__'" >&"${PSQL[1]}"
+  local line
+  while IFS= read -r line <&"${PSQL[0]}"; do
+    [[ "$line" == "__done__" ]] && return 0
+    [[ -n "$line" ]] && printf '%s\n' "$line"
+  done
+  return 1
+}
+
+query "BEGIN ISOLATION LEVEL REPEATABLE READ, READ ONLY;" > /dev/null
+snapshot="$(query "SELECT pg_export_snapshot();")"
+[[ "$snapshot" =~ ^[0-9A-F-]+$ ]] || { echo "Couldn't export a snapshot: ${snapshot}" >&2; exit 1; }
+
+echo "Row counts at backup time:"
+query "
+  SELECT table_name,
+         (xpath('/row/n/text()', query_to_xml(format('SELECT count(*) AS n FROM public.%I', table_name), false, true, '')))[1]::text
+  FROM information_schema.tables
+  WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+  ORDER BY table_name;"
+
+# Custom format (compressed, restorable with pg_restore). The plain dump only
+# ever exists in the pipe; only the encrypted file touches disk.
+pg_dump --snapshot="$snapshot" --format=custom --no-owner --no-acl "$DATABASE_URL" \
+  | age --encrypt --recipient "$BACKUP_AGE_RECIPIENT" --output "$file"
+query "COMMIT;" > /dev/null
+printf '\\q\n' >&"${PSQL[1]}"
+wait "$PSQL_PID" || true
+echo "Wrote ${name} ($(du -h "$file" | cut -f1))"
+
+if [[ -n "${BACKUP_OUTPUT_DIR:-}" ]]; then
+  exit 0
+fi
+
+: "${BACKUP_REPO:?}" "${BACKUP_GITHUB_TOKEN:?}"
+api() {
+  curl --fail-with-body --silent --show-error --retry 3 \
+    -H "Authorization: Bearer ${BACKUP_GITHUB_TOKEN}" \
+    -H "Accept: application/vnd.github+json" \
+    -H "X-GitHub-Api-Version: 2022-11-28" "$@"
+}
+
+tag="backup-${stamp}"
+releases="https://api.github.com/repos/${BACKUP_REPO}/releases"
+
+# Drafts left by earlier runs whose upload failed: never restorable, so remove.
+api "${releases}?per_page=100" \
+  | jq -r '.[] | select(.draft and (.tag_name | startswith("backup-"))) | .id' \
+  | while read -r id; do api -X DELETE "${releases}/${id}" > /dev/null; done
+
+# Create as a draft, upload, then publish, so a failed upload never leaves an
+# empty release as the newest backup.
+release_id="$(api -X POST "$releases" \
+  -d "$(jq -n --arg tag "$tag" '{tag_name: $tag, name: $tag, draft: true, body: "Encrypted pg_dump (custom format). Decrypt with the age key in the password manager; see README \"Backups\"."}')" \
+  | jq -r .id)"
+api -X POST -H "Content-Type: application/octet-stream" --data-binary @"$file" \
+  "https://uploads.github.com/repos/${BACKUP_REPO}/releases/${release_id}/assets?name=${name}" > /dev/null
+api -X PATCH "${releases}/${release_id}" -d '{"draft": false}' > /dev/null
+echo "Uploaded to ${BACKUP_REPO} release ${tag}"
+
+# Prune: keep the newest $keep published backups, delete the rest and their tags.
+api "${releases}?per_page=100" \
+  | jq -r --argjson keep "$keep" \
+      '[.[] | select((.draft | not) and (.tag_name | startswith("backup-")))] | sort_by(.created_at) | reverse | .[$keep:][] | "\(.id) \(.tag_name)"' \
+  | while read -r id old_tag; do
+      api -X DELETE "${releases}/${id}" > /dev/null
+      api -X DELETE "https://api.github.com/repos/${BACKUP_REPO}/git/refs/tags/${old_tag}" > /dev/null
+      echo "Pruned ${old_tag}"
+    done
