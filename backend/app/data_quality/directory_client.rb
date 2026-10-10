@@ -10,35 +10,62 @@ class DataQuality::DirectoryClient
   # A pointer to a directory record, e.g. Ref.new(type: "Organization", id: 12).
   # type is what candidates store in subject_type.
   Ref = Data.define(:type, :id)
-  WriteResult = Data.define(:ref, :errors) do
+  # What a lookup found: enough to match on and to explain a match.
+  Record = Data.define(:type, :id, :name, :nrc_docket, :parent_id, :facility_type, :status, :state, :country_code) do
+    def ref = Ref.new(type:, id:)
+  end
+  WriteResult = Data.define(:ref, :errors, :created) do
+    def initialize(ref:, errors:, created: false) = super
     def success? = errors.empty?
   end
+
+  # Kinds whose payload names other records instead of carrying attributes;
+  # the match stage resolves those names to ids and writes the fact.
+  LINK_KINDS = %w[organization_role organization_technology relationship facility_relationship].freeze
+  LINK_ENDS = %w[organization facility from_organization to_organization].freeze
 
   def initialize(lookup: nil, fact_writer: nil)
     @lookup = lookup
     @fact_writer = fact_writer
   end
 
-  # Returns a Ref to the existing record a candidate describes, or nil.
-  # Lookup takes one key at a time, so try the strongest identifier first.
-  # Other kinds are matched in the match stage issue (#14).
-  def find(kind, payload)
-    found =
-      case kind
-      when "organization"
-        first_match(payload, %w[name domain]) { |key, value| lookup.organization(key.to_sym => value) }
-      when "facility"
-        first_match(payload, %w[nrc_docket name]) { |key, value| lookup.facility(key.to_sym => value) }
-      end
+  # Exact lookups. Pass one keyword; returns a Record or nil.
+  def organization(name: nil, domain: nil)
+    record("Organization", lookup.organization(name:, domain:))
+  end
 
-    Ref.new(type: type_for(kind), id: found.id) if found
+  def facility(id: nil, name: nil, nrc_docket: nil)
+    record("Facility", lookup.facility(id:, name:, nrc_docket:))
+  end
+
+  # Likely duplicates an exact lookup misses. Returns Records.
+  def similar_organizations(name)
+    lookup.similar_organizations(name).map { |ref| record("Organization", ref) }
+  end
+
+  def similar_facilities(name)
+    lookup.similar_facilities(name).map { |ref| record("Facility", ref) }
+  end
+
+  # Writes a fact the match stage found or proposed, with the candidate's
+  # source as evidence (found_by: crawler). Verification is left alone, so a
+  # new fact starts pending and an existing one keeps its status. A fact a
+  # human has verified or rejected only gets its blanks filled.
+  def write_pending(kind, attributes, candidate:, crawl_run:)
+    result = fact_writer.write(kind, attributes, protect_human_verified: true,
+      evidence: [ { source_id: candidate.source_id, quote: candidate.quote, found_by: "crawler", crawl_run_id: crawl_run.id } ])
+    write_result(result)
   end
 
   # Writes a candidate as a verified fact, with the source it came from as
-  # evidence. A matched candidate updates its record (attributes id:).
-  # Returns a WriteResult; never raises on validation problems.
+  # evidence. A matched candidate updates its record (attributes id:); for
+  # link kinds the ends were resolved by match, so the rest of the payload is
+  # sent. A fact a human has verified or rejected is never overwritten: only
+  # its blank attributes are filled and its verification stays (FactWriter
+  # protect_human_verified). Returns a WriteResult; never raises on
+  # validation problems.
   def write_fact(candidate, confidence:, crawl_run:)
-    attributes = candidate.payload.symbolize_keys
+    attributes = candidate.payload.except(*LINK_ENDS).symbolize_keys
     attributes[:id] = candidate.subject_id if candidate.subject_id
 
     result = fact_writer.write(
@@ -51,14 +78,41 @@ class DataQuality::DirectoryClient
         confidence: confidence,
         crawl_run_id: crawl_run.id
       } ],
-      verification: { status: "verified", by: "agent:verifier/#{crawl_run.model || 'unknown'}" }
+      verification: { status: "verified", by: "agent:verifier/#{crawl_run.model || 'unknown'}" },
+      protect_human_verified: true
     )
+    write_result(result)
+  end
 
-    if result.ok?
-      WriteResult.new(ref: Ref.new(type: type_for(result.kind), id: result.id), errors: [])
-    else
-      WriteResult.new(ref: nil, errors: Array(result.errors).presence || [ "unknown error" ])
-    end
+  # Marks a record match proposed as rejected, once its candidate is
+  # rejected, so lookups stop treating it as a live record. A record a human
+  # has reviewed is left alone.
+  def retire(candidate, crawl_run:)
+    result = fact_writer.write(candidate.kind, { id: candidate.subject_id }, protect_human_verified: true,
+      verification: { status: "rejected", by: "agent:verifier/#{crawl_run.model || 'unknown'}" })
+    write_result(result)
+  end
+
+  # Site fields a verified unit can fill in when the site has none.
+  SITE_FIELDS_FROM_UNIT = %w[state facility_type status country_code].freeze
+
+  # After a unit is verified, fills its site's blank fields (state, type,
+  # status) from the unit, with the unit's quote as evidence. Never
+  # overwrites a field the site already has, and leaves the site's
+  # verification alone. Returns a WriteResult, or nil when the unit has no site.
+  # The values come from the unit as stored, not from the candidate, since
+  # a curated unit may have kept its own values over the candidate's.
+  def fill_site_from_unit(facility_id, candidate, crawl_run:)
+    unit = lookup.facility(id: facility_id)
+    # Only a unit that ended up verified speaks for its site (a human may have kept it rejected).
+    return unless unit&.parent_id && unit.verification_status == "verified"
+
+    fields = unit.to_h.slice(*SITE_FIELDS_FROM_UNIT.map(&:to_sym)).compact_blank
+    return if fields.empty?
+
+    result = fact_writer.write("facility", fields.merge(id: unit.parent_id), fill_blank: true,
+      evidence: [ { source_id: candidate.source_id, quote: candidate.quote, found_by: "crawler", crawl_run_id: crawl_run.id } ])
+    write_result(result)
   end
 
   private
@@ -66,14 +120,18 @@ class DataQuality::DirectoryClient
     def lookup = @lookup ||= "Directory::Lookup".constantize
     def fact_writer = @fact_writer ||= "Directory::FactWriter".constantize
 
-    def first_match(payload, keys)
-      keys.each do |key|
-        next if payload[key].blank?
+    def record(type, ref)
+      Record.new(type:, id: ref.id, name: ref.name, nrc_docket: ref.try(:nrc_docket), parent_id: ref.try(:parent_id),
+        facility_type: ref.try(:facility_type), status: ref.try(:status), state: ref.try(:state),
+        country_code: ref.try(:country_code)) if ref
+    end
 
-        found = yield key, payload[key]
-        return found if found
+    def write_result(result)
+      if result.ok?
+        WriteResult.new(ref: Ref.new(type: type_for(result.kind), id: result.id), errors: [], created: result.created)
+      else
+        WriteResult.new(ref: nil, errors: Array(result.errors).presence || [ "unknown error" ])
       end
-      nil
     end
 
     # Fact kind => the record type candidates store, e.g. "facility_relationship"

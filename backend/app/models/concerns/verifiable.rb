@@ -21,7 +21,12 @@ module Verifiable
   end
 
   def human_verified?
-    verified? && verified_by.to_s.start_with?("human:")
+    verified? && human_reviewed?
+  end
+
+  # A human verified or rejected this fact; automated writers must not undo it.
+  def human_reviewed?
+    !pending? && verified_by.to_s.start_with?("human:")
   end
 
   # Called whenever this fact's evidence changes. The rule itself lives in

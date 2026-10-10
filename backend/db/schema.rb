@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_10_110000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_10_210000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -27,6 +27,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_10_110000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.string "review_origin"
+    t.boolean "proposed_subject", default: false, null: false
     t.index ["crawl_run_id"], name: "index_candidates_on_crawl_run_id"
     t.index ["source_id"], name: "index_candidates_on_source_id"
     t.index ["status", "kind"], name: "index_candidates_on_status_and_kind"

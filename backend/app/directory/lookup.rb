@@ -43,7 +43,69 @@ module Directory
       FacilityRef.from(record) if record
     end
 
+    # Words too common in this industry to tell two names apart.
+    GENERIC_WORDS = %w[
+      the of and a an
+      nuclear energy power electric electricity generating generation generator station plant plants
+      unit units site center centre facility facilities reactor reactors clean
+      company co corp corporation inc incorporated llc lp llp ltd limited plc group holdings
+      services service operating operations operator operators
+      u s us united states american national
+    ].to_set.freeze
+
+    # Records whose names share a distinctive word with name, for spotting
+    # likely duplicates that an exact lookup misses ("Vogtle 3" vs
+    # "Plant Vogtle Units 3 & 4", "LaSalle 1" vs "La Salle"). Unit numbers and
+    # generic words like "nuclear" or "station" don't count. Returns up to 10
+    # refs; empty when name has no distinctive words.
+    def similar_organizations(name)
+      words = distinctive_words(name)
+      return [] if words.empty?
+
+      aliases = OrganizationAlias.where(similar_text_sql("organization_aliases.normalized_alias", words.size),
+        *like_patterns(words)).includes(:organization)
+      aliases.select { |a| similar_words?(words, distinctive_words(a.alias)) }
+        .map(&:organization).uniq.first(10).map { |org| OrganizationRef.from(org) }
+    end
+
+    def similar_facilities(name)
+      words = distinctive_words(name)
+      return [] if words.empty?
+
+      Facility.where(similar_text_sql("lower(facilities.name)", words.size), *like_patterns(words)).order(:id)
+        .select { |facility| similar_words?(words, distinctive_words(facility.name)) }
+        .first(10).map { |facility| FacilityRef.from(facility) }
+    end
+
+    def distinctive_words(name)
+      OrganizationAlias.normalize(name).split.reject { |word| GENERIC_WORDS.include?(word) || word.match?(/\A\d+\z/) }
+    end
+
     private
+      # The same leading distinctive word, which is usually the plant's or
+      # company's own name ("Vogtle", "Susquehanna", "Southern"). Later words
+      # tend to be places ("Hope Creek" vs "Lost Creek") and don't count. The
+      # first two words run together count too ("la salle" and "lasalle").
+      # Words under three letters only count as part of that pair, so
+      # "La Crosse" isn't like "La Salle".
+      def similar_words?(words, other)
+        (leading(words) & leading(other)).any?
+      end
+
+      def leading(words)
+        [ (words.first if words.first.to_s.length >= 3), words.first(2).join ].compact.uniq
+      end
+
+      # Narrows the search in SQL; similar_words? makes the final call.
+      def similar_text_sql(column, word_count)
+        squashed = "regexp_replace(#{column}, '[^a-z0-9]', '', 'g')"
+        ([ "#{column} LIKE ?" ] * word_count + [ "#{squashed} LIKE ?" ]).join(" OR ")
+      end
+
+      def like_patterns(words)
+        [ *words, words.join ].map { |word| "%#{ActiveRecord::Base.sanitize_sql_like(word)}%" }
+      end
+
       def one_of!(**options)
         given = options.compact
         raise ArgumentError, "pass exactly one of #{options.keys.join(", ")}" unless given.size == 1

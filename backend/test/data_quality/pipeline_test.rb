@@ -25,14 +25,20 @@ class DataQuality::PipelineTest < ActiveSupport::TestCase
     assert_equal 1, runs[2].stats["matched"]
     assert_equal 2, runs[3].stats["published"]
 
+    assert_equal 1, runs[2].stats["proposed"]
+
     existing, created = dummy_candidates
     assert existing.status_merged?
     assert_equal [ "Organization", 7 ], [ existing.subject_type, existing.subject_id ]
     assert created.status_merged?
-    assert_equal 1001, created.subject_id
+    assert_equal 1001, created.subject_id, "verify publishes the record match proposed"
 
-    assert_equal 2, @writer.writes.size
-    write = @writer.writes.first
+    match_writes, verify_writes = @writer.writes.partition { |write| write[:verification].nil? }
+    assert_equal [ { id: 7, aliases: [ "Acme Nuclear" ] }, { name: "NewCo Fission" } ], match_writes.map { |w| w[:attributes] },
+      "match attaches to the existing record and proposes the new one, both pending"
+
+    assert_equal 2, verify_writes.size
+    write = verify_writes.first
     assert_equal "organization", write[:kind]
     assert_equal({ name: "Acme Nuclear", id: 7 }, write[:attributes], "a matched candidate updates its record")
     evidence = write[:evidence].sole
@@ -41,22 +47,22 @@ class DataQuality::PipelineTest < ActiveSupport::TestCase
     assert_equal "Acme Nuclear", evidence[:quote]
     assert_equal runs.last.id, evidence[:crawl_run_id]
     assert_equal "verified", write[:verification][:status]
-    assert_nil @writer.writes.second[:attributes][:id], "unmatched candidates create a new record"
+    assert_equal 1001, verify_writes.second[:attributes][:id]
   end
 
   test "by default nothing is published; everything goes to review" do
     run_pipeline
 
     assert dummy_candidates.all?(&:status_needs_review?)
-    assert_empty @writer.writes
+    assert @writer.writes.none? { |write| write[:verification] }, "only pending writes, nothing verified"
   end
 
   test "a write the directory rejects goes to review with the reason" do
     @directory = FakeDirectory.client(lookup: @lookup, fact_writer: FakeDirectory::FactWriter.new(fail_with: "name taken"))
 
-    verify = run_pipeline(verifier: PublishEverything.new).last
+    match = run_pipeline(verifier: PublishEverything.new)[2]
 
-    assert_equal 2, verify.stats["write_errors"]
+    assert_equal 2, match.stats["write_errors"]
     assert dummy_candidates.all?(&:status_needs_review?)
     assert_match "name taken", dummy_candidates.first.notes
   end

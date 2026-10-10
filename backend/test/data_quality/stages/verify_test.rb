@@ -1,0 +1,78 @@
+require "test_helper"
+require_relative "../support/dummy_plugin"
+
+# Verify against the real directory: what a rejection does to the record
+# match proposed, and how link details arrive on publish.
+class DataQuality::Stages::VerifyTest < ActiveSupport::TestCase
+  class RejectEverything
+    def call(_candidate) = DataQuality::Verdict.new(outcome: :reject, reason: "not a real company")
+  end
+
+  setup do
+    @source = Source.create!(url: "https://example.com/verify-test", source_kind: "dummy", crawl_status: "ok")
+  end
+
+  def candidate(kind, payload) = Candidate.create!(source: @source, kind: kind, payload: payload, quote: "a quote")
+  def run_stage(stage, **) = DataQuality::Pipeline.run("dummy", plugin: DummyPlugin.new, only: stage, **).last
+
+  test "rejecting a proposal retires the record match created" do
+    c = candidate("organization", { "name" => "Imaginary Fission Co" })
+    run_stage("match")
+    proposed = Organization.find(c.reload.subject_id)
+    assert c.proposed_subject?
+
+    run_stage("verify", verifier: RejectEverything.new)
+
+    assert c.reload.status_rejected?
+    assert proposed.reload.rejected?
+  end
+
+  test "rejecting a candidate attached to an existing record leaves that record alone" do
+    c = candidate("organization", { "name" => "TerraPower, Inc." })
+    run_stage("match")
+    assert_not c.reload.proposed_subject?
+
+    run_stage("verify", verifier: RejectEverything.new)
+
+    assert organizations(:terrapower).reload.pending?
+  end
+
+  test "a proposal another live candidate also points at isn't retired" do
+    first, second = 2.times.map { candidate("organization", { "name" => "Entergy Nuclear Operations, Inc." }) }
+    run_stage("match")
+    second.reload.update!(status: "needs_review")
+
+    run_stage("verify", verifier: RejectEverything.new)
+
+    assert first.reload.status_rejected?
+    assert Organization.find(first.subject_id).pending?
+  end
+
+  test "a link's details arrive when it's published, not at match" do
+    candidate("organization", { "name" => "Example Operating Co" })
+    candidate("facility", { "name" => "Example 1", "nrc_docket" => "05000999", "facility_type" => "power_reactor" })
+    link = candidate("facility_relationship", { "organization" => { "name" => "Example Operating Co" },
+      "facility" => { "name" => "Example 1", "nrc_docket" => "05000999" }, "relationship_type" => "operates",
+      "description" => "Licensed operator" })
+
+    run_stage("match")
+    record = FacilityRelationship.find(link.reload.subject_id)
+    assert_nil record.description, "pending links carry only what identifies them"
+
+    run_stage("verify", verifier: PublishEverything.new)
+    assert_equal "Licensed operator", record.reload.description
+  end
+
+  test "matching an existing link doesn't overwrite its details before verification" do
+    link = FacilityRelationship.create!(organization: organizations(:terrapower), facility: facilities(:vogtle),
+      relationship_type: "owns", description: "From an earlier crawl")
+    c = candidate("facility_relationship", { "organization" => { "name" => "TerraPower" },
+      "facility" => { "name" => "Vogtle Electric Generating Plant" }, "relationship_type" => "owns",
+      "description" => "Unverified new text" })
+
+    run_stage("match")
+
+    assert_equal link.id, c.reload.subject_id
+    assert_equal "From an earlier crawl", link.reload.description
+  end
+end
