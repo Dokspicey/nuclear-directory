@@ -132,8 +132,11 @@ module Directory
           write = write.to_h.symbolize_keys
           unknown = write.keys - WRITE_KEYS
           next new.send(:failure, write[:kind], "unknown write keys: #{unknown.join(", ")}") if unknown.any?
-          missing = %i[kind attributes].reject { |key| write.key?(key) }
+          missing = %i[kind attributes].reject { |key| write[key].present? || write[key] == {} }
           next new.send(:failure, write[:kind], "missing write keys: #{missing.join(", ")}") if missing.any?
+          unless write[:kind].respond_to?(:to_sym)
+            next new.send(:failure, nil, "kind must be a name, not #{write[:kind].inspect}")
+          end
 
           new.write(write.fetch(:kind), write.fetch(:attributes), **write.except(:kind, :attributes))
         end
@@ -165,6 +168,9 @@ module Directory
       record = nil
       created = false
       ActiveRecord::Base.transaction(requires_new: true) do
+        # Checked before anything changes, even for a curated record whose
+        # verification won't be applied: a bad key must never pass silently.
+        check_verification!(verification) if verification
         record = find(kind, spec[:model], attributes) || spec[:model].new
         created = record.new_record?
         # Locked, so a human's decision made while this write runs is seen
@@ -329,13 +335,16 @@ module Directory
 
       # edited: attribute changes this write made, { "state" => [before, after] },
       # recorded on the audit event with the decision.
-      def apply_verification(record, verification, edited: {})
+      def check_verification!(verification)
         verification = verification.to_h.symbolize_keys
         unknown = verification.keys - VERIFICATION_KEYS
         raise Invalid, "unknown verification keys: #{unknown.join(", ")}" if unknown.any?
+        raise Invalid, "verification needs by: (who decided)" if verification[:by].blank?
+      end
 
+      def apply_verification(record, verification, edited: {})
+        verification = verification.to_h.symbolize_keys
         status, by = verification.values_at(:status, :by)
-        raise Invalid, "verification needs by: (who decided)" if by.blank?
         record.verification_reason = verification[:reason]
         record.verification_context = verification[:context]
         record.audited_changes = edited.presence
@@ -362,9 +371,16 @@ module Directory
 
       # An automated link write needs both ends open: each is locked and
       # checked, so a company or plant closed after match isn't linked to.
+      # A unit end counts as closed when its site is. Rows are locked in one
+      # fixed order (table, then id), so two links written at once in opposite
+      # directions can't deadlock.
       def check_link_ends(kind, attributes, record)
-        LINK_ENDS.fetch(kind, {}).each do |key, model|
+        ends = LINK_ENDS.fetch(kind, {}).filter_map do |key, model|
           id = attributes.key?(key) ? attributes[key] : record.public_send(key)
+          [ model, id ] if id
+        end
+        sites = ends.filter_map { |model, id| [ Facility, model.where(id:).pick(:parent_id) ] if model == Facility }.select(&:last)
+        (ends + sites).uniq.sort_by { |model, id| [ model.table_name, id.to_i ] }.each do |model, id|
           finish = model.lock.find_by(id:) or next
           next unless finish.closed?
 

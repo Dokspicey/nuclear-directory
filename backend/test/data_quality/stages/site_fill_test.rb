@@ -51,13 +51,28 @@ class DataQuality::Stages::SiteFillTest < ActiveSupport::TestCase
     unit = Facility.find_by!(nrc_docket: "05200025")
     unit.update!(state: "GA")
     unit.verify!(by: "human:tosin")
-    # The candidate no longer says where the unit is; the site gets the unit's own state.
-    Candidate.find_by!(subject_id: unit.id).then { |c| c.update!(payload: c.payload.except("state")) }
+    # The candidate states the state (here the same GA the curated unit has; a
+    # different one would be a disagreement, sent to review). The site gets the
+    # unit's stored value.
+    Candidate.find_by!(subject_id: unit.id).then { |c| c.update!(payload: c.payload.merge("state" => "GA")) }
     @site.update!(state: nil)
 
     run_stage("verify", verifier: PublishEverything.new)
 
     assert_equal "GA", @site.reload.state
+  end
+
+  test "only fields the candidate states are filled, so the evidence is the document that stated them" do
+    run_stage("match")
+    unit = Facility.find_by!(nrc_docket: "05200025")
+    unit.update!(latitude: 33.14, longitude: -81.76)
+    Candidate.find_by!(subject_id: unit.id).then { |c| c.update!(payload: c.payload.merge("state" => "GA")) }
+
+    run_stage("verify", verifier: PublishEverything.new)
+
+    @site.reload
+    assert_equal "power_reactor", @site.facility_type, "stated by the NRC row"
+    assert_nil @site.latitude, "the NRC row says nothing about coordinates"
   end
 
   test "a unit a human rejected doesn't fill its site" do
