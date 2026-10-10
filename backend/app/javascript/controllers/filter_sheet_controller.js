@@ -1,5 +1,9 @@
 import { Controller } from "@hotwired/stimulus"
 
+// Browsers without the Popover API don't know :popover-open (matches() would
+// throw); there the form simply stays inline.
+const popovers = typeof HTMLElement !== "undefined" && "popover" in HTMLElement.prototype
+
 // The phone filter sheet (#90). Without JavaScript the sheet is a native
 // popover that the "Filters (N)" button opens and closes on its own
 // (popovertarget), so filtering never depends on this file. With it, the
@@ -37,7 +41,7 @@ export default class extends Controller {
   close(event) {
     event?.preventDefault()
     if (this.dialogTarget.open) this.dialogTarget.close()
-    if (this.sheetTarget.matches(":popover-open")) this.sheetTarget.hidePopover()
+    if (this.popoverOpen) this.sheetTarget.hidePopover()
     this.closed()
   }
 
@@ -78,6 +82,10 @@ export default class extends Controller {
   }
 
   get isOpen() {
-    return this.dialogTarget.open || this.sheetTarget.matches(":popover-open")
+    return this.dialogTarget.open || this.popoverOpen
+  }
+
+  get popoverOpen() {
+    return popovers && this.sheetTarget.matches(":popover-open")
   }
 }
