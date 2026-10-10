@@ -73,6 +73,15 @@ class Directory::LookupTest < ActiveSupport::TestCase
     assert_empty Directory::Lookup.similar_organizations("Entergy Nuclear Operations, Inc.")
   end
 
+  test "a malformed or blank key matches nothing, not every record missing that field" do
+    Organization.create!(name: "No Domain Co")
+    assert_nil Directory::Lookup.organization(domain: "https://[")
+    assert_nil Directory::Lookup.organization(domain: "   ")
+    assert_nil Directory::Lookup.organization(name: "Inc.")
+
+    assert_nil Directory::Lookup.facility(nrc_docket: " "), "the Vogtle fixture has no docket"
+  end
+
   test "needs exactly one way to look up" do
     assert_raises(ArgumentError) { Directory::Lookup.organization }
     assert_raises(ArgumentError) { Directory::Lookup.organization(name: "TerraPower", domain: "terrapower.com") }

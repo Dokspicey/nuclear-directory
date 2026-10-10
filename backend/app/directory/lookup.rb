@@ -19,13 +19,28 @@ module Directory
         in [ :id, value ] then Organization.where(id: value)
         in [ :slug, value ] then Organization.where(slug: value)
         in [ :name, value ]
-          Organization.joins(:aliases).where(organization_aliases: { normalized_alias: OrganizationAlias.normalize(value) })
-        in [ :domain, value ] then Organization.where(domain: Organization.domain_from(value))
+          normalized = OrganizationAlias.normalize(value).presence or return
+          Organization.joins(:aliases).where(organization_aliases: { normalized_alias: normalized })
+        in [ :domain, value ]
+          # A malformed URL has no domain; it must match nothing, not every record without one.
+          domain = Organization.domain_from(value) or return
+          Organization.where(domain: domain)
         end
 
       record = scope.first
       OrganizationRef.from(record) if record
     end
+
+    # Every change of a fact's verification, newest first, as plain values:
+    # who, when, from -> to, why. type is the fact's class name ("Organization").
+    def verification_history(type:, id:)
+      raise ArgumentError, "not a fact type: #{type.inspect}" unless FACT_TYPES.include?(type.to_s)
+
+      VerificationEvent.where(subject_type: type.to_s, subject_id: id).order(created_at: :desc, id: :desc)
+        .map { |event| VerificationEventRef.from(event) }
+    end
+
+    FACT_TYPES = %w[Organization OrganizationRole OrganizationTechnology Facility Relationship FacilityRelationship].freeze
 
     # Pass exactly one of id, slug, name or nrc_docket.
     # name is matched case-insensitively; names aren't unique, so the oldest
@@ -36,7 +51,10 @@ module Directory
         in [ :id, value ] then Facility.where(id: value)
         in [ :slug, value ] then Facility.where(slug: value)
         in [ :name, value ] then Facility.where("lower(name) = ?", value.to_s.strip.downcase)
-        in [ :nrc_docket, value ] then Facility.where(nrc_docket: value)
+        in [ :nrc_docket, value ]
+          # A blank docket must match nothing, not every facility without one.
+          docket = value.to_s.strip.presence or return
+          Facility.where(nrc_docket: docket)
         end
 
       record = scope.order(:id).first

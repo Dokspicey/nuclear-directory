@@ -48,6 +48,72 @@ class DataQuality::Stages::VerifyTest < ActiveSupport::TestCase
     assert Organization.find(first.subject_id).pending?
   end
 
+  test "a shared proposal is retired when its last candidate is rejected, whichever created it" do
+    first, second = 2.times.map { candidate("organization", { "name" => "Imaginary Fission Co" }) }
+    run_stage("match")
+    assert_equal [ true, false ], [ first, second ].map { |c| c.reload.proposed_subject? }
+
+    run_stage("verify", verifier: RejectEverything.new)
+
+    assert Organization.find(first.subject_id).rejected?
+  end
+
+  test "a rejected match leaves no alias behind" do
+    c = candidate("organization", { "name" => "TP Nuclear Holdings", "domain" => "terrapower.com" })
+    run_stage("match")
+    assert_equal organizations(:terrapower).id, c.reload.subject_id
+
+    run_stage("verify", verifier: RejectEverything.new)
+
+    assert_nil Directory::Lookup.organization(name: "TP Nuclear Holdings")
+  end
+
+  test "a record a human rejects between match and verify isn't changed by publishing" do
+    c = candidate("organization", { "name" => "TP Nuclear Holdings", "domain" => "terrapower.com" })
+    run_stage("match")
+    organizations(:terrapower).reject!(by: "human:tosin")
+
+    verify = run_stage("verify", verifier: PublishEverything.new)
+
+    assert c.reload.status_needs_review?
+    assert_match "TerraPower was rejected by human:tosin", c.notes
+    assert_equal [ 0, 1 ], verify.stats.values_at("write_errors", "needs_review"), "caught before the verifier is asked"
+    assert_nil Directory::Lookup.organization(name: "TP Nuclear Holdings")
+  end
+
+  test "a record unpublished after match sends its candidate to review, even with a review-only verifier" do
+    c = candidate("organization", { "name" => "TP Nuclear Holdings", "domain" => "terrapower.com" })
+    run_stage("match")
+    organizations(:terrapower).tap { |o| o.verify!(by: "human:tosin") }.unpublish!(by: "human:tosin")
+
+    run_stage("verify")
+
+    assert c.reload.status_needs_review?
+    assert_match(/TerraPower was unpublished by human:tosin on \d{4}-\d{2}-\d{2} after this was matched/, c.notes)
+  end
+
+  test "publishing a match keeps the company's own name, adding the candidate's as an alias" do
+    c = candidate("organization", { "name" => "TP Nuclear Holdings", "domain" => "terrapower.com" })
+    run_stage("match")
+
+    run_stage("verify", verifier: PublishEverything.new)
+
+    assert c.reload.status_merged?
+    assert_equal "TerraPower", organizations(:terrapower).reload.name
+    assert_equal organizations(:terrapower).id, Directory::Lookup.organization(name: "TP Nuclear Holdings").id
+  end
+
+  test "matching an existing link adds no evidence before it's published" do
+    link = FacilityRelationship.create!(organization: organizations(:terrapower), facility: facilities(:vogtle),
+      relationship_type: "owns")
+    candidate("facility_relationship", { "organization" => { "name" => "TerraPower" },
+      "facility" => { "name" => "Vogtle Electric Generating Plant" }, "relationship_type" => "owns" })
+
+    run_stage("match")
+
+    assert_empty link.reload.evidence
+  end
+
   test "a link's details arrive when it's published, not at match" do
     candidate("organization", { "name" => "Example Operating Co" })
     candidate("facility", { "name" => "Example 1", "nrc_docket" => "05000999", "facility_type" => "power_reactor" })

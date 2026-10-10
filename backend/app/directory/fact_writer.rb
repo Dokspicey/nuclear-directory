@@ -19,9 +19,28 @@
 # write changes nothing and returns errors instead of raising.
 module Directory
   class FactWriter
-    Result = Data.define(:kind, :id, :created, :errors) do
-      def ok? = errors.empty?
+    # conflicts: { "state" => [stored, incoming] } when a write disagreed with a
+    # human-reviewed fact (see protect_human_verified); nothing was written.
+    Result = Data.define(:kind, :id, :created, :errors, :conflicts) do
+      def initialize(kind:, id:, created:, errors:, conflicts: {}) = super
+      def ok? = errors.empty? && conflicts.empty?
+      def conflict? = conflicts.any?
     end
+
+    # Raised inside a write to undo it and report the disagreement.
+    class Conflict < StandardError
+      attr_reader :id, :conflicts
+
+      def initialize(id, conflicts)
+        @id = id
+        @conflicts = conflicts
+        super(conflicts.map { |name, (stored, incoming)| "human-verified #{name} is #{stored}; this source says #{incoming}" }.join("; "))
+      end
+    end
+
+    # Never compared for conflicts: names vary by legal form and spelling
+    # (aliases cover that), and slugs are internal.
+    NOT_COMPARED = %i[name slug].freeze
 
     class Invalid < StandardError; end
 
@@ -53,14 +72,35 @@ module Directory
 
     def self.write(...) = new.write(...)
 
+    # Many writes in one transaction (e.g. a bulk approve), each in its own
+    # savepoint so one failure doesn't undo the others. writes: an array of
+    # { kind:, attributes:, evidence:, verification:, protect_human_verified: }.
+    # Returns one Result per write, in order. Each write is audited as usual.
+    def self.write_many(writes)
+      ActiveRecord::Base.transaction do
+        writes.map do |write|
+          write = write.to_h.symbolize_keys
+          new.write(write.fetch(:kind), write.fetch(:attributes), **write.slice(:evidence, :verification, :fill_blank,
+            :protect_human_verified))
+        end
+      end
+    end
+
     # kind: a key of KINDS. attributes may include :id to update a known row.
-    # verification: { status: "pending" | "verified" | "rejected", by: "human:tosin" }
+    # verification: { status: "pending" | "verified" | "rejected" | "unpublished",
+    #   by: "human:tosin", reason: "optional, kept in the audit trail",
+    #   context: { "candidate_id" => 12 } (optional, kept with the reason) }
     # fill_blank: true sets only attributes that are blank on an existing row,
     # so new data can complete a record without overwriting anything.
     # protect_human_verified: true treats a row a human has verified (or
-    # rejected) as curated: only its blank attributes are filled and its
-    # verification is left alone (evidence is still added). Automated writers
-    # pass this, so a human's decision is never overwritten.
+    # rejected) as curated, so a human's decision is never overwritten:
+    # - a rejected or unpublished row isn't changed at all (an error is returned)
+    # - if an incoming value disagrees with a stored one, nothing is written
+    #   (no attributes, evidence or confidence change) and the result's
+    #   conflicts say what disagreed, for review
+    # - otherwise only blank attributes are filled, evidence is added, and the
+    #   verification is left alone
+    # Automated writers pass this.
     def write(kind, attributes, evidence: [], verification: nil, fill_blank: false, protect_human_verified: false)
       kind = kind.to_sym
       spec = KINDS[kind] or return failure(kind, "unknown kind #{kind.inspect}")
@@ -73,19 +113,33 @@ module Directory
       ActiveRecord::Base.transaction(requires_new: true) do
         record = find(kind, spec[:model], attributes) || spec[:model].new
         created = record.new_record?
+        # Locked, so a human's decision made while this write runs is seen, and
+        # two decisions at once are recorded in the order they happen.
+        record.lock! if (protect_human_verified || verification) && !created
+        # A rejected or unpublished fact only changes by a human's hand.
+        if protect_human_verified && !created && record.closed?
+          raise Invalid, "#{record.model_name.human} was #{record.verification_status} by #{record.verified_by || 'review'}" \
+            "#{" on #{record.verified_at.to_date}" if record.verified_at}; not changed"
+        end
         curated = protect_human_verified && !created && record.human_reviewed?
         changes = model_attributes(kind, attributes)
+        if curated && (conflicts = conflicts_with(record, changes)).any?
+          raise Conflict.new(record.id, conflicts)
+        end
         changes = changes.select { |name, _| record.public_send(name).blank? } if (fill_blank || curated) && !created
         record.assign_attributes(changes)
         record.save!
+        edited = audited_values(record) unless created
 
         write_aliases(record, [ record.name, *attributes[:aliases] ]) if kind == :organization
         Array(evidence).each { |item| write_evidence(record, item) }
-        apply_verification(record, verification) if verification && !curated
+        apply_verification(record, verification, edited:) if verification && !curated
         record.recompute_confidence!
       end
 
       Result.new(kind:, id: record.id, created:, errors: [])
+    rescue Conflict => e
+      Result.new(kind:, id: e.id, created: false, errors: [ e.message ], conflicts: e.conflicts)
     rescue Invalid, ArgumentError => e
       failure(kind, e.message)
     rescue ActiveRecord::RecordInvalid => e
@@ -96,6 +150,33 @@ module Directory
     end
 
     private
+      # Incoming values that differ from the stored ones, where both are
+      # present: { "state" => ["NJ", "DE"] }. Websites compare by domain.
+      def conflicts_with(record, changes)
+        changes.each_with_object({}) do |(name, incoming), found|
+          next if NOT_COMPARED.include?(name.to_sym)
+
+          stored = record.public_send(name)
+          next if incoming.blank? || stored.blank?
+          next if same_value?(record, name, stored, incoming)
+
+          found[name.to_s] = [ shown(stored), shown(incoming) ]
+        end
+      end
+
+      def same_value?(record, name, stored, incoming)
+        if name.to_sym == :website
+          # Same site if the same domain; a URL with no readable domain only equals itself.
+          domains = [ stored, incoming ].map { |url| Organization.domain_from(url) }
+          return domains.all?(&:present?) ? domains.uniq.one? : stored.strip == incoming.strip
+        end
+        return stored == incoming if incoming.is_a?(ActiveRecord::Base)
+
+        stored == record.class.type_for_attribute(name.to_s).cast(incoming)
+      end
+
+      def shown(value) = value.respond_to?(:key) ? value.key : value.to_s
+
       def failure(kind, errors)
         Result.new(kind:, id: nil, created: false, errors: Array(errors))
       end
@@ -166,11 +247,34 @@ module Directory
 
       # Re-applying the same decision leaves verified_at alone, so re-runs
       # don't look like fresh reviews.
-      def apply_verification(record, verification)
-        status, by = verification.to_h.symbolize_keys.values_at(:status, :by)
-        return if record.verification_status == status.to_s && record.verified_by == by
+      VERIFICATION_KEYS = %i[status by reason context].freeze
+
+      # edited: attribute changes this write made, { "state" => [before, after] },
+      # recorded on the audit event with the decision.
+      def apply_verification(record, verification, edited: {})
+        verification = verification.to_h.symbolize_keys
+        unknown = verification.keys - VERIFICATION_KEYS
+        raise Invalid, "unknown verification keys: #{unknown.join(", ")}" if unknown.any?
+
+        status, by = verification.values_at(:status, :by)
+        raise Invalid, "verification needs by: (who decided)" if by.blank?
+        record.verification_reason = verification[:reason]
+        record.verification_context = verification[:context]
+        record.audited_changes = edited.presence
+
+        if record.verification_status == status.to_s && record.verified_by == by
+          # Same decision again: only a human's edit of the values is worth an event.
+          record.log_verification_event(from_status: record.verification_status, by:) if edited.present? && by.to_s.start_with?("human:")
+          return
+        end
 
         record.update!(verification_status: status, verified_by: by, verified_at: status.to_s == "pending" ? nil : Time.current)
+      end
+
+      AUDIT_IGNORED = %w[created_at updated_at confidence verification_reason verification_context audited_changes].freeze
+
+      def audited_values(record)
+        record.saved_changes.except(*AUDIT_IGNORED).transform_values { |(before, after)| [ before, after ] }
       end
   end
 end

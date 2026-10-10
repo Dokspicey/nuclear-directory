@@ -13,13 +13,13 @@ module FakeDirectory
     def organization(id: nil, slug: nil, name: nil, domain: nil)
       one_of!(id:, slug:, name:, domain:)
       Directory::OrganizationRef.new(id: @organizations[name], slug: nil, name: name, domain: nil,
-        verification_status: "verified") if @organizations.key?(name)
+        verification_status: "verified", verified_by: nil, verified_at: nil) if @organizations.key?(name)
     end
 
     def facility(id: nil, slug: nil, name: nil, nrc_docket: nil)
       one_of!(id:, slug:, name:, nrc_docket:)
       Directory::FacilityRef.new(id: @facilities[name], slug: nil, name: name, nrc_docket: nil, parent_id: nil,
-        verification_status: "verified", facility_type: nil, status: nil, state: nil, country_code: nil,
+        verification_status: "verified", verified_by: nil, verified_at: nil, facility_type: nil, status: nil, state: nil, country_code: nil,
         latitude: nil, longitude: nil) if @facilities.key?(name)
     end
 

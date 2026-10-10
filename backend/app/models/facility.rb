@@ -24,4 +24,9 @@ class Facility < ApplicationRecord
   validates :capacity_mw, numericality: { greater_than_or_equal_to: 0 }, allow_nil: true
   validates :latitude, numericality: { in: -90..90 }, allow_nil: true
   validates :longitude, numericality: { in: -180..180 }, allow_nil: true
+
+  # A unit is hidden when its site isn't published.
+  def self.published
+    verified.where(parent_id: nil).or(verified.where(parent_id: Facility.verified.select(:id)))
+  end
 end

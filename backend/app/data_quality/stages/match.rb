@@ -3,8 +3,9 @@
 #
 # For every new candidate, one of three things happens:
 # - Found: an exact match on NRC docket, domain or name/alias. The candidate
-#   is attached to that record, its quote is added as evidence, and for an
-#   organization its name is added as an alias.
+#   is attached to that record and nothing is written yet: its quote becomes
+#   evidence (and, for an organization, its name an alias) only when verify
+#   publishes it.
 # - Not found: a new pending record is proposed with the quote as evidence.
 # - Ambiguous: identifiers point at different records, or a similar record
 #   exists ("Vogtle 3" vs "Plant Vogtle Units 3 & 4"). The candidate goes to
@@ -84,9 +85,8 @@ class DataQuality::Stages::Match < DataQuality::Stage
       case (found = resolve(candidate.kind.to_sym, payload))
       when Review then review(candidate, found.reason)
       when Found
-        attributes = { id: found.record.id }
-        attributes[:aliases] = [ payload["name"] ] if candidate.kind_organization? && payload["name"].present?
-        write(candidate, attributes, existing: true, note: "Matched existing #{found.record.name} (by #{found.by})")
+        # Attach only: nothing is written to an existing record until it's published.
+        attach(candidate, found.record, "Matched existing #{found.record.name} (by #{found.by})")
       when Under
         write(candidate, payload.symbolize_keys.merge(parent_id: found.site.id), existing: false,
           note: "New pending unit under the existing site #{found.site.name}")
@@ -99,7 +99,8 @@ class DataQuality::Stages::Match < DataQuality::Stage
     # Only the fields that identify a link (LINK_KEYS and the resolved ends)
     # are written at match; its description, dates and ownership are applied
     # when it's published, so an existing link never takes on unverified
-    # values. (A new link is pending, so nothing public is missing meanwhile.)
+    # values. (A new link is pending, so nothing public is missing meanwhile;
+    # like any proposal, it gets the quote as evidence.)
     def match_link(candidate, payload)
       attributes = payload.slice(*LINK_KEYS.fetch(candidate.kind)).symbolize_keys
 
@@ -118,12 +119,24 @@ class DataQuality::Stages::Match < DataQuality::Stage
         end
       end
 
-      write(candidate, attributes)
+      write(candidate, attributes, evidence: false)
     end
 
-    # Found, Review or nil (nothing like it exists).
+    # Found, Review or nil (nothing like it exists). A closed record, one that
+    # was rejected (a retired proposal, or one a human turned down) or that a
+    # human unpublished, is never attached to: the candidate goes to review.
     def resolve(type, payload)
-      type == :organization ? resolve_organization(payload) : resolve_facility(payload)
+      found = type == :organization ? resolve_organization(payload) : resolve_facility(payload)
+      if found.is_a?(Found) && found.record.closed?
+        return Review.new("matches #{found.record.name} (by #{found.by}), which was #{found.record.decision}. " \
+          "The same thing again, or a new record?")
+      end
+      if found.is_a?(Under) && found.site.closed?
+        return Review.new("looks like a unit of #{found.site.name}, which was #{found.site.decision}. " \
+          "Under it anyway, or its own record?")
+      end
+
+      found
     end
 
     def resolve_organization(payload)
@@ -198,18 +211,43 @@ class DataQuality::Stages::Match < DataQuality::Stage
 
     # existing: whether the candidate describes a record that already exists.
     # Links don't know until FactWriter finds (or doesn't find) the link.
-    def write(candidate, attributes, existing: nil, note: nil)
-      result = directory.write_pending(candidate.kind, attributes, candidate:, crawl_run: @run)
-      unless result.success?
-        return review(candidate, "Directory rejected the write: #{result.errors.join('; ')}", write_error: true)
+    def attach(candidate, record, note)
+      @stats["matched"] += 1
+      candidate.update!(status: "matched", subject_type: record.type, subject_id: record.id, notes: note,
+        proposed_subject: false)
+    end
+
+    # evidence: false for links, which may already exist; their quote is added on publish.
+    # The write, a new link's quote and the candidate's update happen in one
+    # transaction, so a stop part-way leaves nothing half-done for a rerun to
+    # mistake for an existing record.
+    def write(candidate, attributes, existing: nil, note: nil, evidence: true)
+      result = nil
+      ActiveRecord::Base.transaction(requires_new: true) do
+        result = directory.write_pending(candidate.kind, attributes, candidate:, crawl_run: @run, evidence:)
+        # A link written without evidence (so an existing one isn't changed) that
+        # turned out to be new is a proposal, and a proposal carries its quote.
+        if result.success? && result.created && !evidence
+          with_quote = directory.write_pending(candidate.kind, { id: result.ref.id }, candidate:, crawl_run: @run)
+          unless with_quote.success?
+            result = with_quote
+            raise ActiveRecord::Rollback
+          end
+        end
+        next unless result.success?
+
+        existing = !result.created if existing.nil?
+        note ||= existing ? "Matched an existing record" : "No existing record; proposed a new pending one"
+        # Remembered so a rejection can retire what match created, and only that.
+        candidate.update!(status: "matched", subject_type: result.ref.type, subject_id: result.ref.id, notes: note,
+          proposed_subject: result.created)
       end
 
-      existing = !result.created if existing.nil?
-      @stats[existing ? "matched" : "proposed"] += 1
-      note ||= existing ? "Matched an existing record" : "No existing record; proposed a new pending one"
-      # Remembered so a rejection can retire what match created, and only that.
-      candidate.update!(status: "matched", subject_type: result.ref.type, subject_id: result.ref.id, notes: note,
-        proposed_subject: result.created)
+      if result.success?
+        @stats[existing ? "matched" : "proposed"] += 1
+      else
+        review(candidate, "Directory rejected the write: #{result.errors.join('; ')}", write_error: true)
+      end
     end
 
     def review(candidate, reason, write_error: false)

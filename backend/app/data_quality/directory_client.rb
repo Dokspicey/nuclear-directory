@@ -11,12 +11,21 @@ class DataQuality::DirectoryClient
   # type is what candidates store in subject_type.
   Ref = Data.define(:type, :id)
   # What a lookup found: enough to match on and to explain a match.
-  Record = Data.define(:type, :id, :name, :nrc_docket, :parent_id, :facility_type, :status, :state, :country_code) do
+  Record = Data.define(:type, :id, :name, :nrc_docket, :parent_id, :facility_type, :status, :state, :country_code,
+    :verification_status, :verified_by, :verified_at) do
     def ref = Ref.new(type:, id:)
+    def rejected? = verification_status == "rejected"
+    def unpublished? = verification_status == "unpublished"
+    # Rejected or unpublished: a decision the pipeline never reopens on its own.
+    def closed? = rejected? || unpublished?
+    def decision = "#{verification_status} by #{verified_by || 'review'}#{" on #{verified_at.to_date}" if verified_at}"
   end
-  WriteResult = Data.define(:ref, :errors, :created) do
-    def initialize(ref:, errors:, created: false) = super
-    def success? = errors.empty?
+  # conflicts: { "state" => [stored, incoming] } when the write disagreed with
+  # a human-verified fact; nothing was written, and ref points at that fact.
+  WriteResult = Data.define(:ref, :errors, :created, :conflicts) do
+    def initialize(ref:, errors:, created: false, conflicts: {}) = super
+    def success? = errors.empty? && conflicts.empty?
+    def conflict? = conflicts.any?
   end
 
   # Kinds whose payload names other records instead of carrying attributes;
@@ -38,6 +47,17 @@ class DataQuality::DirectoryClient
     record("Facility", lookup.facility(id:, name:, nrc_docket:))
   end
 
+  # The organization or facility a candidate is attached to, as it is now,
+  # or nil (links, or no subject).
+  def attached_record(candidate)
+    return unless candidate.subject_id
+
+    case candidate.subject_type
+    when "Organization" then record("Organization", lookup.organization(id: candidate.subject_id))
+    when "Facility" then record("Facility", lookup.facility(id: candidate.subject_id))
+    end
+  end
+
   # Likely duplicates an exact lookup misses. Returns Records.
   def similar_organizations(name)
     lookup.similar_organizations(name).map { |ref| record("Organization", ref) }
@@ -50,23 +70,33 @@ class DataQuality::DirectoryClient
   # Writes a fact the match stage found or proposed, with the candidate's
   # source as evidence (found_by: crawler). Verification is left alone, so a
   # new fact starts pending and an existing one keeps its status. A fact a
-  # human has verified or rejected only gets its blanks filled.
-  def write_pending(kind, attributes, candidate:, crawl_run:)
-    result = fact_writer.write(kind, attributes, protect_human_verified: true,
-      evidence: [ { source_id: candidate.source_id, quote: candidate.quote, found_by: "crawler", crawl_run_id: crawl_run.id } ])
+  # human has verified only gets its blanks filled; one a human rejected or
+  # unpublished isn't changed (the result has an error).
+  # evidence: false writes only the record (a link that may already exist
+  # gets its evidence on publish, so nothing unverified lands on it early).
+  def write_pending(kind, attributes, candidate:, crawl_run:, evidence: true)
+    items = evidence ? [ { source_id: candidate.source_id, quote: candidate.quote, found_by: "crawler", crawl_run_id: crawl_run.id } ] : []
+    result = fact_writer.write(kind, attributes, protect_human_verified: true, evidence: items)
     write_result(result)
   end
 
   # Writes a candidate as a verified fact, with the source it came from as
   # evidence. A matched candidate updates its record (attributes id:); for
   # link kinds the ends were resolved by match, so the rest of the payload is
-  # sent. A fact a human has verified or rejected is never overwritten: only
-  # its blank attributes are filled and its verification stays (FactWriter
+  # sent. A fact a human has verified is never overwritten: only its blank
+  # attributes are filled and its verification stays. A fact a human rejected
+  # or unpublished isn't changed at all; the result has an error instead (FactWriter
   # protect_human_verified). Returns a WriteResult; never raises on
   # validation problems.
   def write_fact(candidate, confidence:, crawl_run:)
     attributes = candidate.payload.except(*LINK_ENDS).symbolize_keys
     attributes[:id] = candidate.subject_id if candidate.subject_id
+    if candidate.kind == "organization"
+      # The name it was found under becomes an alias only once a verdict accepts
+      # it, and a matched company keeps its own name.
+      attributes[:aliases] = [ *attributes[:aliases], attributes[:name] ].compact_blank.uniq
+      attributes.delete(:name) if candidate.subject_id
+    end
 
     result = fact_writer.write(
       candidate.kind,
@@ -99,7 +129,11 @@ class DataQuality::DirectoryClient
   # After a unit is verified, fills its site's blank fields (state, type,
   # status) from the unit, with the unit's quote as evidence. Never
   # overwrites a field the site already has, and leaves the site's
-  # verification alone. Returns a WriteResult, or nil when the unit has no site.
+  # verification alone. Returns a WriteResult, or nil when the unit has no site
+  # or the site has nothing blank to fill. Only the site's blank fields are
+  # sent, so the quote is evidence just for what it fills, and the write is
+  # protected like any automated one: a site a human rejected isn't changed
+  # (the result has an error).
   # The values come from the unit as stored, not from the candidate, since
   # a curated unit may have kept its own values over the candidate's.
   def fill_site_from_unit(facility_id, candidate, crawl_run:)
@@ -107,10 +141,12 @@ class DataQuality::DirectoryClient
     # Only a unit that ended up verified speaks for its site (a human may have kept it rejected).
     return unless unit&.parent_id && unit.verification_status == "verified"
 
+    site = lookup.facility(id: unit.parent_id) or return
     fields = unit.to_h.slice(*SITE_FIELDS_FROM_UNIT.map(&:to_sym)).compact_blank
+      .select { |name, _| site.public_send(name).blank? }
     return if fields.empty?
 
-    result = fact_writer.write("facility", fields.merge(id: unit.parent_id), fill_blank: true,
+    result = fact_writer.write("facility", fields.merge(id: site.id), fill_blank: true, protect_human_verified: true,
       evidence: [ { source_id: candidate.source_id, quote: candidate.quote, found_by: "crawler", crawl_run_id: crawl_run.id } ])
     write_result(result)
   end
@@ -123,12 +159,16 @@ class DataQuality::DirectoryClient
     def record(type, ref)
       Record.new(type:, id: ref.id, name: ref.name, nrc_docket: ref.try(:nrc_docket), parent_id: ref.try(:parent_id),
         facility_type: ref.try(:facility_type), status: ref.try(:status), state: ref.try(:state),
-        country_code: ref.try(:country_code)) if ref
+        country_code: ref.try(:country_code), verification_status: ref.verification_status,
+        verified_by: ref.try(:verified_by), verified_at: ref.try(:verified_at)) if ref
     end
 
     def write_result(result)
       if result.ok?
         WriteResult.new(ref: Ref.new(type: type_for(result.kind), id: result.id), errors: [], created: result.created)
+      elsif result.conflict?
+        WriteResult.new(ref: Ref.new(type: type_for(result.kind), id: result.id), errors: Array(result.errors),
+          conflicts: result.conflicts)
       else
         WriteResult.new(ref: nil, errors: Array(result.errors).presence || [ "unknown error" ])
       end

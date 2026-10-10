@@ -100,10 +100,55 @@ and quote, so writing the same item again updates it and never duplicates it.
 
 ### Verification
 
-`verification: { status: "verified", by: "human:tosin" }`. Status is
-`pending`, `verified` or `rejected`. `by` names who decided: `human:<name>` or
-`agent:verifier/<model>`. Re-applying the same decision keeps the original
-`verified_at`. Only verified facts are public.
+`verification: { status: "verified", by: "human:tosin", reason: "…", context: { … } }`.
+Status is `pending`, `verified`, `rejected` or `unpublished`. `by` (required)
+names who decided: `human:<name>` or `agent:verifier/<model>`. `reason` and `context`
+(e.g. `{ "candidate_id" => 12, "crawl_run_id" => 4 }`) are optional and go
+into the audit trail. Re-applying the same decision keeps the original
+`verified_at` and records nothing new. Only verified facts are public.
+
+- **Unpublished** is a human taking a fact off the site (who and when are in
+  `verified_by` / `verified_at`). Like `rejected`, it's a closed decision:
+  automated writers (`protect_human_verified: true`) can't change the fact at
+  all, and match sends a candidate citing it to review ("…which was
+  unpublished by human:tosin on 2026-10-10"). A human republishes by writing
+  `status: "verified"` again.
+- **Only a human** (`by: "human:…"`) can unpublish, or change a fact that's
+  rejected or unpublished. Any other write fails with an error. The pipeline
+  may still reject, to retire its own proposals.
+- **Human actions** (approve, unpublish, republish) are written *without*
+  `protect_human_verified`: the human is the authority.
+
+### What's public
+
+Public pages read `<Model>.published`, not `.verified`: a fact is published
+when it's verified **and** what it hangs on is published. Unpublishing a
+company hides its roles, technologies, relationships and plant links;
+unpublishing a site hides its units and their links. Nothing is deleted, and
+each fact keeps its own decision, so republishing brings them all back.
+
+### Bulk writes
+
+`Directory::FactWriter.write_many([{ kind:, attributes:, evidence:, verification:, protect_human_verified: }, …])`
+runs a batch (e.g. a bulk approve) in one transaction, each write in its own
+savepoint, so one failure doesn't undo the rest. It returns one Result per
+write, in order. Each write is audited as usual.
+
+### Audit trail
+
+Every change of a fact's verification is recorded in `verification_events`
+(who, when, from → to, reason, context, and the attribute values the same
+write changed, before → after), append-only: events can't be edited or
+deleted, and they outlive their fact. A human editing values without changing
+the decision is recorded too. Decisions on one fact are made one at a time
+(the row is locked), so the history is in the order they happened. Read it
+with:
+
+```ruby
+Directory::Lookup.verification_history(type: "Organization", id: 12)
+# => [VerificationEventRef(from_status:, to_status:, by:, reason:, context:, changed_values:, at:), …] newest first
+# changed_values: { "hq_state" => ["DE", "WA"] }
+```
 
 ### Confidence
 

@@ -23,7 +23,7 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
     Facility.create!(name: "Plant Vogtle Units 3 & 4")
   end
 
-  test "a facility matched by NRC docket is attached, with the quote as evidence" do
+  test "a facility matched by NRC docket is attached; its quote is added only on publish" do
     site = Facility.create!(name: "Braidwood Station", nrc_docket: "05000456")
     c = candidate("facility", facility_payload("Braidwood 1", "05000456"), quote: "Braidwood 1 05000456")
 
@@ -34,9 +34,12 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
     assert_equal [ "Facility", site.id ], [ c.subject_type, c.subject_id ]
     assert_match "by NRC docket", c.notes
     assert_equal "Braidwood Station", site.reload.name, "matching doesn't overwrite the record"
-    evidence = site.evidence.sole
-    assert_equal [ "crawler", "Braidwood 1 05000456", run.id ], [ evidence.found_by, evidence.quote, evidence.crawl_run_id ]
+    assert_empty site.evidence, "nothing is written to an existing record before verification"
     assert_equal 1, run.stats["matched"]
+
+    verify = DataQuality::Stages::Verify.call(plugin: DummyPlugin.new, verifier: PublishEverything.new)
+    evidence = site.evidence.sole
+    assert_equal [ "crawler", "Braidwood 1 05000456", verify.id ], [ evidence.found_by, evidence.quote, evidence.crawl_run_id ]
   end
 
   test "an unknown facility is proposed as a new pending record" do
@@ -86,6 +89,18 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
 
     assert_equal site.id, Facility.find(single.reload.subject_id).parent_id
     assert_equal lasalle.id, Facility.find(numbered.reload.subject_id).parent_id, "spacing differences still match"
+  end
+
+  test "a unit is never placed under a rejected site" do
+    vogtle_site!.reject!(by: "human:tosin")
+    c = candidate("facility", facility_payload("Vogtle 3", "05200025"))
+
+    assert_no_difference "Facility.count" do
+      match!
+    end
+
+    assert c.reload.status_needs_review?
+    assert_match "which was rejected", c.notes
   end
 
   test "a unit the site record doesn't cover goes to review, never merged" do
@@ -160,14 +175,38 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
     assert_equal "TerraPower", terrapower.name
   end
 
-  test "an organization matched by domain under another name gains that name as an alias" do
+  test "the name a match was found under becomes an alias only once it's published" do
     c = candidate("organization", { "name" => "TP Nuclear Holdings", "domain" => "terrapower.com" })
 
     match!
 
     assert_equal organizations(:terrapower).id, c.reload.subject_id
     assert_match "by domain", c.notes
+    assert_nil Directory::Lookup.organization(name: "TP Nuclear Holdings"), "not yet: the match might be rejected"
+
+    DataQuality::Stages::Verify.call(plugin: DummyPlugin.new, verifier: PublishEverything.new)
     assert_equal organizations(:terrapower).id, Directory::Lookup.organization(name: "TP Nuclear Holdings").id
+  end
+
+  test "an unpublished record is a human decision: never attached to, and the note says who and when" do
+    organizations(:terrapower).unpublish!(by: "human:tosin")
+    c = candidate("organization", { "name" => "TerraPower, Inc." })
+
+    match!
+
+    assert c.reload.status_needs_review?
+    assert_match(/which was unpublished by human:tosin on \d{4}-\d{2}-\d{2}/, c.notes)
+  end
+
+  test "a record that was rejected is never attached to" do
+    rejected = Directory::FactWriter.write(:organization, { name: "Imaginary Fission Co" }).id
+    Organization.find(rejected).reject!(by: "agent:verifier/x")
+    c = candidate("organization", { "name" => "Imaginary Fission Co" })
+
+    match!
+
+    assert c.reload.status_needs_review?
+    assert_match "which was rejected", c.notes
   end
 
   test "name and domain pointing at different organizations goes to review" do
@@ -201,6 +240,27 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
     assert_equal [ 1, 1 ], run.stats.values_at("proposed", "matched")
   end
 
+  test "a new link and its quote are written together, or not at all" do
+    # The quote write fails after the link was created: nothing may be left behind.
+    directory = DataQuality::DirectoryClient.new
+    directory.define_singleton_method(:write_pending) do |kind, attributes, **options|
+      return DataQuality::DirectoryClient::WriteResult.new(ref: nil, errors: [ "disk full" ]) if attributes.keys == [ :id ]
+
+      super(kind, attributes, **options)
+    end
+    link = candidate("facility_relationship", {
+      "organization" => { "name" => "TerraPower" },
+      "facility" => { "name" => "Vogtle Electric Generating Plant" },
+      "relationship_type" => "operates"
+    })
+
+    DataQuality::Stages::Match.call(plugin: DummyPlugin.new, directory:)
+
+    assert link.reload.status_needs_review?
+    assert_match "disk full", link.notes
+    assert_not FacilityRelationship.exists?(relationship_type: "operates"), "the link was rolled back"
+  end
+
   test "an operates link finds records proposed earlier in the same run" do
     candidate("organization", { "name" => "Entergy Nuclear Operations, Inc." })
     candidate("facility", facility_payload("Arkansas Nuclear 1", "05000313"))
@@ -218,6 +278,7 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
     assert record.operates?
     assert record.pending?
     assert_equal "Arkansas Nuclear 1", record.facility.name
+    assert_equal [ link.quote ], record.evidence.pluck(:quote), "a new link is a proposal and carries its quote"
     assert_equal 3, run.stats["proposed"]
   end
 
@@ -241,6 +302,7 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
     assert_equal [ "Curated description", 40 ], link.slice(:description, :ownership_pct).values
     assert_equal "human:tosin", link.verified_by
     assert link.verified?
+    assert_empty link.evidence, "an existing link gets the quote only when it's published"
   end
 
   test "matching an existing pending link defers candidate attributes until publication" do

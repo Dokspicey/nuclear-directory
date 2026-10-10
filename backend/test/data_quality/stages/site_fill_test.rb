@@ -35,7 +35,9 @@ class DataQuality::Stages::SiteFillTest < ActiveSupport::TestCase
     run_stage("match")
     unit = Facility.find_by!(nrc_docket: "05200025")
     unit.update!(state: "GA")
-    unit.verify!(by: "human:tosin") # curated: the candidate's "TX" won't be applied
+    unit.verify!(by: "human:tosin")
+    # The candidate no longer says where the unit is; the site gets the unit's own state.
+    Candidate.find_by!(subject_id: unit.id).then { |c| c.update!(payload: c.payload.except("state")) }
     @site.update!(state: nil)
 
     run_stage("verify", verifier: PublishEverything.new)
@@ -50,6 +52,26 @@ class DataQuality::Stages::SiteFillTest < ActiveSupport::TestCase
     run_stage("verify", verifier: PublishEverything.new)
 
     assert_nil @site.reload.facility_type
+  end
+
+  test "the quote is evidence only for fields the site was missing" do
+    @site.update!(facility_type: "power_reactor", status: "operating")
+    run_stage("match")
+    run_stage("verify", verifier: PublishEverything.new)
+
+    assert_empty @site.reload.evidence, "the site had everything but a disagreeing state; nothing to fill"
+  end
+
+  test "a site a human rejected isn't filled, and the candidate says so" do
+    run_stage("match")
+    @site.reject!(by: "human:tosin")
+
+    run = run_stage("verify", verifier: PublishEverything.new).last
+
+    assert_nil @site.reload.facility_type
+    assert_empty @site.evidence
+    assert_equal 1, run.stats["site_not_filled"]
+    assert_match "Site not filled:", Candidate.find_by!(kind: "facility").notes
   end
 
   test "nothing is filled until the unit is verified" do
