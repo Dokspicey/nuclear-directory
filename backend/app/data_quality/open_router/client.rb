@@ -154,6 +154,13 @@ class DataQuality::OpenRouter::Client
       return unless run
 
       llm = run.stats.fetch("llm", {})
+      # A run that recorded calls before by_month existed (in flight across
+      # a deploy) moves those totals into the month it started, so its
+      # earlier spend isn't lost once its first monthly bucket appears.
+      if llm["by_month"].nil? && llm["calls"].to_i.positive?
+        llm["by_month"] = { run.started_at.strftime("%Y-%m") =>
+          { "calls" => llm["calls"].to_i, "total_tokens" => llm["total_tokens"].to_i, "cost" => llm["cost"].to_f } }
+      end
       llm["calls"] = llm.fetch("calls", 0) + 1
       llm["retries"] = llm.fetch("retries", 0) + 1 if attempt > 1
       %w[prompt_tokens completion_tokens total_tokens].each do |key|

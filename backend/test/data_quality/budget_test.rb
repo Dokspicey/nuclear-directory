@@ -72,6 +72,22 @@ class DataQuality::BudgetTest < ActiveSupport::TestCase
     end
   end
 
+  test "a run in flight across the deploy keeps its earlier spend when its first monthly bucket appears" do
+    config = DataQuality::Config.new(api_key: "test-key", extract_model: "a/x", verify_model: "b/y")
+    client = DataQuality::OpenRouter::Client.new(config: config, sleeper: ->(_) { })
+    stub_request(:post, DataQuality::OpenRouter::Client::ENDPOINT.to_s).to_return(status: 200,
+      body: { choices: [ { message: { content: "{}" } } ], usage: { total_tokens: 100, cost: 0.01 } }.to_json)
+    # Recorded the old way: totals only, $4.99 so far this month.
+    run = CrawlRun.create!(stage: "verify", source_kind: "dummy",
+      stats: { "llm" => { "calls" => 40, "total_tokens" => 50_000, "cost" => 4.99 } })
+
+    client.structured(role: :verify, messages: [ { role: "user", content: "hi" } ], crawl_run: run,
+      schema: { "type" => "object", "properties" => {}, "additionalProperties" => false })
+
+    assert_equal({ calls: 41, total_tokens: 50_100, cost: 5.0 }, DataQuality::Budget.usage_this_month)
+    assert_raises(DataQuality::Budget::Exceeded) { DataQuality::Budget.check!(5.0) }
+  end
+
   test "runs recorded before per-month usage still count by the month they started" do
     spend(0.25) # no by_month, started this month
     spend(1.0, at: 1.month.ago)
