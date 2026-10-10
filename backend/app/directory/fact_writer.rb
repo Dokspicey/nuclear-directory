@@ -170,6 +170,11 @@ module Directory
       attributes = attributes.to_h.symbolize_keys
       unknown = attributes.keys - spec[:attributes] - [ :id ]
       return failure(kind, "unknown attributes: #{unknown.join(", ")}") if unknown.any?
+      # Candidate payloads reach here; a hash or number isn't a name.
+      aliases = attributes[:aliases]
+      unless aliases.nil? || aliases.is_a?(String) || (aliases.is_a?(Array) && aliases.all? { |name| name.nil? || name.is_a?(String) })
+        return failure(kind, "aliases must be a name or a list of names")
+      end
 
       record = nil
       created = false
@@ -345,7 +350,17 @@ module Directory
       # is an alias another facility already has.
       # A plant can't take a name that's another plant's alias: the alias
       # would still find the other plant under some spellings.
+      # A plant's name and other plants' aliases must never be the same name.
+      # The unique index covers aliases only, so a rename and an alias write
+      # for one normalized name take the same lock (held until the
+      # transaction ends) and check while holding it.
+      def lock_facility_name(normalized)
+        sql = ActiveRecord::Base.sanitize_sql_array([ "SELECT pg_advisory_xact_lock(hashtext(?))", "facility-name:#{normalized}" ])
+        ActiveRecord::Base.connection.execute(sql)
+      end
+
       def check_facility_name(facility, name)
+        lock_facility_name(FacilityAlias.normalize(name))
         owner = FacilityAlias.find_by(normalized_alias: FacilityAlias.normalize(name))
         return if owner.nil? || owner.facility_id == facility.id
 
@@ -357,6 +372,7 @@ module Directory
           normalized = FacilityAlias.normalize(name)
           next if FacilityAlias.normalize(facility.name) == normalized
 
+          lock_facility_name(normalized)
           existing = FacilityAlias.find_by(normalized_alias: normalized)
           raise Invalid, "alias #{name.inspect} already belongs to #{existing.facility.name}" if existing && existing.facility_id != facility.id
           next if existing

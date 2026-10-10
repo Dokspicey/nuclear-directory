@@ -68,6 +68,29 @@ class Directory::FacilityAliasesTest < ActiveSupport::TestCase
     assert_empty other.aliases
   end
 
+  test "a rename and an alias write for one name take the same lock, so they can't race" do
+    other = Facility.create!(name: "Salem")
+    locks = ->(&block) do
+      sql = []
+      ActiveSupport::Notifications.subscribed(->(*, payload) { sql << payload[:sql] }, "sql.active_record", &block)
+      sql.grep(/pg_advisory_xact_lock/)
+    end
+
+    renamed = locks.call { write(:facility, { id: other.id, name: "Peach-Bottom" }) }
+    aliased = locks.call { write(:facility, { id: @crane.id, aliases: [ "Peach Bottom" ] }) }
+
+    assert_equal [ "SELECT pg_advisory_xact_lock(hashtext('facility-name:peach bottom'))" ], renamed
+    assert_equal renamed, aliased
+  end
+
+  test "aliases that aren't names are refused" do
+    [ { "old" => "name" }, [ "Crane Station", 7 ], 7 ].each do |aliases|
+      result = write(:facility, { id: @crane.id, aliases: })
+      assert_match "aliases must be a name or a list of names", result.errors.join, aliases.inspect
+    end
+    assert_empty @crane.aliases.where(alias: [ "old", "name", "7" ])
+  end
+
   test "a single alias can be given as plain text" do
     assert write(:facility, { id: @crane.id, aliases: "Crane Station" }).ok?
     assert_includes @crane.aliases.pluck(:alias), "Crane Station"
