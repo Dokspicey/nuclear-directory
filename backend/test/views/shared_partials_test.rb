@@ -38,7 +38,7 @@ class SharedPartialsTest < ActionView::TestCase
     assert_select ".nd-listrow__side", /GA/
 
     render partial: "shared/plant_row", locals: { facility: Facility.new(name: "Hermes 2", slug: "hermes-2") }
-    assert_select "a[href='/power-plants/hermes-2'] .nd-listrow__desc", count: 0
+    assert_select "a[href='/plants/hermes-2'] .nd-listrow__desc", count: 0
   end
 
   test "fact row shows the sentence, detail, quote, sources and confidence" do
@@ -108,7 +108,7 @@ class SharedPartialsTest < ActionView::TestCase
     assert_select "a.nd-pill", count: 8
     assert_select "a.nd-pill[aria-current='page']", /Fuel suppliers/
     assert_select "a.nd-pill[aria-current='page'] .nd-num", "11"
-    assert_select "a.nd-pill[href=?]", "/companies?category=power-plants", text: /Power plants/
+    assert_select "a.nd-pill[href=?]", "/companies?category=plants", text: /Plants and sites/
   end
 
   test "category boxes show examples when there are any" do

@@ -1,0 +1,61 @@
+<%
+  listing = @listing
+  heading = if listing.category then listing.category.name
+            elsif listing.searching? then "Results for “#{listing.query}”"
+            else "All companies"
+            end
+  total = @companies.size + @plants.size
+  noun = listing.category&.plants ? "plant" : (listing.searching? && listing.category.nil? ? "result" : "company")
+  content_for :title, "#{heading} · Nuclear Directory"
+%>
+<%= render "shared/site_header", query: listing.query %>
+
+<main class="nd-page">
+  <%= render "shared/category_pills", current: listing.category, counts: @counts %>
+
+  <div class="nd-listhead">
+    <h1 class="nd-listhead__title"><%= heading %> <span class="nd-num"><%= pluralize(total, noun) %></span></h1>
+
+    <%= form_with url: companies_path, method: :get, class: "nd-filters", data: { controller: "autosubmit" } do %>
+      <%= hidden_field_tag :category, listing.category&.key, id: nil if listing.category %>
+      <%= hidden_field_tag :q, listing.query, id: nil if listing.searching? %>
+      <% unless listing.category&.plants %>
+        <label class="nd-select"><b>Technology</b>
+          <%= select_tag :technology, options_for_select(listing.technology_options, listing.technology), include_blank: "Any", data: { action: "autosubmit#submit" } %>
+        </label>
+      <% end %>
+      <label class="nd-select"><b>State</b>
+        <%= select_tag :state, options_for_select(listing.state_options, listing.state), include_blank: "Any", data: { action: "autosubmit#submit" } %>
+      </label>
+      <label class="nd-select"><b>Sort</b>
+        <%= select_tag :sort, options_for_select(DirectoryListing::SORTS.invert, listing.sort), data: { action: "autosubmit#submit" } %>
+      </label>
+      <button type="submit" class="nd-btn nd-btn--sm" data-autosubmit-target="button">Apply</button>
+    <% end %>
+  </div>
+
+  <% if total.zero? %>
+    <% if listing.searching? %>
+      <%= render "shared/empty_state", message: "No results for “#{listing.query}”#{" in #{listing.category.name}" if listing.category}.",
+            action_label: "Clear search", action_url: directory_url_for(category: listing.category) %>
+    <% elsif listing.filtered? %>
+      <%= render "shared/empty_state", message: "Nothing matches these filters.", action_label: "Clear filters", action_url: directory_url_for(category: listing.category) %>
+    <% else %>
+      <%= render "shared/empty_state", message: "Nothing verified in this category yet." %>
+    <% end %>
+  <% elsif @companies.any? && @plants.any? %>
+    <section aria-labelledby="companies-heading">
+      <h2 id="companies-heading" class="nd-label mb-1">Companies</h2>
+      <ul class="nd-list"><% @companies.each do |company| %><%= render "shared/company_row", organization: company, connections: company.connections_count %><% end %></ul>
+    </section>
+    <section aria-labelledby="plants-heading">
+      <h2 id="plants-heading" class="nd-label mb-1">Plants and sites</h2>
+      <ul class="nd-list"><% @plants.each do |plant| %><%= render "shared/plant_row", facility: plant, connections: plant.connections_count %><% end %></ul>
+    </section>
+  <% else %>
+    <ul class="nd-list">
+      <% @companies.each do |company| %><%= render "shared/company_row", organization: company, connections: company.connections_count %><% end %>
+      <% @plants.each do |plant| %><%= render "shared/plant_row", facility: plant, connections: plant.connections_count %><% end %>
+    </ul>
+  <% end %>
+</main>

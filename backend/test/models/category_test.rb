@@ -2,7 +2,7 @@ require "test_helper"
 
 class CategoryTest < ActiveSupport::TestCase
   test "eight categories in display order" do
-    assert_equal [ "Fuel suppliers", "Reactor developers", "Power plants", "Utilities and operators",
+    assert_equal [ "Fuel suppliers", "Reactor developers", "Plants and sites", "Utilities and operators",
       "Repair and services", "Power buyers", "Investors", "Fusion" ], Category.all.map(&:name)
   end
 
