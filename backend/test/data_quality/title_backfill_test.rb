@@ -65,13 +65,29 @@ class DataQuality::TitleBackfillTest < ActiveSupport::TestCase
   test "asks conditionally; not modified takes the title from the stored page, and no validators are stored" do
     @article.update!(etag: '"v1"', last_modified: "Wed, 01 Oct 2026 00:00:00 GMT", fetched_at: 2.days.ago,
       content_text: "<html><head><title>Stored page title</title></head></html>")
-    stub_request(:get, @article.url).with(headers: { "If-None-Match" => '"v1"' }).to_return(status: 304)
+    stub_request(:get, @article.url).with(headers: { "If-None-Match" => '"v1"' })
+      .to_return(status: 304, headers: { "ETag" => '"v2"', "Last-Modified" => "Fri, 10 Oct 2026 00:00:00 GMT" })
+    stub_request(:get, @second.url).to_return(body: "<title>Hermes reactor update</title>",
+      headers: { "Content-Type" => "text/html", "ETag" => '"partial"', "Last-Modified" => "Fri, 10 Oct 2026 00:00:00 GMT" })
 
     run_backfill
 
-    assert_equal "Stored page title", @article.reload.title
-    assert_equal '"v1"', @article.etag, "kept, not replaced by a partial read's"
-    assert_nil @second.reload.etag, "a partial read stores no validators"
+    @article.reload
+    assert_equal "Stored page title", @article.title
+    assert_equal [ '"v1"', "Wed, 01 Oct 2026 00:00:00 GMT" ], [ @article.etag, @article.last_modified ], "the stored snapshot's validators are kept"
+    @second.reload
+    assert_equal "Hermes reactor update", @second.title
+    assert_equal [ nil, nil ], [ @second.etag, @second.last_modified ], "a partial read's validators are discarded"
+  end
+
+  test "the once-a-day check re-reads the source under its lock, so an overlapping fetch is skipped" do
+    stale = Source.find(@article.id)  # loaded before another process fetched it today
+    @article.update!(fetched_at: Time.current)
+
+    assert_equal :skipped_recent, DataQuality::Snapshot.take(stale, fetcher: @fetcher)
+    DataQuality::TitleBackfill.run(sources: Source.where(id: stale.id), fetcher: @fetcher)
+
+    assert_not_requested :get, @article.url
   end
 
   test "reads at most the top of a page" do

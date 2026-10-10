@@ -32,7 +32,12 @@ class DataQuality::TitleBackfill
 
   def self.title_for(source, fetcher)
     return [ :skipped, "not a web URL" ] unless source.url.match?(%r{\Ahttps?://}i)
-    # The same once-a-day rule as Snapshot.
+
+    # The same once-a-day rule as Snapshot, under the same per-source claim.
+    DataQuality::Snapshot.claim(source) { fetch_title(source, fetcher) }
+  end
+
+  def self.fetch_title(source, fetcher)
     return [ :skipped, "already fetched today" ] if source.fetched_at&.to_date == Date.current
 
     response = fetcher.get(source.url, etag: source.etag, last_modified: source.last_modified, max_bytes: MAX_BYTES)
@@ -56,5 +61,5 @@ class DataQuality::TitleBackfill
   def self.fallback(source)
     [ source.domain, source.published_on&.strftime("%B %-d, %Y") ].compact.join(", ")
   end
-  private_class_method :title_for, :fallback
+  private_class_method :title_for, :fetch_title, :fallback
 end
