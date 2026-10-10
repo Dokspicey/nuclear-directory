@@ -30,6 +30,7 @@ Directory::Lookup.organization(id: 12)
 
 Directory::Lookup.facility(nrc_docket: "05000424")
 Directory::Lookup.facility(eia_plant_id: "649")  # the site for that EIA plant
+Directory::Lookup.facility(site_name: "Palisades")  # a site (no docket) by name, never a unit
 Directory::Lookup.facility(name: "Plant Vogtle Units 3 & 4")  # case-insensitive
 ```
 

@@ -304,6 +304,18 @@ class DataQuality::Plugins::EiaGeneratorsTest < ActiveSupport::TestCase
     assert_not unit.tap { |u| u.eia_plant_id = "6001" }.valid?, "a docketed unit can't carry the plant ID"
   end
 
+  test "an NRC unit named like a site doesn't hide the site from an EIA plant" do
+    nrc_unit("Joseph M Farley", "05000348", "AL")
+    site = Facility.create!(name: "Joseph M Farley")
+    crawl!
+    DataQuality::Pipeline.run("eia_generators", plugin: plugin, only: %w[extract match])
+
+    farley = Candidate.where(source: source, kind: "facility").find { |c| c.payload["eia_plant_id"] == "6001" }
+    assert_equal site.id, farley.subject_id, farley.notes
+    assert_equal 1, Facility.where(name: "Joseph M Farley", nrc_docket: nil).count, "no second site"
+    assert_equal site.id, Directory::FactWriter.write(:facility, { name: "Joseph M Farley", eia_plant_id: "6001" }).id
+  end
+
   test "withdrawing an older month's candidates retires what only they proposed" do
     july = Source.create!(url: "https://www.eia.gov/electricity/data/eia860m/xls/july_generator2026.xlsx",
       source_kind: "eia_generators", crawl_status: "ok")
@@ -331,6 +343,19 @@ class DataQuality::Plugins::EiaGeneratorsTest < ActiveSupport::TestCase
     crawl!
 
     assert proposed.reload.rejected?, "June proposed it; July only attached; August no longer lists it"
+  end
+
+  test "a proposed company and link stay when the newer file only spells the operator differently" do
+    july = Source.create!(url: "https://www.eia.gov/electricity/data/eia860m/xls/july_generator2026.xlsx",
+      source_kind: "eia_generators", crawl_status: "ok")
+    operator_name = Workbook.nuclear_generators(file_fixture("eia/generators_sample.xlsx").binread).find { |g| g["eia_plant_id"] == "6001" }["entity_name"]
+    company = Directory::FactWriter.write(:organization, { name: "#{operator_name}.", aliases: [ operator_name ] }).id
+    Candidate.create!(source: july, kind: "organization", quote: "old", status: "matched", proposed_subject: true,
+      payload: { "name" => "#{operator_name}." }, subject_type: "Organization", subject_id: company)
+
+    crawl!
+
+    assert Organization.find(company).pending?, "the same company, spelled without the period"
   end
 
   test "an operates link is retired when its plant stays but its operator changes" do

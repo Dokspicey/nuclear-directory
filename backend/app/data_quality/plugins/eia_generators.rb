@@ -140,14 +140,15 @@ class DataQuality::Plugins::EiaGenerators < DataQuality::Plugin
     # supersession, a later month's candidate attaches without proposing.
     def retire_orphans(candidates, source, run)
       rows = CSV.parse(source.content_text.to_s, headers: true)
+      directory = DataQuality::DirectoryClient.new
+      operator = operator_key(directory)
       listed = {
         plants: rows.map { |row| row["eia_plant_id"] }.to_set,
-        operators: rows.map { |row| row["entity_name"] }.compact.to_set,
-        links: rows.map { |row| [ row["eia_plant_id"], row["entity_name"] ] }.to_set
+        operators: rows.filter_map { |row| operator[row["entity_name"]] if row["entity_name"].present? }.to_set,
+        links: rows.map { |row| [ row["eia_plant_id"], operator[row["entity_name"]] ] }.to_set
       }
-      directory = DataQuality::DirectoryClient.new
       candidates.uniq { |c| [ c.subject_type, c.subject_id ] }.each do |candidate|
-        next if still_listed?(candidate, listed)
+        next if still_listed?(candidate, listed, operator)
 
         attached = Candidate.where(subject_type: candidate.subject_type, subject_id: candidate.subject_id)
         next unless attached.where(proposed_subject: true).exists?
@@ -157,14 +158,24 @@ class DataQuality::Plugins::EiaGenerators < DataQuality::Plugin
       end
     end
 
-    def still_listed?(candidate, listed)
+    def still_listed?(candidate, listed, operator)
       payload = candidate.payload
       case candidate.kind
       when "facility" then listed[:plants].include?(payload["eia_plant_id"])
-      when "organization" then listed[:operators].include?(payload["name"])
+      # The proposed company itself, however this month spells its name.
+      when "organization" then listed[:operators].include?(candidate.subject_id)
       when "facility_relationship"
-        listed[:links].include?([ payload.dig("facility", "eia_plant_id"), payload.dig("organization", "name") ])
+        listed[:links].include?([ payload.dig("facility", "eia_plant_id"), operator[payload.dig("organization", "name")] ])
       else true
+      end
+    end
+
+    # An operator as matching sees it: the company its name finds in the
+    # directory (by any alias, normalized, so "Acme Co" and "Acme Co." are
+    # one), else the name as written. Cached for the run.
+    def operator_key(directory)
+      Hash.new do |keys, name|
+        keys[name] = directory.organization(name:)&.id || name.to_s.strip.downcase
       end
     end
 
