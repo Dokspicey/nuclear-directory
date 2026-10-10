@@ -1,6 +1,6 @@
 # Lookup tables that grow as we learn (roles, technologies). Rows are keyed
 # by a stable snake_case key and seeded from db/seeds.rb.
-module Lookup
+module LookupTable
   extend ActiveSupport::Concern
 
   included do

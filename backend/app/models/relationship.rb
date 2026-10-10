@@ -1,10 +1,12 @@
 # A directed link between two organizations, e.g. Centrus supplies TerraPower.
+# Read it as "from <type> to", e.g. Georgia Power subsidiary_of Southern Company.
 # Deal stage (MOU vs signed) goes in the description.
 class Relationship < ApplicationRecord
   include Verifiable
 
-  # funds = grants and awards; invests_in = equity.
-  enum :relationship_type, %w[supplies invests_in funds offtake_with].index_by(&:itself), validate: true
+  # funds = grants and awards; invests_in = equity;
+  # subsidiary_of points from the child to its parent.
+  enum :relationship_type, %w[supplies invests_in funds offtake_with subsidiary_of].index_by(&:itself), validate: true
 
   belongs_to :from_organization, class_name: "Organization", inverse_of: :outgoing_relationships
   belongs_to :to_organization, class_name: "Organization", inverse_of: :incoming_relationships

@@ -1,12 +1,14 @@
 # A site or a unit at a site. Reactor units point at their site via parent.
+# facility_type and status stay blank until a source states them.
 class Facility < ApplicationRecord
   include Verifiable
   include Sluggable
   include Hierarchical
 
   enum :facility_type, %w[power_reactor research_reactor fuel_facility enrichment fusion_facility other].index_by(&:itself),
-    validate: true
-  enum :status, %w[operating under_construction planned shut_down decommissioning].index_by(&:itself), validate: true
+    validate: { allow_nil: true }
+  enum :status, %w[operating under_construction planned shut_down decommissioning].index_by(&:itself),
+    validate: { allow_nil: true }
 
   belongs_to :technology, optional: true
   has_many :facility_relationships, dependent: :destroy

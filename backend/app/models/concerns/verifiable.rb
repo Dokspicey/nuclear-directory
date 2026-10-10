@@ -17,15 +17,21 @@ module Verifiable
   # by: who made the call, e.g. "human:tosin" or "agent:verifier/<model>"
   def verify!(by:)
     update!(verification_status: "verified", verified_at: Time.current, verified_by: by)
+    recompute_confidence!
+  end
+
+  def human_verified?
+    verified? && verified_by.to_s.start_with?("human:")
   end
 
   # Called whenever this fact's evidence changes. The rule itself lives in
   # Evidence.combined_confidence.
   def recompute_confidence!
-    update_column(:confidence, Evidence.combined_confidence(evidence.includes(:source)))
+    update_column(:confidence, Evidence.combined_confidence(evidence.includes(:source), human_verified: human_verified?))
   end
 
   def reject!(by:)
     update!(verification_status: "rejected", verified_at: Time.current, verified_by: by)
+    recompute_confidence!
   end
 end
