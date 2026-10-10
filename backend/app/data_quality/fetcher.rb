@@ -95,7 +95,9 @@ class DataQuality::Fetcher
       response(robots_uri.to_s, :error, reason: "robots.txt unreachable (#{error.class}); not crawling #{uri.host}")
     end
 
-    # Reads the body in chunks and hangs up once it has max_bytes.
+    # Reads the body in chunks and hangs up once it has more than max_bytes.
+    # A body of exactly max_bytes is complete; only going past it means
+    # there was more.
     def request(uri, headers, max_bytes:)
       wait_for(uri.host)
       get = Net::HTTP::Get.new(uri)

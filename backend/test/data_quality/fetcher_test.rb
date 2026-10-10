@@ -35,6 +35,15 @@ class DataQuality::FetcherTest < ActiveSupport::TestCase
     assert_equal 1_000, response.body.bytesize
   end
 
+  test "a body of exactly max_bytes is complete, not truncated" do
+    stub_request(:get, PAGE).to_return(body: "a" * 1_000)
+
+    response = @fetcher.get(PAGE, max_bytes: 1_000)
+
+    assert_not response.truncated
+    assert_equal 1_000, response.body.bytesize
+  end
+
   test "asks whether the page changed and understands 304" do
     stub = stub_request(:get, PAGE)
       .with(headers: { "If-None-Match" => '"v1"', "If-Modified-Since" => "Fri, 09 Oct 2026 20:40:21 GMT" })
