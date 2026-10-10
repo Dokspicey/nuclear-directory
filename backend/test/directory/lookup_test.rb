@@ -100,6 +100,19 @@ class Directory::LookupTest < ActiveSupport::TestCase
     assert_nil Directory::Lookup.brand_name("NextEra Energy Imaginary Point, LLC")
   end
 
+  test "a plant named after its owner doesn't make the owner's name a plant name" do
+    Directory::FactWriter.write(:organization, { name: "Urenco" })
+    Facility.create!(name: "Urenco USA enrichment facility")
+
+    assert_equal "acme urenco", Directory::Lookup.brand_key("Acme Urenco, LLC")
+  end
+
+  test "dotted legal suffixes are dropped like plain ones" do
+    assert_equal "acme", Directory::Lookup.brand_key("Acme Holdings, L.P.")
+    assert_equal "acme", Directory::Lookup.brand_key("Acme Holdings, LP")
+    assert_equal "acme", Directory::Lookup.brand_key("Acme P.L.C.")
+  end
+
   test "a name made only of legal or operating words has no brand" do
     assert_nil Directory::Lookup.brand_key("Nuclear Energy LLC")
     assert_nil Directory::Lookup.brand_key("Nuclear Power, Inc.")
