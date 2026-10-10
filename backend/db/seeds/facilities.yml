@@ -47,7 +47,7 @@ facilities:
   city:
     value: Oak Ridge
     source_url: https://www.ans.org/news/2026-04-21/article-7964/kairos-power-breaks-ground-on-first-powerproducing-reactor-in-oak-ridge/
-    quote: Kairos expects Hermes 2 to begin operations by 2030, when the fluoride salt–cooled high temperature reactor could become the first NRC-licensed non–light water reactor to produce power.
+    quote: On April 17, Kairos Power broke ground on its Hermes 2 demonstration plant in Oak Ridge, Tenn., for which it received test reactor construction permits from the Nuclear Regulatory Commission in November 2024.
     confidence: 1.0
     note: City from the groundbreaking sentence above ('Hermes 2 demonstration plant in Oak Ridge, Tenn.'); site is the East Tennessee Technology Park.
   state:

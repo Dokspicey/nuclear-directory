@@ -4,15 +4,15 @@
 # For every new candidate, one of three things happens:
 # - Found: an exact match on NRC docket, domain or name/alias. The candidate
 #   is attached to that record and nothing is written yet: its quote becomes
-#   evidence (and, for an organization, its name an alias) only when verify
-#   publishes it.
+#   evidence (and, for an organization, its name an alias) only when a human
+#   approves it (DataQuality::Review.approve).
 # - Not found: a new pending record is proposed with the quote as evidence.
 # - Ambiguous: identifiers point at different records, or a similar record
 #   exists ("Vogtle 3" vs "Plant Vogtle Units 3 & 4"). The candidate goes to
 #   needs_review with the reason. Never merged automatically.
 #
-# Either way a matched candidate ends up with a subject, and verify decides
-# whether that fact is published. Records go first, so links (who operates
+# Either way a matched candidate ends up with a subject. Verify then
+# recommends, and a human decides whether that fact is published. Records go first, so links (who operates
 # what) can find records proposed earlier in the same run.
 #
 # Payload for links: each end is a nested hash identifying the record, e.g.
@@ -48,7 +48,7 @@ class DataQuality::Stages::Match < DataQuality::Stage
   private
     def perform(run)
       @run = run
-      @stats = { "candidates" => 0, "matched" => 0, "proposed" => 0, "needs_review" => 0, "write_errors" => 0 }
+      @stats = { "candidates" => 0, "matched" => 0, "proposed" => 0, "needs_review" => 0, "waiting" => 0, "write_errors" => 0 }
 
       one_run_at_a_time do
         ORDER.each do |kind|
@@ -78,7 +78,8 @@ class DataQuality::Stages::Match < DataQuality::Stage
       payload = candidate.payload.to_h
 
       case candidate.kind
-      when "organization", "facility" then match_record(candidate, payload)
+      when "facility" then payload.key?("identify") ? match_enrichment(candidate, payload["identify"]) : match_record(candidate, payload)
+      when "organization" then match_record(candidate, payload)
       when *LINK_ENDS.keys then match_link(candidate, payload)
       else review(candidate, "#{candidate.kind} candidates aren't matched automatically yet")
       end
@@ -136,16 +137,18 @@ class DataQuality::Stages::Match < DataQuality::Stage
       write(candidate, attributes, evidence: false)
     end
 
-    # Found, Review or nil (nothing like it exists). A record that was rejected
-    # (a retired proposal, or one a human turned down) is never attached to:
-    # the candidate goes to review instead.
+    # Found, Review or nil (nothing like it exists). A closed record, one that
+    # was rejected (a retired proposal, or one a human turned down) or that a
+    # human unpublished, is never attached to: the candidate goes to review.
     def resolve(type, payload)
       found = type == :organization ? resolve_organization(payload) : resolve_facility(payload)
-      if found.is_a?(Found) && found.record.rejected?
-        return Review.new("matches #{found.record.name} (by #{found.by}), which was rejected. The same thing again, or a new record?")
+      if found.is_a?(Found) && found.record.closed?
+        return Review.new("matches #{found.record.name} (by #{found.by}), which was #{found.record.decision}. " \
+          "The same thing again, or a new record?")
       end
-      if found.is_a?(Under) && found.site.rejected?
-        return Review.new("looks like a unit of #{found.site.name}, which was rejected. Under it anyway, or its own record?")
+      if found.is_a?(Under) && found.site.closed?
+        return Review.new("looks like a unit of #{found.site.name}, which was #{found.site.decision}. " \
+          "Under it anyway, or its own record?")
       end
 
       found
@@ -174,6 +177,12 @@ class DataQuality::Stages::Match < DataQuality::Stage
       end
       if by_domain && brand.one? && brand.first.id != by_domain.id
         return Review.new("name is the brand of #{brand.first.name} but domain matches #{by_domain.name}")
+      end
+      # A per-plant name whose brand has no company yet ("NextEra Energy
+      # Seabrook, LLC") must still agree with a company found by domain.
+      if by_domain && brand.empty? && (inferred = directory.brand_name(name.to_s)) &&
+          directory.brand_key(inferred) != directory.brand_key(by_domain.name)
+        return Review.new("name is a #{inferred} company but domain matches #{by_domain.name}")
       end
       return Found.new(by_domain, "domain") if by_domain
       return Found.new(brand.first, "brand, a legal-entity variant of its name") if brand.one?
@@ -218,6 +227,43 @@ class DataQuality::Stages::Match < DataQuality::Stage
 
       Review.new("#{name.inspect} looks like a unit of #{site.name}, but that record only covers " \
         "unit #{covered.join(' & ')}. Add it under the site, or as its own record?")
+    end
+
+    # An enrichment source (e.g. EIA) adds values to an NRC unit that already
+    # exists and never creates one. identify: { "name", "state", "unit" }.
+    # The unit is the NRC unit whose name best fits (most shared distinctive
+    # words, state as a tie-break; see Lookup.facility_units) and has the same
+    # unit number; a plant with a single, unnumbered NRC unit takes that unit.
+    # If no unit fits yet (NRC data not loaded, or the unit's own NRC record is
+    # still in review), the candidate stays new and is retried on the next run.
+    # More than one fit goes to review.
+    def match_enrichment(candidate, identify)
+      name, state, unit = identify.to_h.values_at("name", "state", "unit")
+      number = unit.to_s[/\d+/]&.to_i
+      units, same_number = enrichment_fits(name, state, number)
+      chosen = same_number.first if same_number.one?
+      chosen ||= units.first if same_number.empty? && units.one? && unit_number(units.first.name).nil?
+      label = "#{name} unit #{unit} (#{state})"
+
+      if chosen&.rejected?
+        review(candidate, "#{label} would be NRC unit #{chosen.name}, which was rejected")
+      elsif chosen
+        # Attach only: the values (and their evidence) are written when verify publishes.
+        attach(candidate, chosen, "#{label} is NRC unit #{chosen.name}")
+      elsif same_number.many? || (units.many? && units.none? { |record| unit_number(record.name) })
+        review(candidate, "#{label} could be #{(same_number.presence || units).map(&:name).join(' or ')}")
+      else
+        # Includes a plant whose other units exist but not this one (Vogtle 1
+        # while only Vogtle 3 and 4 are in the directory).
+        @stats["waiting"] += 1
+        candidate.update!(notes: "No NRC unit for #{label} yet; retried on the next match run")
+      end
+    end
+
+    # [units that fit the name, those of them with this unit number]
+    def enrichment_fits(name, state, number)
+      units = directory.facility_units(name: name.to_s, state: state.presence)
+      [ units, units.select { |record| unit_number(record.name) == number } ]
     end
 
     # "Vogtle 3" => 3. A name without a trailing number ("Palisades") is nil.

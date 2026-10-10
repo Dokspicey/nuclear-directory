@@ -1,0 +1,146 @@
+# Everything the company page shows (#42), verified and sourced facts only
+# (VOICE.md: if we can't source it, we don't publish it). Deals count only
+# when the other company is verified too; plant links only when the plant is
+# public (DirectoryListing#public_facilities). Fields stored on the company
+# record (description, website, headquarters...) show only when the record
+# has evidence of its own.
+#
+# Sources are numbered once, in reading order (description, key facts, deals,
+# then plants), so chips and the source list agree.
+class CompanyProfile
+  # Lists longer than this collapse behind "Show all" (#90).
+  VISIBLE_ITEMS = 6
+
+  attr_reader :organization, :citations
+
+  # nil unless the company exists and is verified.
+  def self.find(slug)
+    organization = Organization.verified.find_by(slug:)
+    new(organization) if organization
+  end
+
+  def initialize(organization)
+    @organization = organization
+    @citations = CitationIndex.new
+    @cited = {}
+    number_sources
+  end
+
+  delegate :name, :slug, :verified_at, to: :organization
+
+  # The record's own fields, only when a source backs them.
+  def sourced? = defined?(@sourced) ? @sourced : (@sourced = organization.evidence.any?)
+  %i[description website hq_city hq_state founded_year legal_name].each do |field|
+    define_method(field) { organization.public_send(field) if sourced? }
+  end
+
+  # [[number, source], ...] for a fact on this page.
+  def citations_for(fact) = @cited.fetch(fact) { [] }
+
+  def roles
+    @roles ||= sourced_only(organization.organization_roles.verified.includes(:role, evidence: :source)).sort_by { |r| r.role.name }
+  end
+
+  # Roles to show: a general role is left out when a more specific one under
+  # it is there too ("Molten salt coolant", not "Coolant, Molten salt coolant").
+  def shown_roles
+    parent_ids = roles.map { |r| r.role.parent_id }.compact
+    roles.reject { |r| parent_ids.include?(r.role_id) }
+  end
+
+  def technologies
+    @technologies ||= sourced_only(organization.organization_technologies.verified.includes(:technology, evidence: :source)).sort_by { |t| t.technology.name }
+  end
+
+  # Deals in both directions, with the other company verified, except
+  # "subsidiary of", which the key facts show as the parent company.
+  def deals
+    @deals ||= Relationship.verified
+      .where(from_organization: organization).or(Relationship.verified.where(to_organization: organization))
+      .where.not(relationship_type: "subsidiary_of")
+      .includes(:from_organization, :to_organization, evidence: :source).to_a
+      .select { |deal| other_party(deal).verified? && deal.evidence.any? }
+      .sort_by { |deal| [ deal.relationship_type, other_party(deal).name ] }
+  end
+
+  def parents
+    @parents ||= Relationship.verified.subsidiary_of.where(from_organization: organization)
+      .includes(:to_organization, evidence: :source).select { |link| link.to_organization.verified? && link.evidence.any? }
+  end
+
+  def subsidiaries
+    @subsidiaries ||= Relationship.verified.subsidiary_of.where(to_organization: organization)
+      .includes(:from_organization, evidence: :source).select { |link| link.from_organization.verified? && link.evidence.any? }
+  end
+
+  def plant_links
+    @plant_links ||= begin
+      organization.facility_relationships.verified
+        .where(facility_id: DirectoryListing.new.public_facilities.select(:id))
+        .includes({ facility: [ { evidence: :source }, { parent: { evidence: :source } } ] }, evidence: :source).to_a
+        .select { |link| link.evidence.any? }
+        .sort_by { |link| [ link.relationship_type, link.facility.name ] }
+    end
+  end
+
+  # A plant's own type, status and place show beside a link only when the
+  # plant is verified and has a source, which is then cited too.
+  def plant_facts?(facility) = facility.verified? && facility.evidence.any?
+
+  # The link's sources plus those of the plant facts shown with it.
+  def plant_link_citations(link)
+    site = link.facility.parent || link.facility
+    [ link, link.facility, site ].uniq.flat_map { |fact| citations_for(fact) }.uniq(&:first)
+  end
+
+  def other_party(deal) = deal.from_organization_id == organization.id ? deal.to_organization : deal.from_organization
+
+  def aliases
+    return [] unless sourced?
+
+    @aliases ||= organization.aliases.map(&:alias).reject { |name| OrganizationAlias.normalize(name) == OrganizationAlias.normalize(organization.name) }
+  end
+
+  # The first category this company falls in, for the breadcrumb, by the
+  # same rules as the directory (DirectoryListing#in_category).
+  def category
+    role_keys = roles.flat_map { |r| [ r.role.key, r.role.parent&.key ] }.compact
+    tech_keys = technologies.flat_map { |t| [ t.technology.key, t.technology.parent&.key ] }.compact
+    Category.all.find do |c|
+      (c.role_keys & role_keys).any? || (c.technology_key && tech_keys.include?(c.technology_key)) || (c.investors && investor?)
+    end
+  end
+
+  # From the deals the page shows, so a hidden deal never adds the category.
+  def investor? = deals.any? { |deal| deal.relationship_type == "invests_in" && deal.from_organization_id == organization.id }
+
+  # Fields DESIGN.md marks "must" that this company doesn't have yet.
+  def missing_fields
+    [ ("One-line description" if description.blank?), ("Headquarters" if hq_city.blank? && hq_state.blank?) ].compact
+  end
+
+  # The record's own evidence backs its description and headquarters.
+  def description_citations = description.present? ? citations_for(organization) : []
+
+  private
+    # The company record's own evidence backs its description and the key
+    # facts stored on it (website, aliases, licensee, headquarters, founded).
+    def number_sources
+      cite(organization) if description.present? || website.present? || aliases.any? || legal_name.present?
+      shown_roles.each { |role| cite(role) }
+      technologies.each { |technology| cite(technology) }
+      cite(organization) if hq_city.present? || hq_state.present? || founded_year.present?
+      (parents + subsidiaries).each { |link| cite(link) }
+      deals.each { |deal| cite(deal) }
+      plant_links.each do |link|
+        cite(link)
+        [ link.facility, link.facility.parent ].compact.each { |facility| cite(facility) if plant_facts?(facility) }
+      end
+    end
+
+    def sourced_only(records) = records.select { |record| record.evidence.any? }
+
+    def cite(fact)
+      @cited[fact] = citations.cite(fact.evidence)
+    end
+end

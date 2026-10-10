@@ -31,6 +31,47 @@ module Directory
       OrganizationRef.from(record) if record
     end
 
+    # Every change of a fact's verification, newest first, as plain values:
+    # who, when, from -> to, why. type is the fact's class name ("Organization").
+    def verification_history(type:, id:)
+      raise ArgumentError, "not a fact type: #{type.inspect}" unless FACT_TYPES.include?(type.to_s)
+
+      VerificationEvent.where(subject_type: type.to_s, subject_id: id).order(created_at: :desc, id: :desc)
+        .map { |event| VerificationEventRef.from(event) }
+    end
+
+    FACT_TYPES = %w[Organization OrganizationRole OrganizationTechnology Facility Relationship FacilityRelationship].freeze
+    # How a link reads to a person (VOICE.md's fixed verbs and words).
+    LINK_VERBS = {
+      "supplies" => "supplies", "invests_in" => "invests in", "funds" => "funds",
+      "offtake_with" => "has an offtake agreement with", "subsidiary_of" => "is a subsidiary of",
+      "owns" => "owns", "operates" => "operates", "vendor_for" => "is a vendor for", "offtakes_from" => "offtakes from"
+    }.freeze
+    # What a company with each role is, in a sentence ("TerraPower is a reactor
+    # developer"), in visitors' words. A role not listed reads "has the role …".
+    ROLE_WORDS = {
+      "fuel" => "a fuel supplier", "mining" => "a uranium miner", "conversion" => "a uranium converter",
+      "enrichment" => "a uranium enricher", "fabrication" => "a fuel fabricator",
+      "reactor_vendor" => "a reactor developer", "reactor_services" => "a repair and services company",
+      "utility" => "a utility", "operator" => "an operator", "data_center_offtaker" => "a power buyer",
+      "coolant" => "a coolant supplier", "molten_salt" => "a molten salt coolant supplier",
+      "water" => "a light water coolant supplier", "helium" => "a helium coolant supplier",
+      "sodium" => "a sodium coolant supplier", "lead" => "a lead coolant supplier",
+      "heavy_water" => "a heavy water supplier", "regulatory_consultant" => "a regulatory consultant",
+      "venture_capital" => "a venture capital investor", "government_agency" => "a government agency",
+      "national_lab" => "a national lab"
+    }.freeze
+    private_constant :LINK_VERBS, :ROLE_WORDS
+
+    # Any fact's current decision (Directory::FactStateRef), or nil.
+    def fact_state(type:, id:)
+      raise ArgumentError, "not a fact type: #{type.inspect}" unless FACT_TYPES.include?(type.to_s)
+
+      record = type.to_s.constantize.find_by(id:) or return
+      FactStateRef.new(type: type.to_s, id: record.id, name: fact_label(record),
+        verification_status: record.verification_status, verified_by: record.verified_by, verified_at: record.verified_at)
+    end
+
     # Pass exactly one of id, slug, name or nrc_docket.
     # name matches the facility's name (case-insensitive), or else one of its
     # aliases, compared after FacilityAlias.normalize ("Three Mile Island
@@ -181,6 +222,32 @@ module Directory
       end.compact_blank.to_set
     end
 
+    # NRC units (facilities with a docket) whose names best fit name, for
+    # sources that name plants their own way ("Joseph M Farley" for NRC's
+    # "Farley 1", "PSEG Hope Creek Generating Station" for "Hope Creek 1").
+    # The units sharing the most distinctive words win, so "Wolf Creek" picks
+    # Wolf Creek 1 over Hope Creek 1. Words under three letters don't count,
+    # but two words run together do ("la salle" / "lasalle"). state breaks a
+    # tie: among equally good fits, units in that state (or with no state
+    # yet) are preferred, since NRC units no longer carry a state (EIA's is
+    # used; Tosin, 2026-10-10).
+    def facility_units(name:, state: nil)
+      words = comparable_words(distinctive_words(name))
+      return [] if words.empty?
+
+      scored = Facility.where.not(nrc_docket: nil).order(:name).filter_map do |unit|
+        shared = (comparable_words(distinctive_words(unit.name)) & words).size
+        [ unit, shared ] if shared.positive?
+      end
+      best = scored.map(&:last).max or return []
+      units = scored.select { |_, shared| shared == best }.map(&:first)
+      if state.present?
+        in_state = units.select { |unit| unit.state.blank? || unit.state.casecmp?(state) }
+        units = in_state if in_state.any?
+      end
+      units.first(20).map { |unit| FacilityRef.from(unit) }
+    end
+
     def distinctive_words(name)
       OrganizationAlias.normalize(name).split.reject { |word| GENERIC_WORDS.include?(word) || word.match?(/\A\d+\z/) }
     end
@@ -194,7 +261,10 @@ module Directory
       # the end, then a trailing known plant or region name, then legal words
       # again. Stops at an OWN_BRANDS name.
       def brand_words(name, plants)
-        words = strip_entities(OrganizationAlias.normalize(join_initials(name)).split)
+        words = OrganizationAlias.normalize(join_initials(name)).split
+        # A leading "the" isn't part of a brand ("The Southern Company" is Southern).
+        words = words.drop(1) if words.first == "the" && words.size > 1
+        words = strip_entities(words)
         place = place_words_at_end(words, plants)
         words = strip_entities(words.first(words.size - place)) if place
         words
@@ -211,12 +281,33 @@ module Directory
       def place_words_at_end(words, plants)
         return if OWN_BRANDS.include?(words.join(" "))
 
-        3.downto(1).find do |size|
-          next if words.size <= size
-
+        # Longest first, and always leaving at least one word of the brand.
+        (words.size - 1).downto(1).find do |size|
           tail = words.last(size).join(" ")
           REGION_WORDS.include?(tail) || plants.include?(tail)
         end
+      end
+
+      # A record's name; a link is "the fact “TerraPower owns Plant Vogtle”",
+      # in the words visitors use (VOICE.md), so it reads as a review note.
+      def fact_label(record)
+        statement =
+          case record
+          when Organization, Facility then return record.name
+          when OrganizationRole
+            phrase = ROLE_WORDS[record.role.key]
+            phrase ? "#{record.organization.name} is #{phrase}" : "#{record.organization.name} has the role #{record.role.name}"
+          when OrganizationTechnology then "#{record.organization.name} works on #{in_sentence(record.technology.name)}"
+          when Relationship then "#{record.from_organization.name} #{LINK_VERBS.fetch(record.relationship_type)} #{record.to_organization.name}"
+          when FacilityRelationship then "#{record.organization.name} #{LINK_VERBS.fetch(record.relationship_type)} #{record.facility.name}"
+          end
+        "the fact “#{statement}”"
+      end
+
+      # A display name inside a sentence: lowercased, except acronyms ("SMR",
+      # "HALEU") and words with capitals inside ("TRISO-X").
+      def in_sentence(name)
+        name.split.map { |word| word.match?(/\A[[:upper:]][[:lower:]]+\z/) ? word.downcase : word }.join(" ")
       end
 
       # The same leading distinctive word, which is usually the plant's or
@@ -227,6 +318,10 @@ module Directory
       # "La Crosse" isn't like "La Salle".
       def similar_words?(words, other)
         (leading(words) & leading(other)).any?
+      end
+
+      def comparable_words(words)
+        (words.select { |word| word.length >= 3 } + words.each_cons(2).map(&:join)).uniq
       end
 
       def leading(words)

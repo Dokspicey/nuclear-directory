@@ -4,6 +4,8 @@ require_relative "../support/dummy_plugin"
 # Match against the real directory with NRC-style names, since what matters
 # is how real names and dockets resolve.
 class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
+  include ReviewHelpers
+
   setup do
     @source = Source.create!(url: "https://www.nrc.gov/test/match-stage-sample.html",
       source_kind: "dummy", crawl_status: "ok")
@@ -23,7 +25,7 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
     Facility.create!(name: "Plant Vogtle Units 3 & 4")
   end
 
-  test "a facility matched by NRC docket is attached; its quote is added only on publish" do
+  test "a facility matched by NRC docket is attached; its quote is added only on approval" do
     site = Facility.create!(name: "Braidwood Station", nrc_docket: "05000456")
     c = candidate("facility", facility_payload("Braidwood 1", "05000456"), quote: "Braidwood 1 05000456")
 
@@ -38,6 +40,8 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
     assert_equal 1, run.stats["matched"]
 
     verify = DataQuality::Stages::Verify.call(plugin: DummyPlugin.new, verifier: PublishEverything.new)
+    assert_empty site.reload.evidence, "verify only recommends"
+    approve_recommended
     evidence = site.evidence.sole
     assert_equal [ "crawler", "Braidwood 1 05000456", verify.id ], [ evidence.found_by, evidence.quote, evidence.crawl_run_id ]
   end
@@ -175,7 +179,7 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
     assert_equal "TerraPower", terrapower.name
   end
 
-  test "the name a match was found under becomes an alias only once it's published" do
+  test "the name a match was found under becomes an alias only once it's approved" do
     c = candidate("organization", { "name" => "TP Nuclear Holdings", "domain" => "terrapower.com" })
 
     match!
@@ -185,7 +189,18 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
     assert_nil Directory::Lookup.organization(name: "TP Nuclear Holdings"), "not yet: the match might be rejected"
 
     DataQuality::Stages::Verify.call(plugin: DummyPlugin.new, verifier: PublishEverything.new)
+    approve_recommended
     assert_equal organizations(:terrapower).id, Directory::Lookup.organization(name: "TP Nuclear Holdings").id
+  end
+
+  test "an unpublished record is a human decision: never attached to, and the note says who and when" do
+    organizations(:terrapower).unpublish!(by: "human:tosin")
+    c = candidate("organization", { "name" => "TerraPower, Inc." })
+
+    match!
+
+    assert c.reload.status_needs_review?
+    assert_match(/which was unpublished by human:tosin on \d{4}-\d{2}-\d{2}/, c.notes)
   end
 
   test "a record that was rejected is never attached to" do
@@ -233,7 +248,7 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
     assert_equal [ constellation, dominion ], [ generation, arm ].map { |c| c.reload.subject_id }
     assert_match "by brand", generation.notes
 
-    DataQuality::Stages::Verify.call(plugin: DummyPlugin.new, verifier: PublishEverything.new)
+    DataQuality::Review.approve([ arm.id ], by: "human:tosin")
     assert_equal dominion, Directory::Lookup.organization(name: "Dominion Generation").id,
       "once published, the variant is an alias, so the next run matches it exactly"
   end
@@ -284,6 +299,16 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
 
     assert c.reload.status_needs_review?
     assert_match "brand of Dominion Energy but domain matches TerraPower", c.notes
+  end
+
+  test "a per-plant name whose brand isn't in the directory yet must agree with the domain" do
+    Facility.create!(name: "Seabrook Station")
+    c = candidate("organization", { "name" => "NextEra Energy Seabrook, LLC", "domain" => "terrapower.com" })
+
+    match!
+
+    assert c.reload.status_needs_review?
+    assert_match "name is a NextEra Energy company but domain matches TerraPower", c.notes
   end
 
   test "a brand shared by two companies goes to review" do

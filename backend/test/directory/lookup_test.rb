@@ -107,10 +107,21 @@ class Directory::LookupTest < ActiveSupport::TestCase
     assert_equal "acme urenco", Directory::Lookup.brand_key("Acme Urenco, LLC")
   end
 
+  test "a plant name of four or more words is recognized at the end of a company name" do
+    Facility.create!(name: "Crane Clean Energy Center (Three Mile Island Unit 1)")
+
+    assert_equal "constellation", Directory::Lookup.brand_key("Constellation Crane Three Mile Island, LLC")
+  end
+
   test "dotted legal suffixes are dropped like plain ones" do
     assert_equal "acme", Directory::Lookup.brand_key("Acme Holdings, L.P.")
     assert_equal "acme", Directory::Lookup.brand_key("Acme Holdings, LP")
     assert_equal "acme", Directory::Lookup.brand_key("Acme P.L.C.")
+  end
+
+  test "a leading 'the' doesn't get past the own-brand rule" do
+    assert_equal "southern nuclear", Directory::Lookup.brand_key("The Southern Nuclear Operating Co.")
+    assert_equal "southern", Directory::Lookup.brand_key("The Southern Company")
   end
 
   test "a name made only of legal or operating words has no brand" do
@@ -147,6 +158,26 @@ class Directory::LookupTest < ActiveSupport::TestCase
     assert_equal [ organizations(:westinghouse).id ],
       Directory::Lookup.same_brand_organizations("Westinghouse Electric Company Holdings").map(&:id)
     assert_empty Directory::Lookup.same_brand_organizations("Westinghouse Government Services Division")
+  end
+
+  test "a link's decision reads as a plain fact, in the words visitors use" do
+    org = organizations(:terrapower)
+    role = OrganizationRole.create!(organization: org, role: Role.create!(key: "reactor_vendor", name: "Reactor vendor"))
+    deal = Relationship.create!(from_organization: organizations(:westinghouse), to_organization: org, relationship_type: "invests_in")
+
+    assert_equal "the fact “TerraPower is a reactor developer”", Directory::Lookup.fact_state(type: "OrganizationRole", id: role.id).name
+    assert_equal "the fact “#{organizations(:westinghouse).name} invests in TerraPower”",
+      Directory::Lookup.fact_state(type: "Relationship", id: deal.id).name
+    assert_equal "TerraPower", Directory::Lookup.fact_state(type: "Organization", id: org.id).name
+
+    operator = OrganizationRole.create!(organization: org, role: Role.create!(key: "operator", name: "Operator"))
+    smr = OrganizationTechnology.create!(organization: org, technology: Technology.create!(key: "smr", name: "SMR"))
+    assert_equal "the fact “TerraPower is an operator”", Directory::Lookup.fact_state(type: "OrganizationRole", id: operator.id).name
+    fuel = OrganizationRole.create!(organization: org, role: Role.create!(key: "fuel", name: "Fuel"))
+    assert_equal "the fact “TerraPower is a fuel supplier”", Directory::Lookup.fact_state(type: "OrganizationRole", id: fuel.id).name
+    other = OrganizationRole.create!(organization: org, role: Role.create!(key: "isotopes", name: "Isotopes"))
+    assert_equal "the fact “TerraPower has the role Isotopes”", Directory::Lookup.fact_state(type: "OrganizationRole", id: other.id).name
+    assert_equal "the fact “TerraPower works on SMR”", Directory::Lookup.fact_state(type: "OrganizationTechnology", id: smr.id).name
   end
 
   test "needs exactly one way to look up" do
