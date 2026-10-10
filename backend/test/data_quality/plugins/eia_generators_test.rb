@@ -136,6 +136,19 @@ class DataQuality::Plugins::EiaGeneratorsTest < ActiveSupport::TestCase
     end.string
   end
 
+  # A trimmed copy of EIA's real August 2026 workbook: its title and header
+  # rows, all 96 nuclear rows and 150 others, with their real cell markup and
+  # a shared-strings table cut to what they use.
+  test "EIA's real workbook (trimmed) gives all 96 nuclear generators" do
+    generators = Workbook.nuclear_generators(file_fixture("eia/real_trimmed.xlsx").binread)
+
+    assert_equal 96, generators.size
+    assert_equal 96, generators.count { |g| g["eia_plant_id"].present? && g["generator_id"].present? && g["state"].present? }
+    vogtle = generators.select { |g| g["plant_name"] == "Vogtle" }
+    assert_equal %w[1 2 3 4], vogtle.map { |g| g["generator_id"] }.sort
+    assert_equal [ "GA" ], vogtle.map { |g| g["state"] }.uniq
+  end
+
   test "a large workbook with shared strings reads every row, like EIA's real file" do
     generators = Workbook.nuclear_generators(shared_strings_workbook(rows: 3000))
 
