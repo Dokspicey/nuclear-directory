@@ -193,15 +193,10 @@ module Directory
       text[0, words[base.size - place - 1].last].strip
     end
 
-    # Words that start many place names ("North Anna", "Point Beach"); on its
-    # own, one of these isn't a plant's name, so "Acme North" keeps "North".
-    PLACE_PREFIXES = %w[north south east west new upper lower lake river point fort mount port saint grand great
-      little big old].to_set.freeze
-
     # Distinctive names of known plants ("seabrook", "point beach",
     # "palisades"), from the facility records, leaving out rejected ones: the
-    # full distinctive name, its first two words, and its first word alone
-    # when that is a name in itself (five letters or more, not a place word).
+    # full distinctive name and its first two words (a one-word plant like
+    # Palisades counts in full, but a longer name never gives a single word).
     # One query; read it once and pass it as plants: when checking many names.
     # owners: more company names to treat as owners, e.g. ones proposed in the
     # same match run, so the result doesn't depend on processing order.

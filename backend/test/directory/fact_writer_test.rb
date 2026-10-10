@@ -24,6 +24,9 @@ class Directory::FactWriterTest < ActiveSupport::TestCase
 
     refused = write(:organization, { id:, name: "Kairos Power" }, remove_aliases: [ "Kairos" ])
     assert_match "only for an organization, with a human's verification", refused.errors.join
+    by_agent = write(:organization, { id:, name: "Kairos Power" }, verification: { status: "verified", by: "agent:verifier" },
+      remove_aliases: [ "Kairos" ])
+    assert_match "only for an organization, with a human's verification", by_agent.errors.join
 
     assert write(:organization, { id:, name: "Kairos Power" }, verification: human,
       remove_aliases: [ "Kairos Power, Inc. of Old", "Kairos Power" ]).ok?

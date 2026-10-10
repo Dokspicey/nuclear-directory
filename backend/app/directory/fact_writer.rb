@@ -164,7 +164,8 @@ module Directory
       remove_aliases: [])
       kind = kind.to_sym
       spec = KINDS[kind] or return failure(kind, "unknown kind #{kind.inspect}")
-      if Array(remove_aliases).any? && (kind != :organization || verification.blank?)
+      human = verification.to_h.symbolize_keys[:by].to_s.start_with?("human:")
+      if Array(remove_aliases).any? && (kind != :organization || !human)
         return failure(kind, "remove_aliases: is only for an organization, with a human's verification")
       end
       attributes = attributes.to_h.symbolize_keys
