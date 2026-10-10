@@ -190,8 +190,19 @@ class DirectoryListing
       "SELECT #{aggregate} FROM facilities u WHERE u.parent_id = facilities.id AND u.verification_status = 'verified'"
     end
 
+    # When searching, names that start with the query come first, then names
+    # that contain it, then matches through a role, technology or deal; the
+    # chosen sort orders within each band.
     def ordered(scope, name_column)
+      scope = scope.order(relevance_sql(name_column)) if query
       sort == "connections" ? scope.order(Arel.sql("connections_count DESC"), name_column) : scope.order(name_column)
+    end
+
+    def relevance_sql(name_column)
+      Arel.sql(ActiveRecord::Base.sanitize_sql_array(
+        [ "CASE WHEN #{name_column} ILIKE ? THEN 0 WHEN #{name_column} ILIKE ? THEN 1 ELSE 2 END",
+          "#{ActiveRecord::Base.sanitize_sql_like(query)}%", like(query) ]
+      ))
     end
 
     def like(text) = "%#{ActiveRecord::Base.sanitize_sql_like(text.to_s)}%"

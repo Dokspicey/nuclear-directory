@@ -1,0 +1,24 @@
+<%# The search field with instant results, used on the home page (size: :large)
+    and in the site header (size: :compact). Locals:
+    size:  :large or :compact (default :compact)
+    query: fills the field (optional)
+    Without JavaScript it's a plain form: Enter goes to the directory's full results. %>
+<% size = local_assigns.fetch(:size, :compact) %>
+<% field_id = "search-#{size}" %>
+<div class="nd-searchbox nd-searchbox--<%= size %>" data-controller="instant-search" data-instant-search-url-value="<%= search_path %>"
+     data-action="click@window->instant-search#outside">
+  <form class="nd-search" action="<%= directory_url_for %>" method="get" role="search">
+    <%= icon("magnifying-glass", size: size == :large ? 24 : 20) %>
+    <label for="<%= field_id %>" class="sr-only">Search a company, plant or site</label>
+    <input id="<%= field_id %>" type="search" name="q" value="<%= local_assigns[:query] %>"
+           placeholder="Search a company, plant or site" autocomplete="off"
+           aria-controls="<%= field_id %>-results" aria-expanded="false" aria-describedby="<%= field_id %>-status"
+           data-instant-search-target="input"
+           data-action="input->instant-search#search keydown->instant-search#keydown focus->instant-search#search">
+  </form>
+  <div id="<%= field_id %>-results" class="nd-searchbox__results" data-instant-search-target="results"
+       data-action="keydown->instant-search#navigate turbo:frame-load->instant-search#loaded" hidden>
+    <turbo-frame id="instant-results" target="_top" data-instant-search-target="frame"></turbo-frame>
+  </div>
+  <p id="<%= field_id %>-status" class="sr-only" role="status" aria-live="polite" data-instant-search-target="status"></p>
+</div>

@@ -135,6 +135,13 @@ class DirectoryListingTest < ActiveSupport::TestCase
     assert_equal 2234, site.units_capacity_mw
   end
 
+  test "search puts name matches before matches through roles or deals" do
+    Relationship.find_by!(from_organization: @amazon).update!(description: "Backs Kairos with equity.")
+    company("Akairos Labs")
+
+    assert_equal [ "Kairos Power", "Akairos Labs", "Amazon" ], names(DirectoryListing.new(q: "kairos"))
+  end
+
   test "search within a category" do
     assert_empty names(DirectoryListing.new(category: "fuel", q: "kairos"))
   end

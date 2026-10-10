@@ -108,13 +108,6 @@ class DirectoryTest < ActionDispatch::IntegrationTest
     assert_select "header.nd-sitebar + main"
   end
 
-  test "the root shows the directory until the home page lands" do
-    get root_path
-
-    assert_response :success
-    assert_select "h1", /All companies/
-  end
-
   test "filters work without JavaScript" do
     get companies_path(category: "reactor-developers")
 

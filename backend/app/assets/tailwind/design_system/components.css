@@ -257,3 +257,35 @@
   .nd-select:focus-within { outline: var(--nd-focus-width) solid var(--nd-focus); outline-offset: 2px; }
   .nd-select select:focus-visible { outline: none; }
 }
+
+/* Home page and instant search (#41). */
+@layer components {
+  .nd-home { min-height: 100vh; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; gap: 28px; padding: clamp(80px, 18vh, 180px) clamp(16px, 4vw, 32px) 80px; }
+  .nd-home__wordmark { margin: 0; font: 400 clamp(40px, 7vw, 72px)/1 var(--font-display); letter-spacing: .01em; text-transform: uppercase; text-align: center; }
+  .nd-home__search { width: 100%; max-width: 720px; display: flex; flex-direction: column; gap: var(--nd-space-4); }
+  .nd-home__cats { width: 100%; max-width: 880px; margin-top: var(--nd-space-6); }
+
+  .nd-searchbox { position: relative; width: 100%; }
+  .nd-sitebar .nd-searchbox { flex: 1 1 320px; max-width: 560px; }
+  .nd-searchbox--large .nd-search { max-width: none; height: 64px; padding: 0 20px; gap: 14px; background: var(--nd-paper-raised); border-color: var(--nd-ink); }
+  .nd-searchbox--large .nd-search input { font-size: 19px; }
+  .nd-searchbox__results { position: absolute; top: 100%; left: 0; right: 0; z-index: 20; background: var(--nd-paper-raised); border: var(--nd-hairline) solid var(--nd-ink); border-top: 0; max-height: min(70vh, 520px); overflow-y: auto; }
+
+  .nd-instant__group { padding: var(--nd-space-3) var(--nd-space-4) var(--nd-space-1); }
+  .nd-instant__list { list-style: none; margin: 0; padding: 0 0 var(--nd-space-2); }
+  .nd-instant__row { display: flex; align-items: center; gap: var(--nd-space-3); padding: var(--nd-space-2) var(--nd-space-4); color: var(--nd-ink); text-decoration: none; }
+  .nd-instant__row:hover, .nd-instant__row:focus-visible { background: var(--nd-paper-sunken); }
+  .nd-instant__row .nd-mono, .nd-instant__row .nd-ring { width: 32px; height: 32px; font-size: 11px; }
+  .nd-instant__text { display: flex; flex-direction: column; min-width: 0; }
+  .nd-instant__text b { font-weight: 600; font-size: 15px; line-height: 20px; }
+  .nd-instant__text span { font-size: 13px; line-height: 18px; color: var(--nd-ink-muted); }
+  .nd-instant__all { display: flex; align-items: center; justify-content: space-between; gap: var(--nd-space-2); padding: var(--nd-space-3) var(--nd-space-4); border-top: var(--nd-hairline) solid var(--nd-rule); font-size: 14px; color: var(--nd-ink-muted); text-decoration: none; }
+  .nd-instant__all:hover, .nd-instant__all:focus-visible { background: var(--nd-paper-sunken); color: var(--nd-ink); }
+  .nd-instant__all kbd { font: 400 11px/16px var(--font-mono); border: var(--nd-hairline) solid var(--nd-rule); border-radius: var(--nd-radius-sm); padding: 2px 6px; }
+  .nd-instant__empty { margin: 0; padding: var(--nd-space-4); font-size: 15px; }
+
+  .nd-suggs { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--nd-space-2); }
+  .nd-sugg { display: inline-flex; align-items: center; gap: 6px; padding: 6px var(--nd-space-3); border: var(--nd-hairline) solid var(--nd-rule); border-radius: 999px; color: var(--nd-ink); font: 400 14px/20px var(--font-text); text-decoration: none; }
+  .nd-sugg:hover { border-color: var(--nd-ink); }
+  .nd-sugg .nd-ic { color: var(--nd-ink-muted); }
+}
