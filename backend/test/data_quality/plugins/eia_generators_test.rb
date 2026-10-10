@@ -358,6 +358,57 @@ class DataQuality::Plugins::EiaGeneratorsTest < ActiveSupport::TestCase
     assert Organization.find(company).pending?, "the same company, spelled without the period"
   end
 
+  test "a proposed company stays when the newer file names it by another name of its brand" do
+    july = Source.create!(url: "https://www.eia.gov/electricity/data/eia860m/xls/july_generator2026.xlsx",
+      source_kind: "eia_generators", crawl_status: "ok")
+    operator_name = Workbook.nuclear_generators(file_fixture("eia/generators_sample.xlsx").binread).find { |g| g["eia_plant_id"] == "6001" }["entity_name"]
+    company = Directory::FactWriter.write(:organization, { name: "#{operator_name} Holdings" }).id
+    Candidate.create!(source: july, kind: "organization", quote: "old", status: "matched", proposed_subject: true,
+      payload: { "name" => "#{operator_name} Holdings" }, subject_type: "Organization", subject_id: company)
+
+    crawl!
+
+    assert Organization.find(company).pending?, "#{operator_name} is the same brand"
+  end
+
+  test "only each plant's first generator row counts as current, as extraction proposes from it" do
+    july = Source.create!(url: "https://www.eia.gov/electricity/data/eia860m/xls/july_generator2026.xlsx",
+      source_kind: "eia_generators", crawl_status: "ok")
+    farley = Facility.create!(name: "Joseph M Farley", eia_plant_id: "6001")
+    old_operator = Organization.create!(name: "Old Operator Co")
+    link = FacilityRelationship.create!(organization: old_operator, facility: farley, relationship_type: "operates")
+    candidate = Candidate.create!(source: july, kind: "facility_relationship", quote: "old", status: "rejected",
+      proposed_subject: true, subject_type: "FacilityRelationship", subject_id: link.id,
+      payload: { "organization" => { "name" => "Old Operator Co" }, "facility" => { "eia_plant_id" => "6001" } })
+    newer = Source.new(content_text: "eia_plant_id,entity_name\n6001,New Operator Co\n6001,Old Operator Co\n")
+
+    plugin.send(:retire_orphans, [ candidate ], newer, CrawlRun.create!(stage: "crawl", source_kind: "eia_generators"))
+
+    assert link.reload.rejected?, "a later row naming the old operator doesn't keep its link"
+  end
+
+  test "withdrawal and retirement are one transaction, so a stopped run retries both" do
+    july = Source.create!(url: "https://www.eia.gov/electricity/data/eia860m/xls/july_generator2026.xlsx",
+      source_kind: "eia_generators", crawl_status: "ok")
+    proposed = Facility.create!(name: "Gone Plant", eia_plant_id: "99999")
+    withdrawn = Candidate.create!(source: july, kind: "facility", quote: "old", status: "matched", proposed_subject: true,
+      payload: { "name" => "Gone Plant", "eia_plant_id" => "99999" }, subject_type: "Facility", subject_id: proposed.id)
+    crawl!
+    withdrawn.update_columns(status: "matched")
+    proposed.update_columns(verification_status: "pending")
+    stopping = DataQuality::DirectoryClient.new
+    def stopping.retire(*, **) = raise("stopped")
+
+    DataQuality::DirectoryClient.define_singleton_method(:new) { |*, **| stopping }
+    begin
+      assert_raises(RuntimeError) { plugin.send(:supersede_older_files, source, CrawlRun.create!(stage: "crawl", source_kind: "eia_generators")) }
+    ensure
+      DataQuality::DirectoryClient.singleton_class.remove_method(:new)
+    end
+
+    assert withdrawn.reload.status_matched?, "rolled back, so the next run withdraws it again"
+  end
+
   test "an operates link is retired when its plant stays but its operator changes" do
     july = Source.create!(url: "https://www.eia.gov/electricity/data/eia860m/xls/july_generator2026.xlsx",
       source_kind: "eia_generators", crawl_status: "ok")

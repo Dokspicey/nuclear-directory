@@ -120,14 +120,18 @@ class DataQuality::Plugins::EiaGenerators < DataQuality::Plugin
       older = Source.where(source_kind:).where.not(id: source.id).select { |other| (file_month(other.url) <=> current) == -1 }
       return 0 if older.empty?
 
-      waiting = Candidate.where(source_id: older.map(&:id))
-      waiting.where(status: "needs_review").where.not("notes LIKE ?", "%A newer EIA file exists%")
-        .update_all([ "notes = COALESCE(notes || '. ', '') || ?, updated_at = ?", "A newer EIA file exists: #{source.title}", Time.current ])
-      withdrawn = waiting.where(status: %w[new matched]).to_a
-      Candidate.where(id: withdrawn.map(&:id))
-        .update_all(status: "rejected", notes: "Superseded by the newer #{source.title}", updated_at: Time.current)
-      retire_orphans(withdrawn.select(&:subject_id), source, run)
-      withdrawn.size
+      # One transaction: a run stopped part-way leaves the candidates
+      # unwithdrawn, so the next run retries their retirements too.
+      Candidate.transaction do
+        waiting = Candidate.where(source_id: older.map(&:id))
+        waiting.where(status: "needs_review").where.not("notes LIKE ?", "%A newer EIA file exists%")
+          .update_all([ "notes = COALESCE(notes || '. ', '') || ?, updated_at = ?", "A newer EIA file exists: #{source.title}", Time.current ])
+        withdrawn = waiting.where(status: %w[new matched]).to_a
+        Candidate.where(id: withdrawn.map(&:id))
+          .update_all(status: "rejected", notes: "Superseded by the newer #{source.title}", updated_at: Time.current)
+        retire_orphans(withdrawn.select(&:subject_id), source, run)
+        withdrawn.size
+      end
     end
 
     # A proposed record a withdrawn candidate pointed at is retired
@@ -139,13 +143,15 @@ class DataQuality::Plugins::EiaGenerators < DataQuality::Plugin
     # match. The proposing candidate may be from any earlier month: after one
     # supersession, a later month's candidate attaches without proposing.
     def retire_orphans(candidates, source, run)
-      rows = CSV.parse(source.content_text.to_s, headers: true)
+      # Each plant's first generator row, as extraction proposes from.
+      rows = CSV.parse(source.content_text.to_s, headers: true).group_by { |row| row["eia_plant_id"] }.values.map(&:first)
       directory = DataQuality::DirectoryClient.new
       operator = operator_key(directory)
+      operated = rows.select { |row| row["entity_name"].present? }
       listed = {
         plants: rows.map { |row| row["eia_plant_id"] }.to_set,
-        operators: rows.filter_map { |row| operator[row["entity_name"]] if row["entity_name"].present? }.to_set,
-        links: rows.map { |row| [ row["eia_plant_id"], operator[row["entity_name"]] ] }.to_set
+        operators: operated.map { |row| operator[row["entity_name"]] }.to_set,
+        links: operated.map { |row| [ row["eia_plant_id"], operator[row["entity_name"]] ] }.to_set
       }
       candidates.uniq { |c| [ c.subject_type, c.subject_id ] }.each do |candidate|
         next if still_listed?(candidate, listed, operator)
@@ -172,10 +178,12 @@ class DataQuality::Plugins::EiaGenerators < DataQuality::Plugin
 
     # An operator as matching sees it: the company its name finds in the
     # directory (by any alias, normalized, so "Acme Co" and "Acme Co." are
-    # one), else the name as written. Cached for the run.
+    # one), or the one company of its brand ("Duke Energy Carolinas, LLC" is
+    # Duke Energy), else the name as written. Cached for the run.
     def operator_key(directory)
       Hash.new do |keys, name|
-        keys[name] = directory.organization(name:)&.id || name.to_s.strip.downcase
+        brand = directory.same_brand_organizations(name.to_s)
+        keys[name] = directory.organization(name:)&.id || (brand.first.id if brand.one?) || name.to_s.strip.downcase
       end
     end
 
