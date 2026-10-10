@@ -219,10 +219,63 @@ class DataQuality::ReviewTest < ActiveSupport::TestCase
     assert_match "already rejected", Review.reject([ c.id ], by: BY).sole.errors.join
   end
 
-  test "only a human decides" do
+  test "only a human decides, and says who" do
     assert_raises(ArgumentError) { Review.approve([], by: "agent:verifier/x") }
     assert_raises(ArgumentError) { Review.reject([], by: "") }
     assert_raises(ArgumentError) { Review.unpublish(type: "Organization", id: 1, by: "agent:x") }
+    assert_raises(ArgumentError) { Review.approve([], by: "human:") }
+    assert_raises(ArgumentError) { Review.approve([], by: "human:  ") }
+  end
+
+  test "a recommendation whose source changed isn't approved until verify checks it again" do
+    @source.update!(content_text: "Imaginary Fission Co", content_sha256: "old")
+    c = candidate("organization", { "name" => "Imaginary Fission Co" }, quote: "Imaginary Fission Co")
+    run_stage("match")
+    run_stage("verify", verifier: Recommend.new)
+    @source.update!(content_sha256: "new")
+
+    result = Review.approve([ c.id ], by: BY).sole
+
+    assert_match "its source changed after the verifier checked it", result.errors.join
+    assert c.reload.status_matched?
+  end
+
+  test "an unknown claim id comes back as an error, not an exception" do
+    result = Review.edit_and_approve(0, attributes: { "state" => "NJ" }, by: BY)
+    assert_match "no longer exists; refresh the queue", result.errors.join
+  end
+
+  test "a rejection whose proposal can't be retired is undone, so it can be retried" do
+    c = candidate("organization", { "name" => "Imaginary Fission Co" })
+    run_stage("match")
+    failing = Class.new(DataQuality::DirectoryClient) do
+      def decide_fact(*, **) = DataQuality::DirectoryClient::WriteResult.new(ref: nil, errors: [ "database busy" ])
+    end.new
+
+    result = Review.reject([ c.id ], by: BY, directory: failing).sole
+
+    assert_equal [ "database busy" ], result.errors
+    assert c.reload.status_matched?, "still open"
+    assert Review.reject([ c.id ], by: BY).sole.ok?, "a retry works"
+  end
+
+  test "bulk approval is one transaction: an unexpected error publishes none of the batch" do
+    a = candidate("organization", { "name" => "Alpha Fission Co" })
+    b = candidate("organization", { "name" => "Beta Fission Co" })
+    run_stage("match")
+    run_stage("verify", verifier: Recommend.new)
+    second_fails = Class.new(DataQuality::DirectoryClient) do
+      def write_fact(candidate, **)
+        raise "connection lost" if candidate.payload["name"].start_with?("Beta")
+
+        super
+      end
+    end.new
+
+    assert_raises(RuntimeError) { Review.approve([ a.id, b.id ], by: BY, directory: second_fails) }
+
+    assert [ a, b ].all? { |x| x.reload.status_matched? }
+    assert Organization.find(a.subject_id).pending?, "a wasn't published either"
   end
 
   # ---- directory facts

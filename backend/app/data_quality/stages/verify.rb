@@ -65,6 +65,9 @@ class DataQuality::Stages::Verify < DataQuality::Stage
         return send_to_review(candidate, reason, run, stats, model: nil)
       end
       return stats["already_recommended"] += 1 if recommended?(candidate)
+      # Recommended when the run began, but its source changed during the run,
+      # so no model was asked: the next run asks.
+      return stats["source_changed"] = stats.fetch("source_changed", 0) + 1 unless verdict
 
       # A verdict a code check produced (e.g. nothing stored) names no model.
       model = verdict.by_code ? nil : run.model
