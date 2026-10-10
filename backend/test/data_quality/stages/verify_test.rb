@@ -94,6 +94,21 @@ class DataQuality::Stages::VerifyTest < ActiveSupport::TestCase
     assert_match(/TerraPower was unpublished by human:tosin on \d{4}-\d{2}-\d{2} after this was matched/, c.notes)
   end
 
+  test "a link unpublished after match sends its candidate to review too" do
+    link = FacilityRelationship.create!(organization: organizations(:terrapower), facility: facilities(:vogtle),
+      relationship_type: "owns")
+    c = candidate("facility_relationship", { "organization" => { "name" => "TerraPower" },
+      "facility" => { "name" => facilities(:vogtle).name }, "relationship_type" => "owns" })
+    run_stage("match")
+    link.verify!(by: "human:tosin")
+    link.unpublish!(by: "human:tosin")
+
+    run_stage("verify", verifier: RejectEverything.new)
+
+    assert c.reload.status_needs_review?, "not rejected by the verifier"
+    assert_match "TerraPower owns #{facilities(:vogtle).name} was unpublished by human:tosin", c.notes
+  end
+
   test "approving a match keeps the company's own name, adding the candidate's as an alias" do
     c = candidate("organization", { "name" => "TP Nuclear Holdings", "domain" => "terrapower.com" })
     run_stage("match")

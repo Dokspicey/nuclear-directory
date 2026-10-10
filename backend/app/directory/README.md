@@ -32,8 +32,9 @@ Directory::Lookup.facility(nrc_docket: "05000424")
 Directory::Lookup.facility(name: "Plant Vogtle Units 3 & 4")  # case-insensitive
 ```
 
-- `OrganizationRef`: `id, slug, name, domain, verification_status`
-- `FacilityRef`: `id, slug, name, nrc_docket, parent_id, verification_status`
+- `OrganizationRef`: `id, slug, name, domain, verification_status, verified_by, verified_at`
+- `FacilityRef`: `id, slug, name, nrc_docket, parent_id, verification_status, verified_by, verified_at, facility_type, status, state, country_code, latitude, longitude`
+- `Directory::Lookup.fact_state(type:, id:)`: any fact's current decision, as `FactStateRef(type, id, name, verification_status, verified_by, verified_at)` (a link's name is a short label)
 
 Every verification status is returned, so check `verification_status` before
 treating a match as public.

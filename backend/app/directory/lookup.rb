@@ -42,6 +42,15 @@ module Directory
 
     FACT_TYPES = %w[Organization OrganizationRole OrganizationTechnology Facility Relationship FacilityRelationship].freeze
 
+    # Any fact's current decision (Directory::FactStateRef), or nil.
+    def fact_state(type:, id:)
+      raise ArgumentError, "not a fact type: #{type.inspect}" unless FACT_TYPES.include?(type.to_s)
+
+      record = type.to_s.constantize.find_by(id:) or return
+      FactStateRef.new(type: type.to_s, id: record.id, name: fact_label(record),
+        verification_status: record.verification_status, verified_by: record.verified_by, verified_at: record.verified_at)
+    end
+
     # Pass exactly one of id, slug, name or nrc_docket.
     # name is matched case-insensitively; names aren't unique, so the oldest
     # match wins.
@@ -100,6 +109,16 @@ module Directory
     end
 
     private
+      def fact_label(record)
+        case record
+        when Organization, Facility then record.name
+        when OrganizationRole then "#{record.organization.name} as #{record.role.key}"
+        when OrganizationTechnology then "#{record.organization.name} in #{record.technology.key}"
+        when Relationship then "#{record.from_organization.name} #{record.relationship_type} #{record.to_organization.name}"
+        when FacilityRelationship then "#{record.organization.name} #{record.relationship_type} #{record.facility.name}"
+        end
+      end
+
       # The same leading distinctive word, which is usually the plant's or
       # company's own name ("Vogtle", "Susquehanna", "Southern"). Later words
       # tend to be places ("Hope Creek" vs "Lost Creek") and don't count. The

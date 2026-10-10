@@ -71,6 +71,34 @@ module Directory
     EVIDENCE_ATTRIBUTES = %i[source_id quote found_by confidence crawl_run_id].freeze
 
     def self.write(...) = new.write(...)
+    def self.fill_site_from_unit(...) = new.fill_site_from_unit(...)
+
+    # Fills a site's blank fields (from fields:) with its unit's stored
+    # values, with evidence, in one transaction that locks the unit and then
+    # the site. Only a verified unit speaks for its site, and only for fields
+    # still blank once both are locked, so a decision or a fill made
+    # meanwhile is seen. A protected write: a rejected site isn't changed (an
+    # error is returned), and when a human reviewed the site, a unit value
+    # that disagrees with one the site has is reported as a conflict and
+    # nothing is written. nil when there's nothing to fill.
+    def fill_site_from_unit(unit_id, fields:, evidence:)
+      ActiveRecord::Base.transaction(requires_new: true) do
+        unit = Facility.lock.find_by(id: unit_id)
+        next unless unit&.parent_id && unit.verified?
+
+        site = Facility.lock.find(unit.parent_id)
+        stated = fields.to_h { |name| [ name.to_sym, unit.public_send(name) ] }.compact_blank
+        if site.human_reviewed? && !site.closed? && (conflicts = conflicts_with(site, stated)).any?
+          raise Conflict.new(site.id, conflicts)
+        end
+        values = stated.select { |name, _| site.public_send(name).blank? }
+        next if values.empty?
+
+        write(:facility, values.merge(id: site.id), fill_blank: true, protect_human_verified: true, evidence:)
+      end
+    rescue Conflict => e
+      Result.new(kind: :facility, id: e.id, created: false, errors: [ e.message ], conflicts: e.conflicts)
+    end
 
     # Many writes in one transaction (e.g. a bulk approve), each in its own
     # savepoint so one failure doesn't undo the others. writes: an array of
@@ -87,6 +115,8 @@ module Directory
           write = write.to_h.symbolize_keys
           unknown = write.keys - WRITE_KEYS
           next new.send(:failure, write[:kind], "unknown write keys: #{unknown.join(", ")}") if unknown.any?
+          missing = %i[kind attributes].reject { |key| write.key?(key) }
+          next new.send(:failure, write[:kind], "missing write keys: #{missing.join(", ")}") if missing.any?
 
           new.write(write.fetch(:kind), write.fetch(:attributes), **write.except(:kind, :attributes))
         end
@@ -123,8 +153,11 @@ module Directory
         # Locked, so a human's decision made while this write runs is seen, and
         # two decisions at once are recorded in the order they happen.
         record.lock! if (protect_human_verified || verification) && !created
-        # A rejected or unpublished fact only changes by a human's hand.
-        if protect_human_verified && !created && record.closed?
+        # A rejected or unpublished fact only changes by a human's hand:
+        # protected writes never change it, and an unprotected one needs a
+        # human's decision.
+        human_decision = verification.to_h.symbolize_keys[:by].to_s.start_with?("human:")
+        if !created && record.closed? && (protect_human_verified || (verification && !human_decision))
           raise Invalid, "#{record.model_name.human} was #{record.verification_status} by #{record.verified_by || 'review'}" \
             "#{" on #{record.verified_at.to_date}" if record.verified_at}; not changed"
         end
