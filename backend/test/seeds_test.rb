@@ -21,10 +21,10 @@ class SeedsTest < ActiveSupport::TestCase
   test "loads the hand-checked organizations as verified facts with evidence" do
     load_seeds
 
-    assert_equal 45, Organization.verified.count
-    assert_equal 60, OrganizationRole.verified.count
+    assert_equal 44, Organization.verified.count
+    assert_equal 58, OrganizationRole.verified.count
     assert_equal 27, OrganizationTechnology.verified.count
-    assert_equal 53, Relationship.verified.count
+    assert_equal 52, Relationship.verified.count
     assert_equal 28, Facility.verified.count
     assert_equal 45, FacilityRelationship.verified.count
     assert_equal [ "human:tosin" ], Relationship.distinct.pluck(:verified_by)
@@ -51,6 +51,16 @@ class SeedsTest < ActiveSupport::TestCase
     assert Relationship.exists?(from_organization_id: converdyn.id, to_organization_id: solstice.id,
       relationship_type: "subsidiary_of")
     assert_includes Organization.find(converdyn.id).roles.pluck(:key), "conversion"
+  end
+
+  test "Urenco USA is part of Urenco (one company per brand)" do
+    load_seeds
+
+    urenco = Directory::Lookup.organization(name: "Urenco USA")
+    assert_equal "Urenco", urenco.name
+    eunice = Facility.find_by!(name: "Urenco USA enrichment facility (Eunice, NM)")
+    assert_equal [ "Urenco" ], eunice.organizations.pluck(:name)
+    assert_not Relationship.subsidiary_of.exists?(from_organization_id: urenco.id)
   end
 
   test "CFS and Dominion share one ARC facility" do
