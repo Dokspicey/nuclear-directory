@@ -78,6 +78,7 @@ class PlantProfile
     [ ("Type" unless facility_type),
       ("Status" unless status),
       ("Location" if city.blank? && state.blank?),
+      ("NRC docket" if nrc_docket.blank? && units.none? { |unit| unit.nrc_docket.present? }),
       ("Owner" if companies_for("owns").empty?),
       ("Operator" if facility_type == "power_reactor" && companies_for("operates").empty?) ].compact
   end
@@ -87,9 +88,16 @@ class PlantProfile
 
   private
     def number_sources
-      cite(site) if site_facts?
+      cite(site) if site_fields_shown?
       links.each { |link| cite(link) }
       units.each { |unit| cite(unit) }
+    end
+
+    # The site is cited only when the page shows one of its own fields, so
+    # the source list never starts with a source nothing points to.
+    def site_fields_shown?
+      site_facts? && [ site.facility_type, site.status, site.city, site.state, site.nrc_docket,
+                       site.technology_id, site.reactor_type, site.capacity_mw ].any?(&:present?)
     end
 
     def cite(fact)
