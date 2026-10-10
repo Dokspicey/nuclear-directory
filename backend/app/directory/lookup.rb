@@ -193,6 +193,16 @@ module Directory
       text[0, words[base.size - place - 1].last].strip
     end
 
+    # Ordinary words that start plant names ("Advanced Test Reactor", "White
+    # Mesa Mill", "North Anna"): on its own, one of these isn't a plant's
+    # name, so "Acme Advanced" and "Acme North" keep them. A distinctive first
+    # word ("Palisades" of "Palisades Pioneer Units 1 & 2") is.
+    ORDINARY_WORDS = %w[
+      advanced white black green red blue gold silver crystal golden
+      north south east west new upper lower lake river point fort mount port saint grand great little big old
+      experimental research demonstration training test university central
+    ].to_set.freeze
+
     # Distinctive names of known plants ("seabrook", "point beach",
     # "palisades"), from the facility records, leaving out rejected ones: the
     # full distinctive name and its first two words (a one-word plant like
@@ -209,16 +219,17 @@ module Directory
           words = without_article(name.split)
           [ words.first, words.first(2).join(" ") ]
         end.to_set
-      # The full distinctive name, and its first two words ("point beach" from
-      # "Point Beach Nuclear Plant"). A single word on its own is never taken as
-      # a plant name: too many ordinary words start plant names ("advanced",
-      # "white").
+      # The full distinctive name, its first two words ("point beach" from
+      # "Point Beach Nuclear Plant"), and its first word alone when that is a
+      # name in itself: five letters or more and not an ORDINARY_WORDS word.
       Facility.where.not(verification_status: "rejected").pluck(:name).flat_map do |name|
         words = distinctive_words(name).reject { |word| word.length < 3 }
         full = words.join(" ")
         two = words.first(2).join(" ") if words.size >= 2
+        one = words.first if words.size >= 2 && words.first.length >= 5 && !ORDINARY_WORDS.include?(words.first)
         # A one-word name ("Palisades") is always the plant's own.
-        [ (full unless words.size >= 2 && owner_forms.include?(full)), (two unless owner_forms.include?(two)) ]
+        [ (full unless words.size >= 2 && owner_forms.include?(full)),
+          (two unless owner_forms.include?(two)), (one unless owner_forms.include?(one)) ]
       end.compact_blank.to_set
     end
 
