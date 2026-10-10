@@ -160,6 +160,15 @@ class PlantPageTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  test "a link that hasn't started yet says when it starts" do
+    FacilityRelationship.find_by!(organization: @southern).update!(started_on: 1.year.from_now.to_date)
+    get plant_path(slug: "plant-vogtle")
+
+    assert_select ".nd-factrow", text: /Southern Nuclear\s+operates/ do
+      assert_select ".nd-factrow__detail", /\AStarts /
+    end
+  end
+
   test "link preview tags" do
     get plant_path(slug: "plant-vogtle")
 

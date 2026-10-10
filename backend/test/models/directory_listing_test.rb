@@ -170,6 +170,13 @@ class DirectoryListingTest < ActiveSupport::TestCase
     assert_includes search.state_options, "CA"
   end
 
+  test "a link on a pending site itself doesn't make the site searchable" do
+    site = plant("Quiet Site", verified: false).tap { |s| plant("Quiet Unit", parent: s) }
+    FacilityRelationship.create!(organization: @kairos, facility: site, relationship_type: "owns", verification_status: "verified", description: "Zebra deal.")
+
+    assert_empty DirectoryListing.new(q: "zebra").plants
+  end
+
   test "a parent technology filter includes its sub-technologies" do
     assert_equal [ "Kairos Power" ], names(DirectoryListing.new(technology: "fission"))
   end
