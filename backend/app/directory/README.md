@@ -32,8 +32,9 @@ Directory::Lookup.facility(nrc_docket: "05000424")
 Directory::Lookup.facility(name: "Plant Vogtle")  # case-insensitive
 ```
 
-- `OrganizationRef`: `id, slug, name, domain, verification_status`
-- `FacilityRef`: `id, slug, name, nrc_docket, parent_id, verification_status`
+- `OrganizationRef`: `id, slug, name, domain, verification_status, verified_by, verified_at`
+- `FacilityRef`: `id, slug, name, nrc_docket, parent_id, verification_status, verified_by, verified_at, facility_type, status, state, country_code, latitude, longitude`
+- `Directory::Lookup.fact_state(type:, id:)`: any fact's current decision, as `FactStateRef(type, id, name, verification_status, verified_by, verified_at)` (a link's name is a short label)
 
 Every verification status is returned, so check `verification_status` before
 treating a match as public.
@@ -100,10 +101,64 @@ and quote, so writing the same item again updates it and never duplicates it.
 
 ### Verification
 
-`verification: { status: "verified", by: "human:tosin" }`. Status is
-`pending`, `verified` or `rejected`. `by` names who decided: `human:<name>` or
-`agent:verifier/<model>`. Re-applying the same decision keeps the original
-`verified_at`. Only verified facts are public.
+`verification: { status: "verified", by: "human:tosin", reason: "…", context: { … } }`.
+Status is `pending`, `verified`, `rejected` or `unpublished`. `by` (required)
+names who decided: `human:<name>` or `agent:verifier/<model>`. `reason` and `context`
+(e.g. `{ "candidate_id" => 12, "crawl_run_id" => 4 }`) are optional and go
+into the audit trail. Re-applying the same decision keeps the original
+`verified_at` and records nothing new, unless it's a human's and the same
+write changes values (an edit) or names a `context` (e.g. approving another
+candidate for the fact): then it's recorded, so the history shows it. What's
+public is what the
+`.published` scopes return (below).
+
+- **Unpublished** is a human taking a fact off the site (who and when are in
+  `verified_by` / `verified_at`). Like `rejected`, it's a closed decision:
+  automated writers (`protect_human_verified: true`) can't change the fact at
+  all, and match sends a candidate citing it to review ("…which was
+  unpublished by human:tosin on 2026-10-10"). A human republishes by writing
+  `status: "verified"` again.
+- **Only a human** (`by: "human:…"`) can unpublish, or change a fact that's
+  rejected or unpublished. Any other write fails with an error. The pipeline
+  may still reject, to retire its own proposals.
+- **Human actions** (approve, unpublish, republish) are written *without*
+  `protect_human_verified`: the human is the authority.
+
+### What's public
+
+Public pages read `<Model>.published`, not `.verified`: a fact is published
+when it's verified **and** what it hangs on is published. Unpublishing a
+company hides its roles, technologies, relationships and plant links;
+unpublishing a site hides its units and their links. Nothing is deleted, and
+each fact keeps its own decision, so republishing brings them all back.
+
+One exception for sites (#73): a **pending** site is published once it has a
+published unit (a verified unit under a site that isn't rejected or
+unpublished), so a site made from NRC units goes public with its first
+verified unit. A rejected or unpublished site never shows, whatever its units.
+
+### Bulk writes
+
+`Directory::FactWriter.write_many([{ kind:, attributes:, evidence:, verification:, protect_human_verified: }, …])`
+runs a batch (e.g. a bulk approve) in one transaction, each write in its own
+savepoint, so one failure doesn't undo the rest. It returns one Result per
+write, in order. Each write is audited as usual.
+
+### Audit trail
+
+Every change of a fact's verification is recorded in `verification_events`
+(who, when, from → to, reason, context, and the attribute values the same
+write changed, before → after), append-only: events can't be edited or
+deleted, and they outlive their fact. A human editing values without changing
+the decision is recorded too. Decisions on one fact are made one at a time
+(the row is locked), so the history is in the order they happened. Read it
+with:
+
+```ruby
+Directory::Lookup.verification_history(type: "Organization", id: 12)
+# => [VerificationEventRef(from_status:, to_status:, by:, reason:, context:, changed_values:, at:), …] newest first
+# changed_values: { "hq_state" => ["DE", "WA"] }
+```
 
 ### Confidence
 

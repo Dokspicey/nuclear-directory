@@ -1,0 +1,112 @@
+# Render Blueprint: production hosting (issue #52). See "Deploying to Render"
+# in README.md. Spec: https://render.com/docs/blueprint-spec
+#
+# One web service (Rails + Solid Queue inside Puma) and one Postgres database,
+# both in Oregon. Secrets are `sync: false`: Render asks for them once, when
+# the Blueprint is first created, and they then live only in the dashboard.
+# Never put a secret value in this file.
+
+services:
+  - type: web
+    name: nuclear-directory
+    runtime: docker
+    # 0.5 CPU / 512 MB, Render's "Starter" instance type.
+    plan: 0.5c-512mb
+    region: oregon
+    branch: main
+    # Paths are relative to the repo root.
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    # Runs in the new image before it takes traffic; a failure stops the
+    # deploy and the previous version keeps serving.
+    preDeployCommand: bin/rails db:migrate
+    healthCheckPath: /up
+    # Deploy a commit on main only after its GitHub checks (CI) pass.
+    autoDeployTrigger: checksPass
+    # Only app changes trigger a build; README-only merges don't redeploy.
+    # (render.yaml changes are picked up by the Blueprint sync.)
+    buildFilter:
+      paths:
+        - backend/**
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: nuclear-directory-db
+          property: connectionString
+      - key: RAILS_ENV
+        value: production
+      # Run the Solid Queue supervisor inside Puma (no separate worker).
+      - key: SOLID_QUEUE_IN_PUMA
+        value: "true"
+      # Non-secret settings, kept here so changes are reviewed in a PR.
+      # Same values as .env.example; they must stay two different models.
+      - key: OPENROUTER_EXTRACT_MODEL
+        value: openai/gpt-6-luna
+      - key: OPENROUTER_VERIFY_MODEL
+        value: anthropic/claude-haiku-5.5
+      # Model spend cap per calendar month, in US dollars.
+      - key: DATA_QUALITY_MONTHLY_BUDGET
+        value: "5"
+      # Secrets, pasted in the dashboard. POSTHOG_HOST may be left blank
+      # (lib/analytics.rb has a default).
+      - key: RAILS_MASTER_KEY
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: POSTHOG_API_KEY
+        sync: false
+      - key: POSTHOG_HOST
+        sync: false
+      # Error reporting; leave blank to turn it off. See
+      # config/initializers/sentry.rb.
+      - key: SENTRY_DSN
+        sync: false
+
+  # Weekly encrypted off-site backup (#54); see "Backups" in README.md.
+  # Runs inside Render's private network, so the database stays closed to
+  # the internet.
+  - type: cron
+    name: nuclear-directory-backup
+    runtime: docker
+    # Billed per second of run time (a minute or so a week), $1/month minimum.
+    plan: 0.5c-512mb
+    region: oregon
+    branch: main
+    dockerfilePath: ./backup/Dockerfile
+    dockerContext: ./backup
+    autoDeployTrigger: checksPass
+    buildFilter:
+      paths:
+        - backup/**
+    # Sundays 10:00 UTC (2–3 a.m. in California).
+    schedule: "0 10 * * 0"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: nuclear-directory-db
+          property: connectionString
+      # age public key. Only its private half, kept in Tosin's password
+      # manager, can decrypt the backups.
+      - key: BACKUP_AGE_RECIPIENT
+        value: age1lht4cs0audrr4m2fq3ktp2m9yx9qvutffmrq6y898p4an37f4enssk6ctd
+      - key: BACKUP_REPO
+        value: tosinoladokun/nuclear-directory-backups
+      - key: BACKUP_KEEP
+        value: "12"
+      # Fine-grained token for the backups repo only (Contents read/write).
+      - key: BACKUP_GITHUB_TOKEN
+        sync: false
+
+databases:
+  - name: nuclear-directory-db
+    # 0.1 CPU / 256 MB, Render's "Basic-256mb". Move to 0.5c-1g if needed.
+    plan: 0.1c-256mb
+    region: oregon
+    postgresMajorVersion: "16"
+    databaseName: nuclear_directory_production
+    user: nuclear_directory
+    # Storage is billed per GB; it can grow later but never shrink.
+    diskSizeGB: 1
+    # No connections from the public internet; the web service reaches the
+    # database over Render's private network.
+    ipAllowList: []

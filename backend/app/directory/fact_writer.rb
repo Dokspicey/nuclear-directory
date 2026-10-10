@@ -71,6 +71,23 @@ module Directory
     EVIDENCE_ATTRIBUTES = %i[source_id quote found_by confidence crawl_run_id].freeze
 
     def self.write(...) = new.write(...)
+
+    # Runs the block while holding a lock on the fact, unless a human has
+    # closed it (rejected or unpublished): then the block doesn't run and the
+    # fact's Directory::FactStateRef is returned. nil otherwise. For callers
+    # that act on a fact staying open, e.g. rejecting a candidate attached to
+    # it, so a human's decision made meanwhile is never missed.
+    def self.while_open(type:, id:)
+      raise ArgumentError, "not a fact type: #{type.inspect}" unless Lookup::FACT_TYPES.include?(type.to_s)
+
+      ActiveRecord::Base.transaction(requires_new: true) do
+        record = type.to_s.constantize.lock.find_by(id:)
+        next Lookup.fact_state(type:, id:) if record&.closed?
+
+        yield
+        nil
+      end
+    end
     def self.fill_site_from_unit(...) = new.fill_site_from_unit(...)
 
     # Fills a site's blank fields (from fields:) with its unit's stored
@@ -88,7 +105,7 @@ module Directory
 
         site = Facility.lock.find(unit.parent_id)
         stated = fields.to_h { |name| [ name.to_sym, unit.public_send(name) ] }.compact_blank
-        if site.human_reviewed? && !site.rejected? && (conflicts = conflicts_with(site, stated)).any?
+        if site.human_reviewed? && !site.closed? && (conflicts = conflicts_with(site, stated)).any?
           raise Conflict.new(site.id, conflicts)
         end
         values = stated.select { |name, _| site.public_send(name).blank? }
@@ -100,13 +117,41 @@ module Directory
       Result.new(kind: :facility, id: e.id, created: false, errors: [ e.message ], conflicts: e.conflicts)
     end
 
+    # Many writes in one transaction (e.g. a bulk approve), each in its own
+    # savepoint so one failure doesn't undo the others. writes: an array of
+    # { kind:, attributes:, evidence:, verification:, protect_human_verified: }.
+    # Returns one Result per write, in order. Each write is audited as usual.
+    WRITE_KEYS = %i[kind attributes evidence verification fill_blank protect_human_verified].freeze
+
+    # A misspelled key (say verfication:) fails that write rather than being
+    # dropped, so a bulk approval never reports success for a fact it didn't
+    # approve.
+    def self.write_many(writes)
+      ActiveRecord::Base.transaction do
+        writes.map do |write|
+          write = write.to_h.symbolize_keys
+          unknown = write.keys - WRITE_KEYS
+          next new.send(:failure, write[:kind], "unknown write keys: #{unknown.join(", ")}") if unknown.any?
+          missing = %i[kind attributes].reject { |key| write[key].present? || write[key] == {} }
+          next new.send(:failure, write[:kind], "missing write keys: #{missing.join(", ")}") if missing.any?
+          unless write[:kind].respond_to?(:to_sym)
+            next new.send(:failure, nil, "kind must be a name, not #{write[:kind].inspect}")
+          end
+
+          new.write(write.fetch(:kind), write.fetch(:attributes), **write.except(:kind, :attributes))
+        end
+      end
+    end
+
     # kind: a key of KINDS. attributes may include :id to update a known row.
-    # verification: { status: "pending" | "verified" | "rejected", by: "human:tosin" }
+    # verification: { status: "pending" | "verified" | "rejected" | "unpublished",
+    #   by: "human:tosin", reason: "optional, kept in the audit trail",
+    #   context: { "candidate_id" => 12 } (optional, kept with the reason) }
     # fill_blank: true sets only attributes that are blank on an existing row,
     # so new data can complete a record without overwriting anything.
     # protect_human_verified: true treats a row a human has verified (or
     # rejected) as curated, so a human's decision is never overwritten:
-    # - a rejected row (by anyone) isn't changed at all (an error is returned)
+    # - a rejected or unpublished row isn't changed at all (an error is returned)
     # - if an incoming value disagrees with a stored one, nothing is written
     #   (no attributes, evidence or confidence change) and the result's
     #   conflicts say what disagreed, for review
@@ -123,20 +168,36 @@ module Directory
       record = nil
       created = false
       ActiveRecord::Base.transaction(requires_new: true) do
+        # Checked before anything changes, even for a curated record whose
+        # verification won't be applied: a bad key must never pass silently.
+        check_verification!(verification) if verification
         record = find(kind, spec[:model], attributes) || spec[:model].new
         created = record.new_record?
-        # Locked, so a human's decision made while this write runs is seen.
-        record.lock! if protect_human_verified && !created
-        # A rejected fact (by a human, or a retired proposal) only changes by a human's hand.
-        if protect_human_verified && !created && record.rejected?
-          raise Invalid, "#{record.model_name.human} was rejected by #{record.verified_by || 'review'}; not changed"
+        # Locked, so a human's decision made while this write runs is seen
+        # before the checks below, and two decisions at once are recorded in
+        # the order they happen.
+        record.lock! unless created
+        # A rejected or unpublished fact only changes by a human's hand:
+        # protected writes never change it, and any other write must carry a
+        # human's decision (verification: { by: "human:…" }), so the change is
+        # audited and attributed.
+        human_decision = verification.to_h.symbolize_keys[:by].to_s.start_with?("human:")
+        if !created && record.closed? && (protect_human_verified || !human_decision)
+          raise Invalid, "#{Lookup.fact_state(type: record.class.name, id: record.id).name.upcase_first} was " \
+            "#{record.verification_status} by #{record.verified_by || 'review'}" \
+            "#{" on #{record.verified_at.to_date}" if record.verified_at}; not changed"
         end
-        # No automated unit under a rejected site; the site is locked, so a
-        # rejection made while this write runs is seen.
-        if protect_human_verified && kind == :facility && attributes[:parent_id] &&
-            (site = Facility.lock.find_by(id: attributes[:parent_id]))&.rejected?
-          raise Invalid, "site #{site.name} was rejected by #{site.verified_by || 'review'}; no units under it"
+        # No automated unit under a rejected or unpublished site, whether the
+        # write names the site or the unit already has one; the site is locked,
+        # so a decision made while this write runs is seen.
+        site_id = attributes.key?(:parent_id) ? attributes[:parent_id] : record.parent_id if kind == :facility
+        if protect_human_verified && site_id && (site = Facility.lock.find_by(id: site_id))&.closed?
+          raise Invalid, "site #{site.name} was #{site.verification_status} by #{site.verified_by || 'review'}; no units under it"
         end
+        # Rejecting an existing link (no values, just the decision) needs no open
+        # ends: retiring a proposal whose company was closed must still work.
+        rejecting_only = !created && attributes.keys == [ :id ] && verification.to_h.symbolize_keys[:status].to_s == "rejected"
+        check_link_ends(kind, attributes, record) if protect_human_verified && !rejecting_only
         curated = protect_human_verified && !created && record.human_reviewed?
         changes = model_attributes(kind, attributes)
         if curated && (conflicts = conflicts_with(record, changes)).any?
@@ -145,10 +206,16 @@ module Directory
         changes = changes.select { |name, _| record.public_send(name).blank? } if (fill_blank || curated) && !created
         record.assign_attributes(changes)
         record.save!
+        edited = audited_values(record) unless created
 
-        write_aliases(record, [ record.name, *attributes[:aliases] ]) if kind == :organization
+        if kind == :organization
+          aliases_before = record.aliases.pluck(:alias).sort
+          write_aliases(record, [ record.name, *attributes[:aliases] ])
+          aliases_after = record.aliases.reload.pluck(:alias).sort
+          edited["aliases"] = [ aliases_before, aliases_after ] if edited && aliases_after != aliases_before
+        end
         Array(evidence).each { |item| write_evidence(record, item) }
-        apply_verification(record, verification) if verification && !curated
+        apply_verification(record, verification, edited:) if verification && !curated
         record.recompute_confidence!
       end
 
@@ -264,11 +331,67 @@ module Directory
 
       # Re-applying the same decision leaves verified_at alone, so re-runs
       # don't look like fresh reviews.
-      def apply_verification(record, verification)
-        status, by = verification.to_h.symbolize_keys.values_at(:status, :by)
-        return if record.verification_status == status.to_s && record.verified_by == by
+      VERIFICATION_KEYS = %i[status by reason context].freeze
+
+      # edited: attribute changes this write made, { "state" => [before, after] },
+      # recorded on the audit event with the decision.
+      def check_verification!(verification)
+        verification = verification.to_h.symbolize_keys
+        unknown = verification.keys - VERIFICATION_KEYS
+        raise Invalid, "unknown verification keys: #{unknown.join(", ")}" if unknown.any?
+        raise Invalid, "verification needs by: (who decided)" if verification[:by].blank?
+      end
+
+      def apply_verification(record, verification, edited: {})
+        verification = verification.to_h.symbolize_keys
+        status, by = verification.values_at(:status, :by)
+        record.verification_reason = verification[:reason]
+        record.verification_context = verification[:context]
+        record.audited_changes = edited.presence
+        record.decided_by = by
+
+        if record.verification_status == status.to_s && record.verified_by == by
+          # Same decision again: worth an event only when a human changed the
+          # values or names its context (e.g. approving another candidate for
+          # the same fact), so the history shows where it came from.
+          if by.to_s.start_with?("human:") && (edited.present? || verification[:context].present?)
+            record.log_verification_event(from_status: record.verification_status, by:)
+          end
+          return
+        end
 
         record.update!(verification_status: status, verified_by: by, verified_at: status.to_s == "pending" ? nil : Time.current)
+      end
+
+      LINK_ENDS = {
+        organization_role: { organization_id: Organization }, organization_technology: { organization_id: Organization },
+        relationship: { from_organization_id: Organization, to_organization_id: Organization },
+        facility_relationship: { organization_id: Organization, facility_id: Facility }
+      }.freeze
+
+      # An automated link write needs both ends open: each is locked and
+      # checked, so a company or plant closed after match isn't linked to.
+      # A unit end counts as closed when its site is. Rows are locked in one
+      # fixed order (table, then id), so two links written at once in opposite
+      # directions can't deadlock.
+      def check_link_ends(kind, attributes, record)
+        ends = LINK_ENDS.fetch(kind, {}).filter_map do |key, model|
+          id = attributes.key?(key) ? attributes[key] : record.public_send(key)
+          [ model, id ] if id
+        end
+        sites = ends.filter_map { |model, id| [ Facility, model.where(id:).pick(:parent_id) ] if model == Facility }.select(&:last)
+        (ends + sites).uniq.sort_by { |model, id| [ model.table_name, id.to_i ] }.each do |model, id|
+          finish = model.lock.find_by(id:) or next
+          next unless finish.closed?
+
+          raise Invalid, "#{finish.name} was #{finish.verification_status} by #{finish.verified_by || 'review'}; not linked"
+        end
+      end
+
+      AUDIT_IGNORED = %w[created_at updated_at confidence verification_reason verification_context audited_changes].freeze
+
+      def audited_values(record)
+        record.saved_changes.except(*AUDIT_IGNORED).transform_values { |(before, after)| [ before, after ] }
       end
   end
 end

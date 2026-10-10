@@ -1,0 +1,27 @@
+{
+  "ci": {
+    "collect": {
+      "url": [
+        "http://localhost:3000/",
+        "http://localhost:3000/companies",
+        "http://localhost:3000/companies?category=plants",
+        "http://localhost:3000/companies?q=kairos",
+        "http://localhost:3000/companies/kairos-power"
+      ],
+      "numberOfRuns": 3,
+      "settings": {
+        "formFactor": "mobile",
+        "throttlingMethod": "simulate",
+        "emulatedUserAgent": "Mozilla/5.0 (Linux; Android 11; moto g power (2022)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36"
+      }
+    },
+    "assert": {
+      "assertions": {
+        "categories:performance": [ "error", { "minScore": 0.95, "aggregationMethod": "median-run" } ],
+        "categories:accessibility": [ "error", { "minScore": 0.95, "aggregationMethod": "median-run" } ],
+        "largest-contentful-paint": [ "error", { "maxNumericValue": 2500, "aggregationMethod": "median-run" } ]
+      }
+    },
+    "upload": { "target": "filesystem", "outputDir": "lighthouse" }
+  }
+}
