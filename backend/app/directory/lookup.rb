@@ -145,6 +145,10 @@ module Directory
     # live on as an operating company's name: "progress" (Progress Energy,
     # now "Duke Energy Progress, LLC", is Duke Energy; Tosin, 2026-10-10).
     REGION_WORDS = %w[carolinas carolina florida midwest indiana ohio kentucky texas virginia progress].to_set.freeze
+    # Entity words people say as part of a brand ("NextEra Energy", "Talen
+    # Energy"): a new company's name keeps one of these right after the brand,
+    # but not an operating arm after it ("NextEra Energy Nuclear").
+    BRAND_TAIL_WORDS = %w[energy power].to_set.freeze
 
     # Organizations whose name or an alias is the same brand as name: equal
     # once trailing entity words, and a trailing plant or region name, are
@@ -174,9 +178,11 @@ module Directory
     end
 
     # The brand part of a name as written, for naming a new company after its
-    # brand: "NextEra Energy Point Beach, LLC" => "NextEra Energy". nil when
-    # only legal or operating words were dropped, since the full name is
-    # then the company's own.
+    # brand (Tosin, 2026-10-10: the brand as people know it): "NextEra Energy
+    # Point Beach, LLC" and "NextEra Energy Nuclear Seabrook, LLC" are both
+    # "NextEra Energy". A brand the directory already has takes that
+    # company's name. nil when only legal or operating words were dropped,
+    # since the full name is then the company's own.
     def brand_name(name, plants: plant_names)
       # Only for a brand key we'd trust ("X-Energy Seabrook" reduces to "x": no).
       return unless brand_key(name, plants:)
@@ -190,7 +196,13 @@ module Directory
       base = strip_entities(words.map { |word, _| word == "&" ? "and" : word.delete(".").downcase })
       place = place_words_at_end(base, plants) or return
 
-      text[0, words[base.size - place - 1].last].strip
+      existing = same_brand_organizations(name, plants:)
+      return existing.first.name if existing.one?
+
+      before_place = base.first(base.size - place)
+      keep = strip_entities(before_place).size
+      keep += 1 if keep < before_place.size && BRAND_TAIL_WORDS.include?(before_place[keep])
+      text[0, words[keep - 1].last].strip
     end
 
     # Words that start many place names ("North Anna", "Point Beach"); on its
