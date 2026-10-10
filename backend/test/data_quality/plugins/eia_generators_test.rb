@@ -309,6 +309,21 @@ class DataQuality::Plugins::EiaGeneratorsTest < ActiveSupport::TestCase
     assert proposed.reload.rejected?, "nothing current points at it"
   end
 
+  test "a plant still in the newer file keeps its proposal, which the newer file then matches" do
+    july = Source.create!(url: "https://www.eia.gov/electricity/data/eia860m/xls/july_generator2026.xlsx",
+      source_kind: "eia_generators", crawl_status: "ok")
+    farley = Facility.create!(name: "Joseph M Farley", eia_plant_id: "6001")
+    Candidate.create!(source: july, kind: "facility", quote: "old", status: "matched", proposed_subject: true,
+      payload: { "name" => "Joseph M Farley", "eia_plant_id" => "6001" }, subject_type: "Facility", subject_id: farley.id)
+
+    crawl!
+    assert farley.reload.pending?, "Farley is in the August file too"
+
+    DataQuality::Pipeline.run("eia_generators", plugin: plugin, only: %w[extract match])
+    august = Candidate.where(source: source, kind: "facility").find { |c| c.payload["eia_plant_id"] == "6001" }
+    assert_equal [ farley.id, "Matched existing Joseph M Farley (by EIA plant ID)" ], [ august.subject_id, august.notes ]
+  end
+
   test "an EIA plant is proposed once, then found by its plant ID; a seed site's look-alike goes to review" do
     facilities(:vogtle).update!(name: "Plant Vogtle")
     crawl!
@@ -320,9 +335,13 @@ class DataQuality::Plugins::EiaGeneratorsTest < ActiveSupport::TestCase
     assert farley.status_matched?
     assert_equal "6001", Facility.find(farley.subject_id).eia_plant_id
 
+    # Extract again (as for a changed file), and the plant is found by its ID.
+    source.update_columns(extracted_sha256: nil)
     assert_no_difference "Facility.count" do
       DataQuality::Pipeline.run("eia_generators", plugin: plugin, only: %w[extract match])
     end
+    again = Candidate.where(source: source, kind: "facility").where.not(id: farley.id).find { |c| c.payload["eia_plant_id"] == "6001" }
+    assert_equal [ farley.subject_id, "Matched existing Joseph M Farley (by EIA plant ID)" ], [ again.subject_id, again.notes ]
   end
 
   test "generators without an NRC unit yet wait and are retried" do

@@ -29,6 +29,7 @@ Directory::Lookup.organization(slug: "terrapower")
 Directory::Lookup.organization(id: 12)
 
 Directory::Lookup.facility(nrc_docket: "05000424")
+Directory::Lookup.facility(eia_plant_id: "649")  # the site for that EIA plant
 Directory::Lookup.facility(name: "Plant Vogtle Units 3 & 4")  # case-insensitive
 ```
 
@@ -72,7 +73,7 @@ A failed write changes nothing and returns errors. It does not raise.
 | `organization` | `name slug legal_name website domain description hq_city hq_state country_code founded_year status aliases` | name or any alias (normalized), then domain |
 | `organization_role` | `organization_id role` (role **key**) | organization + role |
 | `organization_technology` | `organization_id technology` (technology **key**) | organization + technology |
-| `facility` | `name slug parent_id facility_type status technology reactor_type capacity_mw nrc_docket city state country_code latitude longitude` | NRC docket, then name |
+| `facility` | `name slug parent_id facility_type status technology reactor_type capacity_mw nrc_docket eia_plant_id city state country_code latitude longitude` | NRC docket, then EIA plant ID (sites only), then name |
 | `relationship` | `from_organization_id to_organization_id relationship_type description started_on ended_on` | from + to + type |
 | `facility_relationship` | `organization_id facility_id relationship_type ownership_pct description started_on ended_on` | organization + facility + type |
 

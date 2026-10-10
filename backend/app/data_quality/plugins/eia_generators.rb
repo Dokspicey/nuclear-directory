@@ -124,20 +124,34 @@ class DataQuality::Plugins::EiaGenerators < DataQuality::Plugin
       withdrawn = waiting.where(status: %w[new matched]).to_a
       Candidate.where(id: withdrawn.map(&:id))
         .update_all(status: "rejected", notes: "Superseded by the newer #{source.title}", updated_at: Time.current)
-      retire_orphans(withdrawn.select(&:proposed_subject), run)
+      retire_orphans(withdrawn.select(&:proposed_subject), source, run)
       withdrawn.size
     end
 
     # A record a withdrawn candidate proposed is retired (rejected, as the
-    # verify stage does for a rejected proposal) unless a live candidate, e.g.
-    # from the newer file, still points at it.
-    def retire_orphans(candidates, run)
+    # verify stage does for a rejected proposal) only when the newer file no
+    # longer has its plant (or, for a company, its operator) and no live
+    # candidate points at it. A plant still in the newer file keeps its
+    # proposal, which the newer file's candidates then match.
+    def retire_orphans(candidates, source, run)
+      rows = CSV.parse(source.content_text.to_s, headers: true)
+      plants = rows.map { |row| row["eia_plant_id"] }.to_set
+      operators = rows.map { |row| row["entity_name"] }.compact.to_set
       directory = DataQuality::DirectoryClient.new
       candidates.uniq { |c| [ c.subject_type, c.subject_id ] }.each do |candidate|
+        next if still_listed?(candidate.payload, plants, operators)
+
         live = Candidate.where(subject_type: candidate.subject_type, subject_id: candidate.subject_id,
           status: %w[new matched merged needs_review])
         directory.retire(candidate, crawl_run: run) unless live.exists?
       end
+    end
+
+    def still_listed?(payload, plants, operators)
+      plant = payload["eia_plant_id"] || payload.dig("facility", "eia_plant_id")
+      return plants.include?(plant) if plant
+
+      operators.include?(payload["name"] || payload.dig("organization", "name"))
     end
 
     # [year, month] of a monthly file URL, or nil when it isn't one.
