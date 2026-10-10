@@ -99,7 +99,24 @@ class DataQuality::Plugins::NrcReactorList < DataQuality::Plugin
     operator_candidates(units, lines) + units.flat_map { |unit, review| unit_candidates(unit, lines[unit.nrc_docket], review) }
   end
 
+  # Verify (#15): NRC quotes are whole table rows as Page.lines renders
+  # them, so that's what they're checked against, and what the verifier
+  # reads is the header plus that row.
+  def quote_in_source?(source, quote)
+    table_lines(source).include?(quote)
+  end
+
+  def verification_context(source, quote)
+    [ table_lines(source).first, quote ].compact.join("\n")
+  end
+
   private
+    # Cached per snapshot: verify asks for every candidate.
+    def table_lines(source)
+      @table_lines ||= {}
+      @table_lines[[ source.id, source.content_sha256 ]] ||= Page.lines(source.content_text)
+    end
+
     def source(url, kind, title:)
       Source.find_or_create_by!(url: url) do |source|
         source.source_kind = kind

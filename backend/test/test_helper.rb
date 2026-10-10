@@ -5,6 +5,9 @@ require "webmock/minitest"
 
 # No real HTTP in tests (e.g. to OpenRouter); stub it with WebMock.
 WebMock.disable_net_connect!(allow_localhost: true)
+# Nor real DNS: the fetcher's hosts all resolve to one public address
+# (example.com's). SSRF tests pass their own resolver.
+DataQuality::Fetcher.resolver = ->(_host) { [ "93.184.215.14" ] }
 
 module ActiveSupport
   class TestCase

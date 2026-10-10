@@ -1,4 +1,5 @@
 require "net/http"
+require "ipaddr"
 
 # The polite HTTP client every plug-in fetches through:
 # - identifies itself honestly (USER_AGENT); never pretends to be a browser
@@ -7,6 +8,10 @@ require "net/http"
 # - sends ETag / Last-Modified back, so unchanged pages cost a 304
 # - never retries: a block (401/403) is reported, not worked around
 # - stops reading after max_bytes, so a huge file costs neither side much
+# - fetches public https URLs only (SSRF): the standard port, redirects that
+#   stay on the same host (www. or not), and hosts whose addresses are all
+#   public; it connects to the address it checked, so DNS can't swap in an
+#   internal one between the check and the request
 #
 #   response = DataQuality::Fetcher.new.get(url, etag: source.etag)
 #   response.kind # => :ok, :not_modified, :blocked, :disallowed or :error
@@ -18,6 +23,26 @@ class DataQuality::Fetcher
   MAX_BYTES = 20.megabytes
   NETWORK_ERRORS = [ Net::OpenTimeout, Net::ReadTimeout, Errno::ECONNRESET, Errno::ECONNREFUSED,
     Errno::EHOSTUNREACH, SocketError, EOFError, OpenSSL::SSL::SSLError ].freeze
+  # IPv4 that isn't the public internet, besides IPAddr's private, loopback
+  # and link-local (169.254.0.0/16 holds cloud metadata services).
+  NON_PUBLIC_V4 = %w[0.0.0.0/8 100.64.0.0/10 192.0.0.0/24 192.0.2.0/24 192.88.99.0/24 198.18.0.0/15 198.51.100.0/24 203.0.113.0/24
+    224.0.0.0/4 240.0.0.0/4].map { IPAddr.new(_1) }.freeze
+  # IPv6 is public only inside global unicast (2000::/3), minus its
+  # special-use blocks: IETF protocol assignments (incl. Teredo), 6to4 (which
+  # can wrap any IPv4 address) and the documentation prefixes. Everything
+  # else (local, NAT64, reserved, site-local, multicast) is refused.
+  GLOBAL_V6 = IPAddr.new("2000::/3")
+  NON_PUBLIC_V6 = %w[2001::/23 2001:db8::/32 2002::/16 3fff::/20].map { IPAddr.new(_1) }.freeze
+
+  # A URL the fetcher won't request (not https, another host, an internal address).
+  class Refused < StandardError; end
+
+  # Resolves a host to its IP addresses. Tests replace it so they never use DNS.
+  class << self
+    attr_writer :resolver
+
+    def resolver = @resolver ||= ->(host) { Addrinfo.getaddrinfo(host, 443, nil, :STREAM).map(&:ip_address).uniq }
+  end
 
   # kind:            :ok, :not_modified, :blocked, :disallowed or :error
   # reason:          why, in words, for anything but :ok / :not_modified
@@ -33,7 +58,8 @@ class DataQuality::Fetcher
   class BodyLimitReached < StandardError; end
 
   def initialize(sleeper: ->(seconds) { sleep seconds }, clock: -> { Process.clock_gettime(Process::CLOCK_MONOTONIC) },
-    open_timeout: 10, read_timeout: 60)
+    open_timeout: 10, read_timeout: 60, resolver: DataQuality::Fetcher.resolver)
+    @resolver = resolver
     @sleeper = sleeper
     @clock = clock
     @open_timeout = open_timeout
@@ -42,11 +68,20 @@ class DataQuality::Fetcher
     @last_request_at = {}
   end
 
-  def get(url, etag: nil, last_modified: nil, max_bytes: MAX_BYTES)
+  # binary: true returns the body as raw bytes (e.g. a spreadsheet) instead
+  # of converting it to UTF-8 text.
+  # Every fetch is https, on its starting host (www. or not) and on public
+  # addresses (see check_url! and public_address!). same_origin: true is
+  # stricter still: the exact starting host, no www. switch.
+  def get(url, etag: nil, last_modified: nil, max_bytes: MAX_BYTES, binary: false, same_origin: false)
     redirects = 0
+    first_host = nil
+    origin = URI.parse(url).then { |start| [ start.scheme, start.host, start.port ] }
 
     loop do
       uri = URI.parse(url)
+      check_url!(uri, first_host:)
+      first_host ||= uri.host
       verdict = robots_verdict(uri)
       return verdict if verdict
 
@@ -56,17 +91,57 @@ class DataQuality::Fetcher
 
       if http.is_a?(Net::HTTPRedirection) && http["Location"] && redirects < MAX_REDIRECTS
         redirects += 1
-        url = URI.join(url, http["Location"]).to_s
+        target = URI.join(url, http["Location"])
+        if same_origin && [ target.scheme, target.host, target.port ] != origin
+          return response(url, :error, status: http.code.to_i, reason: "Redirected to #{target.host}, another site; not followed")
+        end
+
+        url = target.to_s
         next
       end
 
-      return classify(url, fetched)
+      return classify(url, fetched, binary:)
     end
+  rescue Refused, URI::InvalidURIError => error
+    response(url, :error, reason: "Not fetched: #{error.message}")
   rescue *NETWORK_ERRORS => error
     response(url, :error, reason: "Network error: #{error.class}: #{error.message}")
   end
 
   private
+    # Public https on the standard port, and (after a redirect) the same host.
+    def check_url!(uri, first_host:)
+      raise Refused, "only https URLs are fetched" unless uri.is_a?(URI::HTTPS) && uri.host.present?
+      raise Refused, "only the standard https port is fetched" unless uri.port == 443
+      return if first_host.nil? || same_site?(uri.host, first_host)
+
+      raise Refused, "redirected to another host (#{uri.host}), which isn't followed"
+    end
+
+    def same_site?(host, other) = host.downcase.delete_prefix("www.") == other.downcase.delete_prefix("www.")
+
+    # The host's address, if every address it resolves to is public.
+    def public_address!(host)
+      addresses = @resolver.call(host)
+      raise Refused, "#{host} doesn't resolve" if addresses.empty?
+
+      internal = addresses.find { |address| !public_ip?(address) }
+      raise Refused, "#{host} resolves to an internal address (#{internal})" if internal
+
+      addresses.first
+    end
+
+    def public_ip?(address)
+      ip = IPAddr.new(address).native # an IPv4-mapped IPv6 address is checked as IPv4
+      if ip.ipv4?
+        !(ip.private? || ip.loopback? || ip.link_local? || NON_PUBLIC_V4.any? { |range| range.include?(ip) })
+      else
+        GLOBAL_V6.include?(ip) && NON_PUBLIC_V6.none? { |range| range.include?(ip) }
+      end
+    rescue IPAddr::InvalidAddressError
+      false
+    end
+
     # nil when robots.txt allows the URL, else the Response to return.
     def robots_verdict(uri)
       origin = [ uri.scheme, uri.host, uri.port ]
@@ -106,8 +181,7 @@ class DataQuality::Fetcher
 
       response = nil
       body = +""
-      Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == "https",
-        open_timeout: @open_timeout, read_timeout: @read_timeout) do |http|
+      connection(uri).start do |http|
         http.request(get) do |res|
           response = res
           res.read_body do |chunk|
@@ -121,6 +195,19 @@ class DataQuality::Fetcher
       Fetched.new(http: response, body: body.byteslice(0, max_bytes), truncated: true)
     end
 
+    # Connects to the address public_address! checked; TLS (SNI, the
+    # certificate) and the Host header still use the name. Never through a
+    # proxy (Net::HTTP would read http_proxy from the environment), which
+    # would resolve the name itself.
+    def connection(uri)
+      Net::HTTP.new(uri.host, uri.port, nil).tap do |http|
+        http.ipaddr = public_address!(uri.host)
+        http.use_ssl = true
+        http.open_timeout = @open_timeout
+        http.read_timeout = @read_timeout
+      end
+    end
+
     def wait_for(host)
       if (last = @last_request_at[host])
         remaining = HOST_INTERVAL - (@clock.call - last)
@@ -129,13 +216,14 @@ class DataQuality::Fetcher
       @last_request_at[host] = @clock.call
     end
 
-    def classify(url, fetched)
+    def classify(url, fetched, binary: false)
       http = fetched.http
       status = http.code.to_i
 
       case status
       when 200..299
-        response(url, :ok, status:, body: body_of(fetched), etag: http["ETag"], last_modified: http["Last-Modified"],
+        body = binary ? fetched.body.b : body_of(fetched)
+        response(url, :ok, status:, body:, etag: http["ETag"], last_modified: http["Last-Modified"],
           content_type: http.content_type, truncated: fetched.truncated)
       when 304
         response(url, :not_modified, status:, etag: http["ETag"], last_modified: http["Last-Modified"])

@@ -156,6 +156,32 @@ module Directory
         .first(10).map { |facility| FacilityRef.from(facility) }
     end
 
+    # NRC units (facilities with a docket) whose names best fit name, for
+    # sources that name plants their own way ("Joseph M Farley" for NRC's
+    # "Farley 1", "PSEG Hope Creek Generating Station" for "Hope Creek 1").
+    # The units sharing the most distinctive words win, so "Wolf Creek" picks
+    # Wolf Creek 1 over Hope Creek 1. Words under three letters don't count,
+    # but two words run together do ("la salle" / "lasalle"). state breaks a
+    # tie: among equally good fits, units in that state (or with no state
+    # yet) are preferred, since NRC units no longer carry a state (EIA's is
+    # used; Tosin, 2026-10-10).
+    def facility_units(name:, state: nil)
+      words = comparable_words(distinctive_words(name))
+      return [] if words.empty?
+
+      scored = Facility.where.not(nrc_docket: nil).order(:name).filter_map do |unit|
+        shared = (comparable_words(distinctive_words(unit.name)) & words).size
+        [ unit, shared ] if shared.positive?
+      end
+      best = scored.map(&:last).max or return []
+      units = scored.select { |_, shared| shared == best }.map(&:first)
+      if state.present?
+        in_state = units.select { |unit| unit.state.blank? || unit.state.casecmp?(state) }
+        units = in_state if in_state.any?
+      end
+      units.first(20).map { |unit| FacilityRef.from(unit) }
+    end
+
     def distinctive_words(name)
       OrganizationAlias.normalize(name).split.reject { |word| GENERIC_WORDS.include?(word) || word.match?(/\A\d+\z/) }
     end
@@ -216,6 +242,10 @@ module Directory
       # "La Crosse" isn't like "La Salle".
       def similar_words?(words, other)
         (leading(words) & leading(other)).any?
+      end
+
+      def comparable_words(words)
+        (words.select { |word| word.length >= 3 } + words.each_cons(2).map(&:join)).uniq
       end
 
       def leading(words)
