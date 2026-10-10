@@ -53,6 +53,12 @@ module FakeDirectory
       Directory::FactWriter::Result.new(kind: kind.to_sym, id: id, created: !attributes[:id], errors: [])
     end
 
+    # The fake directory has no closed facts.
+    def while_open(type:, id:)
+      yield
+      nil
+    end
+
     # The fake directory has no sites to fill.
     def fill_site_from_unit(unit_id, fields:, evidence:) = nil
   end

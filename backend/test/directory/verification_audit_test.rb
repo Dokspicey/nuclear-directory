@@ -126,6 +126,18 @@ class Directory::VerificationAuditTest < ActiveSupport::TestCase
     assert_equal({ "hq_city" => [ nil, "Bellevue" ] }, history(@org).first.changed_values)
   end
 
+  test "while_open runs only while the fact is open, under its lock" do
+    ran = false
+    assert_nil Directory::FactWriter.while_open(type: "Organization", id: @org.id) { ran = true }
+    assert ran
+
+    @org.unpublish!(by: "human:tosin")
+    ran = false
+    closed = Directory::FactWriter.while_open(type: "Organization", id: @org.id) { ran = true }
+    assert_not ran
+    assert_equal [ "unpublished", "human:tosin" ], [ closed.verification_status, closed.verified_by ]
+  end
+
   test "an automated link isn't written to a company or plant closed since match" do
     plant = facilities(:vogtle)
     @org.unpublish!(by: "human:tosin")
@@ -135,6 +147,17 @@ class Directory::VerificationAuditTest < ActiveSupport::TestCase
 
     assert_match "TerraPower was unpublished by human:tosin; not linked", result.errors.join
     assert_not FacilityRelationship.exists?(organization_id: @org.id, facility_id: plant.id)
+  end
+
+  test "a proposed link whose company was closed can still be retired" do
+    link = FacilityRelationship.create!(organization: @org, facility: facilities(:vogtle), relationship_type: "owns")
+    @org.unpublish!(by: "human:tosin")
+
+    result = write(:facility_relationship, { id: link.id }, protect_human_verified: true,
+      verification: { status: "rejected", by: "agent:verifier/x" })
+
+    assert result.ok?, result.errors.join
+    assert link.reload.rejected?
   end
 
   test "a human approving again with new context, or adding an alias, is recorded" do
