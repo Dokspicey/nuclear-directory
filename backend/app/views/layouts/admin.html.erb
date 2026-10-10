@@ -8,9 +8,7 @@
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
     <link rel="icon" href="/icon.svg" type="image/svg+xml">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Roboto+Serif:opsz,wght@8..144,400;8..144,500;8..144,600;8..144,700&family=Roboto+Mono:wght@400;500&display=swap">
+    <%= render "shared/fonts" %>
     <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
     <%= javascript_importmap_tags %>
   </head>
@@ -18,7 +16,7 @@
   <body>
     <header class="nd-sitebar">
       <div class="nd-sitebar__inner">
-        <a class="nd-wordmark" href="<%= authenticated? ? admin_root_path : root_path %>">Nuclear Directory</a>
+        <a class="nd-wordmark" href="<%= authenticated? ? admin_root_path : root_path %>"><span class="sr-only">Nuclear Directory</span><%= render "shared/wordmark" %></a>
         <span class="type-label">Admin</span>
         <% if authenticated? %>
           <nav class="nd-adminnav type-ui" aria-label="Admin">
