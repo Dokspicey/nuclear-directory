@@ -14,6 +14,14 @@ class DataQuality::Plugins::NrcReactorList < DataQuality::Plugin
   # The status file only cross-checks the list; it has its own kind so the
   # extract stage never reads it.
   STATUS_SOURCE_KIND = "nrc_power_status"
+  # Units the status file names differently from the list page, beyond
+  # spacing and punctuation (which the comparison ignores, so "LaSalle 1"
+  # already matches "La Salle 1"). When a cross-check flags a pair that is
+  # really the same unit, add it here.
+  STATUS_FILE_NAMES = {
+    "Harris 1" => "Shearon Harris 1",
+    "River Bend Station 1" => "River Bend 1"
+  }.freeze
 
   def initialize(fetcher: DataQuality::Fetcher.new)
     @fetcher = fetcher
@@ -69,11 +77,12 @@ class DataQuality::Plugins::NrcReactorList < DataQuality::Plugin
 
     def differences(page_names, status_names)
       page = page_names.index_by { |name| normalize(name) }
-      status = status_names.index_by { |name| normalize(name) }
+      status = status_names.index_by { |name| normalize(STATUS_FILE_NAMES.fetch(name, name)) }
       [ page.except(*status.keys).values, status.except(*page.keys).values ]
     end
 
-    def normalize(name) = name.downcase.gsub(/[^a-z0-9]+/, " ").strip
+    # "D.C. Cook 1" => "dccook1", "La Salle 1" => "lasalle1"
+    def normalize(name) = name.downcase.gsub(/[^a-z0-9]/, "")
 
     def sample(names) = names.empty? ? "none" : names.first(5).join(", ") + (names.size > 5 ? " and #{names.size - 5} more" : "")
 

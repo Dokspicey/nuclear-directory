@@ -1,9 +1,8 @@
 require "test_helper"
 
-# The list page fixture is the real NRC table (fetched 2026-10-10). The
-# status file fixture is built from the same unit names in the documented
-# "ReportDt|Unit|Power" format, because NRC's CDN blocked the real file
-# when this was written.
+# Both fixtures are real NRC data fetched 2026-10-10: the list page's table,
+# and a slice of the status file (the latest day's 95 rows plus a few older
+# ones; the full file is ~1.3 MB).
 class DataQuality::Plugins::NrcReactorListTest < ActiveSupport::TestCase
   Plugin = DataQuality::Plugins::NrcReactorList
 

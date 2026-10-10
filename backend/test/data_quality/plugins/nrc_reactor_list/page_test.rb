@@ -23,6 +23,14 @@ class DataQuality::Plugins::NrcReactorList::PageTest < ActiveSupport::TestCase
     assert_empty Page.units(nil)
   end
 
+  test "the real status file's latest day has the 95 units" do
+    units = StatusFile.latest_units(file_fixture("nrc/PowerReactorStatusForLast365Days.txt").read)
+
+    assert_equal 95, units.size
+    assert_includes units, "D.C. Cook 1"
+    assert_includes units, "Vogtle 4"
+  end
+
   test "the status file's latest units" do
     text = "ReportDt|Unit|Power\n10/8/2026 12:00:00 AM|Old Unit|0\n10/9/2026 12:00:00 AM|Byron 1|100\n" \
       "10/9/2026 12:00:00 AM|Byron 2|98\nnot a line\n"
