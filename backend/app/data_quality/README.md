@@ -83,3 +83,45 @@ Two tests keep the module and the directory in step:
 Sources belong to this module. Code outside it (e.g. the seed loader) gets one
 with `DataQuality::Sources.find_or_create(url:, source_kind:, published_on:)`,
 which returns a plain `SourceRef`.
+
+## Matching and candidate payloads
+
+Extract writes `candidates` (`kind`, `payload`, `quote`, `source_id`). Match
+([`stages/match.rb`](stages/match.rb)) then links each one to the directory:
+
+| Outcome | When | Candidate becomes |
+|---|---|---|
+| **Found** | exact NRC docket, domain, or name/alias (normalized) | `matched`, subject = that record. The quote is added as evidence; an organization also gains the name as an alias. Its attributes and verification are left alone. |
+| **Not found** | nothing exact and nothing similar | `matched`, subject = a new **pending** record with the quote as evidence |
+| **Ambiguous** | identifiers point at different records, or a similar record exists | `needs_review`, with the reason in `notes`. Never merged automatically. |
+
+"Similar" means the same leading distinctive word, ignoring unit numbers and
+generic words ("Vogtle 3" vs "Plant Vogtle Units 3 & 4", "Southern Nuclear
+Operating Co." vs "Southern Company"). Facilities with different NRC dockets
+are never similar, so "Braidwood 2" isn't flagged against "Braidwood 1".
+Evidence from match is `found_by: crawler` with no confidence; verify sets
+the confidence and decides whether the fact is published.
+
+Organizations and facilities are matched first, so links in the same run can
+find records proposed a moment earlier.
+
+**Payloads.** Records carry their attributes, as named in the
+[FactWriter table](../directory/README.md#kinds). Links name each end with a
+nested hash that identifies it (organizations by `name` and/or `domain`,
+facilities by `name` and/or `nrc_docket`):
+
+```ruby
+{ kind: "organization", payload: { "name" => "Southern Nuclear Operating Co." } }
+{ kind: "facility", payload: { "name" => "Vogtle 3", "nrc_docket" => "05200025",
+  "facility_type" => "power_reactor", "status" => "operating", "reactor_type" => "PWR", "state" => "GA" } }
+{ kind: "facility_relationship", payload: {
+  "organization" => { "name" => "Southern Nuclear Operating Co." },
+  "facility" => { "name" => "Vogtle 3", "nrc_docket" => "05200025" },
+  "relationship_type" => "operates" } }
+{ kind: "organization_role", payload: { "organization" => { "name" => "…" }, "role" => "operator" } }
+{ kind: "relationship", payload: { "from_organization" => { "name" => "…" },
+  "to_organization" => { "name" => "…" }, "relationship_type" => "supplies" } }
+```
+
+A link whose end isn't found, or is itself in review, goes to `needs_review`
+too. `organization_alias` candidates aren't matched automatically yet.

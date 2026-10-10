@@ -22,6 +22,10 @@ module FakeDirectory
         verification_status: "verified") if @facilities.key?(name)
     end
 
+    # The fake knows nothing similar; match tests that need it use the real directory.
+    def similar_organizations(name) = []
+    def similar_facilities(name) = []
+
     private
       # Same rule as the real Lookup.
       def one_of!(**options)

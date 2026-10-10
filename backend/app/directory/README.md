@@ -38,6 +38,16 @@ Directory::Lookup.facility(name: "Plant Vogtle Units 3 & 4")  # case-insensitive
 Every verification status is returned, so check `verification_status` before
 treating a match as public.
 
+```ruby
+Directory::Lookup.similar_facilities("Vogtle 3")                       # => [FacilityRef, …] (up to 10)
+Directory::Lookup.similar_organizations("Southern Nuclear Operating Co.")
+```
+
+These find likely duplicates that an exact lookup misses: records that share
+the same leading distinctive word, ignoring unit numbers and generic words
+like "nuclear", "station" or "company". Used to send a candidate to review
+instead of creating a duplicate.
+
 Names are compared after `OrganizationAlias.normalize`: lowercased, `&` becomes
 "and", punctuation removed, trailing Inc / LLC / Co / Corp / Ltd and similar
 dropped. "TerraPower, LLC" and "terrapower" match.

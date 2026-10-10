@@ -15,13 +15,29 @@ class DataQuality::DirectoryClientTest < ActiveSupport::TestCase
     Candidate.create!(source: sources(:press_release), kind: kind, payload: payload, quote: quote)
   end
 
-  test "finds organizations by name or alias, then by domain" do
-    assert_equal DataQuality::DirectoryClient::Ref.new(type: "Organization", id: organizations(:terrapower).id),
-      @client.find("organization", { "name" => "TerraPower, LLC" })
-    assert_equal organizations(:terrapower).id,
-      @client.find("organization", { "name" => "Unknown name", "domain" => "https://www.terrapower.com/news" }).id
-    assert_nil @client.find("organization", { "name" => "Nobody" })
-    assert_nil @client.find("organization", {})
+  test "finds organizations by name or alias, or by domain" do
+    terrapower = @client.organization(name: "TerraPower, LLC")
+    assert_equal DataQuality::DirectoryClient::Ref.new(type: "Organization", id: organizations(:terrapower).id), terrapower.ref
+    assert_equal "TerraPower", terrapower.name
+    assert_equal organizations(:terrapower).id, @client.organization(domain: "https://www.terrapower.com/news").id
+    assert_nil @client.organization(name: "Nobody")
+  end
+
+  test "finds similar records as module values" do
+    similar = @client.similar_facilities("Vogtle 3")
+    assert_equal [ facilities(:vogtle).id ], similar.map(&:id)
+    assert_kind_of DataQuality::DirectoryClient::Record, similar.first
+  end
+
+  test "writes a pending fact with crawler evidence" do
+    result = @client.write_pending("organization", { name: "Entergy Nuclear Operations, Inc." },
+      candidate: candidate("organization", {}, quote: "Entergy Nuclear Operations, Inc."), crawl_run: @run)
+
+    assert result.success?
+    assert result.created
+    org = Organization.find(result.ref.id)
+    assert org.pending?
+    assert_equal [ "crawler", @run.id ], org.evidence.sole.slice(:found_by, :crawl_run_id).values
   end
 
   test "writes a new fact with its evidence, verified by the agent" do
@@ -72,6 +88,10 @@ class DataQuality::DirectoryClientTest < ActiveSupport::TestCase
     {
       "Lookup.organization" => [ Directory::Lookup.method(:organization), FakeDirectory::Lookup.instance_method(:organization) ],
       "Lookup.facility" => [ Directory::Lookup.method(:facility), FakeDirectory::Lookup.instance_method(:facility) ],
+      "Lookup.similar_organizations" => [ Directory::Lookup.method(:similar_organizations),
+        FakeDirectory::Lookup.instance_method(:similar_organizations) ],
+      "Lookup.similar_facilities" => [ Directory::Lookup.method(:similar_facilities),
+        FakeDirectory::Lookup.instance_method(:similar_facilities) ],
       # FactWriter.write forwards (...) to the instance method, which has the real signature.
       "FactWriter.write" => [ Directory::FactWriter.instance_method(:write), FakeDirectory::FactWriter.instance_method(:write) ]
     }.each do |name, (real, fake)|
