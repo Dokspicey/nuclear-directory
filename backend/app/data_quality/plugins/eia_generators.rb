@@ -26,7 +26,7 @@ class DataQuality::Plugins::EiaGenerators < DataQuality::Plugin
       new_source.source_kind = INDEX_SOURCE_KIND
       new_source.title = "EIA-860M monthly generator inventory page"
     end
-    DataQuality::Snapshot.take(index, fetcher: @fetcher)
+    DataQuality::Snapshot.take(index, fetcher: @fetcher, same_origin: true)
     unless index.crawl_ok? && index.content_text.present?
       raise "EIA 860M page: #{index.status_reason || index.crawl_status}"
     end
@@ -37,7 +37,7 @@ class DataQuality::Plugins::EiaGenerators < DataQuality::Plugin
       new_source.title = "EIA-860M generator inventory, #{url[FILE_LINK, 1].capitalize} #{url[FILE_LINK, 2]}"
     end
 
-    result = DataQuality::Snapshot.take(source, fetcher: @fetcher, binary: true) do |bytes|
+    result = DataQuality::Snapshot.take(source, fetcher: @fetcher, binary: true, same_origin: true) do |bytes|
       Workbook.to_csv(Workbook.nuclear_generators(bytes))
     end
     { "file" => url, "snapshot" => result.to_s, "generators" => [ CSV.parse(source.reload.content_text.to_s).size - 1, 0 ].max,
@@ -78,14 +78,25 @@ class DataQuality::Plugins::EiaGenerators < DataQuality::Plugin
         .update_all(status: "rejected", notes: "Superseded by the newer #{source.title}", updated_at: Time.current)
     end
 
-    # The newest "<month>_generator<year>.xlsx" linked from the page.
+    # The newest "<month>_generator<year>.xlsx" linked from the page, as an
+    # https URL on EIA's own site under the 860M pages. A link anywhere else
+    # is ignored, so the page can never point the crawler at another host.
     def latest_file_url(html)
-      links = Nokogiri::HTML(html).css("a[href]").map { |a| a["href"].strip }.grep(FILE_LINK)
-      newest = links.max_by do |href|
-        month, year = href.match(FILE_LINK).captures
+      links = Nokogiri::HTML(html).css("a[href]").filter_map { |a| eia_file_url(a["href"].strip) }
+      newest = links.max_by do |url|
+        month, year = url.path.match(FILE_LINK).captures
         [ year.to_i, Date::MONTHNAMES.index(month.capitalize).to_i ]
       end
-      URI.join(INDEX_URL, newest).to_s if newest
+      newest&.to_s
+    end
+
+    def eia_file_url(href)
+      url = URI.join(INDEX_URL, href)
+      index = URI.parse(INDEX_URL)
+      url if url.scheme == "https" && url.host == index.host && url.port == index.port &&
+        url.path.start_with?(index.path) && url.path.match?(FILE_LINK)
+    rescue URI::Error
+      nil
     end
 
     # Strict: the workbook reader already refused anything that isn't a number.

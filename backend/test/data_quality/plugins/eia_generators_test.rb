@@ -55,6 +55,22 @@ class DataQuality::Plugins::EiaGeneratorsTest < ActiveSupport::TestCase
     assert_equal 11, source.content_text.lines.size, "header plus one line per generator"
   end
 
+  test "only EIA's own https file links are followed, and never a redirect to another site" do
+    stub_request(:get, INDEX).to_return(body: <<~HTML)
+      <a href="https://127.0.0.1/xls/december_generator2030.xlsx">Elsewhere</a>
+      <a href="//evil.example/electricity/data/eia860m/xls/november_generator2030.xlsx">Protocol-relative</a>
+      <a href="http://www.eia.gov/electricity/data/eia860m/xls/october_generator2030.xlsx">Plain http</a>
+      <a href="xls/august_generator2026.xlsx">August 2026</a>
+    HTML
+    assert_equal FILE, crawl!["file"]
+
+    stub_request(:get, FILE).to_return(status: 302, headers: { "Location" => "http://169.254.169.254/latest" })
+    Source.find_by!(url: FILE).update_columns(fetched_at: nil)
+    crawl!
+    assert_match "Redirected to 169.254.169.254, another site; not followed", Source.find_by!(url: FILE).status_reason
+    assert_not_requested :get, "http://169.254.169.254/latest"
+  end
+
   test "a newer monthly file withdraws the older file's unpublished candidates" do
     july = Source.create!(url: "https://www.eia.gov/electricity/data/eia860m/xls/july_generator2026.xlsx",
       source_kind: "eia_generators", crawl_status: "ok")

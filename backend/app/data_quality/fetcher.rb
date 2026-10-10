@@ -44,8 +44,11 @@ class DataQuality::Fetcher
 
   # binary: true returns the body as raw bytes (e.g. a spreadsheet) instead
   # of converting it to UTF-8 text.
-  def get(url, etag: nil, last_modified: nil, max_bytes: MAX_BYTES, binary: false)
+  # same_origin: true refuses a redirect to another scheme, host or port, for
+  # sources that must only ever be read from one site.
+  def get(url, etag: nil, last_modified: nil, max_bytes: MAX_BYTES, binary: false, same_origin: false)
     redirects = 0
+    origin = URI.parse(url).then { |start| [ start.scheme, start.host, start.port ] }
 
     loop do
       uri = URI.parse(url)
@@ -58,7 +61,12 @@ class DataQuality::Fetcher
 
       if http.is_a?(Net::HTTPRedirection) && http["Location"] && redirects < MAX_REDIRECTS
         redirects += 1
-        url = URI.join(url, http["Location"]).to_s
+        target = URI.join(url, http["Location"])
+        if same_origin && [ target.scheme, target.host, target.port ] != origin
+          return response(url, :error, status: http.code.to_i, reason: "Redirected to #{target.host}, another site; not followed")
+        end
+
+        url = target.to_s
         next
       end
 
