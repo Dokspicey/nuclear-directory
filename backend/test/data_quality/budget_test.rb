@@ -41,5 +41,18 @@ class DataQuality::BudgetTest < ActiveSupport::TestCase
   test "the budget comes from DATA_QUALITY_MONTHLY_BUDGET, $5 by default" do
     assert_equal 5.0, DataQuality::Config.from_env({}).monthly_budget
     assert_equal 2.5, DataQuality::Config.from_env("DATA_QUALITY_MONTHLY_BUDGET" => "2.5").monthly_budget
+    assert_equal 0.0, DataQuality::Config.from_env("DATA_QUALITY_MONTHLY_BUDGET" => "0").monthly_budget, "0 means no model calls"
+  end
+
+  test "a budget that isn't a number, or is negative, is a configuration error, not a $0 budget" do
+    %w[five 5$ 5,00].each do |typo|
+      error = assert_raises(DataQuality::Config::ConfigurationError) do
+        DataQuality::Config.from_env("DATA_QUALITY_MONTHLY_BUDGET" => typo)
+      end
+      assert_match "must be a number of US dollars", error.message
+    end
+
+    error = assert_raises(DataQuality::Config::ConfigurationError) { DataQuality::Config.from_env("DATA_QUALITY_MONTHLY_BUDGET" => "-1") }
+    assert_match "can't be negative", error.message
   end
 end

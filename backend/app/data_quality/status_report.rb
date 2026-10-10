@@ -29,7 +29,10 @@ module DataQuality::StatusReport
   end
 
   def self.runs
-    latest = CrawlRun.select("DISTINCT ON (source_kind, stage) *").order(:source_kind, :stage, started_at: :desc)
+    # Finished runs only; a run in progress is listed under "Running now" and
+    # mustn't hide its stage's last result.
+    latest = CrawlRun.where.not(status: "running")
+      .select("DISTINCT ON (source_kind, stage) *").order(:source_kind, :stage, started_at: :desc)
     running = CrawlRun.running.order(:started_at)
 
     [

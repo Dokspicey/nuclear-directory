@@ -63,8 +63,10 @@ docker compose run --rm web bin/rails data_quality:status
 - **No stuck runs.** Each run first marks runs of its source kind left "running" for over 2 hours as
   failed ("Abandoned…").
 - **Spend guard.** Before every model call, this month's model cost (from `crawl_runs.stats`) is checked
-  against `DATA_QUALITY_MONTHLY_BUDGET` (default $5). Once it's used up, calls are refused with
-  `Budget::Exceeded` and the run fails with that reason.
+  against `DATA_QUALITY_MONTHLY_BUDGET` (default $5; a non-number or negative value is a configuration
+  error). Once it's used up, calls are refused with `Budget::Exceeded` and the run fails with that
+  reason. It's a soft limit: calls already in flight still finish, so spend can pass it by a fraction
+  of a cent per concurrent run. The OpenRouter key's own credit limit is the hard stop.
 
 ## Adding a source
 

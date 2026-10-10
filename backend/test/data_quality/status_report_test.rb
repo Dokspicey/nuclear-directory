@@ -33,6 +33,18 @@ class DataQuality::StatusReportTest < ActiveSupport::TestCase
     assert_match(/Running now:\n.*verify\s+running/, text)
   end
 
+  test "a stage that's running again still shows its last finished run" do
+    CrawlRun.create!(stage: "extract", source_kind: "nrc_reactor_list", started_at: 1.hour.ago, finished_at: 59.minutes.ago,
+      status: "succeeded", stats: { "candidates" => 219 })
+    CrawlRun.create!(stage: "extract", source_kind: "nrc_reactor_list", started_at: 1.minute.ago)
+
+    last_runs, running = report.split("Running now:")
+
+    assert_match(/extract\s+succeeded.*"candidates":219/, last_runs)
+    assert_no_match(/extract\s+running/, last_runs)
+    assert_match(/extract\s+running/, running)
+  end
+
   test "groups the review queue by reason and totals model spend against the budget" do
     source = sources(:nrc)
     2.times { Candidate.create!(source:, kind: "organization", payload: {}, status: "needs_review", notes: "organization: no exact match for X") }
