@@ -168,6 +168,14 @@ class CompanyPageTest < ActionDispatch::IntegrationTest
     assert_select ".nd-crumbs a[href=?]", "/companies?category=investors", text: "Investors"
   end
 
+  test "a hidden invests-in deal doesn't make a company an investor" do
+    backer = cite!(company("Quiet Fund"))
+    link(backer, "invests_in", @kairos)
+    get company_path(slug: "quiet-fund")
+
+    assert_select ".nd-crumbs a", count: 0
+  end
+
   test "missing must-have fields are listed, not guessed" do
     get company_path(slug: "google")
 

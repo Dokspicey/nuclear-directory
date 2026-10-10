@@ -128,7 +128,8 @@ Not on the home page: `coolant` and its sub-roles, `regulatory_consultant`, `gov
 
 ## Logos
 
-- There is no Nuclear Directory logo yet. Set the name as text: Anton, uppercase, "NUCLEAR DIRECTORY".
+- There is no Nuclear Directory logo yet. The name is set in Anton, uppercase, "NUCLEAR DIRECTORY", and served as an SVG of the letter outlines (`shared/_wordmark`, built by `script/build_fonts.py`) so the font never delays the header. Put the name beside it as text for screen readers.
+- Fonts are self-hosted Latin subsets (`shared/_fonts`); only Roboto Serif is preloaded.
 - Organizations get a **monogram**: their initials in `mono` on a `paper-sunken` square with a `rule` border. Their own logos are inconsistent in quality, so monograms keep the directory even. If logos are added later, show them grayscale.
 
 ## Accessibility
