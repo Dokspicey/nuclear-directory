@@ -81,6 +81,28 @@ class DataQuality::Stages::VerifyTest < ActiveSupport::TestCase
     assert_nil Directory::Lookup.organization(name: "TP Nuclear Holdings")
   end
 
+  test "publishing a match keeps the company's own name, adding the candidate's as an alias" do
+    c = candidate("organization", { "name" => "TP Nuclear Holdings", "domain" => "terrapower.com" })
+    run_stage("match")
+
+    run_stage("verify", verifier: PublishEverything.new)
+
+    assert c.reload.status_merged?
+    assert_equal "TerraPower", organizations(:terrapower).reload.name
+    assert_equal organizations(:terrapower).id, Directory::Lookup.organization(name: "TP Nuclear Holdings").id
+  end
+
+  test "matching an existing link adds no evidence before it's published" do
+    link = FacilityRelationship.create!(organization: organizations(:terrapower), facility: facilities(:vogtle),
+      relationship_type: "owns")
+    candidate("facility_relationship", { "organization" => { "name" => "TerraPower" },
+      "facility" => { "name" => "Vogtle Electric Generating Plant" }, "relationship_type" => "owns" })
+
+    run_stage("match")
+
+    assert_empty link.reload.evidence
+  end
+
   test "a link's details arrive when it's published, not at match" do
     candidate("organization", { "name" => "Example Operating Co" })
     candidate("facility", { "name" => "Example 1", "nrc_docket" => "05000999", "facility_type" => "power_reactor" })

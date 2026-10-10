@@ -78,7 +78,7 @@ module Directory
     # so new data can complete a record without overwriting anything.
     # protect_human_verified: true treats a row a human has verified (or
     # rejected) as curated, so a human's decision is never overwritten:
-    # - a rejected row isn't changed at all (an error is returned)
+    # - a rejected row (by anyone) isn't changed at all (an error is returned)
     # - if an incoming value disagrees with a stored one, nothing is written
     #   (no attributes, evidence or confidence change) and the result's
     #   conflicts say what disagreed, for review
@@ -99,8 +99,9 @@ module Directory
         created = record.new_record?
         # Locked, so a human's decision made while this write runs is seen.
         record.lock! if protect_human_verified && !created
-        if protect_human_verified && !created && record.rejected? && record.human_reviewed?
-          raise Invalid, "#{record.model_name.human} was rejected by #{record.verified_by}; not changed"
+        # A rejected fact (by a human, or a retired proposal) only changes by a human's hand.
+        if protect_human_verified && !created && record.rejected?
+          raise Invalid, "#{record.model_name.human} was rejected by #{record.verified_by || 'review'}; not changed"
         end
         curated = protect_human_verified && !created && record.human_reviewed?
         changes = model_attributes(kind, attributes)

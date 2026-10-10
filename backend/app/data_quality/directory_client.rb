@@ -56,9 +56,11 @@ class DataQuality::DirectoryClient
   # source as evidence (found_by: crawler). Verification is left alone, so a
   # new fact starts pending and an existing one keeps its status. A fact a
   # human has verified or rejected only gets its blanks filled.
-  def write_pending(kind, attributes, candidate:, crawl_run:)
-    result = fact_writer.write(kind, attributes, protect_human_verified: true,
-      evidence: [ { source_id: candidate.source_id, quote: candidate.quote, found_by: "crawler", crawl_run_id: crawl_run.id } ])
+  # evidence: false writes only the record (a link that may already exist
+  # gets its evidence on publish, so nothing unverified lands on it early).
+  def write_pending(kind, attributes, candidate:, crawl_run:, evidence: true)
+    items = evidence ? [ { source_id: candidate.source_id, quote: candidate.quote, found_by: "crawler", crawl_run_id: crawl_run.id } ] : []
+    result = fact_writer.write(kind, attributes, protect_human_verified: true, evidence: items)
     write_result(result)
   end
 
@@ -72,8 +74,12 @@ class DataQuality::DirectoryClient
   def write_fact(candidate, confidence:, crawl_run:)
     attributes = candidate.payload.except(*LINK_ENDS).symbolize_keys
     attributes[:id] = candidate.subject_id if candidate.subject_id
-    # The name it was found under becomes an alias only once a verdict accepts it.
-    attributes[:aliases] = [ *attributes[:aliases], attributes[:name] ].compact_blank.uniq if candidate.kind == "organization"
+    if candidate.kind == "organization"
+      # The name it was found under becomes an alias only once a verdict accepts
+      # it, and a matched company keeps its own name.
+      attributes[:aliases] = [ *attributes[:aliases], attributes[:name] ].compact_blank.uniq
+      attributes.delete(:name) if candidate.subject_id
+    end
 
     result = fact_writer.write(
       candidate.kind,

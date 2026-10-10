@@ -3,8 +3,9 @@
 #
 # For every new candidate, one of three things happens:
 # - Found: an exact match on NRC docket, domain or name/alias. The candidate
-#   is attached to that record, its quote is added as evidence, and for an
-#   organization its name is added as an alias.
+#   is attached to that record and nothing is written yet: its quote becomes
+#   evidence (and, for an organization, its name an alias) only when verify
+#   publishes it.
 # - Not found: a new pending record is proposed with the quote as evidence.
 # - Ambiguous: identifiers point at different records, or a similar record
 #   exists ("Vogtle 3" vs "Plant Vogtle Units 3 & 4"). The candidate goes to
@@ -84,8 +85,8 @@ class DataQuality::Stages::Match < DataQuality::Stage
       case (found = resolve(candidate.kind.to_sym, payload))
       when Review then review(candidate, found.reason)
       when Found
-        # Attach only; the name it was found under becomes an alias if and when it's published.
-        write(candidate, { id: found.record.id }, existing: true, note: "Matched existing #{found.record.name} (by #{found.by})")
+        # Attach only: nothing is written to an existing record until it's published.
+        attach(candidate, found.record, "Matched existing #{found.record.name} (by #{found.by})")
       when Under
         write(candidate, payload.symbolize_keys.merge(parent_id: found.site.id), existing: false,
           note: "New pending unit under the existing site #{found.site.name}")
@@ -117,7 +118,7 @@ class DataQuality::Stages::Match < DataQuality::Stage
         end
       end
 
-      write(candidate, attributes)
+      write(candidate, attributes, evidence: false)
     end
 
     # Found, Review or nil (nothing like it exists). A record that was rejected
@@ -207,8 +208,15 @@ class DataQuality::Stages::Match < DataQuality::Stage
 
     # existing: whether the candidate describes a record that already exists.
     # Links don't know until FactWriter finds (or doesn't find) the link.
-    def write(candidate, attributes, existing: nil, note: nil)
-      result = directory.write_pending(candidate.kind, attributes, candidate:, crawl_run: @run)
+    def attach(candidate, record, note)
+      @stats["matched"] += 1
+      candidate.update!(status: "matched", subject_type: record.type, subject_id: record.id, notes: note,
+        proposed_subject: false)
+    end
+
+    # evidence: false for links, which may already exist; their quote is added on publish.
+    def write(candidate, attributes, existing: nil, note: nil, evidence: true)
+      result = directory.write_pending(candidate.kind, attributes, candidate:, crawl_run: @run, evidence:)
       unless result.success?
         return review(candidate, "Directory rejected the write: #{result.errors.join('; ')}", write_error: true)
       end

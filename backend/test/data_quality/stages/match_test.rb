@@ -23,7 +23,7 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
     Facility.create!(name: "Plant Vogtle Units 3 & 4")
   end
 
-  test "a facility matched by NRC docket is attached, with the quote as evidence" do
+  test "a facility matched by NRC docket is attached; its quote is added only on publish" do
     site = Facility.create!(name: "Braidwood Station", nrc_docket: "05000456")
     c = candidate("facility", facility_payload("Braidwood 1", "05000456"), quote: "Braidwood 1 05000456")
 
@@ -34,9 +34,12 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
     assert_equal [ "Facility", site.id ], [ c.subject_type, c.subject_id ]
     assert_match "by NRC docket", c.notes
     assert_equal "Braidwood Station", site.reload.name, "matching doesn't overwrite the record"
-    evidence = site.evidence.sole
-    assert_equal [ "crawler", "Braidwood 1 05000456", run.id ], [ evidence.found_by, evidence.quote, evidence.crawl_run_id ]
+    assert_empty site.evidence, "nothing is written to an existing record before verification"
     assert_equal 1, run.stats["matched"]
+
+    verify = DataQuality::Stages::Verify.call(plugin: DummyPlugin.new, verifier: PublishEverything.new)
+    evidence = site.evidence.sole
+    assert_equal [ "crawler", "Braidwood 1 05000456", verify.id ], [ evidence.found_by, evidence.quote, evidence.crawl_run_id ]
   end
 
   test "an unknown facility is proposed as a new pending record" do

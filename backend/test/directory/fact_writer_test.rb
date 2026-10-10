@@ -148,6 +148,21 @@ class Directory::FactWriterTest < ActiveSupport::TestCase
     assert_empty site.evidence
   end
 
+  test "a rejected fact isn't changed by an automated write, whoever rejected it" do
+    org = organizations(:terrapower)
+    org.reject!(by: "agent:verifier/x")
+
+    result = write(:organization, { id: org.id, hq_city: "Bellevue" }, protect_human_verified: true, evidence: [ @evidence ],
+      verification: { status: "verified", by: "agent:verifier/x" })
+
+    assert_not result.ok?
+    assert_match "was rejected by agent:verifier/x", result.errors.join
+    org.reload
+    assert org.rejected?
+    assert_nil org.hq_city
+    assert_empty org.evidence
+  end
+
   test "names never count as conflicts" do
     org = organizations(:terrapower)
     org.verify!(by: "human:tosin")
