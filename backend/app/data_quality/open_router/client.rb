@@ -55,6 +55,8 @@ class DataQuality::OpenRouter::Client
     validator = JSONSchemer.schema(schema)
 
     with_retries do |attempt|
+      # Before every attempt, retries included; raises Budget::Exceeded.
+      DataQuality::Budget.check!(@config.monthly_budget)
       payload = post(body)
       record_usage(crawl_run, model, payload["usage"], attempt:)
 
@@ -152,12 +154,27 @@ class DataQuality::OpenRouter::Client
       return unless run
 
       llm = run.stats.fetch("llm", {})
+      # A run that recorded calls before by_month existed (in flight across
+      # a deploy) moves those totals into the month it started, so its
+      # earlier spend isn't lost once its first monthly bucket appears.
+      if llm["by_month"].nil? && llm["calls"].to_i.positive?
+        llm["by_month"] = { run.started_at.strftime("%Y-%m") =>
+          { "calls" => llm["calls"].to_i, "total_tokens" => llm["total_tokens"].to_i, "cost" => llm["cost"].to_f } }
+      end
       llm["calls"] = llm.fetch("calls", 0) + 1
       llm["retries"] = llm.fetch("retries", 0) + 1 if attempt > 1
       %w[prompt_tokens completion_tokens total_tokens].each do |key|
         llm[key] = llm.fetch(key, 0) + usage.to_h.fetch(key, 0).to_i
       end
       llm["cost"] = (llm.fetch("cost", 0) + usage["cost"].to_f).round(6) if usage.to_h["cost"]
+
+      # Also by the calendar month of the call, so a run that crosses
+      # midnight at month end is counted in the right month (Budget,
+      # StatusReport): "by_month" => { "2026-10" => { calls, total_tokens, cost } }
+      month = (llm["by_month"] ||= {})[Time.current.strftime("%Y-%m")] ||= { "calls" => 0, "total_tokens" => 0, "cost" => 0 }
+      month["calls"] += 1
+      month["total_tokens"] += usage.to_h.fetch("total_tokens", 0).to_i
+      month["cost"] = (month["cost"] + usage.to_h["cost"].to_f).round(6)
 
       run.update!(stats: run.stats.merge("llm" => llm), model: run.model || model)
     end
