@@ -144,7 +144,7 @@ class DataQuality::DirectoryClient
     def lookup = @lookup ||= "Directory::Lookup".constantize
     def fact_writer = @fact_writer ||= "Directory::FactWriter".constantize
 
-    # Read once and reused for every brand check, until a facility is written.
+    # Read once and reused for every brand check, until a facility or company is written.
     def plant_names = @plant_names ||= lookup.plant_names
 
     def record(type, ref)
@@ -154,7 +154,8 @@ class DataQuality::DirectoryClient
     end
 
     def write_result(result)
-      @plant_names = nil if result.ok? && result.kind.to_s == "facility"
+      # Plant names depend on facilities and on company names (owner prefixes).
+      @plant_names = nil if result.ok? && %w[facility organization].include?(result.kind.to_s)
       if result.ok?
         WriteResult.new(ref: Ref.new(type: type_for(result.kind), id: result.id), errors: [], created: result.created)
       elsif result.conflict?
