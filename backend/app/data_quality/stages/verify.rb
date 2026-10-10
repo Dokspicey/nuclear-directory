@@ -92,12 +92,23 @@ class DataQuality::Stages::Verify < DataQuality::Stage
       return [] unless record && record.verification_status == "verified" && record.verified_by.to_s.start_with?("human:")
 
       COMPARED.fetch(candidate.kind, []).filter_map do |name|
-        stored = record.public_send(name)
-        incoming = candidate.payload[name]
-        next if stored.blank? || incoming.blank? || stored.to_s == incoming.to_s
+        stored = comparable(name, record.public_send(name))
+        incoming = comparable(name, name == "domain" ? candidate.payload["domain"].presence || candidate.payload["website"] : candidate.payload[name])
+        next if stored.blank? || incoming.blank? || stored == incoming
 
         "human-verified #{name.humanize(capitalize: false)} is #{stored}; this source says #{incoming}"
       end
+    end
+
+    # Domains compare as hosts: "https://WWW.TerraPower.com/news" is "terrapower.com".
+    def comparable(name, value)
+      return value.to_s unless name == "domain" && value.present?
+
+      text = value.to_s.strip
+      host = URI.parse(text.match?(%r{\A[a-z][a-z0-9+.-]*://}i) ? text : "https://#{text}").host
+      host.to_s.downcase.delete_prefix("www.")
+    rescue URI::InvalidURIError
+      text.downcase.delete_prefix("www.")
     end
 
     def verdicts_for(candidates, run)

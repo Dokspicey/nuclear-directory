@@ -33,7 +33,7 @@ module DataQuality::Review
 
     # The evidence belongs to the run that judged it (verify), else the one that found it.
     run = candidate.verify_run || candidate.crawl_run
-    result = directory.write_fact(candidate, confidence: candidate.ai_confidence, crawl_run: run, by:, reason:)
+    result = directory.write_fact(candidate, confidence: supporting_confidence(candidate), crawl_run: run, by:, reason:)
     return Result.new(candidate_id: candidate.id, ref: nil, errors: result.errors) unless result.success?
 
     candidate.update!(status: "merged", subject_type: result.ref.type, subject_id: result.ref.id)
@@ -50,5 +50,12 @@ module DataQuality::Review
 
     candidate.update!(notes: [ candidate.notes, "Site not filled: #{filled.errors.join('; ')}" ].compact_blank.join(". "))
   end
-  private_class_method :approve_one, :fill_site
+  # Evidence confidence means "how sure the source supports this". The
+  # verifier's confidence only says that when it recommended publishing; for
+  # a review verdict (disputed, unsure) it's confidence in that verdict, so
+  # the evidence gets none.
+  def self.supporting_confidence(candidate)
+    candidate.ai_confidence if candidate.ai_recommendation == "recommend_publish"
+  end
+  private_class_method :approve_one, :fill_site, :supporting_confidence
 end

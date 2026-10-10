@@ -21,10 +21,14 @@ module DataQuality::Claim
       "#{name_of(payload['organization'])} is also known as #{payload['alias'].inspect}."
     when "facility"
       "There is a facility named #{payload['name'].inspect}#{details(payload.except('name'))}."
+    # Links carry every detail approval would publish (ownership %, dates,
+    # description), so nothing is published that the verifier didn't check.
     when "facility_relationship"
-      "#{name_of(payload['organization'])} #{verb(payload['relationship_type'])} the facility #{facility_name(payload['facility'])}."
+      "#{name_of(payload['organization'])} #{verb(payload['relationship_type'])} the facility " \
+        "#{facility_name(payload['facility'])}#{details(payload.except('organization', 'facility', 'relationship_type'))}."
     when "relationship"
-      "#{name_of(payload['from_organization'])} #{verb(payload['relationship_type'])} #{name_of(payload['to_organization'])}."
+      "#{name_of(payload['from_organization'])} #{verb(payload['relationship_type'])} #{name_of(payload['to_organization'])}" \
+        "#{details(payload.except('from_organization', 'to_organization', 'relationship_type'))}."
     when "organization_role"
       "#{name_of(payload['organization'])} has the role #{humanize(payload['role'])}."
     when "organization_technology"
