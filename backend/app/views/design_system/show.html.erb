@@ -229,7 +229,7 @@
 
     <div class="flex flex-col gap-2">
       <span class="type-label">Category pills (with and without counts) and boxes</span>
-      <%= render "shared/category_pills", current: Category.find("reactor-developers"), counts: { "fuel" => 11, "reactor-developers" => 9, "power-plants" => 28 } %>
+      <%= render "shared/category_pills", current: Category.find("reactor-developers"), counts: { "fuel" => 11, "reactor-developers" => 9, "plants" => 28 } %>
       <%= render "shared/category_pills", current: nil %>
       <%= render "shared/category_boxes", examples: { "fuel" => [ "Centrus Energy", "Urenco USA" ], "reactor-developers" => [ "Kairos Power", "X-energy", "TerraPower" ] } %>
     </div>

@@ -246,3 +246,14 @@
     .nd-profile__name { font-size: 28px; line-height: 34px; }
   }
 }
+
+/* Directory and search results heading and filters (#40). */
+@layer components {
+  .nd-listhead { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--nd-space-3) var(--nd-space-6); border-bottom: 2px solid var(--nd-ink); padding-bottom: var(--nd-space-3); margin-bottom: calc(var(--nd-space-8) * -1 + var(--nd-space-2)); }
+  .nd-listhead__title { margin: 0; font: 600 24px/32px var(--font-text); }
+  .nd-listhead__title .nd-num { margin-left: 6px; font-size: 13px; font-weight: 400; color: var(--nd-ink-muted); }
+  .nd-filters { display: flex; flex-wrap: wrap; align-items: center; gap: var(--nd-space-2); }
+  .nd-select select { border: 0; background: transparent; color: inherit; font: inherit; padding: 0 2px; cursor: pointer; }
+  .nd-select:focus-within { outline: var(--nd-focus-width) solid var(--nd-focus); outline-offset: 2px; }
+  .nd-select select:focus-visible { outline: none; }
+}
