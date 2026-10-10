@@ -1,0 +1,11 @@
+westinghouse:
+  name: Westinghouse Electric Company
+  slug: westinghouse
+  domain: westinghousenuclear.com
+  status: active
+
+terrapower:
+  name: TerraPower
+  slug: terrapower
+  domain: terrapower.com
+  status: active

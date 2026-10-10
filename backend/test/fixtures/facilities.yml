@@ -1,0 +1,6 @@
+vogtle:
+  name: Vogtle Electric Generating Plant
+  slug: vogtle
+  facility_type: power_reactor
+  status: operating
+  state: GA
