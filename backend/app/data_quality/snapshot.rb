@@ -1,6 +1,7 @@
 # Fetches one Source and records the result on it: a new snapshot
-# (content, hash, ETag) on success, or crawl_status blocked / needs_human
-# with the reason. Shared by all plug-ins.
+# (content, hash, ETag, and the page's title when it has one) on success,
+# or crawl_status blocked / needs_human with the reason. Shared by all
+# plug-ins.
 #
 #   DataQuality::Snapshot.take(source, fetcher: fetcher)
 #   # => :changed, :unchanged, :skipped_recent, :blocked, :disallowed or :error
@@ -17,9 +18,17 @@ class DataQuality::Snapshot
 
     case response.kind
     when :ok
+      if response.truncated
+        # Half a page would look like a changed page; keep the last good snapshot.
+        source.update!(attempt.merge(status_reason: "Larger than #{DataQuality::Fetcher::MAX_BYTES / 1.megabyte} MB; not stored"))
+        return :error
+      end
+
       sha = Digest::SHA256.hexdigest(response.body)
       changed = sha != source.content_sha256
-      source.update!(attempt.merge(fresh(source, response)).merge(content_text: response.body, content_sha256: sha))
+      title = DataQuality::PageTitle.from(response.body, content_type: response.content_type)
+      source.update!(attempt.merge(fresh(source, response))
+        .merge(content_text: response.body, content_sha256: sha, title: title || source.title))
       changed ? :changed : :unchanged
     when :not_modified
       source.update!(attempt.merge(fresh(source, response)))
