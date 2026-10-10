@@ -13,13 +13,13 @@ module FakeDirectory
     def organization(id: nil, slug: nil, name: nil, domain: nil)
       one_of!(id:, slug:, name:, domain:)
       Directory::OrganizationRef.new(id: @organizations[name], slug: nil, name: name, domain: nil,
-        verification_status: "verified") if @organizations.key?(name)
+        verification_status: "verified", verified_by: nil, verified_at: nil) if @organizations.key?(name)
     end
 
     def facility(id: nil, slug: nil, name: nil, nrc_docket: nil)
       one_of!(id:, slug:, name:, nrc_docket:)
       Directory::FacilityRef.new(id: @facilities[name], slug: nil, name: name, nrc_docket: nil, parent_id: nil,
-        verification_status: "verified", facility_type: nil, status: nil, state: nil, country_code: nil,
+        verification_status: "verified", verified_by: nil, verified_at: nil, facility_type: nil, status: nil, state: nil, country_code: nil,
         latitude: nil, longitude: nil) if @facilities.key?(name)
     end
 
@@ -29,7 +29,10 @@ module FakeDirectory
     def brand_name(name, plants: nil) = nil
     def brand_key(name, plants: nil) = nil
     def plant_names = Set.new
+
+    def fact_state(type:, id:) = nil
     def similar_facilities(name) = []
+    def facility_units(name:, state: nil) = []
 
     private
       # Same rule as the real Lookup.
@@ -53,6 +56,12 @@ module FakeDirectory
 
       id = attributes[:id] || (@next_id += 1)
       Directory::FactWriter::Result.new(kind: kind.to_sym, id: id, created: !attributes[:id], errors: [])
+    end
+
+    # The fake directory has no closed facts.
+    def while_open(type:, id:)
+      yield
+      nil
     end
 
     # The fake directory has no sites to fill.

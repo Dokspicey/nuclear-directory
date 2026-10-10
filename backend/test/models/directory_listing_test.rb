@@ -102,7 +102,7 @@ class DirectoryListingTest < ActiveSupport::TestCase
   end
 
   test "a rejected site never appears, even with a verified unit" do
-    rejected = Facility.create!(name: "Rejected Station", verification_status: "rejected")
+    rejected = Facility.create!(name: "Rejected Station", verification_status: "rejected", verified_by: "human:test")
     plant("Rejected Unit 1", parent: rejected)
 
     assert_not_includes DirectoryListing.new(category: "plants").plants.map(&:name), "Rejected Station"
@@ -119,9 +119,9 @@ class DirectoryListingTest < ActiveSupport::TestCase
   test "filter options come only from companies and plants the public can see" do
     hidden_tech = technology("pebble_bed", "Pebble bed")
     company("Pending Pebbles", techs: [ hidden_tech ], verified: false)
-    rejected = Facility.create!(name: "Rejected Site", verification_status: "rejected")
+    rejected = Facility.create!(name: "Rejected Site", verification_status: "rejected", verified_by: "human:test")
     plant("Rejected Unit", parent: rejected, technology: technology("sfr", "Sodium fast reactor"))
-    OrganizationRole.create!(organization: @pending, role: role("lead_coolant", parent: Role.find_by!(key: "coolant")), verification_status: "verified")
+    OrganizationRole.create!(organization: @pending, role: role("lead_coolant", parent: Role.find_by!(key: "coolant")), **verification(true))
 
     options = DirectoryListing.new.technology_options.map(&:last)
     assert_not_includes options, "pebble_bed"
