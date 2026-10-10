@@ -51,6 +51,9 @@ module FakeDirectory
       id = attributes[:id] || (@next_id += 1)
       Directory::FactWriter::Result.new(kind: kind.to_sym, id: id, created: !attributes[:id], errors: [])
     end
+
+    # The fake directory has no sites to fill.
+    def fill_site_from_unit(unit_id, fields:, evidence:) = nil
   end
 
   def self.client(lookup: Lookup.new, fact_writer: FactWriter.new)

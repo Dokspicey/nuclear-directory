@@ -185,7 +185,9 @@ class DataQuality::DirectoryClientTest < ActiveSupport::TestCase
       "Lookup.facility_units" => [ Directory::Lookup.method(:facility_units),
         FakeDirectory::Lookup.instance_method(:facility_units) ],
       # FactWriter.write forwards (...) to the instance method, which has the real signature.
-      "FactWriter.write" => [ Directory::FactWriter.instance_method(:write), FakeDirectory::FactWriter.instance_method(:write) ]
+      "FactWriter.write" => [ Directory::FactWriter.instance_method(:write), FakeDirectory::FactWriter.instance_method(:write) ],
+      "FactWriter.fill_site_from_unit" => [ Directory::FactWriter.instance_method(:fill_site_from_unit),
+        FakeDirectory::FactWriter.instance_method(:fill_site_from_unit) ]
     }.each do |name, (real, fake)|
       assert_equal real.parameters, fake.parameters, "the fake #{name} no longer matches the real one"
     end
