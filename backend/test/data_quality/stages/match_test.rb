@@ -208,9 +208,9 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
     assert_match "name matches TerraPower but domain matches Westinghouse", c.notes
   end
 
-  test "an operator similar to an existing parent goes to review" do
+  test "a similar company with a different brand goes to review" do
     Directory::FactWriter.write(:organization, { name: "Southern Company" })
-    c = candidate("organization", { "name" => "Southern Nuclear Operating Co." })
+    c = candidate("organization", { "name" => "Southern California Edison" })
 
     assert_no_difference "Organization.count" do
       match!
@@ -218,6 +218,33 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
 
     assert c.reload.status_needs_review?
     assert_match "Southern Company", c.notes
+  end
+
+  test "one company per brand: a legal-entity variant is that company" do
+    constellation = Directory::FactWriter.write(:organization, { name: "Constellation Energy Corporation" }).id
+    southern = Directory::FactWriter.write(:organization, { name: "Southern Company" }).id
+    generation = candidate("organization", { "name" => "Constellation Energy Generation, LLC" })
+    operating = candidate("organization", { "name" => "Southern Nuclear Operating Co., Inc." })
+
+    assert_no_difference "Organization.count" do
+      match!
+    end
+
+    assert_equal [ constellation, southern ], [ generation, operating ].map { |c| c.reload.subject_id }
+    assert_match "by brand", generation.notes
+    assert_equal southern, Directory::Lookup.organization(name: "Southern Nuclear Operating Co., Inc.").id,
+      "the variant is now an alias, so the next run matches it exactly"
+  end
+
+  test "a brand shared by two companies goes to review" do
+    Directory::FactWriter.write(:organization, { name: "Urenco" })
+    Directory::FactWriter.write(:organization, { name: "Urenco USA" })
+    c = candidate("organization", { "name" => "Urenco Nuclear Operations LLC" })
+
+    match!
+
+    assert c.reload.status_needs_review?
+    assert_match "could be the same brand as Urenco or Urenco USA", c.notes
   end
 
   test "an organization listed on many rows is proposed once, then matched" do

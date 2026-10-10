@@ -48,6 +48,11 @@ class DataQuality::DirectoryClient
     lookup.similar_organizations(name).map { |ref| record("Organization", ref) }
   end
 
+  # Organizations that are the same brand as name (legal-entity variants).
+  def same_brand_organizations(name)
+    lookup.same_brand_organizations(name).map { |ref| record("Organization", ref) }
+  end
+
   def similar_facilities(name)
     lookup.similar_facilities(name).map { |ref| record("Facility", ref) }
   end

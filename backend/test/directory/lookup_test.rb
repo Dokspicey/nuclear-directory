@@ -82,6 +82,20 @@ class Directory::LookupTest < ActiveSupport::TestCase
     assert_nil Directory::Lookup.facility(nrc_docket: " "), "the Vogtle fixture has no docket"
   end
 
+  test "brand keys drop trailing legal-entity and operating-arm words" do
+    assert_equal "constellation", Directory::Lookup.brand_key("Constellation Energy Generation, LLC")
+    assert_equal "southern", Directory::Lookup.brand_key("Southern Nuclear Operating Co., Inc.")
+    assert_equal "ge vernova hitachi", Directory::Lookup.brand_key("GE Vernova Hitachi Nuclear Energy")
+    assert_equal "energy northwest", Directory::Lookup.brand_key("Energy Northwest"), "leading words stay"
+    assert_nil Directory::Lookup.brand_key("X-Energy, Inc."), "too short to trust"
+  end
+
+  test "finds organizations of the same brand" do
+    assert_equal [ organizations(:westinghouse).id ],
+      Directory::Lookup.same_brand_organizations("Westinghouse Electric Company Holdings").map(&:id)
+    assert_empty Directory::Lookup.same_brand_organizations("Westinghouse Government Services Division")
+  end
+
   test "needs exactly one way to look up" do
     assert_raises(ArgumentError) { Directory::Lookup.organization }
     assert_raises(ArgumentError) { Directory::Lookup.organization(name: "TerraPower", domain: "terrapower.com") }

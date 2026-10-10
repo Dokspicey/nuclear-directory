@@ -180,6 +180,8 @@ class DataQuality::DirectoryClientTest < ActiveSupport::TestCase
       "Lookup.facility" => [ Directory::Lookup.method(:facility), FakeDirectory::Lookup.instance_method(:facility) ],
       "Lookup.similar_organizations" => [ Directory::Lookup.method(:similar_organizations),
         FakeDirectory::Lookup.instance_method(:similar_organizations) ],
+      "Lookup.same_brand_organizations" => [ Directory::Lookup.method(:same_brand_organizations),
+        FakeDirectory::Lookup.instance_method(:same_brand_organizations) ],
       "Lookup.similar_facilities" => [ Directory::Lookup.method(:similar_facilities),
         FakeDirectory::Lookup.instance_method(:similar_facilities) ],
       # FactWriter.write forwards (...) to the instance method, which has the real signature.

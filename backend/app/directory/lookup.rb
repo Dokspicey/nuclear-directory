@@ -84,6 +84,37 @@ module Directory
         .first(10).map { |facility| FacilityRef.from(facility) }
     end
 
+    # Words that name a legal entity or operating arm of a brand rather than
+    # the brand itself, when they end a name: "Constellation Energy
+    # Generation, LLC" and "Constellation Energy Corporation" are one brand.
+    # Decision (Tosin, 2026-10-10): one company per brand.
+    ENTITY_WORDS = %w[
+      generation operating operations operator nuclear energy power usa us america americas
+      holdings holding group international global services company co corp corporation inc incorporated
+      llc lp llp ltd limited plc
+    ].to_set.freeze
+    # Shorter brand keys ("x" from "X-energy") match too much to trust.
+    MIN_BRAND_KEY_LENGTH = 4
+
+    # Organizations whose name or an alias is the same brand as name, i.e.
+    # equal once trailing entity words are dropped. More than one result means
+    # the brand is ambiguous (e.g. "Urenco" and "Urenco USA" are both records).
+    def same_brand_organizations(name)
+      key = brand_key(name) or return []
+
+      OrganizationAlias.where("organization_aliases.normalized_alias LIKE ?", "#{ActiveRecord::Base.sanitize_sql_like(key)}%")
+        .includes(:organization).select { |a| brand_key(a.alias) == key }
+        .map(&:organization).uniq.first(10).map { |org| OrganizationRef.from(org) }
+    end
+
+    # "Southern Nuclear Operating Co." => "southern"; nil when too short to trust.
+    def brand_key(name)
+      words = OrganizationAlias.normalize(name).split
+      words.pop while words.size > 1 && ENTITY_WORDS.include?(words.last)
+      key = words.join(" ")
+      key if key.delete(" ").length >= MIN_BRAND_KEY_LENGTH
+    end
+
     def distinctive_words(name)
       OrganizationAlias.normalize(name).split.reject { |word| GENERIC_WORDS.include?(word) || word.match?(/\A\d+\z/) }
     end

@@ -149,6 +149,14 @@ class DataQuality::Stages::Match < DataQuality::Stage
       return Found.new(by_name, "name") if by_name
       return Found.new(by_domain, "domain") if by_domain
 
+      # One company per brand: a legal-entity variant of exactly one existing
+      # company is that company. Two candidates for the brand is ambiguous.
+      brand = name ? directory.same_brand_organizations(name) : []
+      return Found.new(brand.first, "brand, a legal-entity variant of its name") if brand.one?
+      if brand.many?
+        return Review.new("#{name.inspect} could be the same brand as #{brand.map(&:name).join(' or ')}. Which one?")
+      end
+
       similar(directory.similar_organizations(name.to_s), name)
     end
 
