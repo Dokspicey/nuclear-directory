@@ -132,6 +132,9 @@ module Directory
     # only legal or operating words were dropped, since the full name is
     # then the company's own.
     def brand_name(name, plants: plant_names)
+      # Only for a brand key we'd trust ("X-Energy Seabrook" reduces to "x": no).
+      return unless brand_key(name, plants:)
+
       tokens = name.to_s.gsub("&", " and ").scan(/[[:alnum:]]+/)
       base = strip_entities(tokens.map(&:downcase))
       place = place_words_at_end(base, plants) or return
@@ -174,9 +177,10 @@ module Directory
       end
 
       # Distinctive names of known plants ("seabrook", "point beach",
-      # "palisades"), from the facility records. One query per lookup.
+      # "palisades"), from the facility records, leaving out rejected ones.
+      # One query per lookup.
       def plant_names
-        Facility.pluck(:name).flat_map do |name|
+        Facility.where.not(verification_status: "rejected").pluck(:name).flat_map do |name|
           words = distinctive_words(name).reject { |word| word.length < 3 }
           [ words.join(" "), words.first(2).join(" "), (words.first if words.first.to_s.length >= 5) ]
         end.compact_blank.to_set

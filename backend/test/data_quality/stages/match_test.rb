@@ -276,6 +276,16 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
     assert_equal [ duke, holtec ], [ carolinas, palisades ].map { |c| c.reload.subject_id }
   end
 
+  test "a brand match that disagrees with the domain goes to review" do
+    Directory::FactWriter.write(:organization, { name: "Dominion Energy" })
+    c = candidate("organization", { "name" => "Dominion Generation", "domain" => "terrapower.com" })
+
+    match!
+
+    assert c.reload.status_needs_review?
+    assert_match "brand of Dominion Energy but domain matches TerraPower", c.notes
+  end
+
   test "a brand shared by two companies goes to review" do
     Directory::FactWriter.write(:organization, { name: "Urenco" })
     Directory::FactWriter.write(:organization, { name: "Urenco USA" })

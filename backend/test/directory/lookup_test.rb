@@ -91,6 +91,15 @@ class Directory::LookupTest < ActiveSupport::TestCase
     assert_nil Directory::Lookup.brand_key("X-Energy, Inc."), "too short to trust"
   end
 
+  test "no brand name from a key too short to trust, and rejected plants don't count" do
+    Facility.create!(name: "Seabrook 1", nrc_docket: "05000443")
+    assert_nil Directory::Lookup.brand_name("X-Energy Seabrook, LLC"), "reduces to 'x'"
+
+    Facility.create!(name: "Imaginary Point 1", nrc_docket: "05000998").reject!(by: "agent:verifier/x")
+    assert_equal "nextera energy imaginary point", Directory::Lookup.brand_key("NextEra Energy Imaginary Point, LLC")
+    assert_nil Directory::Lookup.brand_name("NextEra Energy Imaginary Point, LLC")
+  end
+
   test "a trailing known plant or region is dropped from the brand" do
     Facility.create!(name: "Seabrook 1", nrc_docket: "05000443")
 

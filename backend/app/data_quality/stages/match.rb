@@ -158,11 +158,15 @@ class DataQuality::Stages::Match < DataQuality::Stage
         return Review.new("name matches #{by_name.name} but domain matches #{by_domain.name}")
       end
       return Found.new(by_name, "name") if by_name
-      return Found.new(by_domain, "domain") if by_domain
 
       # One company per brand: a legal-entity variant of exactly one existing
-      # company is that company. Two candidates for the brand is ambiguous.
+      # company is that company. Two candidates for the brand is ambiguous. A
+      # brand counts as a name match, so it must agree with the domain too.
       brand = name ? directory.same_brand_organizations(name) : []
+      if by_domain && brand.any? && brand.none? { |record| record.id == by_domain.id }
+        return Review.new("name is the brand of #{brand.map(&:name).join(' or ')} but domain matches #{by_domain.name}")
+      end
+      return Found.new(by_domain, "domain") if by_domain
       return Found.new(brand.first, "brand, a legal-entity variant of its name") if brand.one?
       if brand.many?
         return Review.new("#{name.inspect} could be the same brand as #{brand.map(&:name).join(' or ')}. Which one?")
