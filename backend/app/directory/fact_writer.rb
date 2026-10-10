@@ -171,6 +171,7 @@ module Directory
         if protect_human_verified && site_id && (site = Facility.lock.find_by(id: site_id))&.closed?
           raise Invalid, "site #{site.name} was #{site.verification_status} by #{site.verified_by || 'review'}; no units under it"
         end
+        check_link_ends(kind, attributes, record) if protect_human_verified
         curated = protect_human_verified && !created && record.human_reviewed?
         changes = model_attributes(kind, attributes)
         if curated && (conflicts = conflicts_with(record, changes)).any?
@@ -181,7 +182,12 @@ module Directory
         record.save!
         edited = audited_values(record) unless created
 
-        write_aliases(record, [ record.name, *attributes[:aliases] ]) if kind == :organization
+        if kind == :organization
+          aliases_before = record.aliases.pluck(:alias).sort
+          write_aliases(record, [ record.name, *attributes[:aliases] ])
+          aliases_after = record.aliases.reload.pluck(:alias).sort
+          edited["aliases"] = [ aliases_before, aliases_after ] if edited && aliases_after != aliases_before
+        end
         Array(evidence).each { |item| write_evidence(record, item) }
         apply_verification(record, verification, edited:) if verification && !curated
         record.recompute_confidence!
@@ -316,12 +322,34 @@ module Directory
         record.decided_by = by
 
         if record.verification_status == status.to_s && record.verified_by == by
-          # Same decision again: only a human's edit of the values is worth an event.
-          record.log_verification_event(from_status: record.verification_status, by:) if edited.present? && by.to_s.start_with?("human:")
+          # Same decision again: worth an event only when a human changed the
+          # values or names its context (e.g. approving another candidate for
+          # the same fact), so the history shows where it came from.
+          if by.to_s.start_with?("human:") && (edited.present? || verification[:context].present?)
+            record.log_verification_event(from_status: record.verification_status, by:)
+          end
           return
         end
 
         record.update!(verification_status: status, verified_by: by, verified_at: status.to_s == "pending" ? nil : Time.current)
+      end
+
+      LINK_ENDS = {
+        organization_role: { organization_id: Organization }, organization_technology: { organization_id: Organization },
+        relationship: { from_organization_id: Organization, to_organization_id: Organization },
+        facility_relationship: { organization_id: Organization, facility_id: Facility }
+      }.freeze
+
+      # An automated link write needs both ends open: each is locked and
+      # checked, so a company or plant closed after match isn't linked to.
+      def check_link_ends(kind, attributes, record)
+        LINK_ENDS.fetch(kind, {}).each do |key, model|
+          id = attributes.key?(key) ? attributes[key] : record.public_send(key)
+          finish = model.lock.find_by(id:) or next
+          next unless finish.closed?
+
+          raise Invalid, "#{finish.name} was #{finish.verification_status} by #{finish.verified_by || 'review'}; not linked"
+        end
       end
 
       AUDIT_IGNORED = %w[created_at updated_at confidence verification_reason verification_context audited_changes].freeze

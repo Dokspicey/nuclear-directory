@@ -126,6 +126,28 @@ class Directory::VerificationAuditTest < ActiveSupport::TestCase
     assert_equal({ "hq_city" => [ nil, "Bellevue" ] }, history(@org).first.changed_values)
   end
 
+  test "an automated link isn't written to a company or plant closed since match" do
+    plant = facilities(:vogtle)
+    @org.unpublish!(by: "human:tosin")
+
+    result = write(:facility_relationship, { organization_id: @org.id, facility_id: plant.id, relationship_type: "owns" },
+      protect_human_verified: true)
+
+    assert_match "TerraPower was unpublished by human:tosin; not linked", result.errors.join
+    assert_not FacilityRelationship.exists?(organization_id: @org.id, facility_id: plant.id)
+  end
+
+  test "a human approving again with new context, or adding an alias, is recorded" do
+    @org.verify!(by: "human:tosin")
+
+    write(:organization, { id: @org.id }, verification: { status: "verified", by: "human:tosin", context: { "candidate_id" => 7 } })
+    assert_equal({ "candidate_id" => 7 }, history(@org).first.context)
+
+    write(:organization, { id: @org.id, aliases: [ "TP Holdings" ] }, verification: { status: "verified", by: "human:tosin" })
+    before, after = history(@org).first.changed_values["aliases"]
+    assert_equal [ "TP Holdings" ], after - before
+  end
+
   test "an agent repeating a closed decision can't edit the fact" do
     @org.reject!(by: "agent:verifier/x")
 
