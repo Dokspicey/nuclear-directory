@@ -115,6 +115,17 @@ class Directory::VerificationAuditTest < ActiveSupport::TestCase
     assert_equal 1, history(@org).size
   end
 
+  test "a write with no decision can't change a closed fact either" do
+    @org.unpublish!(by: "human:tosin")
+
+    result = write(:organization, { id: @org.id, hq_city: "Bellevue" })
+    assert_match "was unpublished by human:tosin", result.errors.join
+    assert_nil @org.reload.hq_city
+    assert write(:organization, { id: @org.id, hq_city: "Bellevue" }, verification: { status: "unpublished", by: "human:tosin" }).ok?,
+      "a human may edit it, and the edit is audited"
+    assert_equal({ "hq_city" => [ nil, "Bellevue" ] }, history(@org).first.changed_values)
+  end
+
   test "an agent repeating a closed decision can't edit the fact" do
     @org.reject!(by: "agent:verifier/x")
 

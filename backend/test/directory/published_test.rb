@@ -10,6 +10,8 @@ class Directory::PublishedTest < ActiveSupport::TestCase
     @unit = Facility.create!(name: "Vogtle 3", parent: @site).tap { |f| f.verify!(by: "human:tosin") }
     @role = OrganizationRole.create!(organization: @company, role: Role.create!(key: "reactor_vendor", name: "Reactor vendor"))
     @role.verify!(by: "human:tosin")
+    @tech = OrganizationTechnology.create!(organization: @company, technology: Technology.create!(key: "smr", name: "SMR"))
+    @tech.verify!(by: "human:tosin")
     @link = Relationship.create!(from_organization: @partner, to_organization: @company, relationship_type: "supplies")
     @link.verify!(by: "human:tosin")
     @owns = FacilityRelationship.create!(organization: @company, facility: @unit, relationship_type: "owns")
@@ -18,6 +20,7 @@ class Directory::PublishedTest < ActiveSupport::TestCase
 
   test "everything verified is published" do
     assert_includes OrganizationRole.published, @role
+    assert_includes OrganizationTechnology.published, @tech
     assert_includes Relationship.published, @link
     assert_includes FacilityRelationship.published, @owns
     assert_includes Facility.published, @unit
@@ -28,6 +31,7 @@ class Directory::PublishedTest < ActiveSupport::TestCase
 
     assert_not_includes Organization.published, @company
     assert_not_includes OrganizationRole.published, @role
+    assert_not_includes OrganizationTechnology.published, @tech
     assert_not_includes Relationship.published, @link
     assert_not_includes FacilityRelationship.published, @owns
     assert @role.reload.verified?, "the facts themselves keep their own decision"
@@ -46,5 +50,6 @@ class Directory::PublishedTest < ActiveSupport::TestCase
     @company.verify!(by: "human:tosin")
 
     assert_includes OrganizationRole.published, @role
+    assert_includes OrganizationTechnology.published, @tech
   end
 end
