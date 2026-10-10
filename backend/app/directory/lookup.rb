@@ -180,7 +180,9 @@ module Directory
       end
 
       def latest_events(type, ids)
-        VerificationEvent.where(subject_type: type, subject_id: ids).order(:created_at, :id)
+        # Only the newest event per fact (Postgres DISTINCT ON), not the whole history.
+        VerificationEvent.where(subject_type: type, subject_id: ids)
+          .select("DISTINCT ON (subject_id) verification_events.*").order(:subject_id, created_at: :desc, id: :desc)
           .index_by(&:subject_id).transform_values { |event| VerificationEventRef.from(event) }
       end
 
