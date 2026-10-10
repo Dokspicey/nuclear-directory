@@ -163,6 +163,21 @@ class Directory::FactWriterTest < ActiveSupport::TestCase
     assert_empty org.evidence
   end
 
+  test "websites agree when their domains do; unreadable ones only when identical" do
+    org = organizations(:terrapower)
+    org.update!(website: "https://www.terrapower.com/about")
+    org.verify!(by: "human:tosin")
+
+    same = write(:organization, { id: org.id, website: "https://terrapower.com/news" }, protect_human_verified: true)
+    assert same.ok?, same.errors.inspect
+
+    org.update_column(:website, "https://bad host one")
+    identical = write(:organization, { id: org.id, website: "https://bad host one" }, protect_human_verified: true)
+    assert identical.ok?, identical.errors.inspect
+    clash = write(:organization, { id: org.id, website: "https://bad host two" }, protect_human_verified: true)
+    assert_equal({ "website" => [ "https://bad host one", "https://bad host two" ] }, clash.conflicts)
+  end
+
   test "names never count as conflicts" do
     org = organizations(:terrapower)
     org.verify!(by: "human:tosin")
