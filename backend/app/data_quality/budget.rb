@@ -1,7 +1,12 @@
 # What model calls have cost this calendar month, from the cost OpenRouter
-# reports on each call (crawl_runs.stats["llm"]["cost"]). The client checks
-# it before every call and refuses once the budget is used up, so a runaway
-# run fails with a clear reason instead of on a provider error mid-run.
+# reports on each call. The client checks it before every call and refuses
+# once the budget is used up, so a runaway run fails with a clear reason
+# instead of on a provider error mid-run.
+#
+# Usage is counted by the month each call was made
+# (crawl_runs.stats["llm"]["by_month"]), so a run that crosses midnight at
+# month end is split correctly. Runs recorded before that existed count by
+# the month they started.
 #
 # It's a soft limit: calls already in flight when the budget runs out (one
 # per concurrently running source kind, a fraction of a cent each) still
@@ -11,11 +16,25 @@
 module DataQuality::Budget
   class Exceeded < StandardError; end
 
-  # US dollars spent on model calls since the start of this month.
-  def self.spent_this_month(now: Time.current)
-    CrawlRun.where(started_at: now.beginning_of_month..)
-      .pick(Arel.sql("COALESCE(SUM((stats -> 'llm' ->> 'cost')::numeric), 0)")).to_f
+  # Calls, tokens and US dollars for model calls made this calendar month.
+  def self.usage_this_month(now: Time.current)
+    start = now.beginning_of_month
+    key = start.strftime("%Y-%m")
+    # Runs never last a day (abandoned after 2 hours), so a run whose calls
+    # fall in this month started no earlier than the day before it.
+    runs = CrawlRun.where(started_at: (start - 1.day)..)
+    month = ->(field, cast) do
+      "COALESCE(SUM(CASE WHEN stats -> 'llm' -> 'by_month' IS NOT NULL " \
+        "THEN (stats -> 'llm' -> 'by_month' -> #{CrawlRun.connection.quote(key)} ->> '#{field}')::#{cast} " \
+        "WHEN started_at >= #{CrawlRun.connection.quote(start)} THEN (stats -> 'llm' ->> '#{field}')::#{cast} END), 0)"
+    end
+    calls, tokens, cost = runs.pick(Arel.sql(month.("calls", "int")), Arel.sql(month.("total_tokens", "int")),
+      Arel.sql(month.("cost", "numeric")))
+    { calls: calls.to_i, total_tokens: tokens.to_i, cost: cost.to_f }
   end
+
+  # US dollars spent on model calls this calendar month.
+  def self.spent_this_month(now: Time.current) = usage_this_month(now:)[:cost]
 
   def self.check!(budget)
     spent = spent_this_month

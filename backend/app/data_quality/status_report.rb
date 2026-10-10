@@ -63,14 +63,11 @@ module DataQuality::StatusReport
     ]
   end
 
+  # The same month-split totals the budget guard uses.
   def self.spend(now, budget)
-    runs = CrawlRun.where(started_at: now.beginning_of_month..)
-    calls, tokens = runs.pick(
-      Arel.sql("COALESCE(SUM((stats -> 'llm' ->> 'calls')::int), 0)"),
-      Arel.sql("COALESCE(SUM((stats -> 'llm' ->> 'total_tokens')::int), 0)")
-    )
+    usage = DataQuality::Budget.usage_this_month(now:)
     format("Model spend this month: %d calls, %s tokens, $%.4f of the $%.2f budget",
-      calls, ActiveSupport::NumberHelper.number_to_delimited(tokens), DataQuality::Budget.spent_this_month(now:), budget)
+      usage[:calls], ActiveSupport::NumberHelper.number_to_delimited(usage[:total_tokens]), usage[:cost], budget)
   end
   private_class_method :sources, :runs, :run_line, :review_queue, :spend
 end

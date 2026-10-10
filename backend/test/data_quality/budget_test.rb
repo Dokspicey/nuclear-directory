@@ -38,6 +38,36 @@ class DataQuality::BudgetTest < ActiveSupport::TestCase
     assert_not_requested :post, DataQuality::OpenRouter::Client::ENDPOINT.to_s
   end
 
+  test "a run that crosses midnight at month end counts each call in the month it was made" do
+    config = DataQuality::Config.new(api_key: "test-key", extract_model: "a/x", verify_model: "b/y")
+    client = DataQuality::OpenRouter::Client.new(config: config, sleeper: ->(_) { })
+    schema = { "type" => "object", "properties" => {}, "additionalProperties" => false }
+    completion = { status: 200, body: { choices: [ { message: { content: "{}" } } ],
+      usage: { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120, cost: 0.002 } }.to_json }
+    stub_request(:post, DataQuality::OpenRouter::Client::ENDPOINT.to_s).to_return(completion)
+    ask = ->(run) { client.structured(role: :extract, messages: [ { role: "user", content: "hi" } ], schema:, crawl_run: run) }
+
+    run = nil
+    travel_to(Time.zone.parse("2026-09-30 23:59")) do
+      run = CrawlRun.create!(stage: "extract", source_kind: "dummy")
+      ask.(run)
+    end
+    travel_to(Time.zone.parse("2026-10-01 00:01")) { 2.times { ask.(run) } }
+
+    assert_equal({ "2026-09" => 1, "2026-10" => 2 }, run.reload.stats["llm"]["by_month"].transform_values { _1["calls"] })
+    travel_to(Time.zone.parse("2026-10-15 12:00")) do
+      assert_equal({ calls: 2, total_tokens: 240, cost: 0.004 }, DataQuality::Budget.usage_this_month)
+      assert_match "2 calls, 240 tokens, $0.0040", DataQuality::StatusReport.call(budget: 5.0)
+    end
+  end
+
+  test "runs recorded before per-month usage still count by the month they started" do
+    spend(0.25) # no by_month, started this month
+    spend(1.0, at: 1.month.ago)
+
+    assert_in_delta 0.25, DataQuality::Budget.spent_this_month
+  end
+
   test "the budget comes from DATA_QUALITY_MONTHLY_BUDGET, $5 by default" do
     assert_equal 5.0, DataQuality::Config.from_env({}).monthly_budget
     assert_equal 2.5, DataQuality::Config.from_env("DATA_QUALITY_MONTHLY_BUDGET" => "2.5").monthly_budget

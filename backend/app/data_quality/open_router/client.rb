@@ -161,6 +161,14 @@ class DataQuality::OpenRouter::Client
       end
       llm["cost"] = (llm.fetch("cost", 0) + usage["cost"].to_f).round(6) if usage.to_h["cost"]
 
+      # Also by the calendar month of the call, so a run that crosses
+      # midnight at month end is counted in the right month (Budget,
+      # StatusReport): "by_month" => { "2026-10" => { calls, total_tokens, cost } }
+      month = (llm["by_month"] ||= {})[Time.current.strftime("%Y-%m")] ||= { "calls" => 0, "total_tokens" => 0, "cost" => 0 }
+      month["calls"] += 1
+      month["total_tokens"] += usage.to_h.fetch("total_tokens", 0).to_i
+      month["cost"] = (month["cost"] + usage.to_h["cost"].to_f).round(6)
+
       run.update!(stats: run.stats.merge("llm" => llm), model: run.model || model)
     end
 

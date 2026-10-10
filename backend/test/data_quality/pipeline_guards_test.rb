@@ -5,6 +5,8 @@ require_relative "support/dummy_plugin"
 # One run per source kind at a time, and runs that were cut off don't stay
 # "running" forever.
 class DataQuality::PipelineGuardsTest < ActiveSupport::TestCase
+  include ActiveJob::TestHelper
+
   def run_crawl = DataQuality::Pipeline.run("dummy", plugin: DummyPlugin.new, directory: FakeDirectory.client, only: "crawl")
 
   # A separate Postgres session, like another worker would have. (Tests pin
@@ -68,5 +70,19 @@ class DataQuality::PipelineGuardsTest < ActiveSupport::TestCase
     assert_equal 1, DataQuality::RunJob.concurrency_limit
     assert_includes job.concurrency_key, "nrc_reactor_list"
     assert_not_equal job.concurrency_key, DataQuality::RunJob.new("dummy").concurrency_key
+    assert_operator DataQuality::RunJob.concurrency_duration, :>, DataQuality::Pipeline::ABANDONED_AFTER,
+      "the hold outlasts any real run"
+  end
+
+  test "a job that finds a run in progress waits and retries instead of being lost" do
+    other = other_session
+    other.exec("SELECT pg_advisory_lock(#{Zlib.crc32('data_quality:nrc_reactor_list')})")
+
+    assert_enqueued_with(job: DataQuality::RunJob, args: [ "nrc_reactor_list" ]) do
+      DataQuality::RunJob.perform_now("nrc_reactor_list")
+    end
+    assert_equal 0, CrawlRun.where(source_kind: "nrc_reactor_list").count, "nothing ran while the other run held the lock"
+  ensure
+    other&.close
   end
 end
