@@ -99,7 +99,7 @@ Home and the directory show eight categories in visitors' words (see `VOICE.md`)
 |---|---|---|
 | Fuel suppliers | role `fuel`, including its children `enrichment` and `fabrication` | 1 |
 | Reactor developers | role `reactor_vendor` | 2 |
-| Power plants | facilities, not organizations (all facility types) | 3 |
+| Plants and sites | facilities, not organizations: sites only, units sit under them (all facility types) | 3 |
 | Utilities and operators | roles `utility` or `operator` | 4 |
 | Repair and services | role `reactor_services` | 5 |
 | Power buyers | role `data_center_offtaker` | 6 |

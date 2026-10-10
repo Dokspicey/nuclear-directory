@@ -58,7 +58,7 @@ class DirectoryHelperTest < ActionView::TestCase
     assert_equal "/companies", directory_url_for
     assert_equal "/companies?category=fuel&q=haleu", directory_url_for(category: Category.find("fuel"), q: "haleu")
     assert_equal "/companies/terrapower", company_url_for(organizations(:terrapower))
-    assert_equal "/power-plants/vogtle", plant_url_for(facilities(:vogtle))
+    assert_equal "/plants/vogtle", plant_url_for(facilities(:vogtle))
   end
 
   test "dates" do

@@ -186,6 +186,17 @@ class Directory::FactWriterTest < ActiveSupport::TestCase
     assert_equal "TerraPower", org.reload.name
   end
 
+  test "no automated unit under a rejected site, checked inside the write" do
+    site = facilities(:vogtle)
+    site.reject!(by: "human:tosin")
+
+    result = write(:facility, { name: "Vogtle 3", nrc_docket: "05200025", parent_id: site.id }, protect_human_verified: true)
+
+    assert_match "site #{site.name} was rejected by human:tosin; no units under it", result.errors.join
+    assert_not Facility.exists?(nrc_docket: "05200025")
+    assert write(:facility, { name: "Vogtle 3", nrc_docket: "05200025", parent_id: site.id }).ok?, "a human may still"
+  end
+
   test "protect_human_verified doesn't hold back records no human has reviewed" do
     site = facilities(:vogtle)
     site.update!(state: "GA")
