@@ -13,10 +13,10 @@ class Admin::CorrectionsController < Admin::BaseController
     @counts = { "open" => CorrectionReport.where(status: %w[open reviewed]).count, "closed" => CorrectionReport.where(status: "closed").count }
   end
 
-  def start = decide("Marked as being looked at.") { |report| report.start!(by: actor) }
+  def start = decide("Marked as in progress.") { |report| report.start!(by: actor) }
   def fix = decide("Closed as fixed.") { |report| report.close!("fixed", by: actor) }
-  def dismiss = decide("Dismissed.") { |report| report.close!("dismissed", by: actor) }
-  def reopen = decide("Reopened.", &:reopen!)
+  def dismiss = decide("Report dismissed.") { |report| report.close!("dismissed", by: actor) }
+  def reopen = decide("Report reopened.", &:reopen!)
 
   private
     def decide(notice)

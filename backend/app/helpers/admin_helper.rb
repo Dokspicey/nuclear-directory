@@ -13,6 +13,22 @@ module AdminHelper
   }.freeze
   STATUS_WORDS = { "verified" => "Verified", "pending" => "Pending", "rejected" => "Rejected", "unpublished" => "Unpublished" }.freeze
 
+  # Who decided, as the screen shows it: "tosin" for "human:tosin", "the
+  # verifier (model)" for an agent. The data keeps the prefix.
+  def who(by)
+    by = by.to_s
+    return by.delete_prefix("human:") if by.start_with?("human:")
+    return "the verifier (#{by.delete_prefix('agent:verifier/')})" if by.start_with?("agent:verifier/")
+
+    by
+  end
+
+  # Reply to a visitor's correction: their address, a subject, and the page.
+  def correction_reply_mailto(report)
+    "mailto:#{report.contact}?" + { subject: "Your correction on Nuclear Directory",
+      body: "About #{request.base_url}#{report.page_path}\n\n" }.to_query.gsub("+", "%20")
+  end
+
   # Ids of linked records; their names are shown instead.
   HIDDEN_FIELDS = %i[organization_id facility_id from_organization_id to_organization_id parent_id].freeze
 

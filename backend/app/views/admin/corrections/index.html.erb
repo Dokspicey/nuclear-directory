@@ -21,26 +21,27 @@
       <li class="nd-item nd-item--single" id="report-<%= report.id %>">
         <div class="nd-item__main">
           <p class="nd-item__claim type-body-strong"><%= report.subject %></p>
-          <blockquote class="nd-quote type-body"><%= simple_format(report.message, {}, wrapper_tag: "span") %></blockquote>
+          <%# Plain text: links in a visitor's message aren't clickable; long ones wrap. %>
+          <blockquote class="nd-quote type-body wrap-anywhere"><%= simple_format(report.message, {}, wrapper_tag: "span") %></blockquote>
           <div class="nd-item__meta type-small">
             <span>Received <span class="nd-num"><%= report.created_at.utc.strftime("%Y-%m-%d %H:%M") %></span> UTC</span>
-            <%= link_to report.page_path, class: "nd-link nd-link--muted", target: "_blank", rel: "noopener" do %>From <%= report.page_path %> <%= icon("arrow-square-out", size: 12) %><% end %>
-            <% if record_path %><%= link_to "Open record", record_path, class: "nd-link nd-link--muted" %><% end %>
-            <% if report.contact %><span>Reply to <%= mail_to report.contact, report.contact, class: "nd-link nd-link--muted" %></span><% end %>
+            <%= link_to report.page_path, class: "nd-link nd-link--muted nd-tap wrap-anywhere", target: "_blank", rel: "noopener" do %>From <%= report.page_path %> <%= icon("arrow-square-out", size: 12) %><% end %>
+            <% if record_path %><%= link_to "Open record", record_path, class: "nd-link nd-link--muted nd-tap" %><% end %>
+            <% if report.contact %><%= link_to "Reply to #{report.contact}", correction_reply_mailto(report), class: "nd-link nd-link--muted nd-tap wrap-anywhere" %><% end %>
           </div>
           <% if report.status == "reviewed" %>
-            <p class="nd-item__why type-small m-0">Being looked at by <%= report.decided_by %>.</p>
+            <p class="nd-item__why type-small m-0">In progress, by <%= who(report.decided_by) %>.</p>
           <% elsif report.status == "closed" %>
-            <p class="nd-item__why type-small m-0"><%= report.resolution == "fixed" ? "Fixed" : "Dismissed" %> by <%= report.decided_by %> on <span class="nd-num"><%= data_date(report.decided_at) %></span>.</p>
+            <p class="nd-item__why type-small m-0"><%= report.resolution == "fixed" ? "Fixed" : "Dismissed" %> by <%= who(report.decided_by) %> on <span class="nd-num"><%= data_date(report.decided_at) %></span>.</p>
           <% end %>
           <div class="nd-item__actions">
             <% if report.status == "closed" %>
-              <%= button_to "Reopen", reopen_admin_correction_path(report, tab: @tab), class: "nd-btn nd-btn--sm" %>
+              <%= button_to "Reopen report", reopen_admin_correction_path(report, tab: @tab), class: "nd-btn nd-btn--sm" %>
             <% else %>
               <%= button_to "Close as fixed", fix_admin_correction_path(report, tab: @tab), class: "nd-btn nd-btn--primary nd-btn--sm" %>
-              <%= button_to "Dismiss", dismiss_admin_correction_path(report, tab: @tab), class: "nd-btn nd-btn--sm" %>
+              <%= button_to "Dismiss report", dismiss_admin_correction_path(report, tab: @tab), class: "nd-btn nd-btn--sm" %>
               <% if report.status == "open" %>
-                <%= button_to "I'm looking at it", start_admin_correction_path(report, tab: @tab), class: "nd-btn nd-btn--ghost nd-btn--sm" %>
+                <%= button_to "Mark as in progress", start_admin_correction_path(report, tab: @tab), class: "nd-btn nd-btn--ghost nd-btn--sm" %>
               <% end %>
             <% end %>
           </div>

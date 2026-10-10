@@ -6,7 +6,7 @@
   <div class="nd-row">
     <%= status_badge(@fact.verification_status) %>
     <% if @fact.verified_by %>
-      <span class="type-small text-ink-muted">by <%= @fact.verified_by %><% if @fact.verified_at %> on <span class="nd-num"><%= data_date(@fact.verified_at) %></span><% end %></span>
+      <span class="type-small text-ink-muted">by <%= who(@fact.verified_by) %><% if @fact.verified_at %> on <span class="nd-num"><%= data_date(@fact.verified_at) %></span><% end %></span>
     <% end %>
     <% if (public_path = public_page_path(@fact)) %>
       <%= link_to public_path, class: "nd-link type-small nd-tap", target: "_blank", rel: "noopener" do %>View on site <%= icon("arrow-square-out", size: 12) %><% end %>
@@ -64,7 +64,7 @@
             <tr>
               <td class="nd-num"><%= data_date(event.at) %></td>
               <td><%= change_text(event) %></td>
-              <td><%= event.by %></td>
+              <td><%= who(event.by) %></td>
               <td><%= event.reason %></td>
             </tr>
           <% end %>

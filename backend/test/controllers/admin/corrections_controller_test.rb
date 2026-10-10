@@ -24,7 +24,7 @@ class Admin::CorrectionsControllerTest < ActionDispatch::IntegrationTest
       assert_select ".nd-quote", /headquarters moved to Everett/
       assert_select "a[href=?]", r.page_path
       assert_select "a[href=?]", admin_fact_path(type: "Organization", id: organizations(:terrapower).id), text: "Open record"
-      assert_select "a[href=?]", "mailto:reader@example.com"
+      assert_select "a[href^=?][href*=?]", "mailto:reader@example.com?", "subject=Your%20correction%20on%20Nuclear%20Directory", text: "Reply to reader@example.com"
     end
     assert_select ".nd-pill[aria-current=page]", /Open\s+1/
   end
@@ -45,7 +45,8 @@ class Admin::CorrectionsControllerTest < ActionDispatch::IntegrationTest
     assert fixed.decided_at
 
     get admin_corrections_path(tab: "closed")
-    assert_select "#report-#{fixed.id} .nd-item__why", /Fixed by human:tosin/
+    assert_select "#report-#{fixed.id} .nd-item__why", /Fixed by tosin on/
+    assert_select "#report-#{fixed.id} button", "Reopen report"
 
     post reopen_admin_correction_path(fixed, tab: "closed")
     assert_equal [ "open", nil, nil ], [ fixed.reload.status, fixed.resolution, fixed.decided_by ]
