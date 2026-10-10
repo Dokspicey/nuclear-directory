@@ -27,3 +27,11 @@ class PublishEverything
     DataQuality::Verdict.new(outcome: :publish, confidence: 0.9)
   end
 end
+
+# Verify only recommends (#15); a human approves. Tests that follow a fact
+# into the directory approve what verify recommended.
+module ReviewHelpers
+  def approve_recommended(by: "human:tosin", directory: DataQuality::DirectoryClient.new)
+    DataQuality::Review.approve(Candidate.recommended.pluck(:id), by:, directory:)
+  end
+end
