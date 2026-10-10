@@ -267,4 +267,41 @@ class DirectoryListingTest < ActiveSupport::TestCase
       listing.technology_options.select { |_, key| %w[smr molten_salt].include?(key) }
     assert_equal %w[CA MD], listing.state_options
   end
+
+  # Unpublishing (#87, #98): what hangs on an unpublished company or plant
+  # stops counting anywhere public, and comes back when it's republished.
+  test "an unpublished company disappears, and so do its links, from other companies' results and counts" do
+    @kairos.unpublish!(by: "human:test")
+
+    assert_not_includes names(DirectoryListing.new), "Kairos Power"
+    assert_equal 0, DirectoryListing.new.companies.find { |c| c.name == "Amazon" }.connections_count,
+      "Amazon's investment in Kairos no longer counts"
+    assert_includes names(DirectoryListing.new(category: "investors")), "Khosla Ventures", "its own role still counts"
+    assert_not_includes names(DirectoryListing.new(category: "investors")), "Amazon", "its only investment is hidden"
+    assert_not_includes DirectoryListing.new.technology_options.map(&:last), "molten_salt"
+    assert_equal 0, DirectoryListing.new(category: "plants").plants.first.connections_count, "Kairos's plant link is hidden"
+    assert_not_includes DirectoryListing.new.state_options, "CA"
+
+    @kairos.verify!(by: "human:test")
+    assert_includes names(DirectoryListing.new), "Kairos Power"
+  end
+
+  test "an unpublished site disappears with its units and their links" do
+    kairos_connections = -> { DirectoryListing.new.companies.find { |c| c.name == "Kairos Power" }.connections_count }
+    assert_equal 2, kairos_connections.call, "Amazon's investment and the Vogtle unit"
+    @vogtle.unpublish!(by: "human:test")
+
+    assert_empty DirectoryListing.new(category: "plants").plants
+    assert_empty DirectoryListing.new(q: "Vogtle Unit 3").plants
+    assert_equal 1, kairos_connections.call, "the link to the hidden unit no longer counts"
+    assert_not_includes DirectoryListing.new.state_options, "GA"
+  end
+
+  test "an unpublished unit no longer counts toward its site" do
+    second = plant("Vogtle Unit 4", parent: @vogtle, capacity_mw: 1100)
+    second.unpublish!(by: "human:test")
+
+    site = DirectoryListing.new(category: "plants").plants.first
+    assert_equal 1, site.units_count
+  end
 end
