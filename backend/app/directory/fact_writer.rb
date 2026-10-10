@@ -150,22 +150,25 @@ module Directory
       ActiveRecord::Base.transaction(requires_new: true) do
         record = find(kind, spec[:model], attributes) || spec[:model].new
         created = record.new_record?
-        # Locked, so a human's decision made while this write runs is seen, and
-        # two decisions at once are recorded in the order they happen.
-        record.lock! if (protect_human_verified || verification) && !created
+        # Locked, so a human's decision made while this write runs is seen
+        # before the checks below, and two decisions at once are recorded in
+        # the order they happen.
+        record.lock! unless created
         # A rejected or unpublished fact only changes by a human's hand:
         # protected writes never change it, and any other write must carry a
         # human's decision (verification: { by: "human:…" }), so the change is
         # audited and attributed.
         human_decision = verification.to_h.symbolize_keys[:by].to_s.start_with?("human:")
         if !created && record.closed? && (protect_human_verified || !human_decision)
-          raise Invalid, "#{record.model_name.human} was #{record.verification_status} by #{record.verified_by || 'review'}" \
+          raise Invalid, "#{Lookup.fact_state(type: record.class.name, id: record.id).name.upcase_first} was " \
+            "#{record.verification_status} by #{record.verified_by || 'review'}" \
             "#{" on #{record.verified_at.to_date}" if record.verified_at}; not changed"
         end
-        # No automated unit under a rejected or unpublished site; the site is
-        # locked, so a decision made while this write runs is seen.
-        if protect_human_verified && kind == :facility && attributes[:parent_id] &&
-            (site = Facility.lock.find_by(id: attributes[:parent_id]))&.closed?
+        # No automated unit under a rejected or unpublished site, whether the
+        # write names the site or the unit already has one; the site is locked,
+        # so a decision made while this write runs is seen.
+        site_id = attributes.key?(:parent_id) ? attributes[:parent_id] : record.parent_id if kind == :facility
+        if protect_human_verified && site_id && (site = Facility.lock.find_by(id: site_id))&.closed?
           raise Invalid, "site #{site.name} was #{site.verification_status} by #{site.verified_by || 'review'}; no units under it"
         end
         curated = protect_human_verified && !created && record.human_reviewed?

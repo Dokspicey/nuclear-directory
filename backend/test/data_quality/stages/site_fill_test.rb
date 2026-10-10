@@ -77,16 +77,18 @@ class DataQuality::Stages::SiteFillTest < ActiveSupport::TestCase
     assert_empty @site.reload.evidence, "the site had everything but a disagreeing state; nothing to fill"
   end
 
-  test "a site a human rejected isn't filled, and the candidate says so" do
+  test "a unit whose site a human rejected after match isn't published, and the site isn't filled" do
     run_stage("match")
     @site.reject!(by: "human:tosin")
 
-    run = run_stage("verify", verifier: PublishEverything.new).last
+    run_stage("verify", verifier: PublishEverything.new)
 
+    candidate = Candidate.find_by!(kind: "facility")
+    assert candidate.status_needs_review?
+    assert_match "site #{@site.name} was rejected by human:tosin; no units under it", candidate.notes
+    assert Facility.find(candidate.subject_id).pending?, "the unit waits for a human too"
     assert_nil @site.reload.facility_type
     assert_empty @site.evidence
-    assert_equal 1, run.stats["site_not_filled"]
-    assert_match "Site not filled:", Candidate.find_by!(kind: "facility").notes
   end
 
   test "nothing is filled until the unit is verified" do

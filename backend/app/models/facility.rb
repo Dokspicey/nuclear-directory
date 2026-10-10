@@ -25,7 +25,6 @@ class Facility < ApplicationRecord
   validates :latitude, numericality: { in: -90..90 }, allow_nil: true
   validates :longitude, numericality: { in: -180..180 }, allow_nil: true
 
-  # A unit is hidden when its site isn't published.
   # What the public sees. A unit: verified, under a site that isn't rejected
   # or unpublished. A site: verified, or pending with at least one such unit
   # (#73: a site made from NRC units goes public with its first verified unit).

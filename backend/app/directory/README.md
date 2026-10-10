@@ -106,7 +106,8 @@ Status is `pending`, `verified`, `rejected` or `unpublished`. `by` (required)
 names who decided: `human:<name>` or `agent:verifier/<model>`. `reason` and `context`
 (e.g. `{ "candidate_id" => 12, "crawl_run_id" => 4 }`) are optional and go
 into the audit trail. Re-applying the same decision keeps the original
-`verified_at` and records nothing new. Only verified facts are public.
+`verified_at` and records nothing new. What's public is what the
+`.published` scopes return (below).
 
 - **Unpublished** is a human taking a fact off the site (who and when are in
   `verified_by` / `verified_at`). Like `rejected`, it's a closed decision:
@@ -127,6 +128,11 @@ when it's verified **and** what it hangs on is published. Unpublishing a
 company hides its roles, technologies, relationships and plant links;
 unpublishing a site hides its units and their links. Nothing is deleted, and
 each fact keeps its own decision, so republishing brings them all back.
+
+One exception for sites (#73): a **pending** site is published once it has a
+published unit (a verified unit under a site that isn't rejected or
+unpublished), so a site made from NRC units goes public with its first
+verified unit. A rejected or unpublished site never shows, whatever its units.
 
 ### Bulk writes
 
