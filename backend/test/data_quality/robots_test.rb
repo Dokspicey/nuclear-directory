@@ -42,6 +42,22 @@ class DataQuality::RobotsTest < ActiveSupport::TestCase
     assert_not allowed?(txt, "https://example.com/shared/page")
   end
 
+  test "every group naming us counts, not just the first (RFC 9309)" do
+    txt = "User-agent: NuclearDirectoryBot\nDisallow: /a/\n\nUser-agent: *\nDisallow: /\n\n" \
+      "User-agent: NuclearDirectoryBot\nDisallow: /b/\n"
+
+    assert_not allowed?(txt, "https://example.com/a/1")
+    assert_not allowed?(txt, "https://example.com/b/1"), "a later group for us still applies"
+    assert allowed?(txt, "https://example.com/c/1"), "and the * group doesn't, since we have our own"
+  end
+
+  test "every * group counts when none names us" do
+    txt = "User-agent: *\nDisallow: /a/\n\nUser-agent: OtherBot\nDisallow: /\n\nUser-agent: *\nDisallow: /b/\n"
+
+    assert_not allowed?(txt, "https://example.com/b/1")
+    assert allowed?(txt, "https://example.com/c/1")
+  end
+
   test "an empty robots.txt allows everything" do
     assert allowed?("", "https://example.com/anything")
   end

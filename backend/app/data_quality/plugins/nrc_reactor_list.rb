@@ -58,9 +58,8 @@ class DataQuality::Plugins::NrcReactorList < DataQuality::Plugin
       end
 
       stats = { "units" => units.size }
-      unless status.crawl_ok? && status.content_text.present? && status.status_reason.nil?
-        state = status.status_reason.present? ? "unavailable" : status.crawl_status
-        return stats.merge("cross_check" => "skipped: status file is #{state}")
+      if (unusable = status_file_problem(status))
+        return stats.merge("cross_check" => "skipped: status file is #{unusable}")
       end
 
       reported = StatusFile.latest_units(status.content_text)
@@ -74,6 +73,17 @@ class DataQuality::Plugins::NrcReactorList < DataQuality::Plugin
       end
 
       stats.merge("cross_check" => "ok")
+    end
+
+    # Why the status file can't be used for the cross-check, or nil if it can.
+    # A blocked or never-fetched file reports its crawl_status. A file that
+    # fetched fine before but failed today (server error, timeout) keeps
+    # crawl_status ok with a status_reason; its content is stale, so don't
+    # compare against it.
+    def status_file_problem(status)
+      return status.crawl_status unless status.crawl_ok?
+      return "unavailable (#{status.status_reason})" if status.status_reason.present?
+      "empty" if status.content_text.blank?
     end
 
     def differences(page_names, status_names)

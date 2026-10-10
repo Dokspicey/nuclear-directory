@@ -71,6 +71,16 @@ class DataQuality::FetcherTest < ActiveSupport::TestCase
     assert_equal [ DataQuality::Fetcher::HOST_INTERVAL ] * 2, @sleeps
   end
 
+  test "robots.txt is per origin: a redirect to another scheme or port reads that origin's file" do
+    stub_request(:get, "http://example.gov/robots.txt").to_return(body: "User-agent: *\nDisallow: /\n")
+    stub_request(:get, "https://example.gov:8443/robots.txt").to_return(body: "User-agent: *\nDisallow: /\n")
+    stub_request(:get, PAGE).to_return(status: 301, headers: { "Location" => "http://example.gov/reactors" })
+
+    assert_equal :disallowed, @fetcher.get(PAGE).kind, "http:// has its own robots.txt"
+    assert_equal :disallowed, @fetcher.get("https://example.gov:8443/reactors").kind, "so does a non-default port"
+    assert_requested :get, "https://example.gov:8443/robots.txt"
+  end
+
   test "follows redirects, checking robots.txt for the new location" do
     stub_request(:get, PAGE).to_return(status: 301, headers: { "Location" => "/private/moved" })
 

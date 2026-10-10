@@ -5,11 +5,11 @@
 #   DataQuality::Snapshot.take(source, fetcher: fetcher)
 #   # => :changed, :unchanged, :skipped_recent, :blocked, :disallowed or :error
 class DataQuality::Snapshot
-  # Fetch each source at most once per calendar day.
   # Blocked this many fetches in a row: stop treating it as temporary.
   BLOCKED_STREAK_LIMIT = 3
 
   def self.take(source, fetcher:)
+    # At most one fetch per source per calendar day (in the app's time zone).
     return :skipped_recent if source.fetched_at&.to_date == Date.current
 
     response = fetcher.get(source.url, etag: source.etag, last_modified: source.last_modified)

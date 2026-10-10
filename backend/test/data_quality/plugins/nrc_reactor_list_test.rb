@@ -109,6 +109,35 @@ class DataQuality::Plugins::NrcReactorListTest < ActiveSupport::TestCase
 
     assert_equal "blocked", run.stats["status_file"]
     assert_equal "skipped: status file is blocked", run.stats["cross_check"]
+    assert_match "reference #18.4460d017", status_source.status_reason
     assert list_source.crawl_ok?
+  end
+
+  test "a status file that worked before but fails today isn't compared stale" do
+    crawl
+    [ list_source, status_source ].each { |source| source.update!(fetched_at: 2.days.ago) }
+    # Today the page changes (one unit gone) and the status file errors, so
+    # only yesterday's status file is on hand. Comparing against it would
+    # wrongly flag a mismatch.
+    stub_request(:get, Plugin::LIST_URL).to_return(body: list_html.sub(%r{<tr><td scope="row"><p><a [^>]*>Wolf Creek 1</a>.*?</tr>}m, ""))
+    stub_request(:get, Plugin::STATUS_URL).to_return(status: 500)
+
+    run = crawl
+
+    assert_equal "error", run.stats["status_file"]
+    assert_equal 94, run.stats["units"]
+    assert_equal "skipped: status file is unavailable (HTTP 500)", run.stats["cross_check"]
+    assert list_source.crawl_ok?
+    assert status_source.crawl_ok?, "a temporary error keeps the last good snapshot"
+  end
+
+  test "fetches each source at most once per calendar day" do
+    travel_to(Time.zone.parse("2026-10-10 23:00")) { crawl }
+
+    travel_to(Time.zone.parse("2026-10-11 05:00")) do
+      assert_equal "unchanged", crawl.stats["list"], "a new day allows a fetch, even 6 hours later"
+      assert_equal "skipped_recent", crawl.stats["list"], "but only one that day"
+    end
+    assert_requested @list, times: 2
   end
 end
