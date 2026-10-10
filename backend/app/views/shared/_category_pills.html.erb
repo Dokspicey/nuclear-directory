@@ -1,0 +1,12 @@
+<%# The eight categories as links to the directory. Locals:
+    current: the Category being shown, or nil
+    counts:  { "fuel" => 11, ... } (optional; a missing count shows no number) %>
+<% counts = local_assigns.fetch(:counts, {}) %>
+<nav class="nd-pills" aria-label="Categories">
+  <% Category.all.each do |category| %>
+    <%= tag.a href: directory_url_for(category:), class: "nd-pill", aria: { current: ("page" if local_assigns[:current]&.key == category.key) } do %>
+      <%= category.name %>
+      <% if counts[category.key] %><span class="nd-num"><%= counts[category.key] %></span><% end %>
+    <% end %>
+  <% end %>
+</nav>

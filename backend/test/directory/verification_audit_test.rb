@@ -100,6 +100,23 @@ class Directory::VerificationAuditTest < ActiveSupport::TestCase
     assert @org.reload.verified?
   end
 
+  test "a bare status update names no one, so it can't reopen a human's rejection" do
+    @org.reject!(by: "human:tosin")
+
+    assert_raises(ActiveRecord::RecordInvalid) { @org.reload.update!(verification_status: "verified") }
+    assert @org.reload.rejected?
+  end
+
+  test "write_many fails a write with a misspelled key instead of dropping it" do
+    results = Directory::FactWriter.write_many([
+      { kind: :organization, attributes: { id: @org.id }, verfication: { status: "verified", by: "human:tosin" } },
+      { kind: :organization, attributes: { id: @org.id }, verification: { status: "verified", by: "human:tosin" } }
+    ])
+
+    assert_equal [ false, true ], results.map(&:ok?)
+    assert_match "unknown write keys: verfication", results.first.errors.join
+  end
+
   test "events can't be edited" do
     @org.verify!(by: "human:tosin")
     event = @org.verification_events.sole

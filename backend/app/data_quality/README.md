@@ -51,6 +51,23 @@ docker compose run --rm web bin/rails "data_quality:stage[extract,nrc_reactor_li
 Or from code: `DataQuality::RunJob.perform_later("nrc_reactor_list", only: "extract")`.
 The quotes stop zsh from treating `[...]` as a file pattern.
 
+To see how it's doing (blocked sources, last runs, review queue, model spend):
+
+```bash
+docker compose run --rm web bin/rails data_quality:status
+```
+
+**Guards (#81):**
+- **One run per source kind at a time.** `Pipeline.run` holds a Postgres advisory lock, and a second
+  run stops with `Pipeline::AlreadyRunning`. `RunJob` also limits concurrency per source kind in Solid Queue.
+- **No stuck runs.** Each run first marks runs of its source kind left "running" for over 2 hours as
+  failed ("Abandoned…").
+- **Spend guard.** Before every model call, this month's model cost (from `crawl_runs.stats`) is checked
+  against `DATA_QUALITY_MONTHLY_BUDGET` (default $5; a non-number or negative value is a configuration
+  error). Once it's used up, calls are refused with `Budget::Exceeded` and the run fails with that
+  reason. It's a soft limit: calls already in flight still finish, so spend can pass it by a fraction
+  of a cent per concurrent run. The OpenRouter key's own credit limit is the hard stop.
+
 ## Adding a source
 
 Create `plugins/<source_kind>.rb` defining `DataQuality::Plugins::<SourceKind> < DataQuality::Plugin`
@@ -63,8 +80,40 @@ Fetch with `DataQuality::Snapshot.take(source, fetcher: DataQuality::Fetcher.new
   `blocked` with the CDN reference on a 403 (`needs_human` after 3 in a row), or `needs_human` if
   robots.txt disallows it.
 - **Extract skips** sources whose content hash hasn't changed since the last extraction.
+- **Titles:** a fetched HTML page's `<title>` (or `og:title`) becomes `sources.title`. For sources that
+  were never fetched (e.g. the hand-checked seed), run the one-off
+  `bin/rails data_quality:backfill_titles`: one polite fetch per untitled URL, keeping only the title.
+  A page without one (a PDF) gets "site, date", and a block leaves the title empty.
 
 Never work around a block. `plugins/nrc_reactor_list.rb` is the reference plug-in.
+
+## What extract produces
+
+`extract(source, run)` returns candidate hashes, which the extract stage saves to `candidates`:
+
+| Key | What it is |
+|---|---|
+| `kind` | One of `Candidate::KINDS`: the six FactWriter kinds plus `organization_alias` |
+| `payload` | String keys. Records use FactWriter attribute names. Links name each end with a nested hash (`"organization" => { "name" => … }`, `"facility" => { "name" => …, "nrc_docket" => … }`), never `*_id`; match resolves those |
+| `quote` | The supporting text, copied exactly from the source |
+| `status`, `notes` | Optional: `status: "needs_review"` with the reason in `notes` sends a candidate straight to review. The stage marks it `review_origin: "extract"`, so re-extracting a changed source replaces it (with the source's `new` candidates) instead of piling up duplicates |
+
+The extract stage adds `source_id` and `crawl_run_id`. Candidates start `new` (or `needs_review` if
+the plug-in flagged them). Match links the ones it can to directory records (`matched`), and verify
+then publishes (`merged`), sends to review (`needs_review`) or rejects (`rejected`). See
+"Matching and candidate payloads" below for match's outcomes.
+
+**NRC extract.** The extractor model (`OPENROUTER_EXTRACT_MODEL`, prompt `nrc-extract-v1`) reads the
+reactor table as plain lines and returns each unit with its row quoted. Every answer is checked
+against the exact parse of the table, by docket. Candidates always carry the table's values; a unit
+the model got wrong, misquoted or skipped goes to review with both values in `notes`, and units it
+invents are dropped. The tally is in the extract run's `stats["ai_check"]`, so the model's accuracy
+is measured on a source we can check before it's trusted on messier ones. Per unit: the unit
+(`facility`), its operator (`organization`, one per name) and an `operates` link. The unit's `state` is
+evidence, not the final word: NRC's Location measures from a nearby city, which near a border is in
+another state (Salem and Hope Creek are in NJ, listed from "Wilmington, DE"; Catawba SC; Fermi 2 MI).
+EIA's plant state will win for that field (Tosin's decision). That's planned in the EIA plug-in (#72,
+not merged yet); until then NRC's state is stored as is.
 
 ## Talking to the directory
 
@@ -82,7 +131,8 @@ Two tests keep the module and the directory in step:
 
 Sources belong to this module. Code outside it (e.g. the seed loader) gets one
 with `DataQuality::Sources.find_or_create(url:, source_kind:, published_on:)`,
-which returns a plain `SourceRef`.
+which returns a result: `ok?` with a plain `SourceRef` in `ref`, or `errors`. Only absolute http(s)
+URLs are accepted (no `javascript:`, `data:` or relative paths), since sources are shown as links.
 
 ## Matching and candidate payloads
 
