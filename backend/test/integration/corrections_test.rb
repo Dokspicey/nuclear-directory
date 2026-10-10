@@ -83,7 +83,7 @@ class CorrectionsTest < ActionDispatch::IntegrationTest
 
   test "company and plant pages link every fact to a prefilled correction" do
     kairos = company("Kairos Power")
-    link(company("Google"), "offtake_with", kairos)
+    cite!(link(company("Google"), "offtake_with", kairos))
     get company_path(slug: "kairos-power")
 
     assert_select ".nd-factrow a.nd-factrow__fix[href=?]",
@@ -93,8 +93,8 @@ class CorrectionsTest < ActionDispatch::IntegrationTest
   end
 
   test "plant pages link their facts, key facts and gaps to a prefilled correction" do
-    vogtle = plant("Plant Vogtle", facility_type: "power_reactor")
-    link(company("Georgia Power"), "owns", vogtle)
+    vogtle = cite!(plant("Plant Vogtle", facility_type: "power_reactor"))
+    cite!(link(company("Georgia Power"), "owns", vogtle))
     get plant_path(slug: "plant-vogtle")
 
     assert_select ".nd-factrow a.nd-factrow__fix[href=?]",
