@@ -91,6 +91,15 @@ class Directory::LookupTest < ActiveSupport::TestCase
     assert_equal "the fact “#{organizations(:westinghouse).name} invests in TerraPower”",
       Directory::Lookup.fact_state(type: "Relationship", id: deal.id).name
     assert_equal "TerraPower", Directory::Lookup.fact_state(type: "Organization", id: org.id).name
+
+    operator = OrganizationRole.create!(organization: org, role: Role.create!(key: "operator", name: "Operator"))
+    smr = OrganizationTechnology.create!(organization: org, technology: Technology.create!(key: "smr", name: "SMR"))
+    assert_equal "the fact “TerraPower is an operator”", Directory::Lookup.fact_state(type: "OrganizationRole", id: operator.id).name
+    fuel = OrganizationRole.create!(organization: org, role: Role.create!(key: "fuel", name: "Fuel"))
+    assert_equal "the fact “TerraPower is a fuel supplier”", Directory::Lookup.fact_state(type: "OrganizationRole", id: fuel.id).name
+    other = OrganizationRole.create!(organization: org, role: Role.create!(key: "isotopes", name: "Isotopes"))
+    assert_equal "the fact “TerraPower has the role Isotopes”", Directory::Lookup.fact_state(type: "OrganizationRole", id: other.id).name
+    assert_equal "the fact “TerraPower works on SMR”", Directory::Lookup.fact_state(type: "OrganizationTechnology", id: smr.id).name
   end
 
   test "needs exactly one way to look up" do
