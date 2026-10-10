@@ -38,8 +38,9 @@ module DataQuality::Review
   EvidenceItem = Data.define(:source, :quote, :found_by, :confidence)
   PendingFact = Data.define(:type, :id, :kind, :attributes, :evidence, :created_at, :last_event)
   # One directory fact as the admin shows it. values: its stored values;
-  # history: Directory::VerificationEventRefs, newest first.
-  Fact = Data.define(:type, :id, :name, :verification_status, :verified_by, :verified_at, :values, :history)
+  # history: Directory::VerificationEventRefs, newest first; published: public
+  # on the site now (#104's rules).
+  Fact = Data.define(:type, :id, :name, :verification_status, :verified_by, :verified_at, :values, :history, :published)
 
   QUEUES = {
     recommended: -> { Candidate.recommended },
@@ -204,7 +205,8 @@ module DataQuality::Review
       record = directory.fact(type:, id:) or return
       Fact.new(type: record.type, id: record.id, name: record.name, verification_status: record.verification_status,
         verified_by: record.verified_by, verified_at: record.verified_at, values: record.values || {},
-        history: directory.verification_history(type: record.type, id: record.id))
+        history: directory.verification_history(type: record.type, id: record.id),
+        published: directory.published?(type: record.type, id: record.id))
     end
 
     private

@@ -55,7 +55,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_020000) do
     t.string "status", default: "open", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "resolution"
+    t.string "decided_by"
+    t.datetime "decided_at"
     t.index ["status"], name: "index_correction_reports_on_status"
+    t.check_constraint "resolution::text = ANY (ARRAY['fixed'::character varying::text, 'dismissed'::character varying::text])", name: "correction_reports_resolution_check"
     t.check_constraint "status::text = ANY (ARRAY['open'::character varying::text, 'reviewed'::character varying::text, 'closed'::character varying::text])", name: "correction_reports_status_check"
   end
 

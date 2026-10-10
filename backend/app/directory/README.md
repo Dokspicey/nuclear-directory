@@ -37,6 +37,8 @@ Directory::Lookup.facility(name: "Three Mile Island Unit 1")  # or any alias: Cr
 
 - `OrganizationRef`: `id, slug, name, domain, verification_status, verified_by, verified_at`
 - `FacilityRef`: `id, slug, name, nrc_docket, parent_id, verification_status, verified_by, verified_at, facility_type, status, state, country_code, latitude, longitude`
+- `Directory::Lookup.ids_by_slug(type:, slugs:)`: company (`Organization`) or plant (`Facility`) ids by slug, in one query
+- `Directory::Lookup.published?(type:, id:)`: whether a fact is public now, by its model's `.published` scope
 - `Directory::Lookup.sourced?(type:, id:)`: whether a fact has any evidence
 - `Directory::Lookup.fact_attributes(type:, id:)`: any fact's stored values as FactWriter names them (string keys, link ends as ids plus the linked records' names), or nil
 - `Directory::Lookup.fact_state(type:, id:)`: any fact's current decision, as `FactStateRef(type, id, name, verification_status, verified_by, verified_at)` (a link's name is a short label)

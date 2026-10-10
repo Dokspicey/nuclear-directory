@@ -50,7 +50,7 @@ class Admin::FactsControllerTest < ActionDispatch::IntegrationTest
     get admin_fact_path(type: "FacilityRelationship", id: link.id)
 
     assert_select "td", /ownership pct?\s*blank to 45\.7|ownership blank to 45\.7/
-    assert_select "td", "human:tosin"
+    assert_select "td", "tosin"
   end
 
   test "rejecting a pending fact with a reason" do
@@ -77,17 +77,44 @@ class Admin::FactsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "h1", "TerraPower"
     assert_select ".nd-badge--verified", /Verified/
+    assert_select "a[href=?]", company_path(slug: terrapower.slug), text: /View on site/
 
     post admin_fact_unpublish_path(type: "Organization", id: terrapower.id), params: { reason: "Merged into another company" }
     assert_redirected_to admin_fact_path(type: "Organization", id: terrapower.id)
     assert terrapower.reload.unpublished?
 
     follow_redirect!
+    assert_select "a", text: /View on site/, count: 0, message: "not public, so no link"
     assert_select ".nd-badge", /Unpublished/
     assert_select "td", "Merged into another company"
 
     post admin_fact_republish_path(type: "Organization", id: terrapower.id)
     assert terrapower.reload.verified?
+  end
+
+  test "a published plant links to its public page; a pending one doesn't" do
+    plant = facilities(:vogtle)
+    plant.verify!(by: "human:tosin")
+
+    get admin_fact_path(type: "Facility", id: plant.id)
+    assert_select "a[href=?]", plant_path(slug: plant.slug), text: /View on site/
+
+    pending = Facility.create!(name: "Pending Plant")
+    get admin_fact_path(type: "Facility", id: pending.id)
+    assert_select "a", text: /View on site/, count: 0
+  end
+
+  test "a pending site that's public through a published unit links to its page and says why" do
+    site = Facility.create!(name: "Plant Example Site")
+    unit = Facility.create!(name: "Example 1", parent: site, nrc_docket: "05099991")
+    unit.verify!(by: "human:tosin")
+    assert site.reload.pending?
+    assert_includes Facility.published, site, "#104: a pending site shows once a unit is published"
+
+    get admin_fact_path(type: "Facility", id: site.id)
+
+    assert_select "a[href=?]", plant_path(slug: site.slug), text: /View on site/
+    assert_select "p", /Pending, but public: a site shows once one of its units is published/
   end
 
   test "a fact type that isn't one is not found" do

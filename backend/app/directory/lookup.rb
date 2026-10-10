@@ -72,6 +72,21 @@ module Directory
     }.freeze
     private_constant :PENDING_INCLUDES
 
+    # Ids of companies or plants by slug, in one query: { "terrapower" => 12 }.
+    def ids_by_slug(type:, slugs:)
+      raise ArgumentError, "not a company or plant: #{type.inspect}" unless %w[Organization Facility].include?(type.to_s)
+
+      type.to_s.constantize.where(slug: slugs).pluck(:slug, :id).to_h
+    end
+
+    # Whether a fact is public now, by its model's .published scope (a unit
+    # under a closed site isn't, #104), so callers don't re-derive the rule.
+    def published?(type:, id:)
+      raise ArgumentError, "not a fact type: #{type.inspect}" unless FACT_TYPES.include?(type.to_s)
+
+      type.to_s.constantize.published.exists?(id:)
+    end
+
     # Whether a fact has any evidence (a source).
     def sourced?(type:, id:)
       raise ArgumentError, "not a fact type: #{type.inspect}" unless FACT_TYPES.include?(type.to_s)

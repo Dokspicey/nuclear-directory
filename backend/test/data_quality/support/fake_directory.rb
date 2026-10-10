@@ -32,6 +32,7 @@ module FakeDirectory
 
     def fact_state(type:, id:) = nil
     def fact_attributes(type:, id:) = nil
+    def published?(type:, id:) = false
     def sourced?(type:, id:) = true
     def similar_facilities(name) = []
     def facility_units(name:, state: nil) = []

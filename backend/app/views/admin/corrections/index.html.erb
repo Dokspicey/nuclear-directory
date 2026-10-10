@@ -1,0 +1,55 @@
+<% content_for :title, "Corrections" %>
+
+<div class="nd-stack">
+  <h1 class="type-title-md m-0">Corrections</h1>
+  <p class="m-0 max-w-prose text-ink-muted">What visitors reported from the public pages. Make the fix on the record, then close the report as fixed, or dismiss it.</p>
+  <nav class="nd-pills" aria-label="Reports">
+    <% Admin::CorrectionsController::TABS.each do |tab| %>
+      <%= link_to admin_corrections_path(tab:), class: "nd-pill", aria: { current: ("page" if tab == @tab) } do %>
+        <%= tab.humanize %> <span class="nd-num"><%= @counts[tab] %></span>
+      <% end %>
+    <% end %>
+  </nav>
+</div>
+
+<% if @reports.empty? %>
+  <%= render "shared/empty_state", message: (@tab == "open" ? "No open reports." : "No closed reports yet.") %>
+<% else %>
+  <ol class="nd-items">
+    <% @reports.each do |report| %>
+      <% record_path = @record_paths[report.id] %>
+      <li class="nd-item nd-item--single" id="report-<%= report.id %>">
+        <div class="nd-item__main">
+          <p class="nd-item__claim type-body-strong"><%= report.subject %></p>
+          <%# Plain text: links in a visitor's message aren't clickable; long ones wrap. %>
+          <blockquote class="nd-quote type-body wrap-anywhere"><%= simple_format(h(report.message), {}, wrapper_tag: "span") %></blockquote>
+          <div class="nd-item__meta type-small">
+            <span>Received <span class="nd-num"><%= report.created_at.utc.strftime("%Y-%m-%d %H:%M") %></span> UTC</span>
+            <%= link_to report.page_path, class: "nd-link nd-link--muted nd-tap wrap-anywhere", target: "_blank", rel: "noopener" do %>From <%= report.page_path %><% end %>
+            <% if record_path %><%= link_to "Open record", record_path, class: "nd-link nd-link--muted nd-tap" %><% end %>
+            <% if report.contact %><%= link_to "Reply to #{report.contact}", correction_reply_mailto(report), class: "nd-link nd-link--muted nd-tap wrap-anywhere" %><% end %>
+          </div>
+          <% if report.status == "reviewed" %>
+            <p class="nd-item__why type-small m-0">In progress, by <%= who(report.decided_by) %>.</p>
+          <% elsif report.status == "closed" %>
+            <p class="nd-item__why type-small m-0"><%= report.resolution == "fixed" ? "Fixed" : "Dismissed" %> by <%= who(report.decided_by) %> on <span class="nd-num"><%= data_date(report.decided_at) %></span>.</p>
+          <% end %>
+          <div class="nd-item__actions">
+            <% if report.status == "closed" %>
+              <%= button_to "Reopen report", reopen_admin_correction_path(report, tab: @tab), class: "nd-btn nd-btn--sm" %>
+            <% else %>
+              <%= button_to "Close as fixed", fix_admin_correction_path(report, tab: @tab), class: "nd-btn nd-btn--primary nd-btn--sm" %>
+              <%= button_to "Dismiss report", dismiss_admin_correction_path(report, tab: @tab), class: "nd-btn nd-btn--sm" %>
+              <% if report.status == "open" %>
+                <%= button_to "Mark as in progress", start_admin_correction_path(report, tab: @tab), class: "nd-btn nd-btn--ghost nd-btn--sm" %>
+              <% end %>
+            <% end %>
+          </div>
+        </div>
+      </li>
+    <% end %>
+  </ol>
+  <% if @more %>
+    <div><%= link_to "Next #{Admin::CorrectionsController::PAGE}", admin_corrections_path(tab: @tab, page: @page + 1), class: "nd-btn nd-btn--sm" %></div>
+  <% end %>
+<% end %>
