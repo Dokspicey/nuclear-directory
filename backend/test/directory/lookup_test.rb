@@ -46,6 +46,42 @@ class Directory::LookupTest < ActiveSupport::TestCase
     assert_equal site.id, ref.id
   end
 
+  test "finds similar facilities, ignoring unit numbers and generic words" do
+    lasalle = Facility.create!(name: "La Salle County Station")
+    Facility.create!(name: "La Crosse Boiling Water Reactor")
+
+    assert_equal [ facilities(:vogtle).id ], Directory::Lookup.similar_facilities("Vogtle 3").map(&:id)
+    assert_equal [ lasalle.id ], Directory::Lookup.similar_facilities("LaSalle 1").map(&:id)
+    assert_empty Directory::Lookup.similar_facilities("Nuclear Generating Station 2"), "only generic words"
+    assert_empty Directory::Lookup.similar_facilities("Clinch River")
+  end
+
+  test "only the leading distinctive word counts, since later words are often places" do
+    Facility.create!(name: "Lost Creek ISR uranium facility")
+    Facility.create!(name: "Crane Clean Energy Center (Three Mile Island Unit 1)")
+
+    assert_empty Directory::Lookup.similar_facilities("Hope Creek 1")
+    assert_empty Directory::Lookup.similar_facilities("Nine Mile Point 1")
+  end
+
+  test "finds similar organizations through any alias" do
+    organizations(:westinghouse).aliases.create!(alias: "Westinghouse")
+
+    similar = Directory::Lookup.similar_organizations("Westinghouse Government Services LLC")
+    assert_equal [ organizations(:westinghouse).id ], similar.map(&:id)
+    assert_kind_of Directory::OrganizationRef, similar.first
+    assert_empty Directory::Lookup.similar_organizations("Entergy Nuclear Operations, Inc.")
+  end
+
+  test "a malformed or blank key matches nothing, not every record missing that field" do
+    Organization.create!(name: "No Domain Co")
+    assert_nil Directory::Lookup.organization(domain: "https://[")
+    assert_nil Directory::Lookup.organization(domain: "   ")
+    assert_nil Directory::Lookup.organization(name: "Inc.")
+
+    assert_nil Directory::Lookup.facility(nrc_docket: " "), "the Vogtle fixture has no docket"
+  end
+
   test "needs exactly one way to look up" do
     assert_raises(ArgumentError) { Directory::Lookup.organization }
     assert_raises(ArgumentError) { Directory::Lookup.organization(name: "TerraPower", domain: "terrapower.com") }
