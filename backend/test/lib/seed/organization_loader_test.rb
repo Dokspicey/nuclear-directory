@@ -106,6 +106,21 @@ class Seed::OrganizationLoaderTest < ActiveSupport::TestCase
     assert_includes plant.evidence.pluck(:quote), "Running since 2020."
   end
 
+  test "a plant link marked pending is created pending, and a rerun keeps a later decision" do
+    write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com",
+      facilities: [ item(name: "Acme Plant", type: "owns", pending: true, pending_reason: "quote doesn't say owns") ]))
+
+    Seed::OrganizationLoader.new(@dir).load!
+    link = FacilityRelationship.sole
+    assert link.pending?
+    assert_equal 1, link.evidence.count
+    assert Facility.find_by!(name: "Acme Plant").verified?, "only the link waits, not the plant"
+
+    link.verify!(by: "human:tosin")
+    Seed::OrganizationLoader.new(@dir).load!
+    assert link.reload.verified?
+  end
+
   test "a plant an earlier seed loaded under a former name is renamed, not created again" do
     old = Facility.create!(name: "Acme Plant (Oak Ridge, TN)")
     write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com", facilities: [ item(name: "Acme Plant", type: "owns") ]))

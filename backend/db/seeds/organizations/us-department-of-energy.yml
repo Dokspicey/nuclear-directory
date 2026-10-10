@@ -95,11 +95,15 @@ facilities:
   quote: University of Tennessee-Battelle, LLC (UT-Battelle), under contract to DOE, manages and is the primary operator for ORNL.
   published: 2017-04
   confidence: 0.8
+  pending: true
+  pending_reason: The quote doesn't state ownership directly; pending until a direct quote is found or Tosin accepts this one.
 - name: Advanced Test Reactor
   type: owns
   source_url: https://www.energy.gov/ea/articles/independent-assessment-safety-system-management-advanced-test-reactor-idaho-national
   quote: INL is managed and operated by Battelle Energy Alliance, LLC (BEA)
   confidence: 0.8
+  pending: true
+  pending_reason: The quote doesn't state ownership directly; pending until a direct quote is found or Tosin accepts this one.
 notes: 'The govdelivery.com bulletin is DOE Office of Science''s official email bulletin (account USDOEOS); the energy.gov original was not located (404). Recipient names for the HALEU allocation appear as a list on the DOE page (''TRISO-X, LLC.'', ''Kairos Power, LLC.'', ''Radiant Industries, Inc.'', ''Westinghouse Electric Company, LLC'', ''TerraPower, LLC.''). DOE enrichment task orders to Centrus (American Centrifuge Operating) and General Matter are recorded as Centrus/General Matter `supplies` DOE (edit 2026-10-09). DOE also selected Urenco USA for an LEU enrichment IDIQ (Dec 2024; no funds stated) and Westinghouse/Radiant for first DOME tests at INL (2025). Radiant Industries not added. #63: HQ is the mailing address on the contact page. #60 (American Centrifuge Plant owns): Site is leased from DOE, so DOE is the site owner (suggest DOE ''owns'' link). Seed already has Centrus ''operates'' (via subsidiary American Centrifuge Operating LLC). #60 (High Flux Isotope Reactor owns): DOE-owned national-lab facility; seed has ORNL ''operates''. Suggest DOE ''owns'' link. #60 (Advanced Test Reactor owns): DOE-owned facility at a DOE lab; quote supports the M&O-contractor arrangement. Suggest DOE ''owns'' link.'
 description:
   text: Federal department that addresses U.S. energy, environmental and nuclear challenges through science and technology.

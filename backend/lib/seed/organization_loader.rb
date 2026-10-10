@@ -7,6 +7,9 @@ module Seed
   #
   # Every fact is marked verified by human:tosin and gets one evidence row
   # (found_by: human) pointing at the source page and quote from the file.
+  # A fact marked `pending: true` (with a `pending_reason`, kept in the YAML)
+  # is created pending instead, for Tosin to approve in the admin, and the
+  # seed never changes a decision already made on it.
   # Safe to re-run: FactWriter updates existing facts, never duplicates them.
   # All or nothing: if any fact fails, nothing is written and Error lists why.
   #
@@ -134,7 +137,7 @@ module Seed
 
           write(slug, :facility_relationship, { organization_id: organization.id, facility_id: facility.id,
             relationship_type: item["type"], description: item["note"], ownership_pct: item["ownership_pct"] },
-            evidence(item, sources))
+            evidence(item, sources), pending: item["pending"])
         end
       end
 
@@ -182,8 +185,9 @@ module Seed
           confidence: item["confidence"] }
       end
 
-      def write(slug, kind, attributes, evidence)
-        result = Directory::FactWriter.write(kind, attributes, evidence: Array.wrap(evidence), verification: VERIFICATION)
+      def write(slug, kind, attributes, evidence, pending: false)
+        result = Directory::FactWriter.write(kind, attributes, evidence: Array.wrap(evidence),
+          verification: (VERIFICATION unless pending))
         if result.ok?
           @results[kind][result.created ? :created : :updated] += 1
         else

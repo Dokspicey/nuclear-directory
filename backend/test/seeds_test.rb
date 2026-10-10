@@ -26,7 +26,7 @@ class SeedsTest < ActiveSupport::TestCase
     assert_equal 48, OrganizationTechnology.verified.count
     assert_equal 52, Relationship.verified.count
     assert_equal 28, Facility.verified.count
-    assert_equal 56, FacilityRelationship.verified.count
+    assert_equal [ 53, 3 ], [ FacilityRelationship.verified.count, FacilityRelationship.pending.count ]
     assert_equal [ "human:tosin" ], Relationship.distinct.pluck(:verified_by)
     assert_equal [ 1 ], OrganizationRole.distinct.pluck(:confidence)
 
@@ -99,6 +99,13 @@ class SeedsTest < ActiveSupport::TestCase
     doe = Organization.find_by!(slug: "us-department-of-energy")
     assert_equal [ "Advanced Test Reactor", "American Centrifuge Plant", "High Flux Isotope Reactor" ],
       doe.facility_relationships.owns.joins(:facility).pluck("facilities.name").sort
+    # Tosin, 2026-10-10: links whose quote doesn't state ownership wait in review.
+    assert_equal [ "American Centrifuge Plant" ], doe.facility_relationships.owns.verified.joins(:facility).pluck("facilities.name")
+    assert_equal [ "Advanced Test Reactor", "High Flux Isotope Reactor" ],
+      doe.facility_relationships.owns.pending.joins(:facility).pluck("facilities.name").sort
+    long_mott = Organization.find_by!(slug: "long-mott-energy").facility_relationships.owns.sole
+    assert long_mott.pending?
+    assert_equal 1, long_mott.evidence.count, "its quote is kept as evidence"
   end
 
   test "the approved #63 calls: descriptions and HQs, no NRC description, no Bernhard role" do
