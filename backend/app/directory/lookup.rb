@@ -19,8 +19,12 @@ module Directory
         in [ :id, value ] then Organization.where(id: value)
         in [ :slug, value ] then Organization.where(slug: value)
         in [ :name, value ]
-          Organization.joins(:aliases).where(organization_aliases: { normalized_alias: OrganizationAlias.normalize(value) })
-        in [ :domain, value ] then Organization.where(domain: Organization.domain_from(value))
+          normalized = OrganizationAlias.normalize(value).presence or return
+          Organization.joins(:aliases).where(organization_aliases: { normalized_alias: normalized })
+        in [ :domain, value ]
+          # A malformed URL has no domain; it must match nothing, not every record without one.
+          domain = Organization.domain_from(value) or return
+          Organization.where(domain: domain)
         end
 
       record = scope.first
@@ -36,7 +40,10 @@ module Directory
         in [ :id, value ] then Facility.where(id: value)
         in [ :slug, value ] then Facility.where(slug: value)
         in [ :name, value ] then Facility.where("lower(name) = ?", value.to_s.strip.downcase)
-        in [ :nrc_docket, value ] then Facility.where(nrc_docket: value)
+        in [ :nrc_docket, value ]
+          # A blank docket must match nothing, not every facility without one.
+          docket = value.to_s.strip.presence or return
+          Facility.where(nrc_docket: docket)
         end
 
       record = scope.order(:id).first
