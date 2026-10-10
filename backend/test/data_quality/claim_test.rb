@@ -4,7 +4,7 @@ class DataQuality::ClaimTest < ActiveSupport::TestCase
   def claim(kind, payload) = DataQuality::Claim.describe(Candidate.new(kind:, payload:))
 
   test "records name every attribute" do
-    assert_equal 'There is a facility named "Vogtle 3", with nrc docket 05200025, facility type power reactor, and status operating.',
+    assert_equal 'There is a plant named "Vogtle 3", with NRC docket 05200025, plant type power reactor, and status operating.',
       claim("facility", { "name" => "Vogtle 3", "nrc_docket" => "05200025", "facility_type" => "power_reactor", "status" => "operating" })
   end
 
@@ -13,7 +13,7 @@ class DataQuality::ClaimTest < ActiveSupport::TestCase
       "facility" => { "name" => "Vogtle 3", "nrc_docket" => "05200025" }, "relationship_type" => "owns",
       "ownership_pct" => 45.7, "started_on" => "2023-07-31", "description" => "Majority owner" })
 
-    assert_equal "Southern Company owns the facility Vogtle 3 (NRC docket 05200025), with ownership pct 45.7, " \
+    assert_equal "Southern Company owns the plant Vogtle 3 (NRC docket 05200025), with ownership 45.7%, " \
       "started on 2023-07-31, and description Majority owner.", text
 
     assert_match "with description Series B lead",

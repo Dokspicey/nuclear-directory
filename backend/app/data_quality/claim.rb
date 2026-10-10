@@ -1,30 +1,33 @@
 # A candidate as a plain-English claim, for the verifier model to check
-# against its source:
-#   facility: "There is a facility "Vogtle 3" with NRC docket 05200025,
-#              facility type power reactor, status operating, …"
+# against its source and for the admin to show. Visitors' words (VOICE.md):
+# company, not organization; plant, not facility.
+#   facility: "There is a plant named "Vogtle 3", with NRC docket 05200025,
+#              plant type power reactor, and status operating."
 #   facility_relationship: "Southern Nuclear Operating Co. operates the
-#              facility Vogtle 3 (NRC docket 05200025)."
+#              plant Vogtle 3 (NRC docket 05200025)."
 module DataQuality::Claim
   RELATIONSHIP_VERBS = {
     "supplies" => "supplies", "invests_in" => "invests in", "funds" => "funds",
     "offtake_with" => "has an offtake agreement with", "subsidiary_of" => "is a subsidiary of",
     "owns" => "owns", "operates" => "operates", "vendor_for" => "is the vendor for", "offtakes_from" => "buys power from"
   }.freeze
+  LABELS = { "nrc_docket" => "NRC docket", "facility_type" => "plant type", "ownership_pct" => "ownership",
+    "hq_city" => "headquarters city", "hq_state" => "headquarters state", "capacity_mw" => "capacity" }.freeze
 
   def self.describe(candidate)
     payload = candidate.payload
 
     case candidate.kind
     when "organization"
-      "There is an organization named #{payload['name'].inspect}#{details(payload.except('name'))}."
+      "There is a company named #{payload['name'].inspect}#{details(payload.except('name'))}."
     when "organization_alias"
       "#{name_of(payload['organization'])} is also known as #{payload['alias'].inspect}."
     when "facility"
-      "There is a facility named #{payload['name'].inspect}#{details(payload.except('name'))}."
+      "There is a plant named #{payload['name'].inspect}#{details(payload.except('name'))}."
     # Links carry every detail approval would publish (ownership %, dates,
     # description), so nothing is published that the verifier didn't check.
     when "facility_relationship"
-      "#{name_of(payload['organization'])} #{verb(payload['relationship_type'])} the facility " \
+      "#{name_of(payload['organization'])} #{verb(payload['relationship_type'])} the plant " \
         "#{facility_name(payload['facility'])}#{details(payload.except('organization', 'facility', 'relationship_type'))}."
     when "relationship"
       "#{name_of(payload['from_organization'])} #{verb(payload['relationship_type'])} #{name_of(payload['to_organization'])}" \
@@ -39,12 +42,17 @@ module DataQuality::Claim
   end
 
   def self.details(attributes)
-    pairs = attributes.compact_blank.map { |key, value| "#{key.humanize(capitalize: false)} #{value_text(key, value)}" }
+    pairs = attributes.compact_blank.map { |key, value| "#{LABELS.fetch(key) { key.humanize(capitalize: false) }} #{value_text(key, value)}" }
     pairs.empty? ? "" : ", with #{pairs.to_sentence}"
   end
 
   def self.value_text(key, value)
-    %w[facility_type status].include?(key) ? humanize(value) : value.to_s
+    case key
+    when "facility_type", "status" then humanize(value)
+    when "ownership_pct" then "#{value}%"
+    when "capacity_mw" then "#{value} MW"
+    else value.to_s
+    end
   end
 
   def self.name_of(ends) = ends.is_a?(Hash) ? (ends["name"] || ends["domain"]).to_s : ends.to_s

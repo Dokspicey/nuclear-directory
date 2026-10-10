@@ -72,6 +72,19 @@ module Directory
     }.freeze
     private_constant :PENDING_INCLUDES
 
+    # Any fact's stored values, as FactWriter names them (string keys; link
+    # ends as ids, plus the linked records' names), or nil. Lets a caller
+    # compare a link's values, which fact_state doesn't carry.
+    #
+    #   Directory::Lookup.fact_attributes(type: "FacilityRelationship", id: 7)
+    #   # => { "ownership_pct" => 45.7, "description" => "...", ... }
+    def fact_attributes(type:, id:)
+      raise ArgumentError, "not a fact type: #{type.inspect}" unless FACT_TYPES.include?(type.to_s)
+
+      record = type.to_s.constantize.find_by(id:) or return
+      pending_attributes(type.to_s.underscore, record).stringify_keys
+    end
+
     # Any fact's current decision (Directory::FactStateRef), or nil.
     def fact_state(type:, id:)
       raise ArgumentError, "not a fact type: #{type.inspect}" unless FACT_TYPES.include?(type.to_s)

@@ -9,7 +9,10 @@ module DataQuality::Differences
   # expected, and aliases cover them.
   COMPARED = {
     "organization" => %w[domain],
-    "facility" => %w[nrc_docket facility_type status state country_code]
+    "facility" => %w[nrc_docket facility_type status state country_code],
+    # A link's type and ends say which link it is; these are its details.
+    "relationship" => %w[description started_on ended_on],
+    "facility_relationship" => %w[ownership_pct description started_on ended_on]
   }.freeze
 
   # record: a DirectoryClient::Record (or nil). Only a record a human
@@ -18,7 +21,7 @@ module DataQuality::Differences
     return {} unless record && record.verification_status == "verified" && record.verified_by.to_s.start_with?("human:")
 
     COMPARED.fetch(candidate.kind, []).each_with_object({}) do |name, differences|
-      stored = comparable(name, record.public_send(name))
+      stored = comparable(name, record.values ? record.values[name] : record.public_send(name))
       incoming = comparable(name, incoming_value(candidate, name))
       next if stored.blank? || incoming.blank? || stored == incoming
 
@@ -28,7 +31,9 @@ module DataQuality::Differences
 
   # "human-verified state is NJ; this source says DE"
   def self.describe(differences)
-    differences.map { |name, (stored, incoming)| "human-verified #{name.humanize(capitalize: false)} is #{stored}; this source says #{incoming}" }
+    differences.map do |name, (stored, incoming)|
+      "human-verified #{DataQuality::Claim::LABELS.fetch(name) { name.humanize(capitalize: false) }} is #{stored}; this source says #{incoming}"
+    end
       .join("; ")
   end
 
@@ -37,8 +42,12 @@ module DataQuality::Differences
     name == "domain" ? candidate.payload["domain"].presence || candidate.payload["website"] : candidate.payload[name]
   end
 
-  # Domains compare as hosts: "https://WWW.TerraPower.com/news" is "terrapower.com".
+  # Domains compare as hosts: "https://WWW.TerraPower.com/news" is "terrapower.com";
+  # percentages as numbers (40 is 40.0).
   def self.comparable(name, value)
+    if name == "ownership_pct" && (number = BigDecimal(value.to_s, exception: false))
+      return number.to_s("F").delete_suffix(".0")
+    end
     return value.to_s unless name == "domain" && value.present?
 
     text = value.to_s.strip

@@ -85,7 +85,7 @@ class DataQuality::Stages::Match < DataQuality::Stage
       case (found = resolve(candidate.kind.to_sym, payload))
       when Review then review(candidate, found.reason)
       when Found
-        # Attach only: nothing is written to an existing record until it's published.
+        # Attach only: nothing is written to an existing record until a human approves it.
         attach(candidate, found.record, "Matched existing #{found.record.name} (by #{found.by})")
       when Under
         write(candidate, payload.symbolize_keys.merge(parent_id: found.site.id), existing: false,
@@ -217,7 +217,7 @@ class DataQuality::Stages::Match < DataQuality::Stage
         proposed_subject: false)
     end
 
-    # evidence: false for links, which may already exist; their quote is added on publish.
+    # evidence: false for links, which may already exist; their quote is added when a human approves.
     # The write, a new link's quote and the candidate's update happen in one
     # transaction, so a stop part-way leaves nothing half-done for a rerun to
     # mistake for an existing record.

@@ -16,7 +16,9 @@
 #    - review → needs_review, with the reason
 #    - reject → rejected (only test verifiers reject; the agent never does)
 # The recommendation (ai_*, verify_run) is stored on the candidate, so the
-# admin can list it by run and by reason.
+# admin can list it by run and by reason. A candidate already recommended
+# isn't sent to the model again; later runs only repeat the code checks
+# (1-3), in case a human decided on its record meanwhile.
 class DataQuality::Stages::Verify < DataQuality::Stage
   def initialize(verifier: DataQuality::Verifiers::Agent.new, **)
     super(**)
@@ -26,13 +28,13 @@ class DataQuality::Stages::Verify < DataQuality::Stage
   private
     def perform(run)
       stats = { "candidates" => 0, "recommended" => 0, "needs_review" => 0, "rejected" => 0,
-        "quote_missing" => 0, "human_decision" => 0, "conflicts" => 0 }
+        "quote_missing" => 0, "human_decision" => 0, "conflicts" => 0, "already_recommended" => 0 }
       pending = candidates.where(status: %w[new matched]).includes(:source).order(:id).to_a
       stats["candidates"] = pending.size
 
       # Code checks first; only what passes goes to the model.
       held = pending.to_h { |candidate| [ candidate.id, hold_reason(candidate) ] }.compact
-      checkable = pending.reject { |candidate| held.key?(candidate.id) }
+      checkable = pending.reject { |candidate| held.key?(candidate.id) || recommended?(candidate) }
 
       # Every model call happens here, before anything is written, so a
       # failed call leaves every candidate as it was.
@@ -41,7 +43,11 @@ class DataQuality::Stages::Verify < DataQuality::Stage
       pending.each do |candidate|
         if (stat, reason = held[candidate.id])
           stats[stat] += 1
-          send_to_review(candidate, reason, run, stats)
+          send_to_review(candidate, reason, run, stats, model: nil)
+          next
+        end
+        if recommended?(candidate)
+          stats["already_recommended"] += 1
           next
         end
 
@@ -109,13 +115,16 @@ class DataQuality::Stages::Verify < DataQuality::Stage
       directory.retire(candidate, crawl_run: run)
     end
 
-    def send_to_review(candidate, reason, run, stats, confidence: nil)
-      candidate.update!(ai_fields("needs_review", reason, confidence, run).merge(status: "needs_review", notes: reason))
+    def recommended?(candidate) = candidate.ai_recommendation == "recommend_publish"
+
+    # model: nil for a code check, which asked no model.
+    def send_to_review(candidate, reason, run, stats, confidence: nil, model: run.model)
+      candidate.update!(ai_fields("needs_review", reason, confidence, run, model:).merge(status: "needs_review", notes: reason))
       stats["needs_review"] += 1
     end
 
-    def ai_fields(recommendation, reason, confidence, run)
+    def ai_fields(recommendation, reason, confidence, run, model: run.model)
       { ai_recommendation: recommendation, ai_reason: reason, ai_confidence: confidence,
-        ai_model: run.model, ai_checked_at: Time.current, verify_run: run }
+        ai_model: model, ai_checked_at: Time.current, verify_run: run }
     end
 end

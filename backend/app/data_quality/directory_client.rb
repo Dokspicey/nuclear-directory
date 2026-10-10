@@ -11,8 +11,9 @@ class DataQuality::DirectoryClient
   # type is what candidates store in subject_type.
   Ref = Data.define(:type, :id)
   # What a lookup found: enough to match on and to explain a match.
+  # values: a link's stored values ({ "ownership_pct" => 45.7, ... }), else nil.
   Record = Data.define(:type, :id, :name, :domain, :nrc_docket, :parent_id, :facility_type, :status, :state, :country_code,
-    :verification_status, :verified_by, :verified_at) do
+    :verification_status, :verified_by, :verified_at, :values) do
     def ref = Ref.new(type:, id:)
     def rejected? = verification_status == "rejected"
     def unpublished? = verification_status == "unpublished"
@@ -48,16 +49,17 @@ class DataQuality::DirectoryClient
   end
 
   # The fact a candidate is attached to (any kind, links included), with its
-  # current decision, or nil when it has none. Organizations and facilities
-  # come with their values, so verify can compare them; a link has only its
-  # decision.
+  # current decision, or nil when it has none, with the values verify and the
+  # admin compare (a link's in `values`).
   def attached_record(candidate)
     return unless candidate.subject_id
 
     case candidate.subject_type
     when "Organization" then record("Organization", lookup.organization(id: candidate.subject_id))
     when "Facility" then record("Facility", lookup.facility(id: candidate.subject_id))
-    else record(candidate.subject_type, lookup.fact_state(type: candidate.subject_type, id: candidate.subject_id))
+    else
+      state = lookup.fact_state(type: candidate.subject_type, id: candidate.subject_id) or return
+      record(candidate.subject_type, state, values: lookup.fact_attributes(type: candidate.subject_type, id: candidate.subject_id))
     end
   end
 
@@ -187,11 +189,11 @@ class DataQuality::DirectoryClient
     def lookup = @lookup ||= "Directory::Lookup".constantize
     def fact_writer = @fact_writer ||= "Directory::FactWriter".constantize
 
-    def record(type, ref)
+    def record(type, ref, values: nil)
       Record.new(type:, id: ref.id, name: ref.name, domain: ref.try(:domain), nrc_docket: ref.try(:nrc_docket), parent_id: ref.try(:parent_id),
         facility_type: ref.try(:facility_type), status: ref.try(:status), state: ref.try(:state),
         country_code: ref.try(:country_code), verification_status: ref.verification_status,
-        verified_by: ref.try(:verified_by), verified_at: ref.try(:verified_at)) if ref
+        verified_by: ref.try(:verified_by), verified_at: ref.try(:verified_at), values:) if ref
     end
 
     def write_result(result)

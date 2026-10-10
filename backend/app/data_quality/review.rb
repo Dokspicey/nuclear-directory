@@ -38,8 +38,11 @@ module DataQuality::Review
     recommended: -> { Candidate.recommended },
     needs_review: -> { Candidate.status_needs_review }
   }.freeze
-  # Link ends were resolved by match; editing them means matching again.
-  NOT_EDITABLE = %w[organization facility from_organization to_organization slug].freeze
+  # Link ends were resolved by match; editing them (by name or by id) means
+  # matching again. Moving a published link isn't an edit either.
+  LINK_ENDS = %w[organization facility from_organization to_organization
+    organization_id facility_id from_organization_id to_organization_id].freeze
+  NOT_EDITABLE = (LINK_ENDS + %w[slug]).freeze
 
   class << self
     # Candidates waiting for a decision, oldest first. queue: :recommended
@@ -49,13 +52,14 @@ module DataQuality::Review
       directory: DataQuality::DirectoryClient.new)
       scope = QUEUES.fetch(queue.to_sym).call.includes(:source).order(:id).limit(limit)
       scope = scope.where(verify_run_id: run_id) if run_id
-      scope = scope.where("candidates.notes ILIKE ?", "#{Candidate.sanitize_sql_like(reason)}%") if reason.present?
+      scope = scope.where("candidates.notes ILIKE ?", reason_pattern(reason)) if reason.present?
       scope = scope.where("candidates.id > ?", after_id) if after_id
       scope.map { |candidate| item(candidate, directory) }
     end
 
     # Kinds of question in a queue, most common first, quoted names blanked
-    # ('no exact match for "…"'), for the admin's reason filter.
+    # ('no exact match for "…"'), for the admin's reason filter: passing one
+    # back as candidates(reason:) lists that group.
     def reasons(queue: :needs_review, run_id: nil)
       scope = QUEUES.fetch(queue.to_sym).call
       scope = scope.where(verify_run_id: run_id) if run_id
@@ -100,23 +104,36 @@ module DataQuality::Review
     def reject(candidate_ids, by:, reason: nil, directory: DataQuality::DirectoryClient.new)
       human!(by)
       Candidate.where(id: candidate_ids).order(:id).map do |candidate|
-        next Result.new(candidate_id: candidate.id, ref: nil, errors: [ already(candidate) ]) unless open?(candidate)
+        Candidate.transaction do
+          candidate.lock! # an approval at the same moment waits, then sees the decision
+          next Result.new(candidate_id: candidate.id, ref: nil, errors: [ already(candidate) ]) unless open?(candidate)
 
-        candidate.update!(status: "rejected", notes: reason.presence || candidate.notes, reviewed_by: by, reviewed_at: Time.current)
-        errors = retire_proposal(candidate, by:, reason:, directory:)
-        Result.new(candidate_id: candidate.id, ref: nil, errors:)
+          candidate.update!(status: "rejected", notes: reason.presence || candidate.notes, reviewed_by: by, reviewed_at: Time.current)
+          errors = retire_proposal(candidate, by:, reason:, directory:)
+          Result.new(candidate_id: candidate.id, ref: nil, errors:)
+        end
       end
     end
 
     # Directory facts of one kind waiting for a human with no open candidate
     # (those show in the candidate queues), e.g. seed facts loaded as pending.
+    # Returns up to `limit`, reading past covered facts, so a full page means
+    # there may be more (next page: after_id = the last one's id).
     def pending_facts(kind:, after_id: nil, limit: 50, directory: DataQuality::DirectoryClient.new)
-      facts = directory.pending_facts(kind:, after_id:, limit:)
-      open = Candidate.where(status: %w[new matched needs_review], subject_type: facts.map(&:type).uniq,
-        subject_id: facts.map(&:id)).pluck(:subject_type, :subject_id).to_set
+      facts = []
+      loop do
+        page = directory.pending_facts(kind:, after_id:, limit:)
+        open = Candidate.where(status: %w[new matched needs_review], subject_type: page.map(&:type).uniq,
+          subject_id: page.map(&:id)).pluck(:subject_type, :subject_id).to_set
+        facts.concat(page.reject { |fact| open.include?([ fact.type, fact.id ]) })
+        break if facts.size >= limit || page.size < limit
+
+        after_id = page.last.id
+      end
+      facts = facts.first(limit)
       sources = sources_by_id(facts.flat_map { |fact| fact.evidence.map(&:source_id) })
 
-      facts.reject { |fact| open.include?([ fact.type, fact.id ]) }.map do |fact|
+      facts.map do |fact|
         PendingFact.new(type: fact.type, id: fact.id, kind: fact.kind, attributes: fact.attributes, created_at: fact.created_at,
           last_event: fact.last_event, evidence: fact.evidence.map { |e| EvidenceItem.new(source: sources[e.source_id], quote: e.quote,
             found_by: e.found_by, confidence: e.confidence) })
@@ -157,18 +174,30 @@ module DataQuality::Review
       def open?(candidate) = candidate.status_new? || candidate.status_matched? || candidate.status_needs_review?
       def already(candidate) = "it's already #{candidate.status.humanize(capitalize: false)}"
 
+      # Locked, and in one transaction with the directory write: two people
+      # approving at once publish once, and a crash can't leave a published
+      # fact still waiting for approval.
       def approve_one(candidate, by:, reason:, directory:)
-        return Result.new(candidate_id: candidate.id, ref: nil, errors: [ already(candidate) ]) unless open?(candidate)
+        Candidate.transaction do
+          candidate.lock!
+          next Result.new(candidate_id: candidate.id, ref: nil, errors: [ already(candidate) ]) unless open?(candidate)
 
-        # The evidence belongs to the run that judged it (verify), else the one that found it.
-        run = candidate.verify_run || candidate.crawl_run
-        result = directory.write_fact(candidate, confidence: supporting_confidence(candidate), crawl_run: run, by:, reason:)
-        return Result.new(candidate_id: candidate.id, ref: nil, errors: result.errors) unless result.success?
+          # The evidence belongs to the run that judged it (verify), else the one that found it.
+          run = candidate.verify_run || candidate.crawl_run
+          result = directory.write_fact(candidate, confidence: supporting_confidence(candidate), crawl_run: run, by:, reason:)
+          next Result.new(candidate_id: candidate.id, ref: nil, errors: result.errors) unless result.success?
 
-        candidate.update!(status: "merged", subject_type: result.ref.type, subject_id: result.ref.id,
-          reviewed_by: by, reviewed_at: Time.current)
-        fill_site(candidate, result.ref.id, run, directory) if candidate.kind_facility?
-        Result.new(candidate_id: candidate.id, ref: result.ref, errors: [])
+          candidate.update!(status: "merged", subject_type: result.ref.type, subject_id: result.ref.id,
+            reviewed_by: by, reviewed_at: Time.current)
+          fill_site(candidate, result.ref.id, run, directory) if candidate.kind_facility?
+          Result.new(candidate_id: candidate.id, ref: result.ref, errors: [])
+        end
+      end
+
+      # The ILIKE pattern for a reason from reasons(): its start, with each
+      # blanked name ("…") matching any name.
+      def reason_pattern(reason)
+        "#{Candidate.sanitize_sql_like(reason).gsub('"…"', '"%"')}%"
       end
 
       # A published unit completes its site's missing details (see
@@ -197,7 +226,7 @@ module DataQuality::Review
 
       def decide_fact(type, id, status, by:, reason:, attributes: {}, directory:)
         human!(by)
-        if (locked = attributes.to_h.stringify_keys.keys & %w[slug]).any?
+        if (locked = attributes.to_h.stringify_keys.keys & NOT_EDITABLE).any?
           return Result.new(candidate_id: nil, ref: nil, errors: [ "can't edit #{locked.to_sentence} here" ])
         end
 

@@ -29,6 +29,20 @@ class DataQuality::Stages::VerifyQuoteTest < ActiveSupport::TestCase
   def candidate(quote) = Candidate.create!(source: @source, kind: "organization", payload: { "name" => quote }, quote: quote)
   def verify(verifier) = DataQuality::Stages::Verify.call(plugin: DummyPlugin.new, verifier: verifier)
 
+  test "text in scripts, styles, templates and noscript isn't on the page a reader sees" do
+    @source.update!(content_text: "<html><body><p>Acme Nuclear signed.</p>" \
+      "<script>var deal = 'Acme Nuclear bought NewCo Fission';</script><style>.x { content: 'Hidden Co' }</style>" \
+      "<template><p>Template Co</p></template><noscript>Noscript Co</noscript></body></html>")
+    hidden = [ "Acme Nuclear bought NewCo Fission", "Hidden Co", "Template Co", "Noscript Co" ].map { |quote| candidate(quote) }
+    shown = candidate("Acme Nuclear signed.")
+    verifier = BatchVerifier.new
+
+    verify(verifier)
+
+    assert_equal [ shown.quote ], verifier.asked
+    assert hidden.all? { |c| c.reload.status_needs_review? }
+  end
+
   test "a made-up quote goes to review and the verifier isn't asked about it" do
     real = candidate("Acme Nuclear signed with NewCo Fission")
     made_up = candidate("Acme Nuclear bought NewCo Fission")
