@@ -55,6 +55,29 @@ class DataQuality::Plugins::EiaGeneratorsTest < ActiveSupport::TestCase
     assert_equal 11, source.content_text.lines.size, "header plus one line per generator"
   end
 
+  test "a newer monthly file withdraws the older file's unpublished candidates" do
+    july = Source.create!(url: "https://www.eia.gov/electricity/data/eia860m/xls/july_generator2026.xlsx",
+      source_kind: "eia_generators", crawl_status: "ok")
+    waiting = Candidate.create!(source: july, kind: "facility", quote: "old row", payload: { "identify" => { "name" => "Vogtle" } })
+    published = Candidate.create!(source: july, kind: "facility", quote: "older row", status: "merged", payload: {},
+      subject_type: "Facility", subject_id: facilities(:vogtle).id)
+
+    assert_equal 1, crawl!["superseded"]
+
+    assert waiting.reload.status_rejected?
+    assert_equal "Superseded by the newer EIA-860M generator inventory, August 2026", waiting.notes
+    assert published.reload.status_merged?, "what's published stays"
+  end
+
+  test "a damaged sheet inside the workbook is reported, not a crash" do
+    bytes = Zip::OutputStream.write_buffer do |zip|
+      zip.put_next_entry("xl/workbook.xml")
+      zip.write("<workbook><sheets><sheet name=\"Operating\" r:id=\"rId1\"")
+    end.string
+
+    assert_raises(Workbook::Unreadable) { Workbook.nuclear_generators(bytes) }
+  end
+
   test "EIA's index page is fetched at most once a day, like any source" do
     crawl!
     crawl!

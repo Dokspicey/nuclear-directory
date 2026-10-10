@@ -41,6 +41,9 @@ class DataQuality::Plugins::EiaGenerators::Workbook
   # are found (EIA may have changed the layout).
   def self.nuclear_generators(bytes)
     new(bytes).nuclear_generators
+  rescue Nokogiri::XML::SyntaxError, Zip::Error, Zlib::Error => error
+    # A damaged sheet or archive is reported like any other unreadable file.
+    raise Unreadable, "The workbook is damaged: #{error.class}: #{error.message}"
   end
 
   def self.to_csv(generators)

@@ -40,7 +40,8 @@ class DataQuality::Plugins::EiaGenerators < DataQuality::Plugin
     result = DataQuality::Snapshot.take(source, fetcher: @fetcher, binary: true) do |bytes|
       Workbook.to_csv(Workbook.nuclear_generators(bytes))
     end
-    { "file" => url, "snapshot" => result.to_s, "generators" => [ CSV.parse(source.reload.content_text.to_s).size - 1, 0 ].max }
+    { "file" => url, "snapshot" => result.to_s, "generators" => [ CSV.parse(source.reload.content_text.to_s).size - 1, 0 ].max,
+      "superseded" => (supersede_older_files(source) if source.crawl_ok?) }.compact
   rescue Workbook::Unreadable => error
     source.update!(crawl_status: "needs_human", status_reason: "Couldn't read the EIA workbook: #{error.message}")
     { "file" => url, "snapshot" => "needs_human" }
@@ -68,6 +69,15 @@ class DataQuality::Plugins::EiaGenerators < DataQuality::Plugin
   end
 
   private
+    # Once a newer monthly file is read, candidates from older files that
+    # haven't been published yet are withdrawn: an older month approved after
+    # a newer one would overwrite current capacity and coordinates.
+    def supersede_older_files(source)
+      older = Source.where(source_kind:).where.not(id: source.id).select(:id)
+      Candidate.where(source_id: older, status: %w[new matched needs_review])
+        .update_all(status: "rejected", notes: "Superseded by the newer #{source.title}", updated_at: Time.current)
+    end
+
     # The newest "<month>_generator<year>.xlsx" linked from the page.
     def latest_file_url(html)
       links = Nokogiri::HTML(html).css("a[href]").map { |a| a["href"].strip }.grep(FILE_LINK)
