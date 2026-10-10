@@ -18,13 +18,6 @@
 # The recommendation (ai_*, verify_run) is stored on the candidate, so the
 # admin can list it by run and by reason.
 class DataQuality::Stages::Verify < DataQuality::Stage
-  # Attributes compared with a human-verified record, per kind. Names aren't
-  # compared: spelling and legal-form variants are expected (aliases cover them).
-  COMPARED = {
-    "organization" => %w[domain],
-    "facility" => %w[nrc_docket facility_type status state country_code]
-  }.freeze
-
   def initialize(verifier: DataQuality::Verifiers::Agent.new, **)
     super(**)
     @verifier = verifier
@@ -75,8 +68,8 @@ class DataQuality::Stages::Verify < DataQuality::Stage
           "The same thing again, or a new record?" ]
       end
 
-      conflicts = human_conflicts(candidate, record)
-      return [ "conflicts", conflicts.join("; ") ] if conflicts.any?
+      differences = DataQuality::Differences.with_human_verified(candidate, record)
+      return [ "conflicts", DataQuality::Differences.describe(differences) ] if differences.any?
 
       unless quote_found?(candidate)
         return [ "quote_missing", "The cited quote isn't in the source as stored, so it can't be checked: " \
@@ -84,20 +77,6 @@ class DataQuality::Stages::Verify < DataQuality::Stage
       end
 
       nil
-    end
-
-    # "human-verified state is NJ; this source says DE" for each compared
-    # attribute where a human-verified record already has a different value.
-    def human_conflicts(candidate, record)
-      return [] unless record && record.verification_status == "verified" && record.verified_by.to_s.start_with?("human:")
-
-      COMPARED.fetch(candidate.kind, []).filter_map do |name|
-        stored = record.public_send(name)
-        incoming = candidate.payload[name]
-        next if stored.blank? || incoming.blank? || stored.to_s == incoming.to_s
-
-        "human-verified #{name.humanize(capitalize: false)} is #{stored}; this source says #{incoming}"
-      end
     end
 
     def verdicts_for(candidates, run)

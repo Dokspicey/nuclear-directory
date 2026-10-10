@@ -164,6 +164,27 @@ class DataQuality::DirectoryClient
     write_result(result)
   end
 
+  # For the review screens (DataQuality::Review, #85).
+
+  # The six fact kinds, e.g. "organization", "facility_relationship".
+  def fact_kinds = "Directory::Lookup::FACT_KINDS".constantize
+
+  # Facts of one kind waiting for a human (Directory::PendingFactRef), oldest first.
+  def pending_facts(kind:, after_id: nil, limit: 50) = lookup.pending_facts(kind:, after_id:, limit:)
+
+  # Every verification decision on a fact, newest first (Directory::VerificationEventRef).
+  def verification_history(type:, id:) = lookup.verification_history(type:, id:)
+
+  # A human's decision on a directory fact: status "verified" (approve or
+  # republish, optionally with edited attributes), "rejected" or
+  # "unpublished". Human writes aren't protected; the reason and context go
+  # to the audit trail. Returns a WriteResult.
+  def decide_fact(kind, id:, status:, by:, reason: nil, attributes: {}, context: nil)
+    result = fact_writer.write(kind, attributes.to_h.symbolize_keys.merge(id:),
+      verification: { status:, by:, reason:, context: }.compact)
+    write_result(result)
+  end
+
   private
     # Resolved lazily so the module has no load-time dependency on the directory.
     def lookup = @lookup ||= "Directory::Lookup".constantize
