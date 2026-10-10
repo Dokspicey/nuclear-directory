@@ -52,6 +52,21 @@ class Admin::CorrectionsControllerTest < ActionDispatch::IntegrationTest
     assert_equal [ "open", nil, nil ], [ fixed.reload.status, fixed.resolution, fixed.decided_by ]
   end
 
+  test "a visitor's markup is shown as text, and a crafted address can't add recipients to the reply" do
+    r = report(message: 'See <a href="https://evil.example">this</a>', contact: "reader@example.com?bcc=attacker%40evil.com&x=x")
+    sign_in_as users(:admin)
+
+    get admin_corrections_path
+
+    assert_select "#report-#{r.id}" do
+      assert_select ".nd-quote a", 0
+      assert_select ".nd-quote", /<a href=/
+      reply = css_select("a[href^='mailto:']").first["href"]
+      assert_match %r{\Amailto:reader@example.com%3Fbcc%3Dattacker%2540evil.com%26x%3Dx\?}, reply
+      assert_no_match(/[?&]bcc=/, reply)
+    end
+  end
+
   test "a change from a stale page is refused, not applied" do
     closed = report
     closed.close!("fixed", by: "human:tosin")

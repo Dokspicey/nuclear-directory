@@ -22,7 +22,7 @@
         <div class="nd-item__main">
           <p class="nd-item__claim type-body-strong"><%= report.subject %></p>
           <%# Plain text: links in a visitor's message aren't clickable; long ones wrap. %>
-          <blockquote class="nd-quote type-body wrap-anywhere"><%= simple_format(report.message, {}, wrapper_tag: "span") %></blockquote>
+          <blockquote class="nd-quote type-body wrap-anywhere"><%= simple_format(h(report.message), {}, wrapper_tag: "span") %></blockquote>
           <div class="nd-item__meta type-small">
             <span>Received <span class="nd-num"><%= report.created_at.utc.strftime("%Y-%m-%d %H:%M") %></span> UTC</span>
             <%= link_to report.page_path, class: "nd-link nd-link--muted nd-tap wrap-anywhere", target: "_blank", rel: "noopener" do %>From <%= report.page_path %><% end %>

@@ -43,8 +43,8 @@ class Admin::CorrectionsController < Admin::BaseController
     def record_paths(reports)
       slugs = reports.to_h { |report| [ report.id, report.page_path.to_s.split(/[?#]/).first.match(%r{\A/(companies|plants)/([^/]+)\z})&.captures ] }.compact
       ids = {
-        "companies" => Organization.where(slug: slugs.values.select { _1.first == "companies" }.map(&:last)).pluck(:slug, :id).to_h,
-        "plants" => Facility.where(slug: slugs.values.select { _1.first == "plants" }.map(&:last)).pluck(:slug, :id).to_h
+        "companies" => Directory::Lookup.ids_by_slug(type: "Organization", slugs: slugs.values.select { _1.first == "companies" }.map(&:last)),
+        "plants" => Directory::Lookup.ids_by_slug(type: "Facility", slugs: slugs.values.select { _1.first == "plants" }.map(&:last))
       }
       slugs.filter_map do |report_id, (kind, slug)|
         id = ids.fetch(kind)[slug] or next

@@ -10,7 +10,7 @@
   <p class="m-0 type-body">
     <span class="nd-num"><%= money(@spend.cost) %></span> of the <span class="nd-num">$<%= format("%.2f", @spend.budget) %></span> monthly budget
     (<span class="nd-num"><%= (@spend.share * 100).floor %>%</span>), from <span class="nd-num"><%= number_with_delimiter(@spend.calls) %></span>
-    <%= "call".pluralize(@spend.calls) %> and <span class="nd-num"><%= number_with_delimiter(@spend.total_tokens) %></span> tokens.
+    <%= "call".pluralize(@spend.calls) %> and <span class="nd-num"><%= number_with_delimiter(@spend.total_tokens) %></span> <%= "token".pluralize(@spend.total_tokens) %>.
   </p>
   <%# Present when the page loads, so status rather than alert (an alert is for the result of an action). %>
   <% if @spend.share >= 1 %>

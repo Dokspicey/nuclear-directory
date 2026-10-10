@@ -51,7 +51,11 @@
       <button type="submit" class="nd-btn nd-btn--primary">Republish</button>
     <% end %>
   <% when "pending" %>
+    <% if @fact.published %>
+      <p class="m-0 max-w-prose">Pending, but public: a site shows once one of its units is published. Decide on the site itself in <%= link_to "pending facts", admin_pending_facts_path(kind: "facility"), class: "nd-link" %>.</p>
+    <% else %>
     <p class="m-0">Waiting for a decision. Decide on it in the <%= link_to "review queue", admin_candidates_path, class: "nd-link" %> or under <%= link_to "pending facts", admin_pending_facts_path, class: "nd-link" %>.</p>
+    <% end %>
   <% else %>
     <p class="m-0">Rejected. It isn't public, and the pipeline won't publish it again.</p>
   <% end %>

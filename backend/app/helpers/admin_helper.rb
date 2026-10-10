@@ -30,7 +30,8 @@ module AdminHelper
 
   # Reply to a visitor's correction: their address, a subject, and the page.
   def correction_reply_mailto(report)
-    "mailto:#{report.contact}?" + { subject: "Your correction on Nuclear Directory",
+    # Encoded, so a crafted address ("a@b.c?bcc=…") can't add recipients or headers.
+    "mailto:#{ERB::Util.url_encode(report.contact).gsub('%40', '@')}?" + { subject: "Your correction on Nuclear Directory",
       body: "About #{request.base_url}#{report.page_path}\n\n" }.to_query.gsub("+", "%20")
   end
 
