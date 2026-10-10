@@ -22,6 +22,12 @@ export default class extends Controller {
     this.leftPhone = () => { if (!this.phone.matches && this.isOpen) this.close() }
     this.phone.addEventListener("change", this.leftPhone)
     window.addEventListener("resize", this.leftPhone)
+
+    // Tapped open before this connected: move it to the modal dialog.
+    if (this.popoverOpen) {
+      this.sheetTarget.hidePopover()
+      this.openModal()
+    }
   }
 
   disconnect() {
@@ -32,6 +38,10 @@ export default class extends Controller {
   // The Filters button: a modal dialog instead of the popover.
   open(event) {
     event.preventDefault()
+    this.openModal()
+  }
+
+  openModal() {
     this.dialogTarget.append(...this.sheetTarget.children)
     this.dialogTarget.showModal()
     this.count()
@@ -50,7 +60,7 @@ export default class extends Controller {
   // before this controller connected).
   toggled(event) {
     if (event.newState === "open") this.count()
-    else this.closed()
+    else if (!this.dialogTarget.open) this.closed() // not when it just moved to the modal
   }
 
   // The contents go back to their inline home. Also bound to the dialog's
