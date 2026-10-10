@@ -122,6 +122,10 @@ class Seed::OrganizationLoaderTest < ActiveSupport::TestCase
     link.verify!(by: "human:tosin")
     Seed::OrganizationLoader.new(@dir).load!
     assert link.reload.verified?
+
+    link.reject!(by: "human:tosin")
+    assert_nothing_raised { Seed::OrganizationLoader.new(@dir).load! }
+    assert link.reload.rejected?, "a rejection made in the admin survives a rerun"
   end
 
   test "a plant an earlier seed loaded under a former name is renamed, not created again" do

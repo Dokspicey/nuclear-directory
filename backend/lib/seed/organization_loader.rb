@@ -134,6 +134,8 @@ module Seed
         Array(doc["facilities"]).each do |item|
           facility = write(slug, :facility, facility_attributes(item), evidence(item, sources))
           next unless facility&.ok?
+          # A pending link a human has since rejected or unpublished stays decided.
+          next if item["pending"] && closed_link?(organization.id, facility.id, item["type"])
 
           write(slug, :facility_relationship, { organization_id: organization.id, facility_id: facility.id,
             relationship_type: item["type"], description: item["note"], ownership_pct: item["ownership_pct"] },
@@ -183,6 +185,10 @@ module Seed
 
         { source_id: sources.fetch(item["source_url"]), quote: item["quote"], found_by: "human",
           confidence: item["confidence"] }
+      end
+
+      def closed_link?(organization_id, facility_id, type)
+        FacilityRelationship.find_by(organization_id:, facility_id:, relationship_type: type)&.closed?
       end
 
       def write(slug, kind, attributes, evidence, pending: false)
