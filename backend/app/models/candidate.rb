@@ -13,5 +13,7 @@ class Candidate < ApplicationRecord
   belongs_to :crawl_run, optional: true
   belongs_to :subject, polymorphic: true, optional: true
 
-  validates :subject, presence: true, if: -> { status_matched? || status_merged? }
+  # Checks the columns rather than loading the record, so the data quality
+  # module can set the link without touching directory models.
+  validates :subject_type, :subject_id, presence: true, if: -> { status_matched? || status_merged? }
 end
