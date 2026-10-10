@@ -1,6 +1,9 @@
 require "test_helper"
+require_relative "../support/directory_builders"
 
 class ErrorsTest < ActionDispatch::IntegrationTest
+  include DirectoryBuilders
+
   # Tests normally show Rails' debug page for errors. Turn it off so the
   # request goes through the exceptions app, as it does in production.
   setup do
@@ -10,15 +13,49 @@ class ErrorsTest < ActionDispatch::IntegrationTest
 
   teardown { Rails.application.env_config.merge!(@env_config) }
 
-  test "an unknown page shows Page not found in the site layout" do
+  test "an unknown page says so in the site layout, shows the address and offers search" do
     get "/no-such-page"
 
     assert_response :not_found
-    assert_select "h1", "Page not found"
-    assert_select "form[role=search][action='/companies']"
+    assert_select "title", "Page not found · Nuclear Directory"
+    assert_select "meta[name=robots][content=noindex]"
+    assert_select "h1", "We don't have a page at this address."
+    assert_select ".nd-notfound__numeral[aria-hidden=true]", "404"
+    assert_select ".nd-notfound__path", "/no-such-page"
+    assert_select "input#search-notfound[value='such']"
     assert_select "a[href='/']", "go to the home page"
     assert_select "main", 1
     assert_select "header.nd-sitebar + main"
+  end
+
+  test "a mistyped company or plant address suggests close matches" do
+    company("Kairos Power")
+    plant("Hermes 2 (Kairos Power, Oak Ridge)")
+    company("Pending Power", verified: false)
+    plant("Plant Vogtle")
+    get "/companies/kairos-powr"
+
+    assert_response :not_found
+    assert_select "#notfound-matches", "Did you mean"
+    assert_select ".nd-list li:first-child a[href='/companies/kairos-power']", /Kairos Power/
+    assert_select "body", text: /Pending Power/, count: 0
+    assert_select "input#search-notfound[value='kairos powr']"
+
+    get "/plants/vogtel"
+    assert_select ".nd-list a[href='/plants/plant-vogtle']", /Plant Vogtle/
+  end
+
+  test "an unpublished company is never suggested" do
+    company("Kairos Power").unpublish!(by: "human:test")
+    get "/companies/kairos-powr"
+
+    assert_select "body", text: /Kairos Power/, count: 0
+  end
+
+  test "an address with nothing close shows no suggestions" do
+    get "/zzzz-qqqq"
+
+    assert_select "#notfound-matches", count: 0
   end
 
   test "other errors keep the static pages, which work even when the app is broken" do
