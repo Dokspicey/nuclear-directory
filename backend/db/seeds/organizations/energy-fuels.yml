@@ -1,24 +1,33 @@
 # Gap research for issue #30 - generated 2026-10-10. Quotes copied from pages fetched this session.
-name: Energy Fuels Inc.
+name: Energy Fuels
+legal_name: Energy Fuels Inc.
 aliases:
 - Energy Fuels
-website: "https://www.energyfuels.com"
-hq: { city: null, state: CO }
+- Energy Fuels Inc.
+website: https://www.energyfuels.com
+hq:
+- city: null
+  state: CO
+- city: Denver
+  state: CO
+  source_url: https://www.energyfuels.com
+  quote: Denver-based, Energy Fuels is a global critical mineral company
+  confidence: 1.0
 country_code: US
 status: active
 roles:
 - key: fuel
   subtype: mining
-  source_url: "https://www.energyfuels.com/"
-  quote: "We are currently the largest U.S. uranium provider, supplying American nuclear energy utilities with the first step in the zero-emissions nuclear energy fuel cycle."
+  source_url: https://www.energyfuels.com/
+  quote: We are currently the largest U.S. uranium provider, supplying American nuclear energy utilities with the first step in the zero-emissions nuclear energy fuel cycle.
   confidence: 1.0
 technologies: []
 relationships:
 - type: supplies
   to: U.S. Department of Energy
-  description: "Contract awarded (Dec 2022) by DOE's National Nuclear Security Administration to sell natural uranium concentrates (U3O8) to the US strategic uranium reserve; expected gross proceeds USD 18.5M, sale expected to complete Q1 2023 (completion not verified from a fetched page). Signed award."
-  source_url: "https://www.world-nuclear-news.org/articles/first-contracts-awarded-for-us-strategic-uranium-r"
-  quote: "Energy Fuels Inc and Peninsula Energy Limited subsidiary Strata Energy Inc have been awarded contracts to supply natural uranium concentrates to establish a federal reserve of domestically produced material."
+  description: Contract awarded (Dec 2022) by DOE's National Nuclear Security Administration to sell natural uranium concentrates (U3O8) to the US strategic uranium reserve; expected gross proceeds USD 18.5M, sale expected to complete Q1 2023 (completion not verified from a fetched page). Signed award.
+  source_url: https://www.world-nuclear-news.org/articles/first-contracts-awarded-for-us-strategic-uranium-r
+  quote: Energy Fuels Inc and Peninsula Energy Limited subsidiary Strata Energy Inc have been awarded contracts to supply natural uranium concentrates to establish a federal reserve of domestically produced material.
   published: '2022-12-16'
   confidence: 0.8
 facilities:
@@ -28,27 +37,33 @@ facilities:
   county: San Juan County
   status: operating
   type: owns
-  source_url: "https://investors.energyfuels.com/2025-07-01-Energy-Fuels-Pinyon-Plain-Uranium-Mine-Continues-to-Outperform"
-  quote: "The Company also owns the White Mesa Mill in Utah, which is the only fully licensed and operating conventional uranium processing facility in the United States."
+  source_url: https://investors.energyfuels.com/2025-07-01-Energy-Fuels-Pinyon-Plain-Uranium-Mine-Continues-to-Outperform
+  quote: The Company also owns the White Mesa Mill in Utah, which is the only fully licensed and operating conventional uranium processing facility in the United States.
   published: '2025-07-01'
   confidence: 1.0
-  note: "County from DOE Draft HALEU EIS (March 2024): \"The White Mesa Uranium Mill located in San Juan County, Utah, is currently the only operating mill in the United States.\" Coordinates not captured (no fetched source states them)."
+  note: 'County from DOE Draft HALEU EIS (March 2024): "The White Mesa Uranium Mill located in San Juan County, Utah, is currently the only operating mill in the United States." Coordinates not captured (no fetched source states them).'
 - name: White Mesa Mill
   facility_type: mill
   state: UT
   type: operates
-  source_url: "https://www.energyfuels.com/"
-  quote: "We take great pride in our uranium mining, as well as owning and operating a mill, and conventional mines that can produce up to 8 million pounds of uranium per year."
+  source_url: https://www.energyfuels.com/
+  quote: We take great pride in our uranium mining, as well as owning and operating a mill, and conventional mines that can produce up to 8 million pounds of uranium per year.
   confidence: 1.0
-  note: "The quote says Energy Fuels owns and operates 'a mill'; that it is White Mesa is inferred from the same page and the July 2025 release (White Mesa is its only conventional mill)."
+  note: The quote says Energy Fuels owns and operates 'a mill'; that it is White Mesa is inferred from the same page and the July 2025 release (White Mesa is its only conventional mill).
 - name: Pinyon Plain Mine
   facility_type: uranium_mine
   state: AZ
   status: operating
   type: owns
-  source_url: "https://investors.energyfuels.com/2025-07-01-Energy-Fuels-Pinyon-Plain-Uranium-Mine-Continues-to-Outperform"
-  quote: "Energy Fuels Inc. (NYSE American: UUUU) (TSX: EFR) (\"Energy Fuels\" or the \"Company\"), a leading U.S. producer of uranium, rare earth elements (\"REEs\"), and other critical minerals, is pleased to announce that its Pinyon Plain uranium mine in Arizona continues to significantly exceed previous production estimates."
+  source_url: https://investors.energyfuels.com/2025-07-01-Energy-Fuels-Pinyon-Plain-Uranium-Mine-Continues-to-Outperform
+  quote: 'Energy Fuels Inc. (NYSE American: UUUU) (TSX: EFR) ("Energy Fuels" or the "Company"), a leading U.S. producer of uranium, rare earth elements ("REEs"), and other critical minerals, is pleased to announce that its Pinyon Plain uranium mine in Arizona continues to significantly exceed previous production estimates.'
   published: '2025-07-01'
   confidence: 1.0
-  note: "Conventional underground mine in northern Arizona; ore is trucked to White Mesa Mill (WNN 2025-02-28: \"the suspension of ore transports from the Pinyon Plain Mine in northern Arizona to the White Mesa Mill in southern Utah\"). 'owns' inferred from 'its Pinyon Plain uranium mine'."
-notes: "Fuel sub-type: mining (also milling, via White Mesa Mill). HQ: website footer gives an office address in Lakewood, Colorado and the homepage says 'Denver-based'; WNN says 'Colorado-based'. Only state recorded. No documented commercial supply link to the existing seed fuel companies (Centrus, Urenco USA, Westinghouse, etc.) was found; Energy Fuels' July 2025 release mentions 'long-term utility contracts' without naming customers. Also holds the Nichols Ranch ISR project in Wyoming (per WNN Dec 2022), not added as a facility because its current operating status was not verified. Primary Energy Fuels release on the Dec 2022 reserve award was not fetched; WNN coverage used (0.8)."
+  note: 'Conventional underground mine in northern Arizona; ore is trucked to White Mesa Mill (WNN 2025-02-28: "the suspension of ore transports from the Pinyon Plain Mine in northern Arizona to the White Mesa Mill in southern Utah"). ''owns'' inferred from ''its Pinyon Plain uranium mine''.'
+notes: 'Fuel sub-type: mining (also milling, via White Mesa Mill). HQ: website footer gives an office address in Lakewood, Colorado and the homepage says ''Denver-based''; WNN says ''Colorado-based''. Only state recorded. No documented commercial supply link to the existing seed fuel companies (Centrus, Urenco USA, Westinghouse, etc.) was found; Energy Fuels'' July 2025 release mentions ''long-term utility contracts'' without naming customers. Also holds the Nichols Ranch ISR project in Wyoming (per WNN Dec 2022), not added as a facility because its current operating status was not verified. Primary Energy Fuels release on the Dec 2022 reserve award was not fetched; WNN coverage used (0.8). #63: Seed had state CO with no city; this adds the city. Vanadium wording is from the same page ("Energy Fuels is a major U.S. producer of vanadium"). No fission tag added: page talks about the fuel cycle but not reactors.'
+description:
+  text: Company that produces uranium for U.S. nuclear utilities, plus rare earth oxides and vanadium.
+  source_url: https://www.energyfuels.com
+  quote: We are currently the largest U.S. uranium provider, supplying American nuclear energy utilities with the first step in the zero-emissions nuclear energy fuel cycle. We also produce rare earth oxides, processing at our facility in the U.S. and are adding new products like titanium, zircon minerals and medical isotopes.
+  also:
+  - quote: 'Energy Fuels is a major U.S. producer of vanadium'

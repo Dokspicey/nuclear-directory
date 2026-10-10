@@ -18,6 +18,21 @@ class Directory::FactWriterTest < ActiveSupport::TestCase
     assert_equal [ "kairos", "kairos power" ], org.aliases.pluck(:normalized_alias).sort
   end
 
+  test "a human's write can remove aliases, never the current name; an automated one can't" do
+    id = write(:organization, { name: "Kairos Power", aliases: [ "Kairos", "Kairos Power, Inc. of Old" ] }).id
+    human = { status: "verified", by: "human:tosin" }
+
+    refused = write(:organization, { id:, name: "Kairos Power" }, remove_aliases: [ "Kairos" ])
+    assert_match "only for an organization, with a human's verification", refused.errors.join
+    by_agent = write(:organization, { id:, name: "Kairos Power" }, verification: { status: "verified", by: "agent:verifier" },
+      remove_aliases: [ "Kairos" ])
+    assert_match "only for an organization, with a human's verification", by_agent.errors.join
+
+    assert write(:organization, { id:, name: "Kairos Power" }, verification: human,
+      remove_aliases: [ "Kairos Power, Inc. of Old", "Kairos Power" ]).ok?
+    assert_equal [ "kairos", "kairos power" ], Organization.find(id).aliases.pluck(:normalized_alias).sort
+  end
+
   test "is idempotent: the same input updates instead of duplicating" do
     first = write(:organization, { name: "Kairos Power", aliases: [ "Kairos" ] }, evidence: [ @evidence ])
     second = write(:organization, { name: "Kairos Power", aliases: [ "Kairos" ], hq_city: "Alameda" }, evidence: [ @evidence ])

@@ -1,0 +1,33 @@
+# Research for issue #60 - generated 2026-10-10. Quotes copied from pages fetched this session.
+name: Allegheny Electric Cooperative
+legal_name: Allegheny Electric Cooperative, Inc.
+aliases:
+- Allegheny Electric
+- Allegheny Electric Cooperative, Inc.
+website: https://prea.com
+hq:
+  city: Harrisburg
+  state: PA
+  source_url: https://prea.com/allegheny-electric-cooperative-inc
+  quote: Working in close partnership with PREA is Allegheny Electric Cooperative, Inc. (Allegheny), a generation and transmission cooperative. Also based in Harrisburg, Pa., Allegheny provides the power requirements for the 14 rural electric distribution cooperatives in Pennsylvania and New Jersey.
+country_code: US
+status: active
+roles:
+- key: utility
+  source_url: https://prea.com/allegheny-electric-cooperative-inc
+  quote: Working in close partnership with PREA is Allegheny Electric Cooperative, Inc. (Allegheny), a generation and transmission cooperative. Also based in Harrisburg, Pa., Allegheny provides the power requirements for the 14 rural electric distribution cooperatives in Pennsylvania and New Jersey.
+  confidence: 1.0
+technologies:
+- key: fission
+  source_url: https://prea.com/allegheny-electric-cooperative-inc
+  quote: Allegheny owns 10% of the Susquehanna Steam Electric Station, a 2,600-megawatt, two-unit nuclear power plant located in Luzerne County, Pa. Talen Energy Corporation owns the remaining 90% and operates the boiling water reactor facility.
+  confidence: 1.0
+relationships: []
+facilities:
+- name: Susquehanna Steam Electric Station
+  type: owns
+  ownership_pct: 10.0
+  source_url: https://www.talenenergy.com/plant/susquehanna-steam-electric-station/
+  quote: Susquehanna Nuclear, LLC, a division of Talen Energy, operates SSES and owns 90% of the station. Allegheny Electric owns 10%.
+  confidence: 1.0
+notes: 'Website: Allegheny''s profile is hosted on the shared PREA/Allegheny site (prea.com); no separate Allegheny domain verified. Ownership corroborated on prea.com (technologies quote).'

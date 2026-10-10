@@ -14,6 +14,7 @@ class Facility < ApplicationRecord
   belongs_to :technology, optional: true
   has_many :facility_relationships, dependent: :destroy
   has_many :organizations, -> { distinct }, through: :facility_relationships
+  has_many :aliases, class_name: "FacilityAlias", dependent: :destroy
 
   normalizes :nrc_docket, with: ->(docket) { docket.strip.presence }
   normalizes :eia_plant_id, with: ->(id) { id.to_s.strip.presence }

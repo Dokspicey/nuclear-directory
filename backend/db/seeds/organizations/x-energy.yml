@@ -1,43 +1,51 @@
 # Seed research for issue #8 - generated 2026-10-09. Quotes copied from pages fetched this session.
-name: X-Energy, Inc.
+name: X-energy
+legal_name: X-Energy, Inc.
 aliases:
 - X-energy
 - X-Energy Reactor Company, LLC
-website: "https://x-energy.com"
+- X-Energy, Inc.
+website: https://x-energy.com
 hq:
   city: Rockville
   state: MD
-  source_url: "https://www.energy.gov/ne/articles/us-department-energy-announces-160-million-first-awards-under-advanced-reactor"
-  quote: "DOE is awarding TerraPower LLC (Bellevue, Washington) and X-energy (Rockville, Maryland) $80 million each in initial funding to build two advanced nuclear reactors that can be operational within seven years."
+  source_url: https://www.energy.gov/ne/articles/us-department-energy-announces-160-million-first-awards-under-advanced-reactor
+  quote: DOE is awarding TerraPower LLC (Bellevue, Washington) and X-energy (Rockville, Maryland) $80 million each in initial funding to build two advanced nuclear reactors that can be operational within seven years.
 country_code: US
 status: active
 roles:
 - key: reactor_vendor
-  source_url: "https://x-energy.com/"
-  quote: "X-energy is a leading developer of advanced nuclear energy technology."
+  source_url: https://x-energy.com/
+  quote: X-energy is a leading developer of advanced nuclear energy technology.
   confidence: 1.0
 technologies:
 - key: smr
-  source_url: "https://x-energy.com/media/news-releases/amazon-invests-in-x-energy-to-support-advanced-small-modular-nuclear-reactors-and-expand-carbon-free-power"
-  quote: "Each reactor unit is engineered to provide 80 MW of electricity and is optimized in multi-unit plants ranging from 320 MW to 960 MW."
+  source_url: https://x-energy.com/media/news-releases/amazon-invests-in-x-energy-to-support-advanced-small-modular-nuclear-reactors-and-expand-carbon-free-power
+  quote: Each reactor unit is engineered to provide 80 MW of electricity and is optimized in multi-unit plants ranging from 320 MW to 960 MW.
   published: '2024-10-16'
   confidence: 1.0
 - key: fission
-  source_url: "https://www.energy.gov/ne/articles/us-department-energy-announces-160-million-first-awards-under-advanced-reactor"
-  quote: "The Xe-100 is a high-temperature gas-cooled reactor that is ideally suited to provide flexible electricity output as well as process heat for a wide range of industrial heat applications, such as desalination and hydrogen production."
+  source_url: https://www.energy.gov/ne/articles/us-department-energy-announces-160-million-first-awards-under-advanced-reactor
+  quote: The Xe-100 is a high-temperature gas-cooled reactor that is ideally suited to provide flexible electricity output as well as process heat for a wide range of industrial heat applications, such as desalination and hydrogen production.
   published: '2020-10-13'
   confidence: 1.0
 relationships: []
 facilities:
 - name: Cascade Advanced Energy Facility
   type: vendor_for
-  source_url: "https://www.aboutamazon.com/news/sustainability/amazon-smr-nuclear-energy"
-  quote: "Their advanced reactor design, the Xe-100, will be used in Amazon’s partnership with Energy Northwest to develop four SMRs in the first phase of Cascade, with an initial capacity of 320 MW and the option to expand to 12 units with a capacity of 960 MW."
+  source_url: https://www.aboutamazon.com/news/sustainability/amazon-smr-nuclear-energy
+  quote: Their advanced reactor design, the Xe-100, will be used in Amazon’s partnership with Energy Northwest to develop four SMRs in the first phase of Cascade, with an initial capacity of 320 MW and the option to expand to 12 units with a capacity of 960 MW.
   confidence: 1.0
-- name: Xe-100 plant at Dow UCC Seadrift Operations (Texas)
+- name: Long Mott Generating Station
   type: vendor_for
-  source_url: "https://x-energy.com/media/news-releases/amazon-invests-in-x-energy-to-support-advanced-small-modular-nuclear-reactors-and-expand-carbon-free-power"
-  quote: "X-energy is developing its initial Xe-100 plant at Dow Inc.’s UCC Seadrift Operations manufacturing site on the Texas Gulf Coast."
+  source_url: https://x-energy.com/media/news-releases/amazon-invests-in-x-energy-to-support-advanced-small-modular-nuclear-reactors-and-expand-carbon-free-power
+  quote: X-energy is developing its initial Xe-100 plant at Dow Inc.’s UCC Seadrift Operations manufacturing site on the Texas Gulf Coast.
   published: '2024-10-16'
   confidence: 1.0
-notes: "Publicly listed as of 2026 (Nasdaq: XE per Aug 2026 release). Parent of TRISO-X, LLC (subsidiary relationship not modelled in relationship types). Dow Inc. is the Seadrift site host/customer, not added as an org."
+notes: 'Publicly listed as of 2026 (Nasdaq: XE per Aug 2026 release). Parent of TRISO-X, LLC (subsidiary relationship not modelled in relationship types). Dow Inc. is the Seadrift site host/customer, not added as an org. #63: Xe-100 named in same release ("X-energy’s Xe-100 advanced small modular nuclear reactors"). HQ already in seed.'
+description:
+  text: Developer of the Xe-100 small modular reactor and of nuclear fuel technology.
+  source_url: https://x-energy.com/media/news-releases/amazon-invests-in-x-energy-to-support-advanced-small-modular-nuclear-reactors-and-expand-carbon-free-power
+  quote: X-Energy Reactor Company, LLC, is a leading developer of advanced small modular nuclear reactors and fuel technology for clean energy generation
+  also:
+  - quote: 'X-energy’s Xe-100 advanced small modular nuclear reactors'

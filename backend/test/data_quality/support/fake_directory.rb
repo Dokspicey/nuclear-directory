@@ -28,7 +28,7 @@ module FakeDirectory
     def same_brand_organizations(name, plants: nil) = []
     def brand_name(name, plants: nil) = nil
     def brand_key(name, plants: nil) = nil
-    def plant_names = Set.new
+    def plant_names(owners: []) = Set.new
 
     def fact_state(type:, id:) = nil
     def fact_attributes(type:, id:) = nil
@@ -52,7 +52,8 @@ module FakeDirectory
       @next_id = 1000
     end
 
-    def write(kind, attributes, evidence: [], verification: nil, fill_blank: false, protect_human_verified: false)
+    def write(kind, attributes, evidence: [], verification: nil, fill_blank: false, protect_human_verified: false,
+      remove_aliases: [])
       @writes << { kind:, attributes:, evidence:, verification:, fill_blank: }
       return Directory::FactWriter::Result.new(kind: kind.to_sym, id: nil, created: false, errors: [ @fail_with ]) if @fail_with
 

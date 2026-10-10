@@ -2,49 +2,60 @@
 name: Tennessee Valley Authority
 aliases:
 - TVA
-website: "https://www.tva.com"
-hq: null
+website: https://www.tva.com
+hq:
+  city: Knoxville
+  state: TN
+  source_url: https://www.govinfo.gov/content/pkg/GOVMAN-2002-06-01/html/GOVMAN-2002-06-01-Pg530.htm
+  quote: TENNESSEE VALLEY AUTHORITY 400 West Summit Hill Drive, Knoxville, TN 37902
+  confidence: 0.8
 country_code: US
 status: active
 roles:
 - key: utility
-  source_url: "https://typeoneenergy.com/insights-announcements/tva-type-one-energy-accelerate-fusion-commercialization-tennessee/"
-  quote: "The Tennessee Valley Authority is the nation’s largest public power supplier, delivering energy to more than 10 million people across seven southeastern states."
+  source_url: https://typeoneenergy.com/insights-announcements/tva-type-one-energy-accelerate-fusion-commercialization-tennessee/
+  quote: The Tennessee Valley Authority is the nation’s largest public power supplier, delivering energy to more than 10 million people across seven southeastern states.
   published: '2025-09-19'
   confidence: 0.8
 technologies:
 - key: smr
-  source_url: "https://www.gevernova.com/news/press-releases/nrc-issues-first-us-construction-permit-bwrx-300-small-modular-reactor-tva-clinch-river"
-  quote: "GE Vernova Hitachi Nuclear Energy (GVH) today welcomed the U.S. Nuclear Regulatory Commission’s (NRC) issuance of a construction permit to the Tennessee Valley Authority (TVA) for a BWRX-300 small modular reactor at its Clinch River site in Oak Ridge, Tennessee."
+  source_url: https://www.gevernova.com/news/press-releases/nrc-issues-first-us-construction-permit-bwrx-300-small-modular-reactor-tva-clinch-river
+  quote: GE Vernova Hitachi Nuclear Energy (GVH) today welcomed the U.S. Nuclear Regulatory Commission’s (NRC) issuance of a construction permit to the Tennessee Valley Authority (TVA) for a BWRX-300 small modular reactor at its Clinch River site in Oak Ridge, Tennessee.
   published: '2026-09-29'
   confidence: 1.0
 relationships:
 - type: offtake_with
   to: Kairos Power
-  description: "Signed PPA: TVA buys up to 50 MW from Kairos Power's Hermes 2 reactor (first US utility PPA with a Gen IV reactor). Announced Aug 2025."
-  source_url: "https://world-nuclear-news.org/articles/google-kairos-power-tva-announce-collaboration"
-  quote: "The power purchase agreement between the Tennessee Valley Authority (TVA) and Kairos Power will deliver up to 50 MW of \"reliable, 24/7 energy\" to the TVA grid that powers Google data centres in Tennessee and Alabama, the companies said."
+  description: 'Signed PPA: TVA buys up to 50 MW from Kairos Power''s Hermes 2 reactor (first US utility PPA with a Gen IV reactor). Announced Aug 2025.'
+  source_url: https://world-nuclear-news.org/articles/google-kairos-power-tva-announce-collaboration
+  quote: The power purchase agreement between the Tennessee Valley Authority (TVA) and Kairos Power will deliver up to 50 MW of "reliable, 24/7 energy" to the TVA grid that powers Google data centres in Tennessee and Alabama, the companies said.
   published: '2025-08-18'
   confidence: 0.8
 facilities:
-- name: Clinch River Nuclear Site Unit 1 (BWRX-300)
+- name: Clinch River Nuclear Site Unit 1
   type: owns
-  source_url: "https://www.gevernova.com/news/press-releases/nrc-issues-first-us-construction-permit-bwrx-300-small-modular-reactor-tva-clinch-river"
-  quote: "GE Vernova Hitachi Nuclear Energy (GVH) today welcomed the U.S. Nuclear Regulatory Commission’s (NRC) issuance of a construction permit to the Tennessee Valley Authority (TVA) for a BWRX-300 small modular reactor at its Clinch River site in Oak Ridge, Tennessee."
+  source_url: https://www.gevernova.com/news/press-releases/nrc-issues-first-us-construction-permit-bwrx-300-small-modular-reactor-tva-clinch-river
+  quote: GE Vernova Hitachi Nuclear Energy (GVH) today welcomed the U.S. Nuclear Regulatory Commission’s (NRC) issuance of a construction permit to the Tennessee Valley Authority (TVA) for a BWRX-300 small modular reactor at its Clinch River site in Oak Ridge, Tennessee.
   published: '2026-09-29'
   confidence: 1.0
-  note: "NRC construction permit issued Sept 2026; status under_construction/planned."
-- name: Hermes 2 (Kairos Power, Oak Ridge)
+  note: NRC construction permit issued Sept 2026; status under_construction/planned.
+- name: Hermes 2
   type: offtakes_from
-  source_url: "https://world-nuclear-news.org/articles/google-kairos-power-tva-announce-collaboration"
-  quote: "The newly announced collaboration includes a first-of-a-kind power purchase agreement between Kairos Power and the Tennessee Valley Authority that will see Kairos Power's Hermes 2 reactor deliver power to the grid for Google's data centres, with plans to increase the demonstration unit's output."
+  source_url: https://world-nuclear-news.org/articles/google-kairos-power-tva-announce-collaboration
+  quote: The newly announced collaboration includes a first-of-a-kind power purchase agreement between Kairos Power and the Tennessee Valley Authority that will see Kairos Power's Hermes 2 reactor deliver power to the grid for Google's data centres, with plans to increase the demonstration unit's output.
   published: '2025-08-18'
   confidence: 0.8
-- name: "Infinity Two fusion power plant (former Bull Run Fossil Plant site)"
+- name: Infinity Two fusion power plant
   type: owns
-  source_url: "https://typeoneenergy.com/insights-announcements/tva-type-one-energy-accelerate-fusion-commercialization-tennessee/"
-  quote: "The Tennessee Valley Authority (TVA) and Type One Energy announced Friday that TVA has issued a Letter of Intent (LOI) to Type One Energy regarding the utility’s interest in the potential deployment of Type One Energy’s fusion power plant technology at its former Bull Run Fossil site once it is commercially ready."
+  source_url: https://typeoneenergy.com/insights-announcements/tva-type-one-energy-accelerate-fusion-commercialization-tennessee/
+  quote: The Tennessee Valley Authority (TVA) and Type One Energy announced Friday that TVA has issued a Letter of Intent (LOI) to Type One Energy regarding the utility’s interest in the potential deployment of Type One Energy’s fusion power plant technology at its former Bull Run Fossil site once it is commercially ready.
   published: '2025-09-19'
   confidence: 1.0
-  note: "TVA owns the site; the plant itself is only a non-binding LOI. Final decisions subject to TVA Board approval."
-notes: "TVA is a federal corporation ('a corporate agency of the United States' per its boilerplate on Type One's page) but tagged utility, not government_agency. TVA role quote is TVA boilerplate hosted on Type One Energy's site (0.8). HQ not verified in this session. TVA-Type One LOI is non-binding; recorded only as a facility link, not an org-org relationship."
+  note: TVA owns the site; the plant itself is only a non-binding LOI. Final decisions subject to TVA Board approval.
+notes: 'TVA is a federal corporation (''a corporate agency of the United States'' per its boilerplate on Type One''s page) but tagged utility, not government_agency. TVA role quote is TVA boilerplate hosted on Type One Energy''s site (0.8). HQ not verified in this session. TVA-Type One LOI is non-binding; recorded only as a facility link, not an org-org relationship. #63: tva.com and tva.gov return 403 (blocked). Source is the 2002-03 U.S. Government Manual on govinfo.gov (dated; facts used are stable). Wholesale wording from same page: "The Authority is the wholesale power supplier for 158 local municipal and cooperative electric systems". Worth re-sourcing from tva.com when reachable.'
+description:
+  text: Federally owned corporation, created in 1933, that supplies wholesale electric power in the Tennessee Valley region.
+  source_url: https://www.govinfo.gov/content/pkg/GOVMAN-2002-06-01/html/GOVMAN-2002-06-01-Pg530.htm
+  quote: The Tennessee Valley Authority (TVA) is a wholly owned Government corporation created by act of May 18, 1933
+  also:
+  - quote: 'The Authority is the wholesale power supplier for 158 local municipal and cooperative electric systems'

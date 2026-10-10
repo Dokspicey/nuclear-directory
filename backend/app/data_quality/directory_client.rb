@@ -37,6 +37,7 @@ class DataQuality::DirectoryClient
   PAYLOAD_LOCKED = %w[id slug organization_id facility_id from_organization_id to_organization_id].freeze
 
   def initialize(lookup: nil, fact_writer: nil)
+    @owner_hints = []
     @lookup = lookup
     @fact_writer = fact_writer
   end
@@ -80,6 +81,15 @@ class DataQuality::DirectoryClient
   # Organizations that are the same brand as name (legal-entity variants).
   def same_brand_organizations(name)
     lookup.same_brand_organizations(name, plants: plant_names).map { |ref| record("Organization", ref) }
+  end
+
+  # Company names coming up in this run, so the brand rule treats them as
+  # owners from the start, whatever order the candidates are matched in.
+  attr_reader :owner_hints
+
+  def owner_hints=(names)
+    @owner_hints = Array(names).compact_blank.uniq
+    @plant_names = nil
   end
 
   # The brand a per-plant or regional company name stands for
@@ -142,6 +152,9 @@ class DataQuality::DirectoryClient
       attributes[:aliases] = [ *attributes[:aliases], attributes[:name] ].compact_blank.uniq
       attributes.delete(:name) if candidate.subject_id
     end
+    # A matched plant keeps its own name too: a candidate found under one of its
+    # aliases ("Three Mile Island Unit 1") mustn't rename Crane.
+    attributes.delete(:name) if candidate.kind == "facility" && candidate.subject_id
     enrichment = enrichment?(candidate)
     verification =
       if enrichment then nil
@@ -258,7 +271,7 @@ class DataQuality::DirectoryClient
     def fact_writer = @fact_writer ||= "Directory::FactWriter".constantize
 
     # Read once and reused for every brand check, until a facility or company is written.
-    def plant_names = @plant_names ||= lookup.plant_names
+    def plant_names = @plant_names ||= lookup.plant_names(owners: owner_hints)
 
     def record(type, ref, values: nil)
       Record.new(type:, id: ref.id, name: ref.name, domain: ref.try(:domain), nrc_docket: ref.try(:nrc_docket),

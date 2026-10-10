@@ -51,6 +51,9 @@ class DataQuality::Stages::Match < DataQuality::Stage
       @stats = { "candidates" => 0, "matched" => 0, "proposed" => 0, "needs_review" => 0, "waiting" => 0, "write_errors" => 0 }
 
       one_run_at_a_time do
+        # Every company name in this run counts as an owner for the brand
+        # rule from the start, so matching doesn't depend on candidate order.
+        directory.owner_hints = candidates.status_new.where(kind: "organization").filter_map { |c| c.payload["name"] }
         ORDER.each do |kind|
           candidates.status_new.where(kind: kind).find_each { |candidate| match(candidate) }
         end
@@ -200,7 +203,11 @@ class DataQuality::Stages::Match < DataQuality::Stage
       # An EIA plant is a site; an NRC unit of the same name ("Palisades")
       # isn't it, and mustn't hide a site of that name either.
       eia_site = eia_plant && !docket
-      by_name = (eia_site ? directory.facility(site_name: name) : directory.facility(name:)) if name
+      by = ->(other) { eia_site ? directory.facility(site_name: other) : directory.facility(name: other) }
+      by_name = by.call(name) if name
+      # A candidate's other names find its plant here, so it's attached
+      # without writing; its aliases are added only when it's approved.
+      by_name ||= Array(payload["aliases"]).compact_blank.lazy.filter_map { |other| by.call(other) }.first
 
       if by_docket && by_name && by_docket.id != by_name.id
         return Review.new("docket matches #{by_docket.name} but name matches #{by_name.name}")

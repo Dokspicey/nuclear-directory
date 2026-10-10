@@ -46,6 +46,20 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
     assert_equal [ "crawler", "Braidwood 1 05000456", verify.id ], [ evidence.found_by, evidence.quote, evidence.crawl_run_id ]
   end
 
+  test "a facility found by one of its other names is attached, writing nothing" do
+    site = Facility.create!(name: "Peach Bottom Atomic Power Station")
+    site.aliases.create!(alias: "PBAPS")
+    c = candidate("facility", { "name" => "Peach Bottom Plant", "aliases" => [ "PBAPS", "Peach Bottom 2 and 3" ],
+      "facility_type" => "power_reactor" })
+
+    match!
+
+    assert_equal [ "Facility", site.id ], [ c.reload.subject_type, c.subject_id ]
+    assert c.status_matched?
+    assert_equal [ "PBAPS" ], site.aliases.pluck(:alias), "aliases wait for approval"
+    assert_empty site.evidence
+  end
+
   test "an unknown facility is proposed as a new pending record" do
     c = candidate("facility", facility_payload("Arkansas Nuclear 1", "05000313"))
 
@@ -336,7 +350,7 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
   test "brand checks read the plant names once per run, and again after a facility is written" do
     lookup = SimpleDelegator.new(Directory::Lookup)
     reads = 0
-    lookup.define_singleton_method(:plant_names) { reads += 1; __getobj__.plant_names }
+    lookup.define_singleton_method(:plant_names) { |owners: []| reads += 1; __getobj__.plant_names(owners:) }
     client = DataQuality::DirectoryClient.new(lookup:)
 
     client.same_brand_organizations("NextEra Energy Seabrook, LLC")
@@ -350,6 +364,17 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
       crawl_run: Struct.new(:id).new(nil))
     client.brand_name("NextEra Energy Seabrook, LLC")
     assert_equal 3, reads, "company names change which short forms count as plants"
+  end
+
+  test "a company proposed in the same run counts as an owner, whatever the order" do
+    candidate("organization", { "name" => "Acme Urenco Eunice, LLC" })
+    candidate("organization", { "name" => "Urenco Eunice" })
+    candidate("facility", { "name" => "Urenco Eunice Enrichment Plant", "facility_type" => "enrichment" })
+
+    match!
+
+    assert Organization.exists?(name: "Acme Urenco Eunice, LLC"),
+      "Urenco Eunice is a company in this run, so it is the plant's owner, not a plant name to strip"
   end
 
   test "a plant proposed in the same run is known when companies are matched" do

@@ -63,6 +63,18 @@ class DirectoryListingTest < ActiveSupport::TestCase
     assert_empty names(DirectoryListing.new(q: "pending"))
   end
 
+  test "searching a plant's other name finds it, through the site or a unit" do
+    @vogtle.aliases.create!(alias: "Alvin W. Vogtle Electric Generating Plant")
+    @unit.aliases.create!(alias: "VEGP-3")
+
+    assert_equal [ "Plant Vogtle" ], DirectoryListing.new(q: "alvin w vogtle").plants.map(&:name)
+    assert_equal [ "Plant Vogtle" ], DirectoryListing.new(q: "VEGP 3").plants.map(&:name)
+    assert_empty DirectoryListing.new(q: "!!").plants
+
+    plant("Vogtle Unit 5", parent: @vogtle, verified: false).aliases.create!(alias: "VEGP-5")
+    assert_empty DirectoryListing.new(q: "VEGP 5").plants, "a pending unit's alias doesn't count"
+  end
+
   test "search matches deal descriptions, so topics like HALEU find the companies involved" do
     Role.find_by!(key: "fuel").update!(description: "Mines, converts or enriches fuel (uranium, HALEU).")
     Relationship.find_by!(from_organization: @amazon).update!(description: "Funds a HALEU fuel line.")

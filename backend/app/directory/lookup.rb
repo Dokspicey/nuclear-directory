@@ -124,6 +124,9 @@ module Directory
     end
 
     # Pass exactly one of id, slug, name, site_name, nrc_docket or eia_plant_id.
+    # name matches the facility's name (case-insensitive), or else one of its
+    # aliases, compared after FacilityAlias.normalize ("Three Mile Island
+    # Unit 1" finds Crane Clean Energy Center).
     # name is matched case-insensitively; names aren't unique, so the oldest
     # match wins. site_name is the same, among sites only (top-level, no
     # docket), so an NRC unit of the same name doesn't hide the site.
@@ -133,9 +136,15 @@ module Directory
         case one_of!(id:, slug:, name:, site_name:, nrc_docket:, eia_plant_id:)
         in [ :id, value ] then Facility.where(id: value)
         in [ :slug, value ] then Facility.where(slug: value)
-        in [ :name, value ] then Facility.where("lower(name) = ?", value.to_s.strip.downcase)
-        in [ :site_name, value ]
-          Facility.where(parent_id: nil, nrc_docket: [ nil, "" ]).where("lower(name) = ?", value.to_s.strip.downcase)
+        in [ :name | :site_name => key, value ]
+          among = key == :site_name ? Facility.where(parent_id: nil, nrc_docket: [ nil, "" ]) : Facility.all
+          # Its own name first, then the names it also goes by (#65).
+          by_name = among.where("lower(name) = ?", value.to_s.strip.downcase)
+          if by_name.exists?
+            by_name
+          else
+            among.where(id: FacilityAlias.where(normalized_alias: FacilityAlias.normalize(value)).select(:facility_id))
+          end
         in [ :nrc_docket, value ]
           # A blank docket must match nothing, not every facility without one.
           docket = value.to_s.strip.presence or return
@@ -203,6 +212,10 @@ module Directory
     # live on as an operating company's name: "progress" (Progress Energy,
     # now "Duke Energy Progress, LLC", is Duke Energy; Tosin, 2026-10-10).
     REGION_WORDS = %w[carolinas carolina florida midwest indiana ohio kentucky texas virginia progress].to_set.freeze
+    # Entity words people say as part of a brand ("NextEra Energy", "Talen
+    # Energy"): a new company's name keeps one of these right after the brand,
+    # but not an operating arm after it ("NextEra Energy Nuclear").
+    BRAND_TAIL_WORDS = %w[energy power].to_set.freeze
 
     # Organizations whose name or an alias is the same brand as name: equal
     # once trailing entity words, and a trailing plant or region name, are
@@ -232,9 +245,11 @@ module Directory
     end
 
     # The brand part of a name as written, for naming a new company after its
-    # brand: "NextEra Energy Point Beach, LLC" => "NextEra Energy". nil when
-    # only legal or operating words were dropped, since the full name is
-    # then the company's own.
+    # brand (Tosin, 2026-10-10: the brand as people know it): "NextEra Energy
+    # Point Beach, LLC" and "NextEra Energy Nuclear Seabrook, LLC" are both
+    # "NextEra Energy". A brand the directory already has takes that
+    # company's name. nil when only legal or operating words were dropped,
+    # since the full name is then the company's own.
     def brand_name(name, plants: plant_names)
       # Only for a brand key we'd trust ("X-Energy Seabrook" reduces to "x": no).
       return unless brand_key(name, plants:)
@@ -242,37 +257,58 @@ module Directory
       # Words are found in the name as written, so the brand keeps its own
       # spelling ("Sargent & Lundy", "Babcock-Wilcox"); "&" counts as "and"
       # only for finding the plant or region at the end.
-      text = join_initials(name).sub(/\A\s*the\s+(?=\S+\s)/i, "")
-      words = text.to_enum(:scan, /[[:alnum:]]+|&/).map { [ Regexp.last_match[0], Regexp.last_match.end(0) ] }
-      base = strip_entities(words.map { |word, _| word == "&" ? "and" : word.downcase })
+      # Dotted initials are one word ("L.L. Bean" stays as written).
+      text = name.to_s.sub(/\A\s*the\s+(?=\S+\s)/i, "")
+      words = text.to_enum(:scan, /(?:[[:alpha:]]\.){2,}|[[:alnum:]]+|&/).map { [ Regexp.last_match[0], Regexp.last_match.end(0) ] }
+      base = strip_entities(words.map { |word, _| word == "&" ? "and" : word.delete(".").downcase })
       place = place_words_at_end(base, plants) or return
 
-      text[0, words[base.size - place - 1].last].strip
+      existing = same_brand_organizations(name, plants:)
+      return existing.first.name if existing.one?
+
+      before_place = base.first(base.size - place)
+      keep = strip_entities(before_place).size
+      keep += 1 if keep < before_place.size && BRAND_TAIL_WORDS.include?(before_place[keep])
+      text[0, words[keep - 1].last].strip
     end
 
-    # Words that start many place names ("North Anna", "Point Beach"); on its
-    # own, one of these isn't a plant's name, so "Acme North" keeps "North".
-    PLACE_PREFIXES = %w[north south east west new upper lower lake river point fort mount port saint grand great
-      little big old].to_set.freeze
+    # Ordinary words that start plant names ("Advanced Test Reactor", "White
+    # Mesa Mill", "North Anna"): on its own, one of these isn't a plant's
+    # name, so "Acme Advanced" and "Acme North" keep them. A distinctive first
+    # word ("Palisades" of "Palisades Pioneer Units 1 & 2") is.
+    ORDINARY_WORDS = %w[
+      advanced white black green red blue gold silver crystal golden
+      north south east west new upper lower lake river point fort mount port saint grand great little big old
+      experimental research demonstration training test university central
+    ].to_set.freeze
 
     # Distinctive names of known plants ("seabrook", "point beach",
     # "palisades"), from the facility records, leaving out rejected ones: the
-    # full distinctive name, its first two words, and its first word alone
-    # when that is a name in itself (five letters or more, not a place word).
+    # full distinctive name and its first two words (a one-word plant like
+    # Palisades counts in full, but a longer name never gives a single word).
     # One query; read it once and pass it as plants: when checking many names.
-    def plant_names
+    # owners: more company names to treat as owners, e.g. ones proposed in the
+    # same match run, so the result doesn't depend on processing order.
+    def plant_names(owners: [])
       # Plants are often named after their owner ("Urenco USA enrichment
       # facility", "Kairos Power Salt Production Facility"), so a short form
       # that starts a company's name isn't a plant name on its own.
-      owners = OrganizationAlias.pluck(:normalized_alias).flat_map do |name|
-        words = without_article(name.split)
-        [ words.first, words.first(2).join(" ") ]
-      end.to_set
+      owner_forms = (OrganizationAlias.pluck(:normalized_alias) + owners.map { |name| OrganizationAlias.normalize(name) })
+        .flat_map do |name|
+          words = without_article(name.split)
+          [ words.first, words.first(2).join(" ") ]
+        end.to_set
+      # The full distinctive name, its first two words ("point beach" from
+      # "Point Beach Nuclear Plant"), and its first word alone when that is a
+      # name in itself: five letters or more and not an ORDINARY_WORDS word.
       Facility.where.not(verification_status: "rejected").pluck(:name).flat_map do |name|
         words = distinctive_words(name).reject { |word| word.length < 3 }
-        first = words.first.to_s
-        short = [ words.first(2).join(" "), (first if first.length >= 5 && !PLACE_PREFIXES.include?(first)) ]
-        [ words.join(" "), *short.compact.reject { |form| owners.include?(form) } ]
+        full = words.join(" ")
+        two = words.first(2).join(" ") if words.size >= 2
+        one = words.first if words.size >= 2 && words.first.length >= 5 && !ORDINARY_WORDS.include?(words.first)
+        # A one-word name ("Palisades") is always the plant's own.
+        [ (full unless words.size >= 2 && owner_forms.include?(full)),
+          (two unless owner_forms.include?(two)), (one unless owner_forms.include?(one)) ]
       end.compact_blank.to_set
     end
 

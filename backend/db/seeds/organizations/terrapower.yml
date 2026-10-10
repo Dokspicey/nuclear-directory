@@ -1,35 +1,41 @@
 # Seed research for issue #8 - generated 2026-10-09. Quotes copied from pages fetched this session.
-name: TerraPower, LLC
+name: TerraPower
+legal_name: TerraPower, LLC
 aliases:
 - TerraPower
 - US SFR Owner
-website: "https://www.terrapower.com"
+- TerraPower, LLC
+website: https://www.terrapower.com
 hq:
   city: Bellevue
   state: WA
-  source_url: "https://www.energy.gov/ne/articles/us-department-energy-announces-160-million-first-awards-under-advanced-reactor"
-  quote: "DOE is awarding TerraPower LLC (Bellevue, Washington) and X-energy (Rockville, Maryland) $80 million each in initial funding to build two advanced nuclear reactors that can be operational within seven years."
+  source_url: https://www.energy.gov/ne/articles/us-department-energy-announces-160-million-first-awards-under-advanced-reactor
+  quote: DOE is awarding TerraPower LLC (Bellevue, Washington) and X-energy (Rockville, Maryland) $80 million each in initial funding to build two advanced nuclear reactors that can be operational within seven years.
 country_code: US
 status: active
 roles:
 - key: reactor_vendor
-  source_url: "https://world-nuclear-news.org/articles/nrc-issues-construction-permit-for-first-natrium-plant"
-  quote: "The Bill Gates-chaired company's Natrium 345 MWe sodium-cooled fast reactor has a molten-salt-based energy storage system which allows it to temporarily boost output to 500 MWe when needed, enabling the plant to follow daily electric load changes and integrate seamlessly with fluctuating renewable resources."
+  source_url: https://world-nuclear-news.org/articles/nrc-issues-construction-permit-for-first-natrium-plant
+  quote: The Bill Gates-chaired company's Natrium 345 MWe sodium-cooled fast reactor has a molten-salt-based energy storage system which allows it to temporarily boost output to 500 MWe when needed, enabling the plant to follow daily electric load changes and integrate seamlessly with fluctuating renewable resources.
   published: '2026-03-05'
   confidence: 0.8
 technologies:
 - key: fission
-  source_url: "https://www.energy.gov/ne/articles/us-department-energy-announces-160-million-first-awards-under-advanced-reactor"
-  quote: "Specifically, TerraPower will demonstrate the Natrium reactor, a sodium‐cooled fast reactor that leverages decades of development and design undertaken by TerraPower and its partner, GE‐Hitachi."
+  source_url: https://www.energy.gov/ne/articles/us-department-energy-announces-160-million-first-awards-under-advanced-reactor
+  quote: Specifically, TerraPower will demonstrate the Natrium reactor, a sodium‐cooled fast reactor that leverages decades of development and design undertaken by TerraPower and its partner, GE‐Hitachi.
   published: '2020-10-13'
   confidence: 1.0
 relationships: []
 facilities:
-- name: Kemmerer Unit 1 (Natrium)
+- name: Kemmerer Unit 1
   type: owns
-  source_url: "https://world-nuclear-news.org/articles/nrc-issues-construction-permit-for-first-natrium-plant"
-  quote: "The NRC said that TerraPower subsidiary US SFR Owner would need to submit a separate operating licence application which would need NRC approval before the facility could operate."
+  source_url: https://world-nuclear-news.org/articles/nrc-issues-construction-permit-for-first-natrium-plant
+  quote: The NRC said that TerraPower subsidiary US SFR Owner would need to submit a separate operating licence application which would need NRC approval before the facility could operate.
   published: '2026-03-05'
   confidence: 0.8
-  note: "NRC construction permit approved March 2026; completion expected 2030. Owned via subsidiary US SFR Owner."
-notes: "Natrium uses sodium coolant, but TerraPower is a reactor vendor, not a coolant maker; not tagged coolant. No sodium coolant supplier was found in public sources (TerraPower supplier awards cover sodium equipment such as AVANTech sodium processing skids)."
+  note: NRC construction permit approved March 2026; completion expected 2030. Owned via subsidiary US SFR Owner.
+notes: 'Natrium uses sodium coolant, but TerraPower is a reactor vendor, not a coolant maker; not tagged coolant. No sodium coolant supplier was found in public sources (TerraPower supplier awards cover sodium equipment such as AVANTech sodium processing skids). #63: Homepage: "The Natrium reactor uses liquid metal to transfer heat from the reactor." HQ already in seed.'
+description:
+  text: Reactor developer building its first Natrium reactor plant through a DOE demonstration program.
+  source_url: https://www.terrapower.com/natrium
+  quote: TerraPower is building its first plant through a public-private partnership with the U.S. Department of Energy's (DOE) Advanced Reactor Demonstration Program (ARDP).

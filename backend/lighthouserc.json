@@ -7,7 +7,7 @@
         "http://localhost:3000/companies?category=plants",
         "http://localhost:3000/companies?q=kairos",
         "http://localhost:3000/companies/kairos-power",
-        "http://localhost:3000/plants/advanced-test-reactor-atr"
+        "http://localhost:3000/plants/advanced-test-reactor"
       ],
       "numberOfRuns": 3,
       "settings": {

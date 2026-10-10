@@ -1,54 +1,64 @@
 # Seed research for issue #8 - generated 2026-10-09. Quotes copied from pages fetched this session.
-name: Amazon.com, Inc.
+name: Amazon
+legal_name: Amazon.com, Inc.
 aliases:
 - Amazon
 - Amazon Web Services
 - AWS
 - Amazon Climate Pledge Fund
-website: "https://www.aboutamazon.com"
+- Amazon.com, Inc.
+website: https://www.aboutamazon.com
 hq: null
 country_code: US
 status: active
 roles:
 - key: data_center_offtaker
-  source_url: "https://www.sec.gov/Archives/edgar/data/1622536/000162828025030559/a20250611pressreleasebusin.htm"
+  source_url: https://www.sec.gov/Archives/edgar/data/1622536/000162828025030559/a20250611pressreleasebusin.htm
   quote: at Amazon’s data center campus adjacent to Susquehanna
   published: '2025-06-11'
   confidence: 1.0
-technologies: []
+technologies:
+- key: smr
+  source_url: https://www.aboutamazon.com/news/sustainability/amazon-smr-nuclear-energy
+  quote: This state-of-the-art small modular reactor (SMR) facility, which will be called the Cascade Advanced Energy Facility, or Cascade, will help us reduce our carbon emissions, support our sustainability goals, and bring a new source of energy to the grid.
+  confidence: 1.0
 relationships:
 - type: offtake_with
   to: Talen Energy Corporation
-  description: "Signed expanded PPA (June 2025): 1,920 MW of nuclear power from Susquehanna through 2042."
-  source_url: "https://www.sec.gov/Archives/edgar/data/1622536/000162828025030559/a20250611pressreleasebusin.htm"
-  quote: "Talen will provide Amazon with 1,920 megawatts of carbon-free nuclear power through 2042"
+  description: 'Signed expanded PPA (June 2025): 1,920 MW of nuclear power from Susquehanna through 2042.'
+  source_url: https://www.sec.gov/Archives/edgar/data/1622536/000162828025030559/a20250611pressreleasebusin.htm
+  quote: Talen will provide Amazon with 1,920 megawatts of carbon-free nuclear power through 2042
   published: '2025-06-11'
   confidence: 1.0
 - type: invests_in
   to: X-Energy, Inc.
-  description: "Completed: Amazon's Climate Pledge Fund anchored X-energy's ~$500M Series C-1 (Oct 2024) alongside Ken Griffin, Ares, NGP and the University of Michigan."
-  source_url: "https://x-energy.com/media/news-releases/amazon-invests-in-x-energy-to-support-advanced-small-modular-nuclear-reactors-and-expand-carbon-free-power"
-  quote: "X-Energy Reactor Company, LLC (“X-energy”), a leader in advanced nuclear reactor and fuel technology, today announced a Series C-1 financing round of approximately $500 million, anchored by Amazon.com, Inc. (“Amazon”)."
+  description: 'Completed: Amazon''s Climate Pledge Fund anchored X-energy''s ~$500M Series C-1 (Oct 2024) alongside Ken Griffin, Ares, NGP and the University of Michigan.'
+  source_url: https://x-energy.com/media/news-releases/amazon-invests-in-x-energy-to-support-advanced-small-modular-nuclear-reactors-and-expand-carbon-free-power
+  quote: X-Energy Reactor Company, LLC (“X-energy”), a leader in advanced nuclear reactor and fuel technology, today announced a Series C-1 financing round of approximately $500 million, anchored by Amazon.com, Inc. (“Amazon”).
   published: '2024-10-16'
   confidence: 1.0
 - type: offtake_with
   to: Energy Northwest
-  description: "Agreement (Oct 2024): Amazon funds the initial feasibility phase of the Cascade SMR project and has the right to buy electricity from the first phase."
-  source_url: "https://world-nuclear-news.org/articles/amazon-invests-in-x-energy-unveils-smr-project-plans"
-  quote: "Under the agreement Amazon would have the right to purchase electricity from the first phase, while Energy Northwest will have the option to build the eight extra modules, with the additional power being available to Amazon and utilities in the area."
+  description: 'Agreement (Oct 2024): Amazon funds the initial feasibility phase of the Cascade SMR project and has the right to buy electricity from the first phase.'
+  source_url: https://world-nuclear-news.org/articles/amazon-invests-in-x-energy-unveils-smr-project-plans
+  quote: Under the agreement Amazon would have the right to purchase electricity from the first phase, while Energy Northwest will have the option to build the eight extra modules, with the additional power being available to Amazon and utilities in the area.
   published: '2024-10-16'
   confidence: 0.8
 facilities:
 - name: Susquehanna Steam Electric Station
   type: offtakes_from
-  source_url: "https://www.sec.gov/Archives/edgar/data/1622536/000162828025030559/a20250611pressreleasebusin.htm"
-  quote: "Talen will provide Amazon with 1,920 megawatts of carbon-free nuclear power through 2042"
+  source_url: https://www.sec.gov/Archives/edgar/data/1622536/000162828025030559/a20250611pressreleasebusin.htm
+  quote: Talen will provide Amazon with 1,920 megawatts of carbon-free nuclear power through 2042
   published: '2025-06-11'
   confidence: 1.0
 - name: Cascade Advanced Energy Facility
   type: offtakes_from
-  source_url: "https://world-nuclear-news.org/articles/amazon-invests-in-x-energy-unveils-smr-project-plans"
-  quote: "Under the agreement Amazon would have the right to purchase electricity from the first phase, while Energy Northwest will have the option to build the eight extra modules, with the additional power being available to Amazon and utilities in the area."
+  source_url: https://world-nuclear-news.org/articles/amazon-invests-in-x-energy-unveils-smr-project-plans
+  quote: Under the agreement Amazon would have the right to purchase electricity from the first phase, while Energy Northwest will have the option to build the eight extra modules, with the additional power being available to Amazon and utilities in the area.
   published: '2024-10-16'
   confidence: 0.8
-notes: "Amazon-Dominion SMR MOU at North Anna (non-binding) noted under Dominion. Search summaries conflicted on whether Amazon alone provided $500M to X-energy; X-energy's release says the ~$500M round was anchored by Amazon with other investors. Talen quotes obtained via WebFetch summarizer (SEC blocked curl). HQ not verified."
+notes: 'Amazon-Dominion SMR MOU at North Anna (non-binding) noted under Dominion. Search summaries conflicted on whether Amazon alone provided $500M to X-energy; X-energy''s release says the ~$500M round was anchored by Amazon with other investors. Talen quotes obtained via WebFetch summarizer (SEC blocked curl). HQ not verified. #63: HQ not added: aboutamazon.com says only "The Puget Sound region is home to our first global headquarters" (no city) and names Arlington, VA as second headquarters. SEC filings blocked (403).'
+description:
+  text: Company offering online shopping, cloud computing, streaming, devices, advertising and AI services.
+  source_url: https://www.aboutamazon.com/about-us
+  quote: We work to provide broad selection, value, and convenience across a range of customer experiences, including online shopping, cloud computing, streaming entertainment, consumer electronic devices, advertising, healthcare, AI services, and more.

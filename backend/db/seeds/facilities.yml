@@ -1,0 +1,585 @@
+# Plant details (#60, approved by Tosin 2026-10-10): each field has its own source and quote,
+# loaded as evidence on the facility. Names follow Design's rule (the plant's name only); the
+# names a plant was known by are in other_names, for facility aliases (#65).
+facilities:
+- name: Hermes Low-Power Demonstration Reactor
+  other_names:
+  - Hermes Low-Power Demonstration Reactor (Oak Ridge, TN)
+  facility_type:
+    value: research_reactor
+    source_url: https://world-nuclear-news.org/articles/regulator-extends-hermes-1-reactor-construction-deadline
+    quote: Hermes 1 will be a 35 MW (thermal) non-power version of the company's fluoride salt-cooled high temperature reactor, the KP-HFR.
+    published: '2026-04-22'
+    confidence: 1.0
+  status:
+    value: under_construction
+    source_url: https://world-nuclear-news.org/articles/regulator-extends-hermes-1-reactor-construction-deadline
+    quote: Kairos Power said it has developed a revised estimate of the time and resources necessary to complete construction of the facility, which it now expects to complete in 2028.
+    published: '2026-04-22'
+    confidence: 1.0
+  city:
+    value: Oak Ridge
+    source_url: https://world-nuclear-news.org/articles/regulator-extends-hermes-1-reactor-construction-deadline
+    quote: Kairos Power was granted a construction permit by the Nuclear Regulatory Commission (NRC) in December 2023 for the Hermes 1 molten salt-cooled demonstration reactor at the Heritage Center Industrial Park in Oak Ridge, Tennessee.
+    published: '2026-04-22'
+    confidence: 1.0
+  state:
+    value: TN
+    source_url: https://world-nuclear-news.org/articles/regulator-extends-hermes-1-reactor-construction-deadline
+    quote: at the Heritage Center Industrial Park in Oak Ridge, Tennessee
+    confidence: 1.0
+- name: Hermes 2
+  other_names:
+  - Hermes 2 (Kairos Power, Oak Ridge)
+  facility_type:
+    value: power_reactor
+    source_url: https://www.ans.org/news/2026-04-21/article-7964/kairos-power-breaks-ground-on-first-powerproducing-reactor-in-oak-ridge/
+    quote: Plans changed with a power purchase agreement between the Tennessee Valley Authority and Google, leading Kairos to announce a change to a 50-MWe output for the Hermes 2 site.
+    published: '2026-04-21'
+    confidence: 0.7
+    note: 'Conflict: licensed by NRC as a non-power test reactor facility (''Hermes 2 was originally approved by the NRC as a nonpower test reactor facility in late 2024''), but it is designed to put ~50 MWe on the TVA grid. Classified power_reactor because it produces grid electricity; research_reactor is defensible on licensing grounds.'
+  status:
+    value: under_construction
+    source_url: https://www.ans.org/news/2026-04-21/article-7964/kairos-power-breaks-ground-on-first-powerproducing-reactor-in-oak-ridge/
+    quote: On April 17, Kairos Power broke ground on its Hermes 2 demonstration plant in Oak Ridge, Tenn., for which it received test reactor construction permits from the Nuclear Regulatory Commission in November 2024.
+    published: '2026-04-21'
+    confidence: 1.0
+  city:
+    value: Oak Ridge
+    source_url: https://www.ans.org/news/2026-04-21/article-7964/kairos-power-breaks-ground-on-first-powerproducing-reactor-in-oak-ridge/
+    quote: On April 17, Kairos Power broke ground on its Hermes 2 demonstration plant in Oak Ridge, Tenn., for which it received test reactor construction permits from the Nuclear Regulatory Commission in November 2024.
+    confidence: 1.0
+    note: City from the groundbreaking sentence above ('Hermes 2 demonstration plant in Oak Ridge, Tenn.'); site is the East Tennessee Technology Park.
+  state:
+    value: TN
+    source_url: https://www.ans.org/news/2026-04-21/article-7964/kairos-power-breaks-ground-on-first-powerproducing-reactor-in-oak-ridge/
+    quote: On April 17, Kairos Power broke ground on its Hermes 2 demonstration plant in Oak Ridge, Tenn., for which it received test reactor construction permits from the Nuclear Regulatory Commission in November 2024.
+    confidence: 1.0
+- name: Kemmerer Unit 1
+  other_names:
+  - Kemmerer Unit 1 (Natrium)
+  facility_type:
+    value: power_reactor
+    source_url: https://www.ans.org/news/2026-03-04/article-7818/nrc-approves-terrapower-construction-permit/
+    quote: Today, the Nuclear Regulatory Commission announced that it has approved TerraPower’s construction permit application for Kemmerer Unit 1 , the company’s first deployment of Natrium, its flagship sodium fast reactor.
+    published: '2026-03-04'
+    confidence: 1.0
+  status:
+    value: under_construction
+    source_url: https://world-nuclear-news.org/articles/nrc-issues-construction-permit-for-first-natrium-plant
+    quote: TerraPower began non-nuclear construction for the Kemmerer, Wyoming, plant in June 2024, and expects the project - which is near a retiring coal plant - to be complete in 2030.
+    published: '2026-03-05'
+    confidence: 1.0
+    note: NRC construction permit approved March 2026. POWER magazine's Natrium tag page also says 'TerraPower and Bechtel began construction on the Natrium reactor in Wyoming' (https://www.powermag.com/tag/natrium/); ANS later reported Bechtel 'will no longer be involved' with the Kemmerer project.
+  city:
+    value: Kemmerer
+    source_url: https://world-nuclear-news.org/articles/nrc-issues-construction-permit-for-first-natrium-plant
+    quote: TerraPower began non-nuclear construction for the Kemmerer, Wyoming, plant in June 2024
+    confidence: 1.0
+  state:
+    value: WY
+    source_url: https://world-nuclear-news.org/articles/nrc-issues-construction-permit-for-first-natrium-plant
+    quote: TerraPower began non-nuclear construction for the Kemmerer, Wyoming, plant in June 2024
+    confidence: 1.0
+- name: Clinch River Nuclear Site Unit 1
+  other_names:
+  - Clinch River Nuclear Site Unit 1 (BWRX-300)
+  facility_type:
+    value: power_reactor
+    source_url: https://world-nuclear-news.org/articles/first-construction-permit-issued-for-bwrx300-smr-in-us
+    quote: The BWRX-300 design is a 300 MWe water-cooled, natural circulation SMR with passive safety systems that leverages the design and licensing basis of the ESBWR boiling water reactor developed by GEH.
+    published: '2026-09-30'
+    confidence: 1.0
+  status:
+    value: planned
+    source_url: https://world-nuclear-news.org/articles/first-construction-permit-issued-for-bwrx300-smr-in-us
+    quote: Tennessee Valley Authority (TVA), which is a government-owned power company, said that although no construction date has been announced, it is now the first US utility permitted to construct the BWRX‑300 small modular reactor (SMR).
+    published: '2026-09-30'
+    confidence: 1.0
+    note: NRC construction permit issued 29 Sept 2026, but no construction date announced, so planned rather than under_construction.
+  city:
+    value: Oak Ridge
+    source_url: https://www.gevernova.com/news/press-releases/nrc-issues-first-us-construction-permit-bwrx-300-small-modular-reactor-tva-clinch-river
+    quote: GE Vernova Hitachi Nuclear Energy (GVH) today welcomed the U.S. Nuclear Regulatory Commission’s (NRC) issuance of a construction permit to the Tennessee Valley Authority (TVA) for a BWRX-300 small modular reactor at its Clinch River site in Oak Ridge, Tennessee.
+    published: '2026-09-29'
+    confidence: 1.0
+  state:
+    value: TN
+    source_url: https://www.gevernova.com/news/press-releases/nrc-issues-first-us-construction-permit-bwrx-300-small-modular-reactor-tva-clinch-river
+    quote: at its Clinch River site in Oak Ridge, Tennessee
+    confidence: 1.0
+- name: Long Mott Generating Station
+  other_names:
+  - Xe-100 plant at Dow UCC Seadrift Operations (Texas)
+  facility_type:
+    value: power_reactor
+    source_url: https://public-inspection.federalregister.gov/2026-10073.pdf
+    quote: In addition, the NRC is issuing exemptions from certain NRC requirements which state that the NRC staff shall prepare and issue an environmental impact statement (EIS) to support the issuance of a CP for a nuclear power reactor facility.
+    published: 2026-05
+    confidence: 1.0
+    note: 'Four Xe-100 reactors replacing the cogeneration plant that supplies steam and electricity to Dow''s Seadrift Operations (same notice: ''LME stated that the need for the LMGS is to replace the existing fossil fuel facility which provides steam and electricity to SDO.'').'
+  status:
+    value: planned
+    source_url: https://public-inspection.federalregister.gov/2026-10073.pdf
+    quote: the NRC’s consideration of issuance of a construction permit (CP) to Long Mott Energy, LLC (LME) for the proposed Long Mott Generating Station (LMGS) located in Calhoun County, Texas.
+    published: 2026-05
+    confidence: 1.0
+    note: NRC issued an Environmental Assessment / FONSI in May 2026; construction permit not yet issued as of the pages fetched.
+  city:
+    value: Seadrift
+    source_url: https://public-inspection.federalregister.gov/2026-10073.pdf
+    quote: If approved, the LMGS reactor facility would be located in Seadrift, Texas
+    confidence: 1.0
+    note: 'County: Calhoun County (same Federal Register notice).'
+  state:
+    value: TX
+    source_url: https://public-inspection.federalregister.gov/2026-10073.pdf
+    quote: If approved, the LMGS reactor facility would be located in Seadrift, Texas
+    confidence: 1.0
+- name: Palisades Pioneer Units 1 & 2
+  other_names:
+  - Palisades Pioneer Units 1 & 2 (SMR-300)
+  facility_type:
+    value: power_reactor
+    source_url: https://world-nuclear-news.org/articles/second-part-of-construction-permit-application-submitted-for-pioneer-smrs
+    quote: The SMR-300 is a pressurised water reactor (PWR) producing about 300 MW of electrical power or 1,050 MW of thermal power for process applications.
+    published: '2026-10-02'
+    confidence: 1.0
+  status:
+    value: planned
+    source_url: https://world-nuclear-news.org/articles/second-part-of-construction-permit-application-submitted-for-pioneer-smrs
+    quote: The Pioneer reactors are planned to be brought online in the early 2030s.
+    published: '2026-10-02'
+    confidence: 1.0
+    note: Both parts of the construction permit application are now submitted (PSAR filed ~Oct 2026); an NRC exemption of 28 Aug 2026 authorised early excavation-support works, but no LWA/construction permit yet.
+  city:
+    value: Covert
+    source_url: https://www.ans.org/news/2026-01-14/article-7673/holtec-submits-partial-construction-permit-application-for-smrs-at-palisades/
+    quote: On New Year’s Eve, Holtec International submitted Part 1 of a construction permit application to the Nuclear Regulatory Commission seeking a limited work authorization (LWA) to begin construction of a two-unit SMR-300 plant at the company’s site in Covert, Mich.
+    published: '2026-01-14'
+    confidence: 1.0
+    note: Covert Township, Van Buren County.
+  state:
+    value: MI
+    source_url: https://www.ans.org/news/2026-01-14/article-7673/holtec-submits-partial-construction-permit-application-for-smrs-at-palisades/
+    quote: at the company’s site in Covert, Mich.
+    confidence: 1.0
+- name: Fall Line Fusion Power Station
+  other_names:
+  - ARC fusion power plant (Chesterfield County, VA)
+  - ARC
+  facility_type:
+    value: fusion_facility
+    source_url: https://world-nuclear-news.org/articles/virginia-site-selected-to-host-fusion-power-plant
+    quote: US private fusion company Commonwealth Fusion Systems has announced plans to independently finance, construct, own and operate a commercial-scale fusion power plant in Chesterfield County, Virginia.
+    published: '2024-12-18'
+    confidence: 1.0
+  status:
+    value: planned
+    source_url: https://cfs.energy/technology/arc
+    quote: When the first ARC plant arrives in the early 2030s, it’ll provide the electrical grid with about 400 megawatts of clean, zero-carbon, power
+    confidence: 1.0
+  city:
+    value: null
+    source_url: https://cfs.energy/technology/arc
+    quote: CFS will independently finance, build, own, and operate the first ARC power plant at the Fall Line Fusion Power Station in Chesterfield County, near Richmond, Virginia
+    confidence: 1.0
+    note: 'Unincorporated Chesterfield County (James River Industrial Park), near Richmond. County: Chesterfield County.'
+  state:
+    value: VA
+    source_url: https://cfs.energy/technology/arc
+    quote: in Chesterfield County, near Richmond, Virginia
+    confidence: 1.0
+- name: Orion fusion power plant
+  other_names:
+  - Orion fusion power plant (Malaga, Chelan County, WA)
+  facility_type:
+    value: fusion_facility
+    source_url: https://www.helionenergy.com/newsroom/helion-clears-key-regulatory-milestone-on-the-path-to-building-and-operating-the-worlds-first-fusion-power-plant
+    quote: They enable Helion to continue building on the site of Orion, the world’s first fusion power plant.
+    published: '2026-06-16'
+    confidence: 1.0
+  status:
+    value: under_construction
+    source_url: https://www.helionenergy.com/newsroom/helion-clears-key-regulatory-milestone-on-the-path-to-building-and-operating-the-worlds-first-fusion-power-plant
+    quote: Helion continues to build Orion in Malaga, with the assembly and office building construction complete. Now, the company can proceed with work on the generator building, for which initial earthwork began in the spring of 2026.
+    published: '2026-06-16'
+    confidence: 1.0
+  city:
+    value: Malaga
+    source_url: https://www.ans.org/news/2026-06-23/article-8140/helion-secures-new-licenses-from-washington/
+    quote: Helion secured these licenses for its first commercial power plant, which is named Orion and sited in the town of Malaga, Wash.
+    published: '2026-06-23'
+    confidence: 1.0
+    note: 'County: Chelan County.'
+  state:
+    value: WA
+    source_url: https://www.helionenergy.com/newsroom/helion-secures-land-and-begins-building-site-of-worlds-first-fusion-power-plant
+    quote: Located in Chelan County, Washington, the site was chosen for its ready access to transmission and legacy of energy innovation.
+    published: '2025-07-30'
+    confidence: 1.0
+- name: Infinity Two fusion power plant
+  other_names:
+  - Infinity Two fusion power plant (former Bull Run Fossil Plant site)
+  facility_type:
+    value: fusion_facility
+    source_url: https://www.ans.org/news/2026-09-02/article-8360/
+    quote: Type One intends initially to build its Infinity One stellarator prototype at the site, followed by its 400-MW Infinity Two pilot fusion power plant.
+    published: '2026-09-02'
+    confidence: 1.0
+  status:
+    value: planned
+    source_url: https://www.ans.org/news/2026-09-02/article-8360/
+    quote: The company expects a full startup of the power plant by 2034.
+    published: '2026-09-02'
+    confidence: 1.0
+    note: 'State (TDEC) license issued Aug 2026 lets Type One break ground on the first phase (Infinity One prototype). Infinity Two itself still rests on a non-binding TVA LOI: ''Final decisions and definitive agreements regarding the funding and construction of Infinity Two ... are subject to TVA Board approval'' (Type One, 2025-09-19).'
+  city:
+    value: null
+    source_url: https://typeoneenergy.com/insights-announcements/tva-type-one-energy-accelerate-fusion-commercialization-tennessee/
+    quote: TVA and Type One Energy advanced their collaboration in support of a 400-megawatt fusion power plant at TVA’s former Bull Run Fossil Plant near Oak Ridge, Tennessee.
+    published: '2025-09-19'
+    confidence: 1.0
+    note: Sources say 'near Oak Ridge'; no fetched source names the municipality, so city left null.
+  state:
+    value: TN
+    source_url: https://typeoneenergy.com/insights-announcements/tva-type-one-energy-accelerate-fusion-commercialization-tennessee/
+    quote: at TVA’s former Bull Run Fossil Plant near Oak Ridge, Tennessee
+    confidence: 1.0
+- name: American Centrifuge Plant
+  other_names:
+  - American Centrifuge Plant (Piketon, OH)
+  facility_type:
+    value: enrichment
+    source_url: https://www.powermag.com/centrus-signs-900m-doe-contract-pivots-sole-u-s-haleu-cascade-to-commercial-operation/
+    quote: That would make the Piketon cascade—the first U.S.-owned, U.S.-technology enrichment plant to begin production in 70 years—the country’s only source of privately produced HALEU while other domestic entrants build up.
+    published: '2026-07-02'
+    confidence: 1.0
+  status:
+    value: operating
+    source_url: https://www.powermag.com/centrus-signs-900m-doe-contract-pivots-sole-u-s-haleu-cascade-to-commercial-operation/
+    quote: In the interim, Centrus intends to privately operate the existing HALEU cascade on a commercial basis to begin supplying the near-term needs of its customers
+    published: '2026-07-02'
+    confidence: 0.9
+    note: 16-machine HALEU demonstration cascade has produced since 2023 under DOE contract (extended through 30 June 2026), now transitioning to commercial operation; new commercial-scale capacity expected by 2029.
+  city:
+    value: Piketon
+    source_url: https://www.powermag.com/centrus-signs-900m-doe-contract-pivots-sole-u-s-haleu-cascade-to-commercial-operation/
+    quote: Centrus Energy has finalized a $900 million task order with the U.S. Department of Energy (DOE) that clears the way for the company to transition its pioneering high-assay low-enriched uranium (HALEU) cascade in Piketon, Ohio, from a government-funded demonstration to private commercial operation.
+    confidence: 1.0
+  state:
+    value: OH
+    source_url: https://www.powermag.com/centrus-signs-900m-doe-contract-pivots-sole-u-s-haleu-cascade-to-commercial-operation/
+    quote: cascade in Piketon, Ohio
+    confidence: 1.0
+- name: Urenco USA enrichment facility
+  other_names:
+  - Urenco USA enrichment facility (Eunice, NM)
+  facility_type:
+    value: enrichment
+    source_url: https://www.urenco.com/global-operations/uusa
+    quote: Urenco USA operates an enrichment facility in Eunice, New Mexico, which primarily supplies enrichment services to U.S. nuclear power plants and is capable of supplying approximately one-third of U.S. demand for enriched uranium annually.
+    confidence: 1.0
+  status:
+    value: operating
+    source_url: https://www.urenco.com/global-operations/uusa
+    quote: Urenco USA is the only operating commercial U.S. enrichment facility.
+    confidence: 1.0
+    note: 'Expansion: new plant at the site announced June 2026, initial cascades 2032 (ANS 2026-06-02).'
+  city:
+    value: Eunice
+    source_url: https://www.ans.org/news/2026-06-02/article-8085/urenco-to-add-21-million-swu-of-enrichment-capacity-at-its-new-mexico-plant/
+    quote: Urenco USA announced today that it will expand its uranium enrichment capacity by nearly 50 percent with the construction of a new enrichment plant at the company’s National Enrichment Facility in Eunice, N.M.
+    published: '2026-06-02'
+    confidence: 1.0
+  state:
+    value: NM
+    source_url: https://www.urenco.com/global-operations/uusa
+    quote: Urenco USA operates an enrichment facility in Eunice, New Mexico
+    confidence: 1.0
+- name: TRISO-X TX-1 fuel fabrication facility
+  other_names:
+  - TRISO-X TX-1 fuel fabrication facility (Oak Ridge Horizon Center, TN)
+  facility_type:
+    value: fuel_facility
+    source_url: https://world-nuclear-news.org/articles/us-regulator-issues-licence-for-triso-x-fuel-facility
+    quote: The X-energy, LLC subsidiary is now authorised for the commercial fabrication of tristructural isotropic - or TRISO - fuel for advanced nuclear reactors at a facility that is currently under construction in Tennessee, marking the first-ever US approval of a category II fuel fabrication facility.
+    published: '2026-02-16'
+    confidence: 1.0
+  status:
+    value: under_construction
+    source_url: https://www.ans.org/news/2026-02-17/article-7762/nrc-grants-license-for-trisox-fuel-manufacturing-using-haleu/
+    quote: TX-1 is currently under construction at the Horizon Center Industrial Park in Oak Ridge, Tenn., and will be the first Category II fuel cycle facility built in the United States.
+    published: '2026-02-17'
+    confidence: 1.0
+  city:
+    value: Oak Ridge
+    source_url: https://www.ans.org/news/2026-02-17/article-7762/nrc-grants-license-for-trisox-fuel-manufacturing-using-haleu/
+    quote: TX-1 is currently under construction at the Horizon Center Industrial Park in Oak Ridge, Tenn.
+    confidence: 1.0
+  state:
+    value: TN
+    source_url: https://www.ans.org/news/2026-02-17/article-7762/nrc-grants-license-for-trisox-fuel-manufacturing-using-haleu/
+    quote: Horizon Center Industrial Park in Oak Ridge, Tenn.
+    confidence: 1.0
+- name: Natrium Fuel Facility
+  other_names:
+  - Natrium Fuel Facility (Wilmington, NC)
+  facility_type:
+    value: fuel_facility
+    source_url: https://ans.org/news/article-4444/just-add-haleu-terrapower-and-gnfa-break-ground-on-fast-reactor-fuel-facility
+    quote: Global Nuclear Fuel–Americas (GNF-A) and TerraPower announced their plans to build a Natrium fuel fabrication facility next to GNF-A’s existing fuel plant near Wilmington, N.C, on October 21.
+    published: 2022-10
+    confidence: 1.0
+  status:
+    value: null
+    source_url: https://www.powermag.com/tag/natrium/
+    quote: A fuel fabrication facility that will create reliable fuel for TerraPower and GE Hitachi Nuclear Energy’s (GEH’s) 345-MWe Natrium pool-type sodium fast reactor (SFR) demonstration in Wyoming and future Natrium nuclear plants is taking shape at Global Nuclear Fuel–Americas’ (GNF-A’s) nuclear fuel fabrication plant in Wilmington, North Carolina.
+    confidence: 0.4
+    note: GAP. Groundbreaking was Oct 2022 (ANS photo caption 'Natrium Fuel Facility groundbreaking'); the POWER excerpt is undated (likely 2022). No 2024-2026 source found confirming construction progress, completion, or operation. An NRC public-meeting page on a GNF-A Natrium fuel facility update (April 2026, reportedly canceled per search snippet) returned 403. Do not load a status without verification.
+  city:
+    value: Wilmington
+    source_url: https://www.terrapower.com/global-nuclear-fuel-and-terrapower-announce-natrium-fuel-facility
+    quote: Global Nuclear Fuel–Americas (GNF-A), a GE-led joint venture, and TerraPower today announced an agreement to build the NatriumTM Fuel Facility at the site of GNF-A’s existing plant site near Wilmington.
+    published: '2022-10-21'
+    confidence: 0.8
+    note: Sources say 'near Wilmington'; the GNF-A site is outside city limits (Castle Hayne area). Using Wilmington as the nearest city.
+  state:
+    value: NC
+    source_url: https://ans.org/news/article-4444/just-add-haleu-terrapower-and-gnfa-break-ground-on-fast-reactor-fuel-facility
+    quote: next to GNF-A’s existing fuel plant near Wilmington, N.C
+    confidence: 1.0
+- name: Kairos Power Salt Production Facility
+  other_names:
+  - Kairos Power Salt Production Facility (Albuquerque, NM)
+  facility_type:
+    value: other
+    source_url: https://www.energy.gov/node/4845535
+    quote: The salt production facility will produce reactor-grade Flibe, which is a chemically stable combination of lithium fluoride and beryllium fluoride salts, that will be used to cool Hermes’ TRISO-fueled pebble bed design and allow it to operate near atmospheric pressure.
+    confidence: 0.8
+    note: Produces reactor coolant salt (Flibe) with lithium-7 enrichment, not fuel; 'other' is the closest type.
+  status:
+    value: under_construction
+    source_url: https://www.kairospower.com/updates/what-is-flibe-five-fast-facts-about-kairos-powers-molten-salt-coolant
+    quote: We’re currently building a new Salt Production Facility (SPF) at our Manufacturing Development Campus in Albuquerque, New Mexico, to produce Flibe for the Hermes 2 commercial-scale demonstration plant in Oak Ridge, Tennessee and our future commercial fleet.
+    published: '2026-07-29'
+    confidence: 1.0
+    note: DOE's groundbreaking article said 'Kairos Power plans for the salt production facility to be operational and producing salt in 2026'; the July 2026 Kairos page still labels it 'Salt Production Facility (under construction)'.
+  city:
+    value: Albuquerque
+    source_url: https://www.energy.gov/node/4845535
+    quote: The new salt production facility will be the latest addition to the Kairos Power Manufacturing Development Campus in Albuquerque, New Mexico.
+    confidence: 1.0
+  state:
+    value: NM
+    source_url: https://www.energy.gov/node/4845535
+    quote: Kairos Power Manufacturing Development Campus in Albuquerque, New Mexico
+    confidence: 1.0
+- name: High Flux Isotope Reactor
+  other_names:
+  - High Flux Isotope Reactor (HFIR)
+  - HFIR
+  facility_type:
+    value: research_reactor
+    source_url: https://neutrons.ornl.gov/hfir
+    quote: Completed in 1965 and operating at 85 megawatts, HFIR’s steady-state neutron beam is the strongest reactor-based neutron source in the United States.
+    confidence: 1.0
+  status:
+    value: operating
+    source_url: https://neutrons.ornl.gov/hfir
+    quote: Completed in 1965 and operating at 85 megawatts, HFIR’s steady-state neutron beam is the strongest reactor-based neutron source in the United States.
+    confidence: 1.0
+  city:
+    value: Oak Ridge
+    source_url: https://www.osti.gov/biblio/5105097
+    quote: This study investigates the probabilistic hazard of earthquake-induced ground shaking at the HFIR facility, Oak Ridge, Tennessee.
+    published: 1991-09
+    confidence: 1.0
+    note: DOE OSTI technical-report record (1991). Location is unchanged.
+  state:
+    value: TN
+    source_url: https://www.osti.gov/biblio/5105097
+    quote: at the HFIR facility, Oak Ridge, Tennessee
+    confidence: 1.0
+- name: Advanced Test Reactor
+  other_names:
+  - Advanced Test Reactor (ATR)
+  - ATR
+  facility_type:
+    value: research_reactor
+    source_url: https://www.energy.gov/node/3379090
+    quote: The Advanced Test Reactor (ATR) at  Idaho National Laboratory  is the largest and most powerful research reactor in the world.
+    confidence: 1.0
+  status:
+    value: operating
+    source_url: https://www.energy.gov/node/3379090
+    quote: ATR’s research mission demands a very busy operating schedule, on average performing four 60-day operating cycles each year
+    confidence: 1.0
+    note: 'Same DOE page: ''Fifty-eight years and counting.'' and ''DOE plans to keep the test reactor up and running for decades to come.'''
+  city:
+    value: null
+    source_url: https://www.osti.gov/servlets/purl/2448209
+    quote: within what is now the Idaho National Laboratory (INL) site near Arco, Idaho.
+    confidence: 0.9
+    note: On the INL site (desert), near Arco; not in a city. INL's mailing address is Idaho Falls.
+  state:
+    value: ID
+    source_url: https://www.osti.gov/servlets/purl/2448209
+    quote: within what is now the Idaho National Laboratory (INL) site near Arco, Idaho.
+    confidence: 1.0
+- name: White Mesa Mill
+  facility_type:
+    value: mill
+    source_url: https://investors.energyfuels.com/2025-07-01-Energy-Fuels-Pinyon-Plain-Uranium-Mine-Continues-to-Outperform
+    quote: due to exceptional production from the Company's uranium mines and White Mesa Mill (the only producing conventional uranium mill in the U.S.)
+    published: '2025-07-01'
+    confidence: 1.0
+  status:
+    value: operating
+    source_url: https://investors.energyfuels.com/2025-07-01-Energy-Fuels-Pinyon-Plain-Uranium-Mine-Continues-to-Outperform
+    quote: White Mesa Mill (the only producing conventional uranium mill in the U.S.)
+    published: '2025-07-01'
+    confidence: 1.0
+  city:
+    value: null
+    source_url: https://www.fs.usda.gov/r03/kaibab/forest-products/nonwood-products/pinyon-plain-mine-formerly-canyon-uranium-mine
+    quote: Ore is hauled by truck to the White Mesa Mill near Blanding, Utah.
+    confidence: 1.0
+    note: Near Blanding (outside town; San Juan County per seed). Use Blanding if the schema wants nearest town.
+  state:
+    value: UT
+    source_url: https://www.fs.usda.gov/r03/kaibab/forest-products/nonwood-products/pinyon-plain-mine-formerly-canyon-uranium-mine
+    quote: Ore is hauled by truck to the White Mesa Mill near Blanding, Utah.
+    confidence: 1.0
+- name: Pinyon Plain Mine
+  facility_type:
+    value: uranium_mine
+    source_url: https://www.fs.usda.gov/r03/kaibab/forest-products/nonwood-products/pinyon-plain-mine-formerly-canyon-uranium-mine
+    quote: The Pinyon Plain Mine (formerly Canyon Uranium Mine), is a uranium mine located 6 miles southeast of the Town of Tusayan on the Tusayan Ranger District of the Kaibab National Forest and operated by Energy Fuels Resources (EFR).
+    confidence: 1.0
+  status:
+    value: operating
+    source_url: https://www.fs.usda.gov/r03/kaibab/forest-products/nonwood-products/pinyon-plain-mine-formerly-canyon-uranium-mine
+    quote: The mine is in production. Energy Fuels Resources resumed ore hauling on February 12, 2025.
+    confidence: 1.0
+  city:
+    value: null
+    source_url: https://www.fs.usda.gov/r03/kaibab/forest-products/nonwood-products/pinyon-plain-mine-formerly-canyon-uranium-mine
+    quote: a uranium mine located 6 miles southeast of the Town of Tusayan on the Tusayan Ranger District of the Kaibab National Forest
+    confidence: 1.0
+    note: On Kaibab National Forest land 6 miles SE of Tusayan; Coconino County (county not quoted from a fetched page body - AZDEQ page 403).
+  state:
+    value: AZ
+    source_url: https://investors.energyfuels.com/2025-07-01-Energy-Fuels-Pinyon-Plain-Uranium-Mine-Continues-to-Outperform
+    quote: its Pinyon Plain uranium mine in Arizona continues to significantly exceed previous production estimates
+    confidence: 1.0
+- name: Lost Creek ISR uranium facility
+  other_names:
+  - Lost Creek ISR uranium facility (Sweetwater County, WY)
+  facility_type:
+    value: uranium_mine
+    source_url: https://www.ur-energy.com/about
+    quote: It owns and operates the Lost Creek ISR uranium facility in south-central Wyoming, which has produced more than 3.5 million pounds of U₃O₈ since operations began
+    confidence: 1.0
+    note: In-situ recovery mine with central processing plant (also processes Shirley Basin resin).
+  status:
+    value: operating
+    source_url: https://www.ur-energy.com/about
+    quote: Lost Creek has been in operation, producing uranium to fuel clean energy, since 2013.
+    confidence: 1.0
+  city:
+    value: null
+    source_url: https://www.ur-energy.com/about
+    quote: our Lost Creek Property in the Great Divide Basin
+    confidence: 1.0
+    note: Rural ISR site in the Great Divide Basin, Sweetwater County (county from seed). No town.
+  state:
+    value: WY
+    source_url: https://www.ur-energy.com/about
+    quote: the Lost Creek ISR uranium facility in south-central Wyoming
+    confidence: 1.0
+- name: Shirley Basin ISR operation
+  other_names:
+  - Shirley Basin ISR operation (Carbon County, WY)
+  facility_type:
+    value: uranium_mine
+    source_url: https://www.ur-energy.com/news-media/press-releases/detail/401/ur-energy-commences-operations-at-its-shirley-basin-isr
+    quote: This milestone marks the successful transition of the Company's second in situ recovery ("ISR") mine from development to initial operations
+    published: '2026-04-23'
+    confidence: 1.0
+    note: Satellite ISR wellfield; resin is trucked to Lost Creek for processing.
+  status:
+    value: operating
+    source_url: https://www.ur-energy.com/about
+    quote: We commenced operations at our second ISR uranium project, Shirley Basin in April 2026.
+    confidence: 1.0
+  city:
+    value: null
+    source_url: https://www.ur-energy.com/about
+    quote: An Initial Assessment Technical Report Summary on Shirley Basin ISR Uranium Project, Carbon County Wyoming
+    confidence: 1.0
+    note: Rural ISR site, Carbon County. No town.
+  state:
+    value: WY
+    source_url: https://www.ur-energy.com/about
+    quote: the Shirley Basin ISR operation in central Wyoming
+    confidence: 1.0
+- name: Metropolis Works Uranium Conversion Facility
+  other_names:
+  - Metropolis Works Uranium Conversion Facility (Metropolis, IL)
+  facility_type:
+    value: fuel_facility
+    source_url: https://world-nuclear-news.org/articles/solstice-plans-expansion-of-us-conversion-facility
+    quote: Solstice Advanced Materials announced that its Metropolis Works plant in Illinois - the USA's only domestic uranium conversion facility - is expected to produce more than 10,000 tonnes of uranium hexafluoride in 2026
+    published: '2026-02-11'
+    confidence: 1.0
+    note: Conversion (U3O8 to UF6). No 'conversion' type in the enum, so fuel_facility.
+  status:
+    value: operating
+    source_url: https://world-nuclear-news.org/articles/solstice-plans-expansion-of-us-conversion-facility
+    quote: Solstice - which was spun-off from Honeywell in October last year - said it has invested in de-bottlenecking projects at Metropolis Works following its 2023 restart in response to strong customer demand for uranium hexafluoride (UF6).
+    published: '2026-02-11'
+    confidence: 1.0
+  city:
+    value: Metropolis
+    source_url: https://www.converdyn.com/
+    quote: Located in Metropolis, Illinois, this cutting-edge plant, owned and operated by Solstice Advanced Materials’ Specialty Materials division, produces a variety of fluorine products, including uranium hexafluoride (UF 6 ) for nuclear fuel.
+    confidence: 1.0
+  state:
+    value: IL
+    source_url: https://www.converdyn.com/
+    quote: Located in Metropolis, Illinois
+    confidence: 1.0
+- name: Cascade Advanced Energy Facility
+  facility_type:
+    value: power_reactor
+    source_url: https://newsroom.kiewit.com/?p=10882
+    quote: This first phase of the Cascade Advanced Energy Facility will generate up to 320 megawatts through the delivery of four reactor modules and will be located adjacent to Energy Northwest’s Columbia Generating Station near Richland, WA.
+    published: 2025-10
+    confidence: 1.0
+  status:
+    value: planned
+    source_url: https://newsroom.kiewit.com/?p=10882
+    quote: At the completion of this robust analyses, Energy Northwest is expected to submit a construction permit application to the Nuclear Regulatory Commission.
+    published: 2025-10
+    confidence: 1.0
+    note: No 2026 source found showing the construction permit application filed. Energy Northwest's Cascade page returned 404.
+  city:
+    value: null
+    source_url: https://newsroom.kiewit.com/?p=10882
+    quote: will be located adjacent to Energy Northwest’s Columbia Generating Station near Richland, WA
+    confidence: 1.0
+    note: On the Hanford Site next to Columbia Generating Station, near Richland (Columbia is '10 miles north of Richland'). Use Richland if nearest city is wanted.
+  state:
+    value: WA
+    source_url: https://newsroom.kiewit.com/?p=10882
+    quote: near Richland, WA
+    confidence: 1.0
+- name: Crane Clean Energy Center
+  other_names:
+  - Crane Clean Energy Center (Three Mile Island Unit 1)
+  - Three Mile Island Unit 1
+  - TMI-1
+- name: Plant Vogtle
+  other_names:
+  - Plant Vogtle Units 3 & 4

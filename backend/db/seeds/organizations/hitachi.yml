@@ -1,17 +1,31 @@
 # Seed research for issue #8 - generated 2026-10-09. Quotes copied from pages fetched this session.
-name: Hitachi, Ltd.
+name: Hitachi
+legal_name: Hitachi, Ltd.
 aliases:
 - Hitachi
 - Kabushiki Kaisha Hitachi Seisakusho
-website: "https://www.hitachi.com"
+- Hitachi, Ltd.
+website: https://www.hitachi.com
 hq:
   city: Tokyo
-  source_url: "https://www.hitachi.com/en/about/hitachi/"
-  quote: "Headquarters 6-6, Marunouchi 1-chome, Chiyoda-ku, Tokyo, 100-8280 Japan"
+  source_url: https://www.hitachi.com/en/about/hitachi/
+  quote: Headquarters 6-6, Marunouchi 1-chome, Chiyoda-ku, Tokyo, 100-8280 Japan
 country_code: JP
 status: active
-roles: []
-technologies: []
+roles:
+- key: reactor_vendor
+  source_url: https://www.gevernova.com/nuclear/about
+  quote: GVH combines GE Vernova’s design expertise and history of delivering reactors, fuels, and services globally with Hitachi’s proven experience in advanced modular construction
+  confidence: 0.7
+technologies:
+- key: smr
+  source_url: https://www.hitachi-hgne.co.jp/en/
+  quote: Deployment of BWRX-300 small modular reactor in Poland takes major step forward with design development
+  confidence: 0.7
 relationships: []
 facilities: []
-notes: "Non-US JV partner in GE Vernova Hitachi Nuclear Energy and Global Nuclear Fuel; included as counterparty. Ownership percentages not sourced."
+notes: 'Non-US JV partner in GE Vernova Hitachi Nuclear Energy and Global Nuclear Fuel; included as counterparty. Ownership percentages not sourced. #63: Role and SMR tag come through Hitachi nuclear joint ventures (GVH in the U.S.; Hitachi GE Vernova Nuclear Energy in Japan, hitachi-hgne.co.jp), so confidence 0.7. Description quote is the nuclear page meta description. HQ already sourced in seed (Tokyo).'
+description:
+  text: Japanese industrial company with a nuclear energy business that includes Fukushima recovery work and fusion research.
+  source_url: https://www.hitachi.com/en/products/energy/nuclear/
+  quote: Hitachi contributes to the stable supply of energy and the realization of a low-carbon society through Fukushima recovery efforts and the nuclear energy business, including nuclear fusion research.

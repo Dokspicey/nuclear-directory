@@ -1,30 +1,36 @@
 # Seed research for issue #8 - generated 2026-10-09. Quotes copied from pages fetched this session.
 name: General Matter
 aliases: []
-website: "https://www.generalmatter.com"
+website: https://www.generalmatter.com
 hq: null
 country_code: US
 status: active
 roles:
 - key: fuel
   subtype: enrichment
-  source_url: "https://www.energy.gov/articles/us-department-energy-awards-27-billion-restore-american-uranium-enrichment"
-  quote: "General Matter ($900 million) to create domestic HALEU enrichment capacity"
+  source_url: https://www.energy.gov/articles/us-department-energy-awards-27-billion-restore-american-uranium-enrichment
+  quote: General Matter ($900 million) to create domestic HALEU enrichment capacity
   published: '2026-01-05'
   confidence: 1.0
 technologies:
 - key: fission
-  source_url: "https://www.energy.gov/articles/us-department-energy-awards-27-billion-restore-american-uranium-enrichment"
-  quote: "General Matter ($900 million) to create domestic HALEU enrichment capacity"
+  source_url: https://www.energy.gov/articles/us-department-energy-awards-27-billion-restore-american-uranium-enrichment
+  quote: General Matter ($900 million) to create domestic HALEU enrichment capacity
   published: '2026-01-05'
   confidence: 1.0
 relationships:
 - type: supplies
   to: U.S. Department of Energy
-  description: "DOE enrichment services task order (Jan 2026): $900M to create domestic HALEU enrichment capacity, milestone-based (task order under DOE's HALEU enrichment IDIQ)."
-  source_url: "https://www.energy.gov/articles/us-department-energy-awards-27-billion-restore-american-uranium-enrichment"
-  quote: "General Matter ($900 million) to create domestic HALEU enrichment capacity"
+  description: 'DOE enrichment services task order (Jan 2026): $900M to create domestic HALEU enrichment capacity, milestone-based (task order under DOE''s HALEU enrichment IDIQ).'
+  source_url: https://www.energy.gov/articles/us-department-energy-awards-27-billion-restore-american-uranium-enrichment
+  quote: General Matter ($900 million) to create domestic HALEU enrichment capacity
   published: '2026-01-05'
   confidence: 1.0
 facilities: []
-notes: "Pre-operational enrichment startup. Secondary sources (Kentucky Lantern, KUNC) say it leased ~100 acres at the former Paducah Gaseous Diffusion Plant (KY) and is linked to Founders Fund; not cited because no primary page was fetched. Homepage has almost no text."
+notes: 'Pre-operational enrichment startup. Secondary sources (Kentucky Lantern, KUNC) say it leased ~100 acres at the former Paducah Gaseous Diffusion Plant (KY) and is linked to Founders Fund; not cited because no primary page was fetched. Homepage has almost no text. #63: HALEU from same page: "Under a $900 million contract, General Matter will produce and supply HALEU for the nation’s advanced reactors." HQ not found on a first-party page (press reports conflict: San Francisco vs Los Angeles).'
+description:
+  text: Company building uranium enrichment in the United States, including HALEU for advanced reactors.
+  source_url: https://www.generalmatter.com/news
+  quote: General Matter is enriching uranium in America to fill the nuclear fuel gap.
+  also:
+  - quote: 'Under a $900 million contract, General Matter will produce and supply HALEU for the nation’s advanced reactors.'
