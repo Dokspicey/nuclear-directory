@@ -81,7 +81,7 @@ class DirectoryListing
       companies = Organization.verified.select(:id)
       used = [
         (Technology.where(id: OrganizationTechnology.verified.where(organization_id: companies).select(:technology_id)) if lists_companies?),
-        (Technology.where(id: public_facilities.where.not(technology_id: nil).select(:technology_id)) if lists_plants?)
+        (Technology.where(id: plant_technology_sources.where.not(technology_id: nil).select(:technology_id)) if lists_plants?)
       ].compact.reduce { |all, one| all.or(one) } || Technology.none
       techs = Technology.where(id: used.select(:id)).or(Technology.where(id: used.select(:parent_id)))
         .order(:name).map { |t| [ t.name, t.key ] }
@@ -116,6 +116,12 @@ class DirectoryListing
   # Public sites and the verified units under them.
   def public_facilities
     Facility.where(id: public_sites.select(:id)).or(Facility.verified.where(parent_id: public_sites.select(:id)))
+  end
+
+  # Where a plant's technology can come from, as plants_with_technology reads
+  # it: a verified site's own, or a verified unit's under a public site.
+  def plant_technology_sources
+    Facility.where(id: public_sites.verified.select(:id)).or(Facility.verified.where(parent_id: public_sites.select(:id)))
   end
 
   private

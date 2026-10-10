@@ -11,11 +11,11 @@ module DirectoryHelper
     "subsidiary_of" => "is a subsidiary of"
   }.freeze
 
-  # "<company> <verb> <plant>", e.g. "Westinghouse is the reactor vendor for Plant Vogtle".
+  # "<company> <verb> <plant>", e.g. "Westinghouse is the reactor developer for Plant Vogtle".
   FACILITY_RELATIONSHIP_VERBS = {
     "owns" => "owns",
     "operates" => "operates",
-    "vendor_for" => "is the reactor vendor for",
+    "vendor_for" => "is the reactor developer for",
     "offtakes_from" => "offtakes from"
   }.freeze
 

@@ -109,6 +109,10 @@ class DirectoryListingTest < ActiveSupport::TestCase
 
     assert_equal [ shown.name ], DirectoryListing.new(category: "plants", technology: "fusion_magnetic").plants.map(&:name)
     assert_equal [ shown.name ], DirectoryListing.new(q: "magnetic").plants.map(&:name)
+
+    own_only = technology("pebble_bed", "Pebble bed")
+    plant("Pebble Site", verified: false, technology: own_only).tap { |site| plant("Pebble Unit", parent: site) }
+    assert_not_includes DirectoryListing.new(category: "plants").technology_options.map(&:last), "pebble_bed"
   end
 
   test "a rejected site never appears, even with a verified unit" do
