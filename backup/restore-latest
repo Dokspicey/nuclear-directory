@@ -40,7 +40,9 @@ else
 fi
 
 # restore.sh refuses a target that already has tables.
-printf '%s\n' "$key" | docker compose run --rm -T --volume "$work:/work:ro" backup \
+# --no-deps: the local db is started above only when it's the target, so a
+# restore into Render never depends on it.
+printf '%s\n' "$key" | docker compose run --rm --no-deps -T --volume "$work:/work:ro" backup \
   restore "/work/${file}" - "$target"
 
 echo

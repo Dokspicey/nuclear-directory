@@ -23,7 +23,9 @@ file="${dir}/${name}"
 # checked against the database it came from. Counts and dump read the same
 # snapshot: a psql session holds a repeatable-read transaction open, exports
 # its snapshot, counts in it, and pg_dump --snapshot dumps exactly that.
-coproc PSQL { psql "$DATABASE_URL" --no-psqlrc --quiet --tuples-only --no-align --field-separator=' ' 2>&1; }
+# ON_ERROR_STOP: on any SQL error psql exits, query() never sees its marker
+# and returns 1, and set -e stops the backup before anything is uploaded.
+coproc PSQL { psql "$DATABASE_URL" --no-psqlrc --quiet --tuples-only --no-align --field-separator=' ' --set ON_ERROR_STOP=1 2>&1; }
 query() {
   printf '%s\nSELECT %s;\n' "$1" "'__done__'" >&"${PSQL[1]}"
   local line
