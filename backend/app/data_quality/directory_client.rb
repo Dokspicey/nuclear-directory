@@ -156,11 +156,6 @@ class DataQuality::DirectoryClient
     # aliases ("Three Mile Island Unit 1") mustn't rename Crane.
     attributes.delete(:name) if candidate.kind == "facility" && candidate.subject_id
     enrichment = enrichment?(candidate)
-    # One site per plant (#73): an enriched unit without a site goes under
-    # the site for its EIA plant.
-    if enrichment && candidate.kind == "facility" && (site_id = site_for_unit(candidate))
-      attributes[:parent_id] = site_id
-    end
     verification =
       if enrichment then nil
       elsif by
@@ -173,16 +168,21 @@ class DataQuality::DirectoryClient
 
     result = fact_writer.write(candidate.kind, attributes, evidence:, verification:,
       protect_human_verified: by.nil? || enrichment)
+    # One site per plant (#73): an enriched unit without a site goes under
+    # the site for its EIA plant.
+    group_unit(candidate) if result.ok? && enrichment && candidate.kind == "facility"
     write_result(result)
   end
 
-  # Puts the unit a published enrichment candidate enriched under the site
-  # for its EIA plant, for enrichments published before #73. Nothing to do
-  # (nil) when the unit already has a site or there's no live site for the
-  # plant.
+  # Puts the NRC unit an enrichment candidate enriched under the site for
+  # its EIA plant. Runs when the enrichment is published, and once for
+  # enrichments published before #73. Returns nil when there's nothing to do:
+  # the unit already has a site, or there's no live site for the plant. The
+  # parent is filled only if it's still blank once the unit is locked, so a
+  # site assigned meanwhile is never replaced.
   def group_unit(candidate)
     site_id = site_for_unit(candidate) or return
-    write_result(fact_writer.write(:facility, { id: candidate.subject_id, parent_id: site_id }, protect_human_verified: true))
+    write_result(fact_writer.write(:facility, { id: candidate.subject_id, parent_id: site_id }, fill_blank: true))
   end
 
   # Marks a record match proposed as rejected, once its candidate is

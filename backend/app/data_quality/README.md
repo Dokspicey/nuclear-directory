@@ -264,9 +264,10 @@ licensees, and a disagreement with a human-reviewed value goes to review.
 **One site per plant (#73).** When a generator's values are published to its
 NRC unit, a unit with no site yet goes under the site for its EIA plant ID,
 unless that site was rejected or unpublished. A unit that already has a site
-(a seed site such as Plant Vogtle) keeps it. A site is public once one of its
-units is verified, so an EIA site never shows up empty. Units enriched before
-#73 are grouped once with:
+(a seed site such as Plant Vogtle) keeps it. A site that is still pending is
+public only once one of its units is verified, so an EIA site nobody has
+approved never shows up empty; a site a human approved is public like any
+verified fact. Units enriched before #73 are grouped once with:
 
 ```bash
 docker compose run --rm web bin/rails "data_quality:run[eia_generators]"

@@ -279,6 +279,20 @@ class DataQuality::Plugins::EiaGeneratorsTest < ActiveSupport::TestCase
     assert_equal seed_site.id, farley.reload.parent_id
   end
 
+  test "a site assigned after the lookup isn't replaced when the unit is grouped" do
+    eia_site = Facility.create!(name: "Joseph M Farley", eia_plant_id: "6001")
+    seed_site = Facility.create!(name: "Farley Seed Site")
+    farley = nrc_unit("Farley 1", "05000348", "AL", parent: seed_site)
+    candidate = Candidate.create!(source: Source.create!(url: "https://example.com/eia", source_kind: "eia_generators"), kind: "facility", quote: "row",
+      status: "merged", subject_type: "Facility", subject_id: farley.id, payload: { "identify" => { "eia_plant_id" => "6001" } })
+    stale = DataQuality::DirectoryClient.new
+    stale.define_singleton_method(:site_for_unit) { |_| eia_site.id }
+
+    stale.group_unit(candidate)
+
+    assert_equal seed_site.id, farley.reload.parent_id
+  end
+
   test "a unit isn't put under a rejected site" do
     Facility.create!(name: "Joseph M Farley", eia_plant_id: "6001").reject!(by: "human:tosin")
     farley = nrc_unit("Farley 1", "05000348", "AL")
