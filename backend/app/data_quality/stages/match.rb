@@ -208,8 +208,11 @@ class DataQuality::Stages::Match < DataQuality::Stage
       chosen ||= units.first if same_number.empty? && units.one? && unit_number(units.first.name).nil?
       label = "#{name} unit #{unit} (#{state})"
 
-      if chosen
-        write(candidate, { id: chosen.id }, existing: true, note: "#{label} is NRC unit #{chosen.name}")
+      if chosen&.rejected?
+        review(candidate, "#{label} would be NRC unit #{chosen.name}, which was rejected")
+      elsif chosen
+        # Attach only: the values (and their evidence) are written when verify publishes.
+        attach(candidate, chosen, "#{label} is NRC unit #{chosen.name}")
       elsif same_number.many? || (units.many? && units.none? { |record| unit_number(record.name) })
         review(candidate, "#{label} could be #{(same_number.presence || units).map(&:name).join(' or ')}")
       else

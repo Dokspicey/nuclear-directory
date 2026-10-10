@@ -55,6 +55,34 @@ class DataQuality::Plugins::EiaGeneratorsTest < ActiveSupport::TestCase
     assert_equal 11, source.content_text.lines.size, "header plus one line per generator"
   end
 
+  test "EIA's index page is fetched at most once a day, like any source" do
+    crawl!
+    crawl!
+
+    assert_requested :get, INDEX, times: 1
+    assert_equal "eia_860m_index", Source.find_by!(url: INDEX).source_kind, "never extracted"
+  end
+
+  test "a unit match writes nothing until it's published" do
+    unit = nrc_unit("Vogtle 1", "05000424", "GA")
+    crawl!
+    DataQuality::Pipeline.run("eia_generators", plugin: plugin, only: %w[extract match])
+
+    assert_nil unit.reload.capacity_mw
+    assert_empty unit.evidence
+  end
+
+  test "a rejected unit isn't enriched; the generator goes to review" do
+    nrc_unit("Vogtle 1", "05000424", "GA").reject!(by: "agent:verifier/x")
+    crawl!
+
+    match_and_verify!
+
+    vogtle_1 = Candidate.where(source: source).find { |c| c.payload["identify"].values_at("name", "unit") == %w[Vogtle 1] }
+    assert vogtle_1.status_needs_review?
+    assert_match "which was rejected", vogtle_1.notes
+  end
+
   test "a workbook that can't be read marks the source for a human" do
     stub_request(:get, FILE).to_return(body: "<html>maintenance</html>")
 

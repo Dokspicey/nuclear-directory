@@ -12,6 +12,9 @@
 # number; see app/data_quality/README.md.
 class DataQuality::Plugins::EiaGenerators < DataQuality::Plugin
   INDEX_URL = "https://www.eia.gov/electricity/data/eia860m/"
+  # The 860M page is snapshotted as its own source (never extracted), so it
+  # follows the once-a-day fetch rule like any other source.
+  INDEX_SOURCE_KIND = "eia_860m_index"
   FILE_LINK = %r{(?:\A|/)xls/([a-z]+)_generator(\d{4})\.xlsx\z}i
 
   def initialize(fetcher: DataQuality::Fetcher.new)
@@ -19,10 +22,16 @@ class DataQuality::Plugins::EiaGenerators < DataQuality::Plugin
   end
 
   def crawl(_run)
-    index = @fetcher.get(INDEX_URL)
-    raise "EIA 860M page: #{index.reason || index.kind}" unless index.kind == :ok
+    index = Source.find_or_create_by!(url: INDEX_URL) do |new_source|
+      new_source.source_kind = INDEX_SOURCE_KIND
+      new_source.title = "EIA-860M monthly generator inventory page"
+    end
+    DataQuality::Snapshot.take(index, fetcher: @fetcher)
+    unless index.crawl_ok? && index.content_text.present?
+      raise "EIA 860M page: #{index.status_reason || index.crawl_status}"
+    end
 
-    url = latest_file_url(index.body) or raise "EIA 860M page: no monthly generator file link found; the page may have changed"
+    url = latest_file_url(index.content_text) or raise "EIA 860M page: no monthly generator file link found; the page may have changed"
     source = Source.find_or_create_by!(url: url) do |new_source|
       new_source.source_kind = source_kind
       new_source.title = "EIA-860M generator inventory, #{url[FILE_LINK, 1].capitalize} #{url[FILE_LINK, 2]}"
