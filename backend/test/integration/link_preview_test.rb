@@ -35,6 +35,10 @@ class LinkPreviewTest < ActionDispatch::IntegrationTest
 
     get companies_path(category: "not-a-category")
     assert_select "meta[property='og:url'][content=?]", "http://www.example.com/companies"
+
+    company("Kairos Power")
+    get company_path(slug: "kairos-power", category: "fuel")
+    assert_select "meta[property='og:url'][content=?]", "http://www.example.com/companies/kairos-power"
   end
 
   test "the preview image is served" do
