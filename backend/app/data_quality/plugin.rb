@@ -26,4 +26,37 @@ class DataQuality::Plugin
   def extract(source, run)
     raise NotImplementedError, "#{self.class} must implement #extract"
   end
+
+  # Verify (#15) asks these two questions of the plug-in, because only it
+  # knows how its quotes were taken from the source.
+
+  # Does the quote really appear in the source's stored content? Catches
+  # made-up quotes before any model is asked. Default: in the page's
+  # visible text, ignoring tags and spacing.
+  def quote_in_source?(source, quote)
+    quote.present? && visible_text(source).include?(quote.squish)
+  end
+
+  # What the verifier model reads to check a claim. Default: the passage
+  # around the quote, about 3,000 characters.
+  def verification_context(source, quote)
+    text = visible_text(source)
+    at = text.index(quote.to_s.squish) || 0
+    text[[ at - 1_500, 0 ].max, 3_000 + quote.to_s.length]
+  end
+
+  private
+    # The source's text as a reader sees it: tags dropped for HTML, with a
+    # space between pieces so table cells don't run together ("Vogtle 3",
+    # "05200025", not "Vogtle 305200025"), spacing tidied. Cached per snapshot.
+    def visible_text(source)
+      @visible_text ||= {}
+      @visible_text[[ source.id, source.content_sha256 ]] ||= begin
+        content = source.content_text.to_s
+        if content.lstrip.first(200).match?(/<(!doctype html|html|head|body|table)\b/i)
+          content = Nokogiri::HTML(content).xpath("//body//text()").map(&:text).join(" ")
+        end
+        content.squish
+      end
+    end
 end

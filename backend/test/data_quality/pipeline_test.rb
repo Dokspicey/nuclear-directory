@@ -51,8 +51,8 @@ class DataQuality::PipelineTest < ActiveSupport::TestCase
     assert_equal 1001, verify_writes.second[:attributes][:id]
   end
 
-  test "by default nothing is published; everything goes to review" do
-    run_pipeline
+  test "with the review-everything verifier nothing is published" do
+    run_pipeline(verifier: DataQuality::Verifiers::ReviewEverything.new)
 
     assert dummy_candidates.all?(&:status_needs_review?)
     assert @writer.writes.none? { |write| write[:verification] }, "only pending writes, nothing verified"

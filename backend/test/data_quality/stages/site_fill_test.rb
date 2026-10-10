@@ -76,7 +76,7 @@ class DataQuality::Stages::SiteFillTest < ActiveSupport::TestCase
 
   test "nothing is filled until the unit is verified" do
     run_stage("match")
-    run_stage("verify") # default verifier sends everything to review
+    run_stage("verify", verifier: DataQuality::Verifiers::ReviewEverything.new) # everything to review
 
     assert_nil @site.reload.facility_type
   end
