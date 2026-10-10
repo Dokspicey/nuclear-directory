@@ -1,13 +1,18 @@
 #!/usr/bin/env bash
-# Restore test, run on a Mac from the repo root:
+# Restore a backup, run on a Mac from the repo root:
 #
 #   backup/restore-latest [release-tag]
 #
-# Copy the backup key (the whole "AGE-SECRET-KEY-1..." text from the password
-# manager) to the clipboard first. Downloads the newest backup (or the given
-# release) with the GitHub CLI, restores it into a fresh local database called
-# nuclear_directory_restore_test, and prints row counts. The key goes from the
-# clipboard straight into the container; it's never written to disk.
+# Copy the backup key from the password manager first (the whole entry; it
+# contains a line starting AGE-SECRET-KEY-1). Downloads the newest backup (or
+# the given release) with the GitHub CLI and restores it, then prints row
+# counts. The key goes from the clipboard straight into the container; it's
+# never written to disk.
+#
+# By default it restores into a fresh local database,
+# nuclear_directory_restore_test (the restore test). To restore into an empty
+# Render database instead, set RESTORE_TARGET_URL to that database's External
+# Database URL (see "Restore into production" in README.md).
 set -euo pipefail
 
 repo="tosinoladokun/nuclear-directory-backups"
@@ -16,8 +21,8 @@ work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
 key="$(pbpaste)"
-if [[ "$key" != AGE-SECRET-KEY-1* ]]; then
-  echo "Copy the backup key from the password manager first (it starts with AGE-SECRET-KEY-1)." >&2
+if ! grep -q '^AGE-SECRET-KEY-1' <<< "$key"; then
+  echo "Copy the backup key from the password manager first (it has a line starting AGE-SECRET-KEY-1)." >&2
   exit 1
 fi
 
@@ -25,14 +30,22 @@ gh release download ${1:+"$1"} --repo "$repo" --pattern "*.dump.age" --dir "$wor
 file="$(basename "$(ls "$work"/*.dump.age)")"
 echo "Downloaded ${file}"
 
-docker compose up --detach --wait db
-docker compose exec -T db psql -U postgres --quiet \
-  --command "DROP DATABASE IF EXISTS ${db}" --command "CREATE DATABASE ${db}"
+if [[ -n "${RESTORE_TARGET_URL:-}" ]]; then
+  target="$RESTORE_TARGET_URL"
+else
+  docker compose up --detach --wait db
+  docker compose exec -T db psql -U postgres --quiet \
+    --command "DROP DATABASE IF EXISTS ${db}" --command "CREATE DATABASE ${db}"
+  target="postgres://postgres:postgres@db:5432/${db}"
+fi
 
+# restore.sh refuses a target that already has tables.
 printf '%s\n' "$key" | docker compose run --rm -T --volume "$work:/work:ro" backup \
-  restore "/work/${file}" - "postgres://postgres:postgres@db:5432/${db}"
+  restore "/work/${file}" - "$target"
 
 echo
 echo "Compare these counts with the ones in the backup job's log on Render."
-echo "Remove the test database with:"
-echo "  docker compose exec db psql -U postgres -c 'DROP DATABASE ${db}'"
+if [[ -z "${RESTORE_TARGET_URL:-}" ]]; then
+  echo "Remove the test database with:"
+  echo "  docker compose exec db psql -U postgres -c 'DROP DATABASE ${db}'"
+fi

@@ -175,8 +175,8 @@ same way and replace it under the cron job's Environment.
 **Test a restore** (do this after setting up backups, and every few months).
 It needs Docker, the GitHub CLI signed in (`gh auth login`) and this repo:
 
-1. Copy the backup key from the password manager (the whole
-   `AGE-SECRET-KEY-1…` text).
+1. Copy the backup key from the password manager: the whole entry, as
+   `age-keygen` wrote it (comment lines and the `AGE-SECRET-KEY-1…` line).
 2. From the repo root, run:
 
    ```bash
@@ -191,12 +191,28 @@ It needs Docker, the GitHub CLI signed in (`gh auth login`) and this repo:
 3. Compare the counts with the ones in that run's log on Render. They should
    match exactly.
 
-**Restore into production** (only if Render's own recovery can't help, for
-example the data is older than 3 days). On Render, create a new, empty
-Postgres 16 database. Then restore the backup into it with `backup/restore.sh`
-(it refuses a database that already has tables) from a Render Shell or a
-one-off job that can reach it, and point the web service's `DATABASE_URL` at
-it. Ask in an issue first; this is rare enough to walk through together.
+**Restore into production.** Only when Render's own recovery can't help, for
+example because the data needed is older than 3 days. It restores into a new
+database, then switches the app over, so the current one is untouched until
+the end. Same tools as the restore test, run from a Mac:
+
+1. On Render: New → Postgres. Name `nuclear-directory-db-restored`, Postgres
+   16, Oregon, same plan as the current one. When it's ready, open its Access
+   Control and add your current IP address (only that one).
+2. Copy its **External** Database URL and, in Terminal, run
+   `export RESTORE_TARGET_URL="$(pbpaste)"`. This keeps the URL out of your
+   shell history.
+3. Copy the backup key from the password manager, then run
+   `backup/restore-latest` (or `backup/restore-latest <release-tag>` for an
+   older backup). It refuses a database that already has tables.
+4. Check the row counts against that backup run's log on Render, then remove
+   your IP from the new database's Access Control and run
+   `unset RESTORE_TARGET_URL`.
+5. Web service → Environment: set `DATABASE_URL` to the new database's
+   **Internal** Database URL and save (the service restarts on it).
+6. Open a PR that points `render.yaml` at the new database, so the next
+   Blueprint sync doesn't switch back. Delete the old database once the site
+   is confirmed working.
 
 ## Starting over
 
