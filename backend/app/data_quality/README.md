@@ -162,12 +162,12 @@ Facilities are matched first, then organizations (so a company name can be
 checked against plants proposed in the same run), then links, which can find
 records proposed a moment earlier.
 
-**Units and sites.** The seed names plants at site level ("Plant Vogtle Units 3
-& 4", no docket); the NRC lists units ("Vogtle 3", with a docket). A site
-covers the units its name lists ("Units 3 & 4" covers 3 and 4); a name that
-lists none ("Susquehanna Steam Electric Station") covers every unit. A unit the
-site doesn't cover ("Vogtle 1", or "Palisades" against "Palisades Pioneer Units
-1 & 2"), or with more than one possible site, goes to review. When verify
+**Units and sites.** The seed names plants at site level ("Plant Vogtle", no
+docket); the NRC lists units ("Vogtle 3", with a docket). A site covers the
+units its name lists ("Palisades Pioneer Units 1 & 2" covers 1 and 2); a name
+that lists none ("Plant Vogtle", "Susquehanna Steam Electric Station") covers
+every unit. A unit the site doesn't cover ("Palisades" against "Palisades
+Pioneer Units 1 & 2"), or with more than one possible site, goes to review. When verify
 publishes a unit, its `state`, `facility_type`, `status` and `country_code`
 fill the site's **blank** fields only (FactWriter `fill_blank: true`), with
 the unit's quote as evidence; the site's verification is left alone.
