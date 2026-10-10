@@ -1,0 +1,11 @@
+<%# Lists details we haven't verified yet, so gaps are visible instead of guessed.
+    Locals: fields (["Location", "Status", ...]); renders nothing when empty.
+    suggest_url: where "Suggest a source" goes (optional) %>
+<% if fields.present? %>
+  <section class="nd-gaps" aria-labelledby="gaps-heading">
+    <h2 id="gaps-heading">Not verified yet</h2>
+    <p>We only show facts we have checked against a source. These details are missing:</p>
+    <ul><% fields.each do |field| %><li><%= field %></li><% end %></ul>
+    <% if local_assigns[:suggest_url] %><%= link_to "Suggest a source", suggest_url, class: "nd-btn nd-btn--sm self-start no-underline" %><% end %>
+  </section>
+<% end %>

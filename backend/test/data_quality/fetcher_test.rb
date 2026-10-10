@@ -22,6 +22,26 @@ class DataQuality::FetcherTest < ActiveSupport::TestCase
     assert_requested stub
     assert_equal [ :ok, 200, "<p>hi</p>", '"v1"' ], [ response.kind, response.status, response.body, response.etag ]
     assert_equal Encoding::UTF_8, response.body.encoding
+    assert_equal [ "text/html", false ], [ response.content_type, response.truncated ]
+  end
+
+  test "stops reading at max_bytes and says so" do
+    stub_request(:get, PAGE).to_return(body: "a" * 5_000)
+
+    response = @fetcher.get(PAGE, max_bytes: 1_000)
+
+    assert_equal :ok, response.kind
+    assert response.truncated
+    assert_equal 1_000, response.body.bytesize
+  end
+
+  test "a body of exactly max_bytes is complete, not truncated" do
+    stub_request(:get, PAGE).to_return(body: "a" * 1_000)
+
+    response = @fetcher.get(PAGE, max_bytes: 1_000)
+
+    assert_not response.truncated
+    assert_equal 1_000, response.body.bytesize
   end
 
   test "asks whether the page changed and understands 304" do

@@ -34,7 +34,20 @@ class DataQuality::Plugins::NrcReactorListTest < ActiveSupport::TestCase
     assert list.crawl_ok?
     assert_equal [ 200, '"1791578421-gzip"', "nrc_reactor_list" ], [ list.http_status, list.etag, list.source_kind ]
     assert_equal Digest::SHA256.hexdigest(list.content_text), list.content_sha256
+    assert_equal "List of Power Reactor Units", list.title, "the page's own title"
     assert_equal "nrc_power_status", status_source.source_kind, "the status file is never extracted"
+    assert_equal "NRC power reactor status, last 365 days", status_source.title, "a text file keeps the title it was given"
+  end
+
+  test "a page too large to store keeps the last good snapshot" do
+    crawl
+    list_source.update!(fetched_at: 2.days.ago)
+    status_source.update!(fetched_at: 2.days.ago)
+    stub_request(:get, Plugin::LIST_URL).to_return(body: "x" * (DataQuality::Fetcher::MAX_BYTES + 1))
+
+    assert_equal "error", crawl.stats["list"]
+    assert_equal 95, Plugin::Page.units(list_source.content_text).size
+    assert_match "Larger than 20 MB", list_source.status_reason
   end
 
   test "fetches at most once a day" do
