@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
     <title><%= content_for(:title) || "Nuclear Directory" %></title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -35,5 +35,6 @@
     <%# Each page renders its own <main> after the site header, so the header
         stays outside the main landmark and there's only ever one. %>
     <%= yield %>
+    <%= render "shared/site_footer" %>
   </body>
 </html>

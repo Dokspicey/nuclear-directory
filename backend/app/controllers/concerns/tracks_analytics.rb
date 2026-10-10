@@ -9,8 +9,8 @@ module TracksAnalytics
 
   BOT_USER_AGENT = /bot|crawl|spider|slurp|scrap|fetch|preview|monitor|uptime|headless|lighthouse|
     curl|wget|python|ruby|java|go-http|okhttp|axios|node-fetch|httpclient|libwww|facebookexternalhit/ix
-  # Not public pages: the design reference, the health check, Rails internals.
-  UNTRACKED_PATHS = %r{\A/(design|up|rails|assets|cable)(/|\z)}
+  # Not public pages: the admin, the design reference, the health check, Rails internals.
+  UNTRACKED_PATHS = %r{\A/(admin|design|up|rails|assets|cable)(/|\z)}
 
   included do
     helper_method :analytics_snippet?

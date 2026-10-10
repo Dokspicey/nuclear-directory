@@ -13,10 +13,40 @@ Rails.application.routes.draw do
   post "corrections" => "corrections#create", as: :corrections
   get "corrections/sent" => "corrections#sent", as: :correction_sent
 
+  get "privacy" => "pages#privacy", as: :privacy
+  get "disclaimer" => "pages#disclaimer", as: :disclaimer
+  get "bot" => "pages#bot", as: :bot
+  get "sitemap.xml" => "sitemaps#show", as: :sitemap, format: false, defaults: { format: :xml }
+  get "robots.txt" => "sitemaps#robots", as: :robots, format: false
+
   # The home page and its instant search (#41). /search returns a Turbo Frame
   # of grouped results for the home and header search fields.
   root "home#show"
   get "search" => "search#index", as: :search
+
+  # The admin (#86): one account, signed in at /admin/session/sign-in. Every
+  # decision goes through DataQuality::Review.
+  resource :session, only: %i[new create destroy], path: "admin/session", path_names: { new: "sign-in" }
+  namespace :admin do
+    root "candidates#index"
+    resources :candidates, only: %i[index edit update] do
+      collection do
+        post :approve
+        post :reject
+      end
+    end
+    resources :pending_facts, only: :index, path: "pending" do
+      collection do
+        post :approve
+        post :reject
+      end
+    end
+    scope "facts/:type/:id", as: :fact, constraints: { type: /[A-Z][A-Za-z]+/, id: /\d+/ } do
+      get "/" => "facts#show"
+      post "unpublish" => "facts#unpublish", as: :unpublish
+      post "republish" => "facts#republish", as: :republish
+    end
+  end
 
   # Living reference for the design system (see DESIGN.md). Not public.
   get "design" => "design_system#show", as: :design_system if Rails.env.local?

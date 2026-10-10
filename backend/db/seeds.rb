@@ -54,3 +54,12 @@ unless Rails.env.test?
     puts format("%-24s %3d created, %3d updated", kind, counts[:created], counts[:updated])
   end
 end
+
+# A local admin account for trying the admin screens (#86). Development only:
+# elsewhere the account is made with `bin/rails admin:create`.
+if Rails.env.development?
+  User.find_or_create_by!(email_address: "admin@example.com") do |user|
+    user.handle = "dev"
+    user.password = "development-only-password"
+  end
+end

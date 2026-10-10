@@ -228,6 +228,20 @@
     </div>
 
     <div class="flex flex-col gap-2">
+      <span class="type-label">Site footer, and a short fixed page (nd-prose with nd-code)</span>
+      <div class="border border-rule"><%= render "shared/site_footer" %></div>
+      <div class="border border-rule nd-prose flex flex-col p-4">
+        <h3 class="type-title-md">NuclearDirectoryBot</h3>
+        <p class="type-body">A short page reads as headed sections in a narrow column.</p>
+        <section class="flex flex-col gap-2">
+          <h4 class="type-body-strong">How to block it</h4>
+          <pre class="nd-code type-data">User-agent: NuclearDirectoryBot
+Disallow: /</pre>
+        </section>
+      </div>
+    </div>
+
+    <div class="flex flex-col gap-2">
       <span class="type-label">Category pills (with and without counts) and boxes</span>
       <%= render "shared/category_pills", current: Category.find("reactor-developers"), counts: { "fuel" => 11, "reactor-developers" => 9, "plants" => 28 } %>
       <%= render "shared/category_pills", current: nil %>
@@ -293,10 +307,65 @@
     </div>
   </section>
 
+  <section class="flex flex-col gap-6" id="admin">
+    <h2 class="type-title-md">Admin (#86)</h2>
+    <p class="type-small text-ink-muted m-0">Only behind sign-in. Desktop-first; on phones the bulk bar and checkboxes are hidden and buttons are 44px tall.</p>
+
+    <div class="flex flex-col gap-3">
+      <div class="nd-flash" role="status"><p class="type-body">Approved 3 items.</p></div>
+      <div class="nd-flash" role="alert"><%= icon("warning-circle") %><p class="type-body-strong">Claim 12: TerraPower was unpublished by human:tosin; not changed.</p></div>
+    </div>
+
+    <div class="nd-stack max-w-prose">
+      <div class="nd-field">
+        <label for="design-field" class="type-ui">Reason <span class="type-small text-ink-muted">(optional, kept in the record's history)</span></label>
+        <input id="design-field" class="nd-input type-input" type="text" value="NRC lists the nearby city's state">
+      </div>
+      <label class="nd-row type-ui"><input type="checkbox" class="nd-check" checked> Select all on this page</label>
+    </div>
+
+    <div class="nd-bulk">
+      <label class="type-ui"><input type="checkbox" class="nd-check"> Select all on this page</label>
+      <span class="nd-row"><span class="type-small text-ink-muted">2 selected</span><button class="nd-btn nd-btn--primary nd-btn--sm" type="button">Approve selected</button></span>
+    </div>
+    <ol class="nd-items">
+      <li class="nd-item">
+        <div class="nd-item__select"><input type="checkbox" class="nd-check" aria-label="Select claim 7"></div>
+        <div class="nd-item__main">
+          <p class="nd-item__claim type-body-strong">There is a plant named “Hope Creek 1”, with NRC docket 05000354 and state DE.</p>
+          <blockquote class="nd-quote">“Hope Creek 1 | 05000354 | NPF-57 | BWR | 18 miles SE of Wilmington, DE”</blockquote>
+          <div class="nd-item__meta type-small"><a class="nd-link nd-link--muted" href="#">List of Power Reactor Units <%= icon("arrow-square-out", size: 12) %></a><span>Found by <span class="nd-num">openai/gpt-6-luna</span></span><span class="nd-num">Claim 7</span><a class="nd-link nd-link--muted" href="#">Open record</a></div>
+          <p class="nd-item__why type-body"><strong>Why it's here:</strong> Human-verified state is NJ; this source says DE</p>
+          <div class="nd-table-wrap">
+            <table class="nd-table">
+              <thead><tr><th scope="col">Field</th><th scope="col">Human-verified</th><th scope="col">This source</th></tr></thead>
+              <tbody><tr><th scope="row" class="type-small">State</th><td>NJ</td><td>DE</td></tr></tbody>
+            </table>
+          </div>
+          <div class="nd-item__actions">
+            <button class="nd-btn nd-btn--primary nd-btn--sm" type="button">Approve</button>
+            <a class="nd-btn nd-btn--sm" href="#">Edit, then approve</a>
+            <details><summary class="nd-btn nd-btn--sm">Reject…</summary></details>
+          </div>
+        </div>
+      </li>
+    </ol>
+
+    <dl class="nd-kv type-body">
+      <dt class="type-label">NRC docket</dt><dd class="nd-num">05000354</dd>
+      <dt class="type-label">State</dt><dd>NJ</dd>
+      <dt class="type-label">Description</dt><dd><span class="text-ink-muted">Not set</span></dd>
+    </dl>
+    <div class="nd-row">
+      <span class="nd-badge nd-badge--pending">Unpublished</span>
+      <span class="type-small text-ink-muted">by human:tosin on <span class="nd-num">2026-10-10</span></span>
+    </div>
+  </section>
+
   <section class="flex flex-col gap-4" id="icons">
     <h2 class="type-title-md">Icons (Phosphor)</h2>
     <div class="grid gap-3" style="grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));">
-      <% %w[magnifying-glass sliders-horizontal graph buildings factory link arrow-square-out check clock x map-pin coins plug flag download-simple].each do |name| %>
+      <% %w[magnifying-glass sliders-horizontal graph buildings factory link arrow-square-out check clock x map-pin coins plug flag download-simple warning-circle].each do |name| %>
         <div class="flex items-center gap-2 type-data-sm text-ink-muted"><span class="text-ink flex gap-1"><%= icon(name, size: 20) %><%= icon(name, weight: :bold, size: 20) %></span><%= name %></div>
       <% end %>
     </div>

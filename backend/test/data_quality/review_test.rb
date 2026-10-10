@@ -28,7 +28,7 @@ class DataQuality::ReviewTest < ActiveSupport::TestCase
 
     item = Review.candidates(queue: :recommended).sole
 
-    assert_equal [ c.id, "organization", 'There is a company named "Imaginary Fission Co".', "a quote" ],
+    assert_equal [ c.id, "organization", "There is a company named “Imaginary Fission Co”.", "a quote" ],
       [ item.candidate_id, item.kind, item.claim, item.quote ]
     assert_equal [ @source.url, "NRC test page" ], [ item.source.url, item.source.title ]
     assert_equal [ "recommend_publish", 0.9, verify.id ], [ item.ai_recommendation, item.ai_confidence.to_f, item.verify_run_id ]
@@ -98,10 +98,14 @@ class DataQuality::ReviewTest < ActiveSupport::TestCase
         notes: %(Looks like "#{name.split.first} Nuclear": the same leading word))
     end
 
+    # A note about a link's end starts with that end; it's the same reason.
+    Candidate.create!(source: @source, kind: "facility_relationship", payload: {}, quote: "q", status: "needs_review",
+      notes: %(organization: Looks like "Gamma Nuclear": the same leading word))
+
     reason, count = Review.reasons.sole
 
-    assert_equal [ 'Looks like "…"', 2 ], [ reason, count ]
-    assert_equal 2, Review.candidates(queue: :needs_review, reason:).size
+    assert_equal [ 'Looks like "…"', 3 ], [ reason, count ]
+    assert_equal 3, Review.candidates(queue: :needs_review, reason:).size
   end
 
   test "a candidate on a human-verified link shows the link's differing details, and verify sends it to review" do
