@@ -36,6 +36,14 @@ Rails.application.routes.draw do
       end
     end
     get "status" => "status#show", as: :status
+    resources :corrections, only: :index do
+      member do
+        post :start
+        post :fix
+        post :dismiss
+        post :reopen
+      end
+    end
     scope "facts/:type/:id", as: :fact, constraints: { type: /[A-Z][A-Za-z]+/, id: /\d+/ } do
       get "/" => "facts#show"
       post "unpublish" => "facts#unpublish", as: :unpublish

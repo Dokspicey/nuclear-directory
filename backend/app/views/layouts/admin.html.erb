@@ -22,6 +22,7 @@
           <nav class="nd-adminnav type-ui" aria-label="Admin">
             <%= link_to "Review queue", admin_candidates_path, aria: { current: ("page" if controller_name == "candidates") } %>
             <%= link_to "Pending facts", admin_pending_facts_path, aria: { current: ("page" if controller_name == "pending_facts") } %>
+            <%= link_to "Corrections", admin_corrections_path, aria: { current: ("page" if controller_name == "corrections") } %>
             <%= link_to "Sources and runs", admin_status_path, aria: { current: ("page" if controller_name == "status") } %>
             <%= button_to "Sign out", session_path, method: :delete, class: "nd-btn nd-btn--ghost nd-btn--sm" %>
           </nav>

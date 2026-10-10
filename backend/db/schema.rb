@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_11_010002) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_11_020000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -55,7 +55,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_010002) do
     t.string "status", default: "open", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "resolution"
+    t.string "decided_by"
+    t.datetime "decided_at"
     t.index ["status"], name: "index_correction_reports_on_status"
+    t.check_constraint "resolution::text = ANY (ARRAY['fixed'::character varying, 'dismissed'::character varying]::text[])", name: "correction_reports_resolution_check"
     t.check_constraint "status::text = ANY (ARRAY['open'::character varying::text, 'reviewed'::character varying::text, 'closed'::character varying::text])", name: "correction_reports_status_check"
   end
 

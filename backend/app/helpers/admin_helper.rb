@@ -18,6 +18,17 @@ module AdminHelper
 
   def kind_label(kind) = KIND_LABELS.fetch(kind.to_s, kind.to_s.humanize)
 
+  # The admin fact page for the company or plant a correction came from
+  # (its page_path, e.g. "/companies/terrapower"), or nil.
+  def correction_record_path(report)
+    path = report.page_path.to_s.split(/[?#]/).first
+    type, slug = path.match(%r{\A/(companies|plants)/([^/]+)\z})&.captures
+    return unless slug
+
+    record = type == "companies" ? Directory::Lookup.organization(slug:) : Directory::Lookup.facility(slug:)
+    admin_fact_path(type: type == "companies" ? "Organization" : "Facility", id: record.id) if record
+  end
+
   # The public page of a published company or plant, or nil.
   def public_page_path(fact)
     slug = fact.values["slug"].presence
