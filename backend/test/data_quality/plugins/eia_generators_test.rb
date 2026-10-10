@@ -105,6 +105,45 @@ class DataQuality::Plugins::EiaGeneratorsTest < ActiveSupport::TestCase
     assert_equal "Its site disagrees. A newer EIA file exists: EIA-860M generator inventory, August 2026", in_review.notes
   end
 
+  # Like EIA's real file: text in a shared-strings table, and a sheet big
+  # enough to be read in many chunks.
+  def shared_strings_workbook(rows:)
+    header = [ "Plant ID", "Plant Name", "Generator ID", "Plant State", "County", "Net Summer Capacity (MW)",
+      "Nameplate Capacity (MW)", "Status", "Latitude", "Longitude", "Entity Name", "Technology" ]
+    strings = header + [ "Vogtle", "GA", "Burke", "(OP) Operating", "Georgia Power", "Nuclear" ]
+    index = strings.each_with_index.to_h
+    cell = ->(col, row, text) { %(<c r="#{col}#{row}" t="s"><v>#{index.fetch(text)}</v></c>) }
+    number = ->(col, row, value) { %(<c r="#{col}#{row}"><v>#{value}</v></c>) }
+    cols = ("A".."L").to_a
+    sheet_rows = [ %(<row r="1">#{header.each_with_index.map { |h, i| cell.(cols[i], 1, h) }.join}</row>) ]
+    (2..rows + 1).each do |r|
+      sheet_rows << %(<row r="#{r}">#{number.("A", r, 649)}#{cell.("B", r, "Vogtle")}#{number.("C", r, r)}#{cell.("D", r, "GA")}) +
+        %(#{cell.("E", r, "Burke")}#{number.("F", r, 1150)}#{number.("G", r, 1215)}#{cell.("H", r, "(OP) Operating")}) +
+        %(#{number.("I", r, 33.142)}#{number.("J", r, -81.762)}#{cell.("K", r, "Georgia Power")}#{cell.("L", r, "Nuclear")}</row>)
+    end
+    ns = %(xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main")
+    Zip::OutputStream.write_buffer do |zip|
+      zip.put_next_entry("xl/workbook.xml")
+      zip.write(%(<workbook #{ns} xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">) +
+        %(<sheets><sheet name="Operating" sheetId="1" r:id="rId1"/></sheets></workbook>))
+      zip.put_next_entry("xl/_rels/workbook.xml.rels")
+      zip.write(%(<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">) +
+        %(<Relationship Id="rId1" Target="worksheets/sheet1.xml"/></Relationships>))
+      zip.put_next_entry("xl/sharedStrings.xml")
+      zip.write(%(<sst #{ns}>#{strings.map { |s| "<si><t>#{s}</t></si>" }.join}</sst>))
+      zip.put_next_entry("xl/worksheets/sheet1.xml")
+      zip.write(%(<worksheet #{ns}><sheetData>#{sheet_rows.join}</sheetData></worksheet>))
+    end.string
+  end
+
+  test "a large workbook with shared strings reads every row, like EIA's real file" do
+    generators = Workbook.nuclear_generators(shared_strings_workbook(rows: 3000))
+
+    assert_equal 3000, generators.size
+    assert_equal({ "plant_name" => "Vogtle", "state" => "GA", "entity_name" => "Georgia Power" },
+      generators.last.slice("plant_name", "state", "entity_name"))
+  end
+
   test "a damaged sheet inside the workbook is reported, not a crash" do
     bytes = Zip::OutputStream.write_buffer do |zip|
       zip.put_next_entry("xl/workbook.xml")
