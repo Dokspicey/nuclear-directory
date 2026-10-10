@@ -11,19 +11,13 @@
 
 production:
   # The daily crawl (#53): the whole pipeline (crawl → extract → match →
-  # verify) for each source, at a quiet hour in the US. EIA an hour after
-  # NRC, since its rows enrich NRC's units. Verify only recommends; nothing
-  # is published until a person approves it in the admin. Each source is
-  # fetched at most once a day (Snapshot), and RunJob holds back a second
-  # run of a source kind while one is going.
-  daily_nrc_reactor_list:
-    class: DataQuality::RunJob
-    args: [ "nrc_reactor_list" ]
+  # verify) for NRC, then EIA, at a quiet hour in the US. One job runs them
+  # in turn, since EIA's rows enrich NRC's units. Verify only recommends;
+  # nothing is published until a person approves it in the admin. Each
+  # source is fetched at most once a day (Snapshot).
+  daily_crawl:
+    class: DataQuality::DailyCrawlJob
     schedule: every day at 3am America/New_York
-  daily_eia_generators:
-    class: DataQuality::RunJob
-    args: [ "eia_generators" ]
-    schedule: every day at 4am America/New_York
 
   clear_solid_queue_finished_jobs:
     command: "SolidQueue::Job.clear_finished_in_batches(sleep_between_batches: 0.3)"

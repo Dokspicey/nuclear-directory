@@ -51,11 +51,14 @@ docker compose run --rm web bin/rails "data_quality:stage[extract,nrc_reactor_li
 Or from code: `DataQuality::RunJob.perform_later("nrc_reactor_list", only: "extract")`.
 The quotes stop zsh from treating `[...]` as a file pattern.
 
-**In production it runs every day (#53):** `config/recurring.yml` queues `RunJob` for
-`nrc_reactor_list` at 3am and `eia_generators` at 4am US Eastern (Solid Queue's scheduler, inside
-Puma via `SOLID_QUEUE_IN_PUMA`). Each source is fetched at most once a day; a blocked source is
-recorded (blocked, then needs_human after 3 days) and the run goes on with nothing new. Verify only
-recommends: nothing is published until a person approves it in the admin. Results are in
+**In production it runs every day (#53):** `config/recurring.yml` queues `DailyCrawlJob` at 3am US
+Eastern (Solid Queue's scheduler, inside Puma via `SOLID_QUEUE_IN_PUMA`). It runs the whole
+pipeline for `nrc_reactor_list`, then for `eia_generators`, so EIA always starts after NRC has
+finished; if one source fails, the other still runs and the job is marked failed. Each source is
+fetched at most once a day. A blocked fetch is recorded (blocked, then needs_human after 3 days);
+what happens next depends on the plug-in: NRC goes on with nothing new, while EIA stops, since it
+can't find the month's file without its index page. Verify only recommends: nothing is published
+until a person approves it in the admin. Results are in
 `crawl_runs` and on the admin's Sources and runs page.
 
 To see how it's doing (blocked sources, last runs, review queue, model spend):
