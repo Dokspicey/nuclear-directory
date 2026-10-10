@@ -52,6 +52,7 @@ class Admin::FactsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "h1", "TerraPower"
     assert_select ".nd-badge--verified", /Verified/
+    assert_select "a[href=?]", company_path(slug: terrapower.slug), text: /View on site/
 
     post admin_fact_unpublish_path(type: "Organization", id: terrapower.id), params: { reason: "Merged into another company" }
     assert_redirected_to admin_fact_path(type: "Organization", id: terrapower.id)

@@ -77,6 +77,20 @@ module AdminHelper
 
   def percent(confidence) = confidence && "#{(confidence.to_d * 100).floor}%"
 
+  # Model spend: cents, but a few calls' worth reads "under $0.01", not $0.00.
+  def money(amount)
+    amount = amount.to_d
+    amount.positive? && amount < 0.01.to_d ? "under $0.01" : format("$%.2f", amount)
+  end
+
+  # A run's stats in words: "sources 1, candidates 95, ai check: agreed 95, missed 0".
+  def run_detail(stats)
+    stats.map do |key, value|
+      value = value.map { |k, v| "#{k.humanize(capitalize: false)} #{v}" }.join(", ") if value.is_a?(Hash)
+      "#{key.humanize(capitalize: false)}#{':' if stats[key].is_a?(Hash)} #{value}"
+    end.join("; ").truncate(200)
+  end
+
   # What happened, in a history row: "Pending to verified".
   def change_text(event)
     [ event.from_status, event.to_status ].compact.map { |status| STATUS_WORDS.fetch(status, status.humanize) }.join(" to ")

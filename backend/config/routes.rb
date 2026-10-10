@@ -31,6 +31,7 @@ Rails.application.routes.draw do
         post :reject
       end
     end
+    get "status" => "status#show", as: :status
     scope "facts/:type/:id", as: :fact, constraints: { type: /[A-Z][A-Za-z]+/, id: /\d+/ } do
       get "/" => "facts#show"
       post "unpublish" => "facts#unpublish", as: :unpublish

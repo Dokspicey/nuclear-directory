@@ -1,0 +1,80 @@
+<% content_for :title, "Sources and runs" %>
+
+<div class="nd-stack">
+  <h1 class="type-title-md m-0">Sources and runs</h1>
+  <p class="m-0 max-w-prose text-ink-muted">What the crawler can reach, what each stage did last, and what the models cost this month.</p>
+</div>
+
+<section class="nd-stack">
+  <h2 class="nd-sec-h">Model spend <small class="nd-num"><%= Time.current.strftime("%B %Y") %></small></h2>
+  <p class="m-0 type-body">
+    <span class="nd-num"><%= money(@spend.cost) %></span> of the <span class="nd-num">$<%= format("%.2f", @spend.budget) %></span> monthly budget
+    (<span class="nd-num"><%= (@spend.share * 100).floor %>%</span>), from <span class="nd-num"><%= number_with_delimiter(@spend.calls) %></span>
+    <%= "call".pluralize(@spend.calls) %> and <span class="nd-num"><%= number_with_delimiter(@spend.total_tokens) %></span> tokens.
+  </p>
+  <% if @spend.share >= 1 %>
+    <div class="nd-flash" role="alert"><%= icon("warning-circle") %><p class="type-body-strong">The budget is used up. Model calls are refused until next month or until the budget is raised.</p></div>
+  <% end %>
+</section>
+
+<section class="nd-stack">
+  <h2 class="nd-sec-h">Sources <small class="nd-num"><%= @sources.total %></small></h2>
+  <p class="m-0 type-small text-ink-muted">
+    <%= safe_join(@sources.by_status.map { |status, n| "#{status.humanize} #{n}" }, " · ") %>
+  </p>
+  <% if @sources.attention.empty? %>
+    <p class="m-0">No source needs attention.</p>
+  <% else %>
+    <ol class="nd-items">
+      <% @sources.attention.each do |source| %>
+        <% url = safe_url(source.url) %>
+        <li class="nd-item nd-item--single" id="source-<%= source.id %>">
+          <div class="nd-item__main">
+            <p class="nd-item__claim type-body-strong">
+              <%= source.crawl_status == "blocked" ? "Blocked" : "Needs a person" %>:
+              <% if url %><%= link_to url, class: "nd-link", target: "_blank", rel: "noopener" do %><%= source.title.presence || source_host(url) %> <%= icon("arrow-square-out", size: 12) %><% end %><% else %><%= source.url %><% end %>
+            </p>
+            <p class="nd-item__why type-body"><%= source.status_reason.presence || "No reason recorded." %></p>
+            <div class="nd-item__meta type-small">
+              <span class="nd-num"><%= source.source_kind %></span>
+              <% if source.blocked_streak.to_i.positive? %><span>Blocked <span class="nd-num"><%= source.blocked_streak %></span> <%= "day".pluralize(source.blocked_streak) %> in a row</span><% end %>
+              <% if source.fetched_at %><span>Last tried <span class="nd-num"><%= source.fetched_at.utc.strftime("%Y-%m-%d %H:%M") %></span> UTC</span><% end %>
+            </div>
+          </div>
+        </li>
+      <% end %>
+    </ol>
+  <% end %>
+</section>
+
+<section class="nd-stack">
+  <h2 class="nd-sec-h">Last run per stage</h2>
+  <% if @runs.latest.empty? && @runs.running.empty? %>
+    <p class="m-0 text-ink-muted">No runs yet.</p>
+  <% else %>
+    <div class="nd-table-wrap">
+      <table class="nd-table">
+        <thead><tr><th scope="col">Source kind</th><th scope="col">Stage</th><th scope="col">Result</th><th scope="col">Started (UTC)</th><th scope="col" class="nd-r">Time</th><th scope="col">Detail</th></tr></thead>
+        <tbody>
+          <% (@runs.running + @runs.latest).each do |run| %>
+            <tr>
+              <td class="type-data-sm"><%= run.source_kind %></td>
+              <td><%= run.stage.humanize %></td>
+              <td><%= run.status.humanize %></td>
+              <td class="type-data-sm whitespace-nowrap"><%= run.started_at.utc.strftime("%Y-%m-%d %H:%M") %></td>
+              <td class="nd-num whitespace-nowrap"><%= run.duration ? "#{run.duration} s" : "running" %></td>
+              <td class="type-small"><%= run.failed? ? run.error.to_s.truncate(160) : run_detail(run.stats) %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% end %>
+</section>
+
+<% if @analytics_url %>
+  <section class="nd-stack">
+    <h2 class="nd-sec-h">Visitors</h2>
+    <p class="m-0"><%= link_to @analytics_url, class: "nd-link", target: "_blank", rel: "noopener" do %>Open the PostHog dashboard <%= icon("arrow-square-out", size: 12) %><% end %></p>
+  </section>
+<% end %>
