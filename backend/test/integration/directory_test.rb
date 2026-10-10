@@ -62,7 +62,8 @@ class DirectoryTest < ActionDispatch::IntegrationTest
   end
 
   test "filters that match nothing offer to clear them" do
-    get companies_path(category: "reactor-developers", state: "GA")
+    company("Constellation", state: "MD")
+    get companies_path(category: "reactor-developers", state: "MD")
 
     assert_select ".nd-notice", /Nothing matches these filters./
     assert_select ".nd-notice a", "Clear filters"
