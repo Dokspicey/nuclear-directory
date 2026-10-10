@@ -41,17 +41,24 @@ class DataQuality::OpenRouter::Client
     @sleeper = sleeper
   end
 
-  def structured(role:, messages:, schema:, schema_name: "result", crawl_run: nil, temperature: 0)
+  # temperature and reasoning_effort ("low", "medium", "high") are only sent
+  # when given: every parameter sent must be supported by the model, since
+  # require_parameters makes OpenRouter refuse ("No endpoints found")
+  # rather than drop one. Reasoning models (e.g. gpt-6-luna, claude-haiku-5.5)
+  # don't take temperature.
+  def structured(role:, messages:, schema:, schema_name: "result", crawl_run: nil, temperature: nil, reasoning_effort: nil)
     model = @config.model_for(role)
     body = {
       model: model,
       messages: messages,
       temperature: temperature,
+      reasoning: reasoning_effort && { effort: reasoning_effort },
       response_format: { type: "json_schema", json_schema: { name: schema_name, strict: true, schema: schema } },
-      # Only route to providers that support structured output.
+      # Only route to providers that support everything above, so structured
+      # output is never silently dropped.
       provider: { require_parameters: true },
       usage: { include: true }
-    }
+    }.compact
     validator = JSONSchemer.schema(schema)
 
     with_retries do |attempt|

@@ -87,6 +87,34 @@ Fetch with `DataQuality::Snapshot.take(source, fetcher: DataQuality::Fetcher.new
 
 Never work around a block. `plugins/nrc_reactor_list.rb` is the reference plug-in.
 
+## What extract produces
+
+`extract(source, run)` returns candidate hashes, which the extract stage saves to `candidates`:
+
+| Key | What it is |
+|---|---|
+| `kind` | One of `Candidate::KINDS`: the six FactWriter kinds plus `organization_alias` |
+| `payload` | String keys. Records use FactWriter attribute names. Links name each end with a nested hash (`"organization" => { "name" => … }`, `"facility" => { "name" => …, "nrc_docket" => … }`), never `*_id`; match resolves those |
+| `quote` | The supporting text, copied exactly from the source |
+| `status`, `notes` | Optional: `status: "needs_review"` with the reason in `notes` sends a candidate straight to review. The stage marks it `review_origin: "extract"`, so re-extracting a changed source replaces it (with the source's `new` candidates) instead of piling up duplicates |
+
+The extract stage adds `source_id` and `crawl_run_id`. Candidates start `new` (or `needs_review` if
+the plug-in flagged them). Match links the ones it can to directory records (`matched`), and verify
+then publishes (`merged`), sends to review (`needs_review`) or rejects (`rejected`). See
+"Matching and candidate payloads" below for match's outcomes.
+
+**NRC extract.** The extractor model (`OPENROUTER_EXTRACT_MODEL`, prompt `nrc-extract-v1`) reads the
+reactor table as plain lines and returns each unit with its row quoted. Every answer is checked
+against the exact parse of the table, by docket. Candidates always carry the table's values; a unit
+the model got wrong, misquoted or skipped goes to review with both values in `notes`, and units it
+invents are dropped. The tally is in the extract run's `stats["ai_check"]`, so the model's accuracy
+is measured on a source we can check before it's trusted on messier ones. Per unit: the unit
+(`facility`), its operator (`organization`, one per name) and an `operates` link. The unit's `state` is
+evidence, not the final word: NRC's Location measures from a nearby city, which near a border is in
+another state (Salem and Hope Creek are in NJ, listed from "Wilmington, DE"; Catawba SC; Fermi 2 MI).
+EIA's plant state will win for that field (Tosin's decision). That's planned in the EIA plug-in (#72,
+not merged yet); until then NRC's state is stored as is.
+
 ## Talking to the directory
 
 The contract is in [`app/directory/README.md`](../directory/README.md).
