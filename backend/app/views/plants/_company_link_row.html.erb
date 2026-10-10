@@ -1,0 +1,11 @@
+<%# One company linked to the plant or one of its units ("Georgia Power owns
+    Plant Vogtle, Unit 3"). Locals: link, profile. The plant isn't a link. %>
+<% plant = link.facility == profile.site ? profile.name : "#{profile.name}, #{link.facility.name}" %>
+<% share = "#{number_with_precision(link.ownership_pct, precision: 2, strip_insignificant_zeros: true)}% share" if link.ownership_pct %>
+<% since = "Since #{prose_month(link.started_on)}" if link.started_on %>
+<%= render "shared/fact_row",
+      sentence: safe_join([ link_to(link.organization.name, company_url_for(link.organization), class: "nd-link type-body-strong"),
+                            " #{facility_relationship_verb(link.relationship_type)} ", plant ]),
+      detail: [ share, link.description, since ].compact_blank.join(" · ").presence,
+      quote: link.evidence.max_by { |e| e.confidence || 0 }&.quote,
+      citations: profile.citations_for(link), confidence: link.confidence, checked: link.verified_at %>

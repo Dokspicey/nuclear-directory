@@ -88,6 +88,7 @@ The approved high-fidelity designs are on the [Nuclear Directory Screens canvas]
 | Directory and search results | One page. Compact search in the header, the eight categories as pills, a heading with the count, Technology/State/Sort, then a dense list of rows that link to each page. No CSV export in v1. | Global Energy Monitor tracker, Fonts In Use |
 | No results | One line that names the query, with "Clear search" or "Suggest a company" | Cosmos "not on Cosmos" |
 | Company page | One scrolling page, no tabs: `ProfileHeader` (initials, name, one-line description, tags), Deals and links, Plants and sites, Sources; `OverviewPanel` on the right. The black banner was dropped in the approved design. | Parallel company profiles, Wikipedia |
+| Power plant page | Same layout as the company page, for a site: `ProfileHeader` (ring, name, type, status, technology), Companies (owners, operator, reactor vendor, power buyers), Units as a table that becomes cards on phones, Sources; `OverviewPanel` on the right. A unit's address goes to its row on the site's page. | Global Energy Monitor wiki, Wikipedia |
 | Relationship map | `RelationshipGraph`: selected org in the center, hairline edges, detail panel on the right | Memotron graph, Fibery workspace map |
 | Landscape view (later) | The whole graph at once, for the home page only | Delphi |
 
