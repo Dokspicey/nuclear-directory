@@ -169,7 +169,8 @@ class DirectoryListing
       # A query of only punctuation normalizes to "", which would match them all.
       normalized = FacilityAlias.normalize(query)
       aliased = normalized.present? ? FacilityAlias.where("normalized_alias LIKE ?", like(normalized)).select(:facility_id) : []
-      alias_sites = Facility.where(id: aliased).or(Facility.where(id: Facility.where(id: aliased).select(:parent_id))).select(:id)
+      # A site's own aliases, and those of its verified units only (as with unit names).
+      alias_sites = Facility.where(id: aliased).or(Facility.where(id: Facility.verified.where(id: aliased).select(:parent_id))).select(:id)
 
       scope.where("facilities.name ILIKE ?", like(query)).or(scope.where(id: units)).or(scope.where(id: linked_sites))
         .or(scope.where(technology_id: techs)).or(scope.where(id: tech_units)).or(scope.where(id: alias_sites))

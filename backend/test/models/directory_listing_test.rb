@@ -70,6 +70,9 @@ class DirectoryListingTest < ActiveSupport::TestCase
     assert_equal [ "Plant Vogtle" ], DirectoryListing.new(q: "alvin w vogtle").plants.map(&:name)
     assert_equal [ "Plant Vogtle" ], DirectoryListing.new(q: "VEGP 3").plants.map(&:name)
     assert_empty DirectoryListing.new(q: "!!").plants
+
+    plant("Vogtle Unit 5", parent: @vogtle, verified: false).aliases.create!(alias: "VEGP-5")
+    assert_empty DirectoryListing.new(q: "VEGP 5").plants, "a pending unit's alias doesn't count"
   end
 
   test "search matches deal descriptions, so topics like HALEU find the companies involved" do
