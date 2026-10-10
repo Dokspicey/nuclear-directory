@@ -113,6 +113,30 @@ class CompanyPageTest < ActionDispatch::IntegrationTest
     assert_select ".nd-tag", text: "Coolant", count: 0
   end
 
+  test "a hidden general role's sources aren't shown" do
+    coolant = role("coolant")
+    general = OrganizationRole.create!(organization: @kairos, role: coolant, verification_status: "verified")
+    general.evidence.create!(source: Source.create!(url: "https://example.com/coolant", source_kind: "web_page"), found_by: "human", confidence: 1)
+    OrganizationRole.create!(organization: @kairos, role: role("molten_salt", parent: coolant), verification_status: "verified")
+    get company_path(slug: "kairos-power")
+
+    assert_select "body", text: /example\.com/, count: 0
+  end
+
+  test "a unit under a rejected site isn't linked" do
+    rejected = Facility.create!(name: "Rejected Station", verification_status: "rejected")
+    link(@kairos, "owns", plant("Rejected Unit", parent: rejected))
+    get company_path(slug: "kairos-power")
+
+    assert_select "body", text: /Rejected/, count: 0
+  end
+
+  test "key facts come first in the page, before deals" do
+    get company_path(slug: "kairos-power")
+
+    assert_select ".nd-columns--profile > :first-child.nd-columns__side"
+  end
+
   test "missing must-have fields are listed, not guessed" do
     get company_path(slug: "google")
 
@@ -128,7 +152,8 @@ class CompanyPageTest < ActionDispatch::IntegrationTest
     get company_path(slug: "kairos-power")
 
     assert_select "#deals-heading ~ ul.nd-list > li", CompanyProfile::VISIBLE_ITEMS
-    assert_select "details.nd-more summary", "Show all #{CompanyProfile::VISIBLE_ITEMS + 3} deals"
+    assert_select "details.nd-more summary .nd-more__open", "Show all #{CompanyProfile::VISIBLE_ITEMS + 3} deals"
+    assert_select "details.nd-more summary .nd-more__close", "Show fewer deals"
   end
 
   test "link preview tags" do
@@ -136,6 +161,7 @@ class CompanyPageTest < ActionDispatch::IntegrationTest
 
     assert_select "meta[property='og:title'][content='Kairos Power']"
     assert_select "meta[property='og:description'][content='Develops salt-cooled reactors.']"
+    assert_select "meta[name=description][content=?]", "Kairos Power: Develops salt-cooled reactors. Deals, plants and sources."
     assert_select "link[rel=canonical][href=?]", "http://www.example.com/companies/kairos-power"
   end
 
