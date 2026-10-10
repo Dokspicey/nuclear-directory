@@ -105,6 +105,16 @@ module DirectoryHelper
   def data_date(date) = date&.to_date&.iso8601
   def prose_month(date) = date&.to_date&.strftime("%B %Y")
 
+  # The URL if it's a web address we can safely link to, else nil. Source
+  # URLs come from crawled and imported data, so anything that isn't plain
+  # http(s) (e.g. "javascript:") is shown as text, never as a link.
+  def safe_source_url(source)
+    uri = URI.parse(source.url.to_s.strip)
+    source.url.to_s.strip if %w[http https].include?(uri.scheme&.downcase) && uri.host.present?
+  rescue URI::InvalidURIError
+    nil
+  end
+
   # "kairospower.com" for a source, from its domain or URL.
   def source_domain(source)
     source.domain.presence || URI.parse(source.url.to_s).host.to_s.delete_prefix("www.")

@@ -68,6 +68,22 @@ class SharedPartialsTest < ActionView::TestCase
     assert_select "li#source-2 small", "energy.gov"
   end
 
+  test "sources list never links a URL that isn't http(s)" do
+    unsafe = Source.new(url: "javascript:alert(1)", title: "Looks harmless")
+    render partial: "shared/sources_list", locals: { sources: [ [ 1, unsafe ] ] }
+
+    assert_select "li#source-1 a", count: 0
+    assert_select "li#source-1 span", text: "Looks harmless"
+  end
+
+  test "fact row shows the checked date on its first source chip only" do
+    render partial: "shared/fact_row", locals: { sentence: "Google offtakes from Kairos Power",
+      citations: [ [ 1, @source ], [ 2, @untitled ] ], checked: Date.new(2026, 10, 9) }
+
+    assert_select "a.nd-src[href='#source-1']", /checked 2026-10-09/
+    assert_select "a.nd-src[href='#source-2']", text: /checked/, count: 0
+  end
+
   test "overview panel skips rows without a value" do
     render partial: "shared/overview_panel", locals: { verified_at: Time.zone.parse("2026-10-09"),
       rows: [ [ "Website", "kairospower.com", nil ], [ "HQ", nil, nil ], [ "Role", "Reactor developer", [ [ 1, @source ] ] ] ] }

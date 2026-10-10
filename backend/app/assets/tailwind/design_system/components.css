@@ -167,13 +167,13 @@
    frame, category pills and boxes, list rows, sections, facts with quotes,
    the "not verified yet" box. */
 @layer components {
-  .nd-page { max-width: 1040px; margin: 0 auto; padding: var(--nd-space-6) clamp(16px, 4vw, 32px) var(--nd-space-16); display: flex; flex-direction: column; gap: var(--nd-space-8); }
+  .nd-page { max-width: var(--nd-content-max); margin: 0 auto; padding: var(--nd-space-6) clamp(16px, 4vw, 32px) var(--nd-space-16); display: flex; flex-direction: column; gap: var(--nd-space-8); }
   .nd-link { color: var(--nd-ink); text-decoration: underline; text-decoration-color: var(--nd-control); text-underline-offset: 3px; }
   .nd-link:hover { text-decoration-color: var(--nd-ink); }
   .nd-link--muted { color: var(--nd-ink-muted); }
 
   .nd-sitebar { border-bottom: var(--nd-hairline) solid var(--nd-rule); }
-  .nd-sitebar__inner { max-width: 1040px; margin: 0 auto; padding: 14px clamp(16px, 4vw, 32px); display: flex; flex-wrap: wrap; align-items: center; gap: var(--nd-space-3) var(--nd-space-6); }
+  .nd-sitebar__inner { max-width: var(--nd-content-max); margin: 0 auto; padding: 14px clamp(16px, 4vw, 32px); display: flex; flex-wrap: wrap; align-items: center; gap: var(--nd-space-3) var(--nd-space-6); }
   .nd-wordmark { font: 400 22px/1 var(--font-display); letter-spacing: .01em; text-transform: uppercase; color: var(--nd-ink); text-decoration: none; }
   .nd-sitebar .nd-search { flex: 1 1 320px; max-width: 560px; height: 42px; padding: 0 14px; background: var(--nd-paper-raised); border-color: var(--nd-ink); }
   .nd-sitebar .nd-search input { font-size: 15px; }

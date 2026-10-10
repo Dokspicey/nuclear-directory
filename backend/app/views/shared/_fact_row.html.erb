@@ -3,7 +3,8 @@
     detail:     a plain line under it (optional)
     quote:      the passage from the source that supports it (optional)
     citations:  [[number, source], ...]
-    confidence: 0–1 (optional) %>
+    confidence: 0–1 (optional)
+    checked:    when the fact was last checked, shown on its first source chip (optional) %>
 <li class="nd-factrow">
   <div class="nd-factrow__main">
     <span><%= sentence %></span>
@@ -11,8 +12,8 @@
     <% if local_assigns[:quote].present? %><p class="nd-quote">“<%= quote %>”</p><% end %>
   </div>
   <div class="nd-factrow__side">
-    <% citations.each do |number, source| %>
-      <%= render "shared/source_chip", number:, source: %>
+    <% citations.each_with_index do |(number, source), index| %>
+      <%= render "shared/source_chip", number:, source:, checked: (local_assigns[:checked] if index.zero?) %>
     <% end %>
     <%= render "shared/confidence", value: local_assigns[:confidence] %>
   </div>
