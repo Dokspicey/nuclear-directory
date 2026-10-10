@@ -106,6 +106,18 @@ class Seed::OrganizationLoaderTest < ActiveSupport::TestCase
     assert_includes plant.evidence.pluck(:quote), "Running since 2020."
   end
 
+  test "a plant an earlier seed loaded under a former name is renamed, not created again" do
+    old = Facility.create!(name: "Acme Plant (Oak Ridge, TN)")
+    write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com", facilities: [ item(name: "Acme Plant", type: "owns") ]))
+    File.write(facilities_file, { "facilities" => [ { "name" => "Acme Plant", "other_names" => [ "Acme Plant (Oak Ridge, TN)" ] } ] }.to_yaml)
+
+    Seed::OrganizationLoader.new(@dir, facilities: facilities_file).load!
+
+    assert_equal [ old.id ], Facility.where("name LIKE ?", "Acme Plant%").pluck(:id)
+    assert_equal "Acme Plant", old.reload.name
+    assert_equal 1, old.facility_relationships.count
+  end
+
   test "a facilities.yml plant must be in an organization file" do
     write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com"))
     File.write(facilities_file, { "facilities" => [ { "name" => "Nowhere Plant" } ] }.to_yaml)

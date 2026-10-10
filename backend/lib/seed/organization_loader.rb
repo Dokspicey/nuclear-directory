@@ -10,8 +10,10 @@ module Seed
   # Safe to re-run: FactWriter updates existing facts, never duplicates them.
   # All or nothing: if any fact fails, nothing is written and Error lists why.
   #
-  # Not loaded: each file's `notes` (research notes, kept in the YAML), and
-  # facilities.yml's other_names (for facility aliases, #65).
+  # Not loaded: each file's `notes` (research notes, kept in the YAML).
+  # facilities.yml's other_names (facility aliases are #65) are only used to
+  # find a plant still stored under a former name, so a rerun renames it
+  # rather than creating it again.
   class OrganizationLoader
     class Error < StandardError; end
 
@@ -40,6 +42,7 @@ module Seed
         raise Error, "Seed failed, nothing was written:\n  #{@errors.join("\n  ")}" if @errors.any?
         shared = shared_domains(docs)
 
+        facilities.each { |facility| rename_from_former_name(facility) }
         # Organizations first, so relationships can find the other side.
         docs.each { |slug, doc| write_organization(slug, doc, sources, shared) }
         docs.each { |slug, doc| write_facts(slug, doc, sources) }
@@ -133,6 +136,16 @@ module Seed
             relationship_type: item["type"], description: item["note"], ownership_pct: item["ownership_pct"] },
             evidence(item, sources))
         end
+      end
+
+      # A plant loaded by an earlier seed under one of its other_names takes
+      # its current name, keeping its links, unless the current name is
+      # already taken.
+      def rename_from_former_name(entry)
+        return if Directory::Lookup.facility(name: entry["name"])
+
+        former = Array(entry["other_names"]).lazy.filter_map { |name| Directory::Lookup.facility(name:) }.first or return
+        write("facilities.yml", :facility, { id: former.id, name: entry["name"] }, [])
       end
 
       # Plant details from facilities.yml: each field has its own source, so
