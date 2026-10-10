@@ -1,68 +1,174 @@
-# Asks the verifier about each candidate, then publishes it through the
-# directory's FactWriter, sends it to human review, or rejects it.
-# Shared by all plug-ins.
+# Checks each candidate and RECOMMENDS: it never publishes. A human approves
+# in the admin (DataQuality::Review.approve). Shared by all plug-ins.
+#
+# For each new or matched candidate, in order:
+# 1. Its record, or a unit's site, was rejected or unpublished by a human
+#    after match attached it: review, naming that decision.
+# 2. It disagrees with a value a human verified on its record: review,
+#    showing both values ("human-verified state is NJ; this source says DE").
+# 3. Its quote isn't in the source's stored content (plug-in's
+#    quote_in_source?): review, without asking any model.
+# 4. The verifier decides. The default is the verifier agent, a second model
+#    that re-reads the source (Verifiers::Agent). A verifier answers in batches
+#    (#verdicts) or one candidate at a time (#call).
+#    - publish → ai_recommendation "recommend_publish"; the candidate stays
+#      new/matched and nothing is written to the directory
+#    - review → needs_review, with the reason
+#    - reject → rejected (only test verifiers reject; the agent never does)
+# The recommendation (ai_*, verify_run) is stored on the candidate, so the
+# admin can list it by run and by reason. A candidate already recommended
+# isn't sent to the model again; later runs only repeat the code checks
+# (1-3), in case a human decided on its record meanwhile.
 class DataQuality::Stages::Verify < DataQuality::Stage
-  def initialize(verifier: DataQuality::Verifiers::ReviewEverything.new, **)
+  # Attributes compared with a human-verified record, per kind. Names aren't
+  # compared: spelling and legal-form variants are expected (aliases cover them).
+  COMPARED = {
+    "organization" => %w[domain],
+    "facility" => %w[nrc_docket facility_type status state country_code]
+  }.freeze
+
+  def initialize(verifier: DataQuality::Verifiers::Agent.new, **)
     super(**)
     @verifier = verifier
   end
 
   private
     def perform(run)
-      stats = { "candidates" => 0, "published" => 0, "needs_review" => 0, "rejected" => 0, "write_errors" => 0 }
+      stats = { "candidates" => 0, "recommended" => 0, "needs_review" => 0, "rejected" => 0,
+        "quote_missing" => 0, "human_decision" => 0, "conflicts" => 0, "already_recommended" => 0, "decided_meanwhile" => 0 }
+      pending = candidates.where(status: %w[new matched]).includes(:source).order(:id).to_a
+      # Enrichment still waiting for its NRC unit: nothing to verify yet.
+      pending.reject! { |candidate| candidate.status_new? && directory.enrichment?(candidate) }
+      stats["candidates"] = pending.size
 
-      candidates.where(status: %w[new matched]).find_each do |candidate|
-        # Enrichment still waiting for its NRC unit: nothing to verify yet.
-        next if candidate.status_new? && directory.enrichment?(candidate)
+      # Code checks first; only what passes goes to the model.
+      held = pending.to_h { |candidate| [ candidate.id, hold_reason(candidate) ] }.compact
+      checkable = pending.reject { |candidate| held.key?(candidate.id) || recommended?(candidate) }
 
-        stats["candidates"] += 1
-        verdict = @verifier.call(candidate)
+      # Every model call happens here, before anything is written, so a
+      # failed call leaves every candidate as it was.
+      verdicts = verdicts_for(checkable, run)
 
-        case verdict.outcome
-        when :publish then publish(candidate, verdict, run, stats)
-        when :review then send_to_review(candidate, verdict.reason, stats)
-        when :reject
-          candidate.update!(status: "rejected", notes: verdict.reason)
-          stats["rejected"] += 1
-          retire_proposal(candidate, run)
+      pending.each do |candidate|
+        # A human may approve or reject in the admin while the model is
+        # asked; lock and re-check so their decision is never overwritten.
+        candidate.with_lock do
+          next stats["decided_meanwhile"] += 1 unless candidate.status_new? || candidate.status_matched?
+
+          apply(candidate, held[candidate.id], verdicts[candidate.id], run, stats)
         end
       end
 
       stats
     end
 
-    def publish(candidate, verdict, run, stats)
-      result = directory.write_fact(candidate, confidence: verdict.confidence, crawl_run: run)
+    def apply(candidate, hold, verdict, run, stats)
+      # Asked again now the model has answered: a human may have closed or
+      # verified the record (or closed a unit's site) meanwhile.
+      hold ||= hold_reason(candidate)
+      if hold
+        stat, reason = hold
+        stats[stat] += 1
+        return send_to_review(candidate, reason, run, stats, model: nil)
+      end
+      return stats["already_recommended"] += 1 if recommended?(candidate)
 
-      if result.success?
-        candidate.update!(status: "merged", subject_type: result.ref.type, subject_id: result.ref.id)
-        stats["published"] += 1
-        fill_site(candidate, result.ref.id, run, stats) if candidate.kind_facility?
-      else
-        stats["write_errors"] += 1
-        send_to_review(candidate, "Directory rejected the write: #{result.errors.join('; ')}", stats)
+      # A verdict a code check produced (e.g. nothing stored) names no model.
+      model = verdict.by_code ? nil : run.model
+      case verdict.outcome
+      when :publish then recommend(candidate, verdict, run, stats, model:)
+      when :review then send_to_review(candidate, verdict.reason, run, stats, confidence: verdict.confidence, model:)
+      when :reject
+        # Rejected only while the fact is still open, under its lock.
+        closed = directory.unless_closed(candidate) do
+          candidate.update!(status: "rejected", notes: verdict.reason)
+          stats["rejected"] += 1
+          retire_proposal(candidate, run)
+        end
+        apply(candidate, closed_hold(closed), verdict, run, stats) if closed
       end
     end
 
-    # A verified unit completes its site's missing details (see DirectoryClient).
-    # The unit itself is already published, so a site that refuses (a human
-    # rejected it) is noted on the candidate rather than undoing the unit.
-    def fill_site(candidate, unit_id, run, stats)
-      result = directory.fill_site_from_unit(unit_id, candidate, crawl_run: run)
-      return if result.nil? || result.success?
-      # The unit disagrees with what a human recorded for its site: published,
-      # but a human should look (e.g. NRC's state is a nearby city's).
-      if result.conflict?
-        return send_to_review(candidate, "Published, but its site disagrees: #{result.errors.join('; ')}", stats)
+    # [stats key, reason] when a candidate must go to review before any model
+    # is asked, or nil.
+    def hold_reason(candidate)
+      record = directory.attached_record(candidate)
+      closed = closed_hold(record)
+      return closed if closed
+
+      conflicts = human_conflicts(candidate, record)
+      return [ "conflicts", conflicts.join("; ") ] if conflicts.any?
+
+      unless quote_found?(candidate)
+        return [ "quote_missing", "The cited quote isn't in the source as stored, so it can't be checked: " \
+          "#{candidate.quote.to_s.truncate(120).inspect}" ]
       end
 
-      stats["site_not_filled"] = stats.fetch("site_not_filled", 0) + 1
-      candidate.update!(notes: [ candidate.notes, "Site not filled: #{result.errors.join('; ')}" ].compact_blank.join(". "))
+      nil
     end
 
-    # When the last live candidate attached to a record match created (a
-    # proposal) is rejected, the proposal is retired. Which candidate created
-    # it doesn't matter. A record that existed before match is left alone.
+    # ["human_decision", reason] when a human rejected or unpublished the
+    # record match attached, or a unit's site, or nil.
+    def closed_hold(record)
+      if record&.closed?
+        return [ "human_decision", "#{record.name.upcase_first} was #{record.decision} after this was matched to it. " \
+          "The same thing again, or a new record?" ]
+      end
+      # A unit under a site a human closed: approving would publish it there.
+      if record&.parent_id && (site = directory.facility(id: record.parent_id))&.closed?
+        [ "human_decision", "Its site #{site.name} was #{site.decision}. Publish a unit under it anyway, or a new record?" ]
+      end
+    end
+
+    # "human-verified state is NJ; this source says DE" for each compared
+    # attribute where a human-verified record already has a different value.
+    def human_conflicts(candidate, record)
+      return [] unless record && record.verification_status == "verified" && record.verified_by.to_s.start_with?("human:")
+
+      COMPARED.fetch(candidate.kind, []).filter_map do |name|
+        stored = comparable(name, record.public_send(name))
+        incoming = comparable(name, name == "domain" ? candidate.payload["domain"].presence || candidate.payload["website"] : candidate.payload[name])
+        next if stored.blank? || incoming.blank? || stored == incoming
+
+        "human-verified #{name.humanize(capitalize: false)} is #{stored}; this source says #{incoming}"
+      end
+    end
+
+    # Values compare as the directory stores them: dockets stripped, country
+    # codes stripped and upcased, domains as hosts
+    # ("https://WWW.TerraPower.com/news" is "terrapower.com").
+    def comparable(name, value)
+      return value.to_s.strip.upcase if name == "country_code"
+      return value.to_s.strip unless name == "domain" && value.present?
+
+      text = value.to_s.strip
+      host = URI.parse(text.match?(%r{\A[a-z][a-z0-9+.-]*://}i) ? text : "https://#{text}").host
+      host.to_s.downcase.delete_prefix("www.")
+    rescue URI::InvalidURIError
+      text.downcase.delete_prefix("www.")
+    end
+
+    def verdicts_for(candidates, run)
+      return {} if candidates.empty?
+      return @verifier.verdicts(candidates, run:, plugin:) if @verifier.respond_to?(:verdicts)
+
+      candidates.to_h { |candidate| [ candidate.id, @verifier.call(candidate) ] }
+    end
+
+    # With no stored content there's nothing to check the quote against
+    # (e.g. hand-made candidates); the verifier still decides.
+    def quote_found?(candidate)
+      candidate.source.content_text.blank? || plugin.quote_in_source?(candidate.source, candidate.quote)
+    end
+
+    def recommend(candidate, verdict, run, stats, model: run.model)
+      candidate.update!(ai_fields("recommend_publish", verdict.reason, verdict.confidence, run, model:)
+        .merge(ai_source_sha256: candidate.source.content_sha256))
+      stats["recommended"] += 1
+    end
+
+    # A rejected candidate whose record match created (a proposal) retires
+    # that record, unless another live candidate is attached to it too.
     def retire_proposal(candidate, run)
       return unless candidate.subject_id
 
@@ -73,8 +179,20 @@ class DataQuality::Stages::Verify < DataQuality::Stage
       directory.retire(candidate, crawl_run: run)
     end
 
-    def send_to_review(candidate, reason, stats)
-      candidate.update!(status: "needs_review", notes: reason)
+    # Recommended against the source as stored now; a changed source is asked again.
+    def recommended?(candidate)
+      candidate.ai_recommendation == "recommend_publish" && candidate.ai_source_sha256 == candidate.source.content_sha256
+    end
+
+    # model: nil for a code check, which asked no model.
+    def send_to_review(candidate, reason, run, stats, confidence: nil, model: run.model)
+      candidate.update!(ai_fields("needs_review", reason, confidence, run, model:).merge(status: "needs_review", notes: reason))
       stats["needs_review"] += 1
+    end
+
+    def ai_fields(recommendation, reason, confidence, run, model: run.model)
+      { ai_recommendation: recommendation, ai_reason: reason, ai_confidence: confidence,
+        ai_model: model, ai_checked_at: Time.current, verify_run: run,
+        ai_source_sha256: nil }
     end
 end

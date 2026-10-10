@@ -1,6 +1,14 @@
 require "test_helper"
 
 class DataQuality::FetcherTest < ActiveSupport::TestCase
+  def with_env(vars)
+    saved = vars.keys.to_h { |key| [ key, ENV[key] ] }
+    vars.each { |key, value| ENV[key] = value }
+    yield
+  ensure
+    saved.each { |key, value| ENV[key] = value }
+  end
+
   PAGE = "https://example.gov/reactors"
   ROBOTS = "https://example.gov/robots.txt"
 
@@ -91,14 +99,97 @@ class DataQuality::FetcherTest < ActiveSupport::TestCase
     assert_equal [ DataQuality::Fetcher::HOST_INTERVAL ] * 2, @sleeps
   end
 
-  test "robots.txt is per origin: a redirect to another scheme or port reads that origin's file" do
-    stub_request(:get, "http://example.gov/robots.txt").to_return(body: "User-agent: *\nDisallow: /\n")
-    stub_request(:get, "https://example.gov:8443/robots.txt").to_return(body: "User-agent: *\nDisallow: /\n")
+  # ---- SSRF: only public https on the source's own host
+
+  test "only https on the standard port is fetched, as a URL or a redirect target" do
     stub_request(:get, PAGE).to_return(status: 301, headers: { "Location" => "http://example.gov/reactors" })
 
-    assert_equal :disallowed, @fetcher.get(PAGE).kind, "http:// has its own robots.txt"
-    assert_equal :disallowed, @fetcher.get("https://example.gov:8443/reactors").kind, "so does a non-default port"
-    assert_requested :get, "https://example.gov:8443/robots.txt"
+    [ "http://example.gov/reactors", "https://example.gov:8443/reactors", "file:///etc/passwd", "ftp://example.gov/x" ].each do |url|
+      response = @fetcher.get(url)
+      assert_equal :error, response.kind, url
+      assert_match "Not fetched", response.reason
+    end
+    assert_match "only https", @fetcher.get(PAGE).reason, "a redirect to http:// isn't followed"
+    assert_not_requested :get, "http://example.gov/robots.txt"
+  end
+
+  test "a redirect to another host isn't followed; www. and back is the same host" do
+    stub_request(:get, PAGE).to_return(status: 302, headers: { "Location" => "https://elsewhere.example/reactors" })
+    response = @fetcher.get(PAGE)
+    assert_equal :error, response.kind
+    assert_match "redirected to another host (elsewhere.example)", response.reason
+    assert_not_requested :get, "https://elsewhere.example/robots.txt"
+
+    stub_request(:get, "https://www.example.gov/robots.txt").to_return(status: 404)
+    stub_request(:get, "https://example.gov/moved").to_return(status: 301, headers: { "Location" => "https://www.example.gov/moved" })
+    stub_request(:get, "https://www.example.gov/moved").to_return(body: "here")
+    assert_equal [ :ok, "here" ], @fetcher.get("https://example.gov/moved").then { |r| [ r.kind, r.body ] }
+  end
+
+  test "a host that resolves to an internal address is never requested" do
+    {
+      "127.0.0.1" => "loopback", "10.1.2.3" => "private", "172.16.0.1" => "private", "192.168.1.1" => "private",
+      "169.254.169.254" => "cloud metadata", "100.64.0.1" => "carrier-grade NAT", "0.0.0.0" => "this host",
+      "::1" => "IPv6 loopback", "fd00::1" => "IPv6 unique local", "fe80::1" => "IPv6 link-local",
+      "::ffff:127.0.0.1" => "IPv4-mapped loopback", "4000::1" => "IPv6 reserved", "fec0::1" => "IPv6 site-local",
+      "64:ff9b::a00:1" => "NAT64", "64:ff9b:1::1" => "local-use NAT64", "3fff::1" => "IPv6 documentation",
+      "2002:a00:1::1" => "6to4 wrapping 10.0.0.1", "2001::1" => "Teredo", "ff02::1" => "IPv6 multicast",
+      "192.88.99.1" => "6to4 relay anycast"
+    }.each do |address, what|
+      fetcher = DataQuality::Fetcher.new(sleeper: ->(_) { }, resolver: ->(_host) { [ address ] })
+      response = fetcher.get("https://internal.example/x")
+      assert_equal :error, response.kind, what
+      assert_match "resolves to an internal address (#{address})", response.reason, what
+    end
+    assert_not_requested :get, %r{internal\.example}
+  end
+
+  test "public IPv6 is fetched" do
+    stub_request(:get, PAGE).to_return(body: "ok")
+    fetcher = DataQuality::Fetcher.new(sleeper: ->(_) { }, resolver: ->(_host) { [ "2606:4700::6810:84e5" ] })
+
+    assert_equal :ok, fetcher.get(PAGE).kind
+  end
+
+  test "never connects through a proxy from the environment, which would resolve the name itself" do
+    recording = Class.new(DataQuality::Fetcher) do
+      attr_reader :proxied
+
+      def connection(uri) = super.tap { |http| @proxied = http.proxy? }
+    end
+    fetcher = recording.new(sleeper: ->(_) { })
+    stub_request(:get, PAGE).to_return(body: "ok")
+
+    with_env("https_proxy" => "http://proxy.internal:3128", "http_proxy" => "http://proxy.internal:3128") do
+      response = fetcher.get(PAGE)
+      assert_equal :ok, response.kind, response.reason
+    end
+    assert_equal false, fetcher.proxied
+  end
+
+  test "a host with any internal address is refused, and a redirect's new host is checked too" do
+    mixed = DataQuality::Fetcher.new(sleeper: ->(_) { }, resolver: ->(_host) { [ "93.184.215.14", "10.0.0.5" ] })
+    assert_match "internal address (10.0.0.5)", mixed.get(PAGE).reason
+
+    by_host = { "example.gov" => [ "93.184.215.14" ], "www.example.gov" => [ "169.254.169.254" ] }
+    fetcher = DataQuality::Fetcher.new(sleeper: ->(_) { }, resolver: ->(host) { by_host.fetch(host) })
+    stub_request(:get, PAGE).to_return(status: 301, headers: { "Location" => "https://www.example.gov/reactors" })
+    assert_match "www.example.gov resolves to an internal address", fetcher.get(PAGE).reason
+  end
+
+  test "connects to the address it checked, so DNS can't change between the check and the request" do
+    lookups = 0
+    recording = Class.new(DataQuality::Fetcher) do
+      attr_reader :connected
+
+      def connection(uri) = super.tap { |http| (@connected ||= []) << [ http.address, http.ipaddr, http.use_ssl? ] }
+    end
+    fetcher = recording.new(sleeper: ->(_) { }, resolver: ->(_host) { lookups += 1; [ "93.184.215.14" ] })
+    stub_request(:get, PAGE).to_return(body: "ok")
+
+    assert_equal :ok, fetcher.get(PAGE).kind
+    assert_equal [ [ "example.gov", "93.184.215.14", true ] ], fetcher.connected.uniq, "the name for TLS, the checked address to connect"
+    assert_equal 2, lookups, "robots.txt and the page, each checked when connecting"
   end
 
   test "follows redirects, checking robots.txt for the new location" do

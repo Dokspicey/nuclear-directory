@@ -12,6 +12,12 @@ class Relationship < ApplicationRecord
   belongs_to :to_organization, class_name: "Organization", inverse_of: :incoming_relationships
 
   validates :relationship_type, uniqueness: { scope: [ :from_organization_id, :to_organization_id ] }
+
+  # Hidden when either company isn't published.
+  def self.published
+    companies = Organization.published.select(:id)
+    verified.where(from_organization_id: companies, to_organization_id: companies)
+  end
   validate :not_self_referential
   validate :ends_after_start
 
