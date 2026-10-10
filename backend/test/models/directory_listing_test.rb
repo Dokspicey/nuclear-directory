@@ -90,6 +90,17 @@ class DirectoryListingTest < ActiveSupport::TestCase
     assert_nil DirectoryListing.new(category: "plants", technology: "molten_salt").technology
   end
 
+  test "state options come from companies and public sites, not units" do
+    plant("Unit In Nevada", parent: @vogtle, state: "NV")
+    pending_site = plant("Pending Station", verified: false, state: "OR")
+    plant("Pending Unit 1", parent: pending_site)
+
+    options = DirectoryListing.new.state_options
+    assert_not_includes options, "NV"
+    assert_includes options, "OR"
+    assert_equal [ "Pending Station" ], DirectoryListing.new(category: "plants", state: "OR").plants.map(&:name)
+  end
+
   test "a rejected site never appears, even with a verified unit" do
     rejected = Facility.create!(name: "Rejected Station", verification_status: "rejected")
     plant("Rejected Unit 1", parent: rejected)
