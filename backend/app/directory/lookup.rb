@@ -100,8 +100,10 @@ module Directory
     # Company). Reducing a name stops here.
     OWN_BRANDS = [ "southern nuclear" ].to_set.freeze
     # Regions a utility brand names its operating companies after
-    # ("Duke Energy Carolinas, LLC" is Duke Energy).
-    REGION_WORDS = %w[carolinas carolina florida midwest indiana ohio kentucky texas virginia].to_set.freeze
+    # ("Duke Energy Carolinas, LLC" is Duke Energy), plus legacy brands that
+    # live on as an operating company's name: "progress" (Progress Energy,
+    # now "Duke Energy Progress, LLC", is Duke Energy; Tosin, 2026-10-10).
+    REGION_WORDS = %w[carolinas carolina florida midwest indiana ohio kentucky texas virginia progress].to_set.freeze
 
     # Organizations whose name or an alias is the same brand as name: equal
     # once trailing entity words, and a trailing plant or region name, are

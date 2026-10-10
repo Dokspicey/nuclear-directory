@@ -98,6 +98,7 @@ class Directory::LookupTest < ActiveSupport::TestCase
     assert_equal "NextEra Energy", Directory::Lookup.brand_name("NextEra Energy Seabrook, LLC")
     assert_equal "duke", Directory::Lookup.brand_key("Duke Energy Carolinas, LLC")
     assert_equal "Duke Energy", Directory::Lookup.brand_name("Duke Energy Carolinas, LLC")
+    assert_equal "duke", Directory::Lookup.brand_key("Duke Energy Progress, LLC"), "Progress is a legacy brand of Duke"
     assert_nil Directory::Lookup.brand_name("Constellation Energy Generation, LLC"), "no place in it: keep the full name"
     assert_equal "seabrook", Directory::Lookup.brand_key("Seabrook Holdings"), "a name that is only a place stays"
   end
