@@ -143,6 +143,7 @@ module Directory
         # "Three Mile Island Unit 1" updates Crane, it doesn't rename it. Only a
         # write by id renames.
         changes.delete(:name) if kind == :facility && !created && !attributes.key?(:id)
+        check_facility_name(record, changes[:name]) if kind == :facility && changes[:name]
         if curated && (conflicts = conflicts_with(record, changes)).any?
           raise Conflict.new(record.id, conflicts)
         end
@@ -151,7 +152,11 @@ module Directory
         record.save!
 
         write_aliases(record, [ record.name, *attributes[:aliases] ]) if kind == :organization
-        write_facility_aliases(record, attributes[:aliases]) if kind == :facility
+        if kind == :facility
+          # A name that was one of the plant's aliases is now its name.
+          record.aliases.where(normalized_alias: FacilityAlias.normalize(record.name)).delete_all
+          write_facility_aliases(record, attributes[:aliases])
+        end
         Array(evidence).each { |item| write_evidence(record, item) }
         apply_verification(record, verification) if verification && !curated
         record.recompute_confidence!
@@ -260,6 +265,15 @@ module Directory
       # A facility's other names. Its own name isn't stored (facility names
       # aren't unique), so a name that is another facility's is an error, as
       # is an alias another facility already has.
+      # A plant can't take a name that's another plant's alias: the alias
+      # would still find the other plant under some spellings.
+      def check_facility_name(facility, name)
+        owner = FacilityAlias.find_by(normalized_alias: FacilityAlias.normalize(name))
+        return if owner.nil? || owner.facility_id == facility.id
+
+        raise Invalid, "name #{name.inspect} is an alias of #{owner.facility.name}"
+      end
+
       def write_facility_aliases(facility, names)
         names.to_a.compact_blank.uniq.each do |name|
           normalized = FacilityAlias.normalize(name)

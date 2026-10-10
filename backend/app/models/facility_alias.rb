@@ -9,10 +9,11 @@ class FacilityAlias < ApplicationRecord
   validates :alias, presence: true
   validates :normalized_alias, presence: true, uniqueness: true
 
-  # Lowercased, "&" as "and", punctuation dropped: "Plant Vogtle Units 3 & 4"
+  # HTML entities decoded ("&amp;" is "&"), lowercased, "&" as "and",
+  # punctuation dropped: "Plant Vogtle Units 3 & 4"
   # => "plant vogtle units 3 and 4". Unlike company names, no words are dropped,
   # since "Unit 1" is what tells one name from another.
   def self.normalize(name)
-    name.to_s.downcase.gsub("&", " and ").gsub(/[^a-z0-9\s]/, " ").split.join(" ")
+    CGI.unescapeHTML(name.to_s).downcase.gsub("&", " and ").gsub(/[^a-z0-9\s]/, " ").split.join(" ")
   end
 end

@@ -38,6 +38,24 @@ class Directory::FacilityAliasesTest < ActiveSupport::TestCase
     assert_equal [ "TMI-1", "Three Mile Island Unit 1" ], @crane.aliases.pluck(:alias).sort
   end
 
+  test "a rename can't take another plant's alias; taking its own alias promotes it" do
+    other = Facility.create!(name: "Peach Bottom")
+
+    taken = write(:facility, { id: other.id, name: "TMI-1" })
+    assert_match "name \"TMI-1\" is an alias of Crane Clean Energy Center", taken.errors.join
+    assert_equal "Peach Bottom", other.reload.name
+
+    assert write(:facility, { id: @crane.id, name: "Three Mile Island Unit 1" }).ok?
+    assert_equal [ "TMI-1" ], @crane.reload.aliases.pluck(:alias), "the promoted alias is now the name"
+  end
+
+  test "an HTML-escaped ampersand is the same as a plain one" do
+    write(:facility, { id: @crane.id, aliases: [ "Crane Units 1 & 2" ] })
+
+    assert_equal "crane units 1 and 2", FacilityAlias.normalize("Crane Units 1 &amp; 2")
+    assert_equal @crane.id, Directory::Lookup.facility(name: "Crane Units 1 &amp; 2").id
+  end
+
   test "an alias can't belong to two plants, or be another plant's name" do
     other = Facility.create!(name: "Peach Bottom")
 
