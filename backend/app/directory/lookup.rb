@@ -41,6 +41,50 @@ module Directory
     end
 
     FACT_TYPES = %w[Organization OrganizationRole OrganizationTechnology Facility Relationship FacilityRelationship].freeze
+    # FactWriter kinds, one per fact type.
+    FACT_KINDS = FACT_TYPES.map(&:underscore).freeze
+
+    # Facts of one kind waiting for a human's decision (verification_status
+    # pending; never rejected or unpublished), oldest first, as
+    # Directory::PendingFactRefs. Page with after_id: the last id seen.
+    #
+    #   Directory::Lookup.pending_facts(kind: "facility_relationship", limit: 50)
+    def pending_facts(kind:, after_id: nil, limit: 50)
+      kind = kind.to_s
+      raise ArgumentError, "not a fact kind: #{kind.inspect}" unless FACT_KINDS.include?(kind)
+
+      model = kind.camelize.constantize
+      scope = model.pending.order(:id).limit(limit).includes(*PENDING_INCLUDES.fetch(kind), :evidence)
+      scope = scope.where("#{model.table_name}.id > ?", after_id) if after_id
+      latest = latest_events(model.name, scope.map(&:id))
+
+      scope.map do |record|
+        PendingFactRef.new(type: model.name, id: record.id, kind:, attributes: pending_attributes(kind, record),
+          evidence: record.evidence.sort_by(&:id).map { |item| EvidenceRef.from(item) },
+          created_at: record.created_at, last_event: latest[record.id])
+      end
+    end
+
+    PENDING_INCLUDES = {
+      "organization" => [ :aliases ], "facility" => [ :parent, :technology ], "organization_role" => [ :organization, :role ],
+      "organization_technology" => [ :organization, :technology ],
+      "relationship" => [ :from_organization, :to_organization ], "facility_relationship" => [ :organization, :facility ]
+    }.freeze
+    private_constant :PENDING_INCLUDES
+
+    # Any fact's stored values, as FactWriter names them (string keys; link
+    # ends as ids, plus the linked records' names), or nil. Lets a caller
+    # compare a link's values, which fact_state doesn't carry.
+    #
+    #   Directory::Lookup.fact_attributes(type: "FacilityRelationship", id: 7)
+    #   # => { "ownership_pct" => 45.7, "description" => "...", ... }
+    def fact_attributes(type:, id:)
+      raise ArgumentError, "not a fact type: #{type.inspect}" unless FACT_TYPES.include?(type.to_s)
+
+      record = type.to_s.constantize.find_by(id:) or return
+      pending_attributes(type.to_s.underscore, record).stringify_keys
+    end
+
     # How a link reads to a person (VOICE.md's fixed verbs and words).
     LINK_VERBS = {
       "supplies" => "supplies", "invests_in" => "invests in", "funds" => "funds",
@@ -249,6 +293,29 @@ module Directory
     end
 
     private
+      # The fact's FactWriter attributes as stored (role and technology as
+      # their keys), plus the names of the records it links.
+      def pending_attributes(kind, record)
+        names = FactWriter::KINDS.fetch(kind.to_sym)[:attributes] - %i[aliases role technology]
+        values = names.to_h { |name| [ name, record.public_send(name) ] }
+        values[:role] = record.role.key if kind == "organization_role"
+        values[:aliases] = record.aliases.map(&:alias).sort if kind == "organization"
+        values[:technology] = record.technology&.key if record.respond_to?(:technology)
+        values[:organization_name] = record.organization.name if record.respond_to?(:organization)
+        values[:facility_name] = record.facility.name if kind == "facility_relationship"
+        if kind == "relationship"
+          values[:from_organization_name] = record.from_organization.name
+          values[:to_organization_name] = record.to_organization.name
+        end
+        values[:parent_name] = record.parent&.name if kind == "facility"
+        values
+      end
+
+      def latest_events(type, ids)
+        VerificationEvent.where(subject_type: type, subject_id: ids).order(:created_at, :id)
+          .index_by(&:subject_id).transform_values { |event| VerificationEventRef.from(event) }
+      end
+
       # Dotted initials as one word ("L.L.C." => "LLC", "L.P." => "LP"), so legal
       # suffixes are recognized however they're punctuated.
       def without_article(words) = words.first == "the" && words.size > 1 ? words.drop(1) : words

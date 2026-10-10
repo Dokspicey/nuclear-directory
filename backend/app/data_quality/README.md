@@ -117,7 +117,7 @@ For each `new` or `matched` candidate:
      says DE"; names aren't compared)
    - its quote isn't in the source as stored. Each plug-in defines that: `quote_in_source?`, by default
      the page's visible text, and for NRC a whole table row
-2. **The verifier agent** (`Verifiers::Agent`, `OPENROUTER_VERIFY_MODEL`, prompt `verify-v1`) reads the
+2. **The verifier agent** (`Verifiers::Agent`, `OPENROUTER_VERIFY_MODEL`, prompt `verify-v2`) reads the
    claim (`Claim.describe`) against an excerpt (`verification_context`; for NRC the header and the row),
    15 claims per call. All model calls happen before anything is written.
    - supported and at least 80% sure: **`ai_recommendation: "recommend_publish"`**; the candidate stays
@@ -129,11 +129,24 @@ The recommendation lives on the candidate: `ai_recommendation`, `ai_reason`, `ai
 `ai_checked_at` and `verify_run`. `Candidate.recommended` lists those waiting for approval, indexed by
 recommendation and run.
 
-**Approving** (`DataQuality::Review.approve(ids, by: "human:tosin")`) publishes each candidate in one
-FactWriter write, as a human, without the protection automated writers get: the fact, its evidence (with
-the verifier's confidence and the verify run) and `verification: { status: "verified", by:, context: {
-candidate_id, crawl_run_id } }`. An approved unit then fills its site's blank fields. #85 adds listing,
-reject, unpublish and pending directory facts.
+## Review: how a human decides (`review.rb`, #85)
+
+The admin (#86) calls only `DataQuality::Review`; it never touches candidates, FactWriter or directory
+models. Every action takes `by: "human:…"` (anything else raises) and returns results with `errors`
+rather than raising, e.g. when an edit would duplicate another fact.
+
+| Call | What it does |
+|---|---|
+| `candidates(queue: :recommended \| :needs_review, run_id:, reason:)` | What to decide on, oldest first. Each item has the claim, quote, source, the AI's recommendation and, for a conflict, `differences` (`{ "state" => ["NJ", "DE"] }`, human-verified vs this source) |
+| `reasons(queue:, run_id:)` | Kinds of question in a queue, for the reason filter |
+| `approve(ids, by:)` | Publishes each in one FactWriter write as a human (not protected): the fact, its evidence (the verifier's confidence, the verify run) and `verification: { status: "verified", by:, context: { candidate_id, crawl_run_id } }`. An approved unit fills its site's blank fields |
+| `edit_and_approve(id, attributes:, by:)` | Changes values, then approves. Link ends and slug can't be edited; a failed publish keeps the original values |
+| `reject(ids, by:, reason:)` | Rejects candidates, and the record match proposed only for one of them |
+| `pending_facts(kind:)` | Directory facts waiting for a human that no open candidate covers (e.g. seed facts loaded as pending), with their evidence's sources |
+| `approve_fact`, `reject_fact`, `unpublish(type:, id:, by:, reason:)` | Decide on a directory fact. `approve_fact` takes edited `attributes` and also republishes |
+| `history(type:, id:)` | Every decision on a fact, newest first |
+
+Candidates record `reviewed_by` / `reviewed_at`; facts record each decision in the audit trail.
 
 **NRC extract.** The extractor model (`OPENROUTER_EXTRACT_MODEL`, prompt `nrc-extract-v1`) reads the
 reactor table as plain lines and returns each unit with its row quoted. Every answer is checked
