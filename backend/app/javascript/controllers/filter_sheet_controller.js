@@ -1,19 +1,21 @@
 import { Controller } from "@hotwired/stimulus"
 
-// The live count on the phone filter sheet (#90). The sheet itself is a
-// native popover that the "Filters (N)" button opens and closes without
-// JavaScript (popovertarget), so filtering never depends on this file. When
-// it loads, it adds: the submit button counts what the choice would show
-// ("Show 12 results"), a polite status line says the same, and the sheet
-// closes if the screen grows past phone width.
+// The phone filter sheet (#90). Without JavaScript the sheet is a native
+// popover that the "Filters (N)" button opens and closes on its own
+// (popovertarget), so filtering never depends on this file. With it, the
+// button opens the same contents in a modal <dialog> instead, so the page
+// behind is inert and focus stays in the sheet, and the submit button
+// counts what the choice would show ("Show 12 results"), with a polite
+// status line saying the same. The sheet closes if the screen grows past
+// phone width.
 export default class extends Controller {
-  static targets = ["sheet", "form", "submit", "status"]
+  static targets = ["sheet", "dialog", "form", "submit", "status"]
   static values = { countUrl: String }
 
   connect() {
     this.label = this.submitTarget.textContent
     this.phone = window.matchMedia("(max-width: 560px)")
-    this.leftPhone = () => { if (!this.phone.matches && this.isOpen) this.sheetTarget.hidePopover() }
+    this.leftPhone = () => { if (!this.phone.matches && this.isOpen) this.close() }
     this.phone.addEventListener("change", this.leftPhone)
     window.addEventListener("resize", this.leftPhone)
   }
@@ -23,14 +25,28 @@ export default class extends Controller {
     window.removeEventListener("resize", this.leftPhone)
   }
 
-  // The popover opened or closed.
-  toggled(event) {
-    if (event.newState === "open") {
-      this.count()
-    } else {
-      this.request = null
-      this.show(this.label, "")
-    }
+  // The Filters button: a modal dialog instead of the popover.
+  open(event) {
+    event.preventDefault()
+    this.dialogTarget.append(...this.sheetTarget.children)
+    this.dialogTarget.showModal()
+    this.count()
+  }
+
+  // Close filters, Escape (the dialog's cancel) or the screen growing.
+  close(event) {
+    event?.preventDefault()
+    if (this.dialogTarget.open) this.dialogTarget.close()
+    if (this.sheetTarget.matches(":popover-open")) this.sheetTarget.hidePopover()
+    this.closed()
+  }
+
+  // The contents go back to their inline home. Also bound to the dialog's
+  // close event, which some browsers deliver late; safe to run twice.
+  closed() {
+    if (this.dialogTarget.children.length) this.sheetTarget.append(...this.dialogTarget.children)
+    this.request = null
+    this.show(this.label, "")
   }
 
   // Ask how many results the current choices give, and say so.
@@ -62,6 +78,6 @@ export default class extends Controller {
   }
 
   get isOpen() {
-    return this.sheetTarget.matches(":popover-open")
+    return this.dialogTarget.open || this.sheetTarget.matches(":popover-open")
   }
 }

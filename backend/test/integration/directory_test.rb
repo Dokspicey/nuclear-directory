@@ -145,10 +145,11 @@ class DirectoryTest < ActionDispatch::IntegrationTest
     get companies_path(category: "reactor-developers", state: "CA")
 
     assert_select ".nd-filterwrap[data-controller=filter-sheet][data-filter-sheet-count-url-value='/companies.json']" do
-      assert_select "button.nd-filterwrap__open[popovertarget=filter-sheet][popovertargetaction=show]", /Filters\s+\(1\)/
+      assert_select "button.nd-filterwrap__open[popovertarget=filter-sheet][popovertargetaction=show][data-action='filter-sheet#open']", /Filters\s+\(1\)/
+      assert_select "dialog.nd-filtersheet--modal[aria-labelledby=filters-title][data-action='cancel->filter-sheet#close close->filter-sheet#closed']:empty"
       assert_select "#filter-sheet.nd-filtersheet[popover][data-action='toggle->filter-sheet#toggled']" do
         assert_select "form.nd-filters[data-action='change->filter-sheet#count']"
-        assert_select "button[popovertarget=filter-sheet][popovertargetaction=hide]", "Close filters"
+        assert_select "button[popovertarget=filter-sheet][popovertargetaction=hide][data-action='filter-sheet#close']", "Close filters"
         assert_select "p.sr-only[role=status][data-filter-sheet-target=status]"
       end
     end
