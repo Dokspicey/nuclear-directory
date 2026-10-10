@@ -184,14 +184,31 @@ class DataQuality::Plugins::NrcReactorList::ExtractTest < ActiveSupport::TestCas
     assert candidates_for("05200026").any?(&:status_merged?), "merged work is kept"
   end
 
-  test "if the model fails, the run fails and the page is extracted again next time" do
+  test "if the model fails, the run fails, earlier candidates are untouched, and the page is extracted again next time" do
+    extract
+    before = @source.candidates.reload.pluck(:id).sort
+    @source.update!(content_sha256: "changed")
     broken = Object.new
     def broken.structured(**) = raise(DataQuality::OpenRouter::Client::RetriesExhausted, "Gave up after 3 attempts")
 
     assert_raises(DataQuality::OpenRouter::Client::RetriesExhausted) { extract(broken) }
 
-    assert CrawlRun.where(stage: "extract").sole.failed?
-    assert_empty @source.candidates
-    assert_nil @source.reload.extracted_sha256
+    assert CrawlRun.where(stage: "extract").order(:id).last.failed?
+    assert_equal before, @source.candidates.reload.pluck(:id).sort
+    assert_not_equal "changed", @source.reload.extracted_sha256
+  end
+
+  test "calls the model outside any database transaction" do
+    baseline = ActiveRecord::Base.connection.open_transactions # the test's own
+    model = FakeModel.new
+    depths = []
+    model.define_singleton_method(:structured) do |**args|
+      depths << ActiveRecord::Base.connection.open_transactions
+      super(**args)
+    end
+
+    extract(model)
+
+    assert_equal [ baseline ] * 4, depths
   end
 end

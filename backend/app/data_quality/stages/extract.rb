@@ -19,16 +19,21 @@ class DataQuality::Stages::Extract < DataQuality::Stage
           next
         end
 
+        # The plug-in may take minutes (model calls with retries), so it runs
+        # before the transaction: no locks held meanwhile, and if it fails
+        # the source's existing candidates are untouched.
+        extracted = plugin.extract(source, run).map do |attrs|
+          attrs = attrs.slice(:kind, :payload, :quote, :status, :notes)
+          attrs[:review_origin] = "extract" if attrs[:status].to_s == "needs_review"
+          attrs.merge(crawl_run: run)
+        end
+
         Candidate.transaction do
           stale(source).delete_all
-          plugin.extract(source, run).each do |attrs|
-            attrs = attrs.slice(:kind, :payload, :quote, :status, :notes)
-            attrs[:review_origin] = "extract" if attrs[:status].to_s == "needs_review"
-            source.candidates.create!(attrs.merge(crawl_run: run))
-            stats["candidates"] += 1
-          end
+          extracted.each { |attrs| source.candidates.create!(attrs) }
           source.update!(extracted_sha256: source.content_sha256)
         end
+        stats["candidates"] += extracted.size
         stats["sources"] += 1
       end
 
