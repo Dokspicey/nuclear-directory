@@ -19,6 +19,16 @@ class ErrorsTest < ActionDispatch::IntegrationTest
     assert_select "a[href='/']", "go to the home page"
   end
 
+  test "other errors keep the static pages, which work even when the app is broken" do
+    env = Rack::MockRequest.env_for("/500", "action_dispatch.original_path" => "/companies")
+    status, _headers, body = Rails.application.config.exceptions_app.call(env)
+    html = +""
+    body.each { |part| html << part }
+
+    assert_equal 500, status
+    assert_equal File.read(Rails.public_path.join("500.html")), html
+  end
+
   test "non-HTML requests get a bare 404" do
     get "/no-such-page.json"
 

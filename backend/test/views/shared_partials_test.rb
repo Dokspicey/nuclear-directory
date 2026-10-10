@@ -102,8 +102,9 @@ class SharedPartialsTest < ActionView::TestCase
     assert_select ".nd-profile__desc", /Develops salt-cooled reactors./
     assert_select ".nd-tag", "Reactor developer"
 
-    render partial: "shared/profile_header", locals: { name: "Hermes 2", kind: :plant }
+    render partial: "shared/profile_header", locals: { name: "Hermes 2", kind: :plant, heading_id: "plant-name" }
     assert_select ".nd-ring--lg"
+    assert_select "section[aria-labelledby=plant-name] h1#plant-name", "Hermes 2"
   end
 
   test "missing fields box lists gaps, and disappears when there are none" do
