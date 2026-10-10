@@ -10,9 +10,168 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_09_000003) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_09_100000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
+
+  create_table "facilities", force: :cascade do |t|
+    t.string "name", null: false
+    t.string "slug", null: false
+    t.bigint "parent_id"
+    t.string "facility_type", null: false
+    t.string "status", null: false
+    t.bigint "technology_id"
+    t.string "reactor_type"
+    t.decimal "capacity_mw", precision: 8, scale: 2
+    t.string "nrc_docket"
+    t.string "city"
+    t.string "state"
+    t.string "country_code", limit: 2, default: "US", null: false
+    t.decimal "latitude", precision: 9, scale: 6
+    t.decimal "longitude", precision: 9, scale: 6
+    t.decimal "confidence", precision: 3, scale: 2
+    t.string "verification_status", default: "pending", null: false
+    t.datetime "verified_at"
+    t.string "verified_by"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["nrc_docket"], name: "index_facilities_on_nrc_docket", unique: true, where: "(nrc_docket IS NOT NULL)"
+    t.index ["parent_id"], name: "index_facilities_on_parent_id"
+    t.index ["slug"], name: "index_facilities_on_slug", unique: true
+    t.index ["technology_id"], name: "index_facilities_on_technology_id"
+    t.index ["verification_status"], name: "index_facilities_on_verification_status"
+    t.check_constraint "confidence IS NULL OR confidence >= 0::numeric AND confidence <= 1::numeric", name: "facilities_confidence_check"
+    t.check_constraint "facility_type::text = ANY (ARRAY['power_reactor'::character varying, 'research_reactor'::character varying, 'fuel_facility'::character varying, 'enrichment'::character varying, 'fusion_facility'::character varying, 'other'::character varying]::text[])", name: "facilities_facility_type_check"
+    t.check_constraint "status::text = ANY (ARRAY['operating'::character varying, 'under_construction'::character varying, 'planned'::character varying, 'shut_down'::character varying, 'decommissioning'::character varying]::text[])", name: "facilities_status_check"
+    t.check_constraint "verification_status::text = ANY (ARRAY['pending'::character varying, 'verified'::character varying, 'rejected'::character varying]::text[])", name: "facilities_verification_status_check"
+  end
+
+  create_table "facility_relationships", force: :cascade do |t|
+    t.bigint "organization_id", null: false
+    t.bigint "facility_id", null: false
+    t.string "relationship_type", null: false
+    t.decimal "ownership_pct", precision: 5, scale: 2
+    t.date "started_on"
+    t.date "ended_on"
+    t.decimal "confidence", precision: 3, scale: 2
+    t.string "verification_status", default: "pending", null: false
+    t.datetime "verified_at"
+    t.string "verified_by"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["facility_id"], name: "index_facility_relationships_on_facility_id"
+    t.index ["organization_id", "facility_id", "relationship_type"], name: "index_facility_relationships_uniqueness", unique: true
+    t.index ["organization_id"], name: "index_facility_relationships_on_organization_id"
+    t.index ["verification_status"], name: "index_facility_relationships_on_verification_status"
+    t.check_constraint "confidence IS NULL OR confidence >= 0::numeric AND confidence <= 1::numeric", name: "facility_relationships_confidence_check"
+    t.check_constraint "ownership_pct IS NULL OR ownership_pct >= 0::numeric AND ownership_pct <= 100::numeric", name: "facility_relationships_ownership_pct_check"
+    t.check_constraint "relationship_type::text = ANY (ARRAY['owns'::character varying, 'operates'::character varying, 'vendor_for'::character varying, 'offtakes_from'::character varying]::text[])", name: "facility_relationships_relationship_type_check"
+    t.check_constraint "verification_status::text = ANY (ARRAY['pending'::character varying, 'verified'::character varying, 'rejected'::character varying]::text[])", name: "facility_relationships_verification_status_check"
+  end
+
+  create_table "organization_aliases", force: :cascade do |t|
+    t.bigint "organization_id", null: false
+    t.string "alias", null: false
+    t.string "normalized_alias", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["normalized_alias"], name: "index_organization_aliases_on_normalized_alias", unique: true
+    t.index ["organization_id"], name: "index_organization_aliases_on_organization_id"
+  end
+
+  create_table "organization_roles", force: :cascade do |t|
+    t.bigint "organization_id", null: false
+    t.bigint "role_id", null: false
+    t.decimal "confidence", precision: 3, scale: 2
+    t.string "verification_status", default: "pending", null: false
+    t.datetime "verified_at"
+    t.string "verified_by"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["organization_id", "role_id"], name: "index_organization_roles_on_organization_id_and_role_id", unique: true
+    t.index ["organization_id"], name: "index_organization_roles_on_organization_id"
+    t.index ["role_id"], name: "index_organization_roles_on_role_id"
+    t.index ["verification_status"], name: "index_organization_roles_on_verification_status"
+    t.check_constraint "confidence IS NULL OR confidence >= 0::numeric AND confidence <= 1::numeric", name: "organization_roles_confidence_check"
+    t.check_constraint "verification_status::text = ANY (ARRAY['pending'::character varying, 'verified'::character varying, 'rejected'::character varying]::text[])", name: "organization_roles_verification_status_check"
+  end
+
+  create_table "organization_technologies", force: :cascade do |t|
+    t.bigint "organization_id", null: false
+    t.bigint "technology_id", null: false
+    t.decimal "confidence", precision: 3, scale: 2
+    t.string "verification_status", default: "pending", null: false
+    t.datetime "verified_at"
+    t.string "verified_by"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["organization_id", "technology_id"], name: "idx_on_organization_id_technology_id_11af310cc8", unique: true
+    t.index ["organization_id"], name: "index_organization_technologies_on_organization_id"
+    t.index ["technology_id"], name: "index_organization_technologies_on_technology_id"
+    t.index ["verification_status"], name: "index_organization_technologies_on_verification_status"
+    t.check_constraint "confidence IS NULL OR confidence >= 0::numeric AND confidence <= 1::numeric", name: "organization_technologies_confidence_check"
+    t.check_constraint "verification_status::text = ANY (ARRAY['pending'::character varying, 'verified'::character varying, 'rejected'::character varying]::text[])", name: "organization_technologies_verification_status_check"
+  end
+
+  create_table "organizations", force: :cascade do |t|
+    t.string "name", null: false
+    t.string "slug", null: false
+    t.string "legal_name"
+    t.string "website"
+    t.string "domain"
+    t.text "description"
+    t.string "hq_city"
+    t.string "hq_state"
+    t.string "country_code", limit: 2, default: "US", null: false
+    t.integer "founded_year"
+    t.string "status", default: "active", null: false
+    t.decimal "confidence", precision: 3, scale: 2
+    t.string "verification_status", default: "pending", null: false
+    t.datetime "verified_at"
+    t.string "verified_by"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["domain"], name: "index_organizations_on_domain", unique: true
+    t.index ["slug"], name: "index_organizations_on_slug", unique: true
+    t.index ["verification_status"], name: "index_organizations_on_verification_status"
+    t.check_constraint "confidence IS NULL OR confidence >= 0::numeric AND confidence <= 1::numeric", name: "organizations_confidence_check"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'acquired'::character varying, 'defunct'::character varying]::text[])", name: "organizations_status_check"
+    t.check_constraint "verification_status::text = ANY (ARRAY['pending'::character varying, 'verified'::character varying, 'rejected'::character varying]::text[])", name: "organizations_verification_status_check"
+  end
+
+  create_table "relationships", force: :cascade do |t|
+    t.bigint "from_organization_id", null: false
+    t.bigint "to_organization_id", null: false
+    t.string "relationship_type", null: false
+    t.text "description"
+    t.date "started_on"
+    t.date "ended_on"
+    t.decimal "confidence", precision: 3, scale: 2
+    t.string "verification_status", default: "pending", null: false
+    t.datetime "verified_at"
+    t.string "verified_by"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["from_organization_id", "to_organization_id", "relationship_type"], name: "index_relationships_uniqueness", unique: true
+    t.index ["from_organization_id"], name: "index_relationships_on_from_organization_id"
+    t.index ["to_organization_id"], name: "index_relationships_on_to_organization_id"
+    t.index ["verification_status"], name: "index_relationships_on_verification_status"
+    t.check_constraint "confidence IS NULL OR confidence >= 0::numeric AND confidence <= 1::numeric", name: "relationships_confidence_check"
+    t.check_constraint "from_organization_id <> to_organization_id", name: "relationships_not_self_check"
+    t.check_constraint "relationship_type::text = ANY (ARRAY['supplies'::character varying, 'invests_in'::character varying, 'funds'::character varying, 'offtake_with'::character varying]::text[])", name: "relationships_relationship_type_check"
+    t.check_constraint "verification_status::text = ANY (ARRAY['pending'::character varying, 'verified'::character varying, 'rejected'::character varying]::text[])", name: "relationships_verification_status_check"
+  end
+
+  create_table "roles", force: :cascade do |t|
+    t.string "key", null: false
+    t.string "name", null: false
+    t.bigint "parent_id"
+    t.text "description"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["key"], name: "index_roles_on_key", unique: true
+    t.index ["parent_id"], name: "index_roles_on_parent_id"
+  end
 
   create_table "solid_cable_messages", force: :cascade do |t|
     t.binary "channel", null: false
@@ -184,6 +343,29 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_09_000003) do
     t.index ["key"], name: "index_solid_queue_semaphores_on_key", unique: true
   end
 
+  create_table "technologies", force: :cascade do |t|
+    t.string "key", null: false
+    t.string "name", null: false
+    t.bigint "parent_id"
+    t.text "description"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["key"], name: "index_technologies_on_key", unique: true
+    t.index ["parent_id"], name: "index_technologies_on_parent_id"
+  end
+
+  add_foreign_key "facilities", "facilities", column: "parent_id"
+  add_foreign_key "facilities", "technologies"
+  add_foreign_key "facility_relationships", "facilities"
+  add_foreign_key "facility_relationships", "organizations"
+  add_foreign_key "organization_aliases", "organizations"
+  add_foreign_key "organization_roles", "organizations"
+  add_foreign_key "organization_roles", "roles"
+  add_foreign_key "organization_technologies", "organizations"
+  add_foreign_key "organization_technologies", "technologies"
+  add_foreign_key "relationships", "organizations", column: "from_organization_id"
+  add_foreign_key "relationships", "organizations", column: "to_organization_id"
+  add_foreign_key "roles", "roles", column: "parent_id"
   add_foreign_key "solid_queue_batch_executions", "solid_queue_batches", column: "batch_id", on_delete: :cascade
   add_foreign_key "solid_queue_batch_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_blocked_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
@@ -192,4 +374,5 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_09_000003) do
   add_foreign_key "solid_queue_ready_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_recurring_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_scheduled_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
+  add_foreign_key "technologies", "technologies", column: "parent_id"
 end
