@@ -34,8 +34,9 @@ class DataQuality::Robots
   private
     def rules_for(agent)
       agent = agent.downcase
-      @groups.find { |agents, _| agents.any? { |name| name != "*" && agent.include?(name) } }&.last ||
-        @groups.find { |agents, _| agents.include?("*") }&.last || []
+      matching = @groups.select { |agents, _| agents.any? { |name| name != "*" && agent.include?(name) } }
+      matching = @groups.select { |agents, _| agents.include?("*") } if matching.empty?
+      matching.flat_map(&:last)
     end
 
     # => [ [ ["agent", ...], [Rule, ...] ], ... ]
