@@ -107,6 +107,12 @@ class Directory::LookupTest < ActiveSupport::TestCase
     assert_equal "acme urenco", Directory::Lookup.brand_key("Acme Urenco, LLC")
   end
 
+  test "a plant name of four or more words is recognized at the end of a company name" do
+    Facility.create!(name: "Crane Clean Energy Center (Three Mile Island Unit 1)")
+
+    assert_equal "constellation", Directory::Lookup.brand_key("Constellation Crane Three Mile Island, LLC")
+  end
+
   test "dotted legal suffixes are dropped like plain ones" do
     assert_equal "acme", Directory::Lookup.brand_key("Acme Holdings, L.P.")
     assert_equal "acme", Directory::Lookup.brand_key("Acme Holdings, LP")
