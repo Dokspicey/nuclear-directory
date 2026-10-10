@@ -27,6 +27,8 @@ class SeedsTest < ActiveSupport::TestCase
     assert_equal 52, Relationship.verified.count
     assert_equal 28, Facility.verified.count
     assert_equal [ 53, 3 ], [ FacilityRelationship.verified.count, FacilityRelationship.pending.count ]
+    assert_equal 26, FacilityAlias.count
+    assert_equal "Kemmerer Unit 1", Directory::Lookup.facility(name: "Kemmerer Unit 1 (Natrium)")&.name, "found by its other name"
     assert_equal [ "human:tosin" ], Relationship.distinct.pluck(:verified_by)
     assert_equal [ 1 ], OrganizationRole.distinct.pluck(:confidence)
 

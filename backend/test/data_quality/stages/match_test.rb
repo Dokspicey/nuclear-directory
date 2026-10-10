@@ -46,6 +46,20 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
     assert_equal [ "crawler", "Braidwood 1 05000456", verify.id ], [ evidence.found_by, evidence.quote, evidence.crawl_run_id ]
   end
 
+  test "a facility found by one of its other names is attached, writing nothing" do
+    site = Facility.create!(name: "Peach Bottom Atomic Power Station")
+    site.aliases.create!(alias: "PBAPS")
+    c = candidate("facility", { "name" => "Peach Bottom Plant", "aliases" => [ "PBAPS", "Peach Bottom 2 and 3" ],
+      "facility_type" => "power_reactor" })
+
+    match!
+
+    assert_equal [ "Facility", site.id ], [ c.reload.subject_type, c.subject_id ]
+    assert c.status_matched?
+    assert_equal [ "PBAPS" ], site.aliases.pluck(:alias), "aliases wait for approval"
+    assert_empty site.evidence
+  end
+
   test "an unknown facility is proposed as a new pending record" do
     c = candidate("facility", facility_payload("Arkansas Nuclear 1", "05000313"))
 

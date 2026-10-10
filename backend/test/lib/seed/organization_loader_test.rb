@@ -161,6 +161,8 @@ class Seed::OrganizationLoaderTest < ActiveSupport::TestCase
     assert_equal [ old.id ], Facility.where("name LIKE ?", "Acme Plant%").pluck(:id)
     assert_equal [ "Acme Plant", "acme-plant" ], [ old.reload.name, old.slug ], "the slug a fresh seed would give it"
     assert_equal 1, old.facility_relationships.count
+    assert_equal [ "Acme Plant (Oak Ridge, TN)" ], old.aliases.pluck(:alias), "the former name is now an alias"
+    assert_equal old.id, Directory::Lookup.facility(name: "Acme Plant (Oak Ridge, TN)").id
   end
 
   test "a former name that was an unquoted legal name is dropped from the aliases on a rerun" do

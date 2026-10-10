@@ -56,7 +56,7 @@ module Directory
       facility: {
         model: Facility,
         attributes: %i[name slug parent_id facility_type status technology reactor_type capacity_mw nrc_docket
-          city state country_code latitude longitude]
+          city state country_code latitude longitude aliases]
       },
       relationship: {
         model: Relationship,
@@ -171,6 +171,11 @@ module Directory
       attributes = attributes.to_h.symbolize_keys
       unknown = attributes.keys - spec[:attributes] - [ :id ]
       return failure(kind, "unknown attributes: #{unknown.join(", ")}") if unknown.any?
+      # Candidate payloads reach here; a hash or number isn't a name.
+      aliases = attributes[:aliases]
+      unless aliases.nil? || aliases.is_a?(String) || (aliases.is_a?(Array) && aliases.all? { |name| name.nil? || name.is_a?(String) })
+        return failure(kind, "aliases must be a name or a list of names")
+      end
 
       record = nil
       created = false
@@ -207,6 +212,12 @@ module Directory
         check_link_ends(kind, attributes, record) if protect_human_verified && !rejecting_only
         curated = protect_human_verified && !created && record.human_reviewed?
         changes = model_attributes(kind, attributes)
+        # A plant found by its docket, name or an alias keeps its name: writing
+        # "Three Mile Island Unit 1" updates Crane, it doesn't rename it. Only a
+        # write by id renames.
+        changes.delete(:name) if kind == :facility && !created && !attributes.key?(:id)
+        lock_facility_names([ changes[:name], *Array(attributes[:aliases]) ]) if kind == :facility
+        check_facility_name(record, changes[:name]) if kind == :facility && changes[:name]
         if curated && (conflicts = conflicts_with(record, changes)).any?
           raise Conflict.new(record.id, conflicts)
         end
@@ -220,6 +231,14 @@ module Directory
           write_aliases(record, [ record.name, *attributes[:aliases] ])
           dropped = Array(remove_aliases).map { |name| OrganizationAlias.normalize(name) } - [ OrganizationAlias.normalize(record.name) ]
           record.aliases.where(normalized_alias: dropped).delete_all if dropped.any?
+          aliases_after = record.aliases.reload.pluck(:alias).sort
+          edited["aliases"] = [ aliases_before, aliases_after ] if edited && aliases_after != aliases_before
+        end
+        if kind == :facility
+          aliases_before = record.aliases.pluck(:alias).sort
+          # A name that was one of the plant's aliases is now its name.
+          record.aliases.where(normalized_alias: FacilityAlias.normalize(record.name)).delete_all
+          write_facility_aliases(record, attributes[:aliases])
           aliases_after = record.aliases.reload.pluck(:alias).sort
           edited["aliases"] = [ aliases_before, aliases_after ] if edited && aliases_after != aliases_before
         end
@@ -286,7 +305,7 @@ module Directory
           Organization.find(ref.id) if ref
         when :facility
           ref = Lookup.facility(nrc_docket: attrs[:nrc_docket]) if attrs[:nrc_docket].present?
-          ref ||= Lookup.facility(name: attrs[:name]) if attrs[:name].present?
+          ref ||= [ attrs[:name], *attrs[:aliases] ].compact_blank.lazy.filter_map { |name| Lookup.facility(name:) }.first
           Facility.find(ref.id) if ref
         when :organization_role
           model.find_by(organization_id: attrs[:organization_id], role: lookup_row(Role, attrs[:role]))
@@ -325,6 +344,48 @@ module Directory
           elsif existing.organization_id != organization.id
             raise Invalid, "alias #{name.inspect} already belongs to #{existing.organization.name}"
           end
+        end
+      end
+
+      # A facility's other names. Its own name isn't stored (facility names
+      # aren't unique), so a name that is another facility's is an error, as
+      # is an alias another facility already has.
+      # A plant can't take a name that's another plant's alias: the alias
+      # would still find the other plant under some spellings.
+      # A plant's name and other plants' aliases must never be the same name.
+      # The unique index covers aliases only, so a rename and an alias write
+      # for one normalized name take the same lock (held until the
+      # transaction ends) and check while holding it. Every name a write
+      # touches is locked up front in sorted order, after the row lock, so
+      # two writes can't each hold a name the other waits for.
+      def lock_facility_names(names)
+        names.compact_blank.map { |name| FacilityAlias.normalize(name) }.uniq.sort.each do |normalized|
+          sql = ActiveRecord::Base.sanitize_sql_array([ "SELECT pg_advisory_xact_lock(hashtext(?))", "facility-name:#{normalized}" ])
+          ActiveRecord::Base.connection.execute(sql)
+        end
+      end
+
+      def check_facility_name(facility, name)
+        owner = FacilityAlias.find_by(normalized_alias: FacilityAlias.normalize(name))
+        return if owner.nil? || owner.facility_id == facility.id
+
+        raise Invalid, "name #{name.inspect} is an alias of #{owner.facility.name}"
+      end
+
+      def write_facility_aliases(facility, names)
+        Array(names).compact_blank.uniq.each do |name|
+          normalized = FacilityAlias.normalize(name)
+          next if FacilityAlias.normalize(facility.name) == normalized
+
+          existing = FacilityAlias.find_by(normalized_alias: normalized)
+          raise Invalid, "alias #{name.inspect} already belongs to #{existing.facility.name}" if existing && existing.facility_id != facility.id
+          next if existing
+
+          # Compared normalized, as aliases are ("Peach-Bottom" is "Peach Bottom").
+          named = Facility.where.not(id: facility.id).pluck(:name).find { |other| FacilityAlias.normalize(other) == normalized }
+          raise Invalid, "alias #{name.inspect} is the name of another facility (#{named})" if named
+
+          facility.aliases.create!(alias: name)
         end
       end
 

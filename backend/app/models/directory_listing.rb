@@ -177,9 +177,15 @@ class DirectoryListing
       linked_sites = Facility.where(id: linked.select(:id)).or(Facility.where(id: linked.select(:parent_id))).select(:id)
       techs = Technology.where("technologies.name ILIKE :q OR technologies.key ILIKE :q", q: like(query)).select(:id)
       tech_units = Facility.published.where.not(parent_id: nil).where(technology_id: techs).select(:parent_id)
+      # Other names a plant goes by ("TMI-1" finds Crane), on the site or a unit.
+      # A query of only punctuation normalizes to "", which would match them all.
+      normalized = FacilityAlias.normalize(query)
+      aliased = normalized.present? ? FacilityAlias.where("normalized_alias LIKE ?", like(normalized)).select(:facility_id) : []
+      # A site's own aliases, and those of its published units only (as with unit names).
+      alias_sites = Facility.where(id: aliased).or(Facility.where(id: Facility.published.where(id: aliased).select(:parent_id))).select(:id)
 
       scope.where("facilities.name ILIKE ?", like(query)).or(scope.where(id: units)).or(scope.where(id: linked_sites))
-        .or(scope.verified.where(technology_id: techs)).or(scope.where(id: tech_units))
+        .or(scope.verified.where(technology_id: techs)).or(scope.where(id: tech_units)).or(scope.where(id: alias_sites))
     end
 
     # A technology key (fission, smr) or a coolant sub-role key (molten_salt).

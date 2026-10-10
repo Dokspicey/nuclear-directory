@@ -152,6 +152,9 @@ class DataQuality::DirectoryClient
       attributes[:aliases] = [ *attributes[:aliases], attributes[:name] ].compact_blank.uniq
       attributes.delete(:name) if candidate.subject_id
     end
+    # A matched plant keeps its own name too: a candidate found under one of its
+    # aliases ("Three Mile Island Unit 1") mustn't rename Crane.
+    attributes.delete(:name) if candidate.kind == "facility" && candidate.subject_id
     enrichment = enrichment?(candidate)
     verification =
       if enrichment then nil
