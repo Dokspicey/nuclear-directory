@@ -34,13 +34,14 @@ class DataQuality::PipelineTest < ActiveSupport::TestCase
     assert_equal 1001, created.subject_id, "verify publishes the record match proposed"
 
     match_writes, verify_writes = @writer.writes.partition { |write| write[:verification].nil? }
-    assert_equal [ { id: 7, aliases: [ "Acme Nuclear" ] }, { name: "NewCo Fission" } ], match_writes.map { |w| w[:attributes] },
-      "match attaches to the existing record and proposes the new one, both pending"
+    assert_equal [ { name: "NewCo Fission" } ], match_writes.map { |w| w[:attributes] },
+      "match proposes the new one; attaching to the existing one writes nothing"
 
     assert_equal 2, verify_writes.size
     write = verify_writes.first
     assert_equal "organization", write[:kind]
-    assert_equal({ name: "Acme Nuclear", id: 7 }, write[:attributes], "a matched candidate updates its record")
+    assert_equal({ id: 7, aliases: [ "Acme Nuclear" ] }, write[:attributes],
+      "a published match keeps its own name and gains the one it was found under as an alias")
     evidence = write[:evidence].sole
     assert_equal "crawler", evidence[:found_by]
     assert_equal existing.source_id, evidence[:source_id]
@@ -62,7 +63,7 @@ class DataQuality::PipelineTest < ActiveSupport::TestCase
 
     match = run_pipeline(verifier: PublishEverything.new)[2]
 
-    assert_equal 2, match.stats["write_errors"]
+    assert_equal 1, match.stats["write_errors"], "the proposal fails at match; the attached one fails on publish"
     assert dummy_candidates.all?(&:status_needs_review?)
     assert_match "name taken", dummy_candidates.first.notes
   end

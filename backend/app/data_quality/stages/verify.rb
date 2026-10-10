@@ -34,23 +34,40 @@ class DataQuality::Stages::Verify < DataQuality::Stage
       if result.success?
         candidate.update!(status: "merged", subject_type: result.ref.type, subject_id: result.ref.id)
         stats["published"] += 1
-        # A verified unit completes its site's missing details (see DirectoryClient).
-        directory.fill_site_from_unit(result.ref.id, candidate, crawl_run: run) if candidate.kind_facility?
+        fill_site(candidate, result.ref.id, run, stats) if candidate.kind_facility?
       else
         stats["write_errors"] += 1
         send_to_review(candidate, "Directory rejected the write: #{result.errors.join('; ')}", stats)
       end
     end
 
-    # A rejected candidate whose record match created (a proposal) takes that
-    # record with it, unless another live candidate is attached to it too. A
-    # rejected candidate attached to an existing record leaves it alone.
-    def retire_proposal(candidate, run)
-      return unless candidate.proposed_subject? && candidate.subject_id
+    # A verified unit completes its site's missing details (see DirectoryClient).
+    # The unit itself is already published, so a site that refuses (a human
+    # rejected it) is noted on the candidate rather than undoing the unit.
+    def fill_site(candidate, unit_id, run, stats)
+      result = directory.fill_site_from_unit(unit_id, candidate, crawl_run: run)
+      return if result.nil? || result.success?
+      # The unit disagrees with what a human recorded for its site: published,
+      # but a human should look (e.g. NRC's state is a nearby city's).
+      if result.conflict?
+        return send_to_review(candidate, "Published, but its site disagrees: #{result.errors.join('; ')}", stats)
+      end
 
-      others = Candidate.where(subject_type: candidate.subject_type, subject_id: candidate.subject_id)
-        .where.not(id: candidate.id).where(status: %w[new matched merged needs_review])
-      directory.retire(candidate, crawl_run: run) unless others.exists?
+      stats["site_not_filled"] = stats.fetch("site_not_filled", 0) + 1
+      candidate.update!(notes: [ candidate.notes, "Site not filled: #{result.errors.join('; ')}" ].compact_blank.join(". "))
+    end
+
+    # When the last live candidate attached to a record match created (a
+    # proposal) is rejected, the proposal is retired. Which candidate created
+    # it doesn't matter. A record that existed before match is left alone.
+    def retire_proposal(candidate, run)
+      return unless candidate.subject_id
+
+      attached = Candidate.where(subject_type: candidate.subject_type, subject_id: candidate.subject_id)
+      return unless attached.where(proposed_subject: true).exists?
+      return if attached.where.not(id: candidate.id).where(status: %w[new matched merged needs_review]).exists?
+
+      directory.retire(candidate, crawl_run: run)
     end
 
     def send_to_review(candidate, reason, stats)
