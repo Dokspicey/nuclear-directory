@@ -124,6 +124,16 @@ class Directory::LookupTest < ActiveSupport::TestCase
     assert_equal "southern", Directory::Lookup.brand_key("The Southern Company")
   end
 
+  test "a leading 'the' is ignored everywhere the brand is worked out" do
+    Directory::FactWriter.write(:organization, { name: "The Acme Company" })
+    Facility.create!(name: "Acme enrichment facility")
+    Facility.create!(name: "Seabrook Station")
+
+    assert_equal [ "The Acme Company" ], Directory::Lookup.same_brand_organizations("Acme Operations LLC").map(&:name)
+    assert_equal "other acme", Directory::Lookup.brand_key("Other Acme LLC"), "Acme is the owner, not a plant"
+    assert_equal "NextEra Energy", Directory::Lookup.brand_name("The NextEra Energy Seabrook, LLC")
+  end
+
   test "a name made only of legal or operating words has no brand" do
     assert_nil Directory::Lookup.brand_key("Nuclear Energy LLC")
     assert_nil Directory::Lookup.brand_key("Nuclear Power, Inc.")
