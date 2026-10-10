@@ -149,6 +149,17 @@ class Directory::VerificationAuditTest < ActiveSupport::TestCase
     assert_not FacilityRelationship.exists?(organization_id: @org.id, facility_id: plant.id)
   end
 
+  test "a proposed link whose company was closed can still be retired" do
+    link = FacilityRelationship.create!(organization: @org, facility: facilities(:vogtle), relationship_type: "owns")
+    @org.unpublish!(by: "human:tosin")
+
+    result = write(:facility_relationship, { id: link.id }, protect_human_verified: true,
+      verification: { status: "rejected", by: "agent:verifier/x" })
+
+    assert result.ok?, result.errors.join
+    assert link.reload.rejected?
+  end
+
   test "a human approving again with new context, or adding an alias, is recorded" do
     @org.verify!(by: "human:tosin")
 
