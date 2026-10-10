@@ -19,6 +19,11 @@ module Verifiable
 
     validates :confidence, numericality: { in: 0..1 }, allow_nil: true
     validate :closed_decisions_need_a_human
+    # Who is making this change (not who made the last one); set by the
+    # verify!/reject!/unpublish! helpers and by FactWriter.
+    # A plain accessor, not an attribute, so it never makes the record dirty.
+    attr_accessor :decided_by
+    after_save { self.decided_by = nil }
 
     # Why and in what context the next verification change is made; stored on
     # its event (see Directory::FactWriter's verification: reason:/context:).
@@ -89,11 +94,13 @@ module Verifiable
         next if verification_status == status && verified_by == by
 
         self.verification_reason = reason
+        self.decided_by = by
         update!(verification_status: status, verified_at: Time.current, verified_by: by)
         recompute_confidence!
       rescue ActiveRecord::RecordInvalid
         # A refused decision leaves the fact as it was, in memory too.
         restore_attributes(%w[verification_status verified_at verified_by])
+        self.decided_by = nil
         raise
       end
     end
@@ -103,7 +110,9 @@ module Verifiable
     # retires its own proposals.
     def closed_decisions_need_a_human
       return unless will_save_change_to_verification_status? || will_save_change_to_verified_by?
-      return if verified_by.to_s.start_with?("human:")
+      # The actor of this change, never the stored reviewer: a bare update of
+      # the status names no one, so it can't unpublish or reopen.
+      return if decided_by.to_s.start_with?("human:")
 
       from = verification_status_in_database
       if unpublished?

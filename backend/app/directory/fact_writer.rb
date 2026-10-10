@@ -76,12 +76,19 @@ module Directory
     # savepoint so one failure doesn't undo the others. writes: an array of
     # { kind:, attributes:, evidence:, verification:, protect_human_verified: }.
     # Returns one Result per write, in order. Each write is audited as usual.
+    WRITE_KEYS = %i[kind attributes evidence verification fill_blank protect_human_verified].freeze
+
+    # A misspelled key (say verfication:) fails that write rather than being
+    # dropped, so a bulk approval never reports success for a fact it didn't
+    # approve.
     def self.write_many(writes)
       ActiveRecord::Base.transaction do
         writes.map do |write|
           write = write.to_h.symbolize_keys
-          new.write(write.fetch(:kind), write.fetch(:attributes), **write.slice(:evidence, :verification, :fill_blank,
-            :protect_human_verified))
+          unknown = write.keys - WRITE_KEYS
+          next new.send(:failure, write[:kind], "unknown write keys: #{unknown.join(", ")}") if unknown.any?
+
+          new.write(write.fetch(:kind), write.fetch(:attributes), **write.except(:kind, :attributes))
         end
       end
     end
@@ -178,6 +185,8 @@ module Directory
         end
         return stored == incoming if incoming.is_a?(ActiveRecord::Base)
 
+        # Compared as the model would store it ("us" is "US" once normalized).
+        incoming = record.class.normalize_value_for(name.to_sym, incoming)
         stored == record.class.type_for_attribute(name.to_s).cast(incoming)
       end
 
@@ -267,6 +276,7 @@ module Directory
         record.verification_reason = verification[:reason]
         record.verification_context = verification[:context]
         record.audited_changes = edited.presence
+        record.decided_by = by
 
         if record.verification_status == status.to_s && record.verified_by == by
           # Same decision again: only a human's edit of the values is worth an event.
