@@ -1,11 +1,13 @@
 <%# One link between the company and a plant ("Kairos Power owns Hermes 2").
     A link to a reactor unit names the unit and goes to its site's page.
-    Locals: link, profile. %>
+    The plant's type, status and place show only when the plant has its own
+    source (CompanyProfile#plant_facts?). Locals: link, profile. %>
 <% plant = link.facility.parent || link.facility %>
 <% label = link.facility.parent ? "#{plant.name}, #{link.facility.name}" : plant.name %>
 <%= render "shared/fact_row",
       sentence: safe_join([ profile.name, " #{facility_relationship_verb(link.relationship_type)} ",
                             link_to(label, plant_url_for(plant), class: "nd-link type-body-strong") ]),
-      detail: [ facility_type_label(link.facility.facility_type), facility_status_label(link.facility.status),
-                place(plant.city, plant.state), link.description ].compact_blank.join(" · ").presence,
-      citations: profile.citations_for(link), confidence: link.confidence, checked: link.verified_at, correctable: true %>
+      detail: [ (facility_type_label(link.facility.facility_type) if profile.plant_facts?(link.facility)),
+                (facility_status_label(link.facility.status) if profile.plant_facts?(link.facility)),
+                (place(plant.city, plant.state) if profile.plant_facts?(plant)), link.description ].compact_blank.join(" · ").presence,
+      citations: profile.plant_link_citations(link), confidence: link.confidence, checked: link.verified_at, correctable: true %>
