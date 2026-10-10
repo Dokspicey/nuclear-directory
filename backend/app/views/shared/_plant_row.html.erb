@@ -3,13 +3,15 @@
                  also carries units_count and units_capacity_mw from its
                  verified units.
     connections: number of verified links (optional)
-    Type, status, units, capacity and place are left out when not known. %>
+    Type, status, units, capacity and place are left out when not known; a
+    pending site (public for a verified unit) shows only its units' facts. %>
+<% own = facility.verified? %>
 <% units = facility.try(:units_count).to_i %>
 <% capacity = facility.try(:units_capacity_mw) %>
-<% kind = [ facility_type_label(facility.facility_type), facility_status_label(facility.status),
+<% kind = [ (facility_type_label(facility.facility_type) if own), (facility_status_label(facility.status) if own),
             (pluralize(units, "unit") if units.positive?),
             ("#{number_with_precision(capacity, precision: 2, strip_insignificant_zeros: true, delimiter: ",")} MWe" if capacity.present?) ].compact.join(" · ").presence %>
-<% where = place(facility.city, facility.state) %>
+<% where = place(facility.city, facility.state) if own %>
 <% connections = local_assigns[:connections] %>
 <li>
   <%= link_to plant_url_for(facility), class: "nd-listrow" do %>
