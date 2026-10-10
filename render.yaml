@@ -57,6 +57,10 @@ services:
         sync: false
       - key: POSTHOG_HOST
         sync: false
+      # Error reporting; leave blank to turn it off. See
+      # config/initializers/sentry.rb.
+      - key: SENTRY_DSN
+        sync: false
 
 databases:
   - name: nuclear-directory-db

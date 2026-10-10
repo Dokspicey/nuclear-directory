@@ -1,6 +1,6 @@
 <% content_for :title, "Nuclear Directory" %>
 <main class="nd-home">
-  <h1 class="type-display nd-home__wordmark">Nuclear Directory</h1>
+  <h1 class="nd-home__wordmark"><span class="sr-only">Nuclear Directory</span><%= render "shared/wordmark" %></h1>
 
   <div class="nd-home__search">
     <%= render "shared/search_box", size: :large %>
