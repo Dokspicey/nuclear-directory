@@ -18,6 +18,10 @@ Rails.application.configure do
   # Cache assets for far-future expiry since they are all digest stamped.
   config.public_file_server.headers = { "cache-control" => "public, max-age=#{1.year.to_i}" }
 
+  # Compress pages, CSS and JavaScript (#90): Puma serves them directly, with
+  # no proxy in front that would.
+  config.middleware.insert_before ActionDispatch::Static, Rack::Deflater
+
   # Enable serving of images, stylesheets, and JavaScripts from an asset server.
   # config.asset_host = "http://assets.example.com"
 
