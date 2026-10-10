@@ -35,7 +35,7 @@ class DataQuality::Stages::Verify < DataQuality::Stage
   private
     def perform(run)
       stats = { "candidates" => 0, "recommended" => 0, "needs_review" => 0, "rejected" => 0,
-        "quote_missing" => 0, "human_decision" => 0, "conflicts" => 0, "already_recommended" => 0 }
+        "quote_missing" => 0, "human_decision" => 0, "conflicts" => 0, "already_recommended" => 0, "decided_meanwhile" => 0 }
       pending = candidates.where(status: %w[new matched]).includes(:source).order(:id).to_a
       stats["candidates"] = pending.size
 
@@ -48,28 +48,36 @@ class DataQuality::Stages::Verify < DataQuality::Stage
       verdicts = verdicts_for(checkable, run)
 
       pending.each do |candidate|
-        if (stat, reason = held[candidate.id])
-          stats[stat] += 1
-          send_to_review(candidate, reason, run, stats, model: nil)
-          next
-        end
-        if recommended?(candidate)
-          stats["already_recommended"] += 1
-          next
-        end
+        # A human may approve or reject in the admin while the model is
+        # asked; lock and re-check so their decision is never overwritten.
+        candidate.with_lock do
+          next stats["decided_meanwhile"] += 1 unless candidate.status_new? || candidate.status_matched?
 
-        verdict = verdicts.fetch(candidate.id)
-        case verdict.outcome
-        when :publish then recommend(candidate, verdict, run, stats)
-        when :review then send_to_review(candidate, verdict.reason, run, stats, confidence: verdict.confidence)
-        when :reject
-          candidate.update!(status: "rejected", notes: verdict.reason)
-          stats["rejected"] += 1
-          retire_proposal(candidate, run)
+          apply(candidate, held[candidate.id], verdicts[candidate.id], run, stats)
         end
       end
 
       stats
+    end
+
+    def apply(candidate, hold, verdict, run, stats)
+      if hold
+        stat, reason = hold
+        stats[stat] += 1
+        return send_to_review(candidate, reason, run, stats, model: nil)
+      end
+      return stats["already_recommended"] += 1 if recommended?(candidate)
+
+      # A verdict a code check produced (e.g. nothing stored) names no model.
+      model = verdict.by_code ? nil : run.model
+      case verdict.outcome
+      when :publish then recommend(candidate, verdict, run, stats, model:)
+      when :review then send_to_review(candidate, verdict.reason, run, stats, confidence: verdict.confidence, model:)
+      when :reject
+        candidate.update!(status: "rejected", notes: verdict.reason)
+        stats["rejected"] += 1
+        retire_proposal(candidate, run)
+      end
     end
 
     # [stats key, reason] when a candidate must go to review before any model
@@ -106,9 +114,12 @@ class DataQuality::Stages::Verify < DataQuality::Stage
       end
     end
 
-    # Domains compare as hosts: "https://WWW.TerraPower.com/news" is "terrapower.com".
+    # Values compare as the directory stores them: dockets stripped, country
+    # codes stripped and upcased, domains as hosts
+    # ("https://WWW.TerraPower.com/news" is "terrapower.com").
     def comparable(name, value)
-      return value.to_s unless name == "domain" && value.present?
+      return value.to_s.strip.upcase if name == "country_code"
+      return value.to_s.strip unless name == "domain" && value.present?
 
       text = value.to_s.strip
       host = URI.parse(text.match?(%r{\A[a-z][a-z0-9+.-]*://}i) ? text : "https://#{text}").host
@@ -130,8 +141,8 @@ class DataQuality::Stages::Verify < DataQuality::Stage
       candidate.source.content_text.blank? || plugin.quote_in_source?(candidate.source, candidate.quote)
     end
 
-    def recommend(candidate, verdict, run, stats)
-      candidate.update!(ai_fields("recommend_publish", verdict.reason, verdict.confidence, run))
+    def recommend(candidate, verdict, run, stats, model: run.model)
+      candidate.update!(ai_fields("recommend_publish", verdict.reason, verdict.confidence, run, model:))
       stats["recommended"] += 1
     end
 
