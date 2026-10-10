@@ -29,7 +29,7 @@ class SearchTest < ActionDispatch::IntegrationTest
     get search_path(q: "ghost")
 
     assert_select ".nd-instant__row", count: 0
-    assert_select ".nd-instant__empty", "No results for “ghost”"
+    assert_select ".nd-instant__empty", "No results for “ghost”. Check the spelling, or search a company or plant name."
   end
 
   test "the response fills the frame Turbo asked for" do
