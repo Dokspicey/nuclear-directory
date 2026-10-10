@@ -9,7 +9,7 @@ module DataQuality::Claim
   RELATIONSHIP_VERBS = {
     "supplies" => "supplies", "invests_in" => "invests in", "funds" => "funds",
     "offtake_with" => "has an offtake agreement with", "subsidiary_of" => "is a subsidiary of",
-    "owns" => "owns", "operates" => "operates", "vendor_for" => "is vendor for", "offtakes_from" => "offtakes from"
+    "owns" => "owns", "operates" => "operates", "vendor_for" => "is a vendor for", "offtakes_from" => "offtakes from"
   }.freeze
   # Roles in visitors' words (VOICE.md), as the directory's review labels say them.
   ROLE_WORDS = { "reactor_vendor" => "reactor developer", "reactor_services" => "repair and services company",

@@ -2,8 +2,8 @@
 # in the admin (DataQuality::Review.approve). Shared by all plug-ins.
 #
 # For each new or matched candidate, in order:
-# 1. Its record was rejected or unpublished by a human after match attached
-#    it: review, naming that decision.
+# 1. Its record, or a unit's site, was rejected or unpublished by a human
+#    after match attached it: review, naming that decision.
 # 2. It disagrees with a value a human verified on its record: review,
 #    showing both values ("human-verified state is NJ; this source says DE").
 # 3. Its quote isn't in the source's stored content (plug-in's
@@ -54,6 +54,9 @@ class DataQuality::Stages::Verify < DataQuality::Stage
     end
 
     def apply(candidate, hold, verdict, run, stats)
+      # Asked again now the model has answered: a human may have closed the
+      # record (or a unit's site) meanwhile.
+      hold ||= closed_hold(directory.attached_record(candidate))
       if hold
         stat, reason = hold
         stats[stat] += 1
@@ -77,10 +80,8 @@ class DataQuality::Stages::Verify < DataQuality::Stage
     # is asked, or nil.
     def hold_reason(candidate)
       record = directory.attached_record(candidate)
-      if record&.closed?
-        return [ "human_decision", "#{record.name.upcase_first} was #{record.decision} after this was matched to it. " \
-          "The same thing again, or a new record?" ]
-      end
+      closed = closed_hold(record)
+      return closed if closed
 
       differences = DataQuality::Differences.with_human_verified(candidate, record)
       return [ "conflicts", DataQuality::Differences.describe(differences) ] if differences.any?
@@ -91,6 +92,19 @@ class DataQuality::Stages::Verify < DataQuality::Stage
       end
 
       nil
+    end
+
+    # ["human_decision", reason] when a human rejected or unpublished the
+    # record match attached, or a unit's site, or nil.
+    def closed_hold(record)
+      if record&.closed?
+        return [ "human_decision", "#{record.name.upcase_first} was #{record.decision} after this was matched to it. " \
+          "The same thing again, or a new record?" ]
+      end
+      # A unit under a site a human closed: approving would publish it there.
+      if record&.parent_id && (site = directory.facility(id: record.parent_id))&.closed?
+        [ "human_decision", "Its site #{site.name} was #{site.decision}. Publish a unit under it anyway, or a new record?" ]
+      end
     end
 
     def verdicts_for(candidates, run)
