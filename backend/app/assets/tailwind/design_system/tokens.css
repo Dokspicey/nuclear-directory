@@ -125,6 +125,13 @@
   font: 400 15px/24px var(--font-text);
   @media (max-width: 560px) { font-size: 16px; }
 }
+/* The one huge numeral on the 404 page (#110). Anton, sized to the screen:
+   on phones it fills about the width, so it stays one line. */
+@utility type-numeral {
+  font: 400 clamp(160px, 24vw, 280px)/0.82 var(--font-display);
+  letter-spacing: 0.01em;
+  @media (max-width: 560px) { font-size: min(44vh, 56vw); }
+}
 @utility type-title-md {
   font: 600 20px/28px var(--font-text);
 }

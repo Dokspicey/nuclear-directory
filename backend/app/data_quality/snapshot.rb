@@ -14,6 +14,28 @@ class DataQuality::Snapshot
   # and the hash is of that text, so unrelated changes to the file don't
   # count as changes.
   def self.take(source, fetcher:, binary: false, &to_text)
+    claim(source) { take_claimed(source, fetcher:, binary:, &to_text) }
+  end
+
+  # Runs the block with the source's row locked and re-read, so the
+  # once-a-day check, the fetch and recording it can't interleave with
+  # another fetch of the same source (a pipeline run, the title backfill).
+  # An error is raised after the lock is released, so what the block
+  # recorded (e.g. a failed conversion as today's fetch) is kept.
+  def self.claim(source)
+    error = nil
+    result = source.with_lock do
+      yield
+    rescue StandardError => e
+      error = e
+      nil
+    end
+    raise error if error
+
+    result
+  end
+
+  def self.take_claimed(source, fetcher:, binary:, &to_text)
     # At most one fetch per source per calendar day (in the app's time zone).
     return :skipped_recent if source.fetched_at&.to_date == Date.current
 
@@ -63,7 +85,7 @@ class DataQuality::Snapshot
     source.update!(attempt)
     raise
   end
-  private_class_method :convert
+  private_class_method :convert, :take_claimed
 
   # A successful fetch clears any block. Validators are only replaced when
   # the server sends new ones (a 304 may omit them).

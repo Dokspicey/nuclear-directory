@@ -4,7 +4,7 @@ class DataQuality::ClaimTest < ActiveSupport::TestCase
   def claim(kind, payload) = DataQuality::Claim.describe(Candidate.new(kind:, payload:))
 
   test "records name every attribute" do
-    assert_equal 'There is a plant named "Vogtle 3", with NRC docket 05200025, plant type power reactor, and status operating.',
+    assert_equal "There is a plant named “Vogtle 3”, with NRC docket 05200025, plant type power reactor, and status operating.",
       claim("facility", { "name" => "Vogtle 3", "nrc_docket" => "05200025", "facility_type" => "power_reactor", "status" => "operating" })
   end
 

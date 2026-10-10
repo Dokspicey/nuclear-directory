@@ -409,6 +409,30 @@ class DataQuality::Plugins::EiaGeneratorsTest < ActiveSupport::TestCase
     assert withdrawn.reload.status_matched?, "rolled back, so the next run withdraws it again"
   end
 
+  test "a retirement that fails without raising also undoes the withdrawal" do
+    july = Source.create!(url: "https://www.eia.gov/electricity/data/eia860m/xls/july_generator2026.xlsx",
+      source_kind: "eia_generators", crawl_status: "ok")
+    proposed = Facility.create!(name: "Gone Plant", eia_plant_id: "99999")
+    withdrawn = Candidate.create!(source: july, kind: "facility", quote: "old", status: "matched", proposed_subject: true,
+      payload: { "name" => "Gone Plant", "eia_plant_id" => "99999" }, subject_type: "Facility", subject_id: proposed.id)
+    crawl!
+    withdrawn.update_columns(status: "matched")
+    proposed.update_columns(verification_status: "pending")
+    failing = DataQuality::DirectoryClient.new
+    def failing.retire(*, **) = DataQuality::DirectoryClient::WriteResult.new(ref: nil, errors: [ "invalid" ])
+
+    DataQuality::DirectoryClient.define_singleton_method(:new) { |*, **| failing }
+    begin
+      error = assert_raises(RuntimeError) { plugin.send(:supersede_older_files, source, CrawlRun.create!(stage: "crawl", source_kind: "eia_generators")) }
+    ensure
+      DataQuality::DirectoryClient.singleton_class.remove_method(:new)
+    end
+
+    assert_match "Couldn't retire Facility", error.message
+    assert withdrawn.reload.status_matched?
+    assert proposed.reload.pending?
+  end
+
   test "an operates link is retired when its plant stays but its operator changes" do
     july = Source.create!(url: "https://www.eia.gov/electricity/data/eia860m/xls/july_generator2026.xlsx",
       source_kind: "eia_generators", crawl_status: "ok")

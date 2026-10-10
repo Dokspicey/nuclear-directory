@@ -85,7 +85,7 @@ Fetch with `DataQuality::Snapshot.take(source, fetcher: DataQuality::Fetcher.new
 - **Extract skips** sources whose content hash hasn't changed since the last extraction.
 - **Titles:** a fetched HTML page's `<title>` (or `og:title`) becomes `sources.title`. For sources that
   were never fetched (e.g. the hand-checked seed), run the one-off
-  `bin/rails data_quality:backfill_titles`: one polite fetch per untitled URL, keeping only the title.
+  `bin/rails data_quality:backfill_titles`: one polite, conditional fetch per untitled URL (never a second fetch of a source on the same day), keeping only the title.
   A page without one (a PDF) gets "site, date", and a block leaves the title empty.
 
 Never work around a block. `plugins/nrc_reactor_list.rb` is the reference plug-in.

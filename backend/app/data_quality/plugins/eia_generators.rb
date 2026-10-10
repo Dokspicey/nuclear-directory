@@ -160,7 +160,12 @@ class DataQuality::Plugins::EiaGenerators < DataQuality::Plugin
         next unless attached.where(proposed_subject: true).exists?
         next if attached.where(status: %w[new matched merged needs_review]).exists?
 
-        directory.retire(candidate, crawl_run: run)
+        result = directory.retire(candidate, crawl_run: run)
+        # Already rejected or unpublished is done; any other failure undoes
+        # the withdrawal too, so the next run tries again.
+        next if result.success? || directory.fact(type: candidate.subject_type, id: candidate.subject_id)&.closed?
+
+        raise "Couldn't retire #{candidate.subject_type} #{candidate.subject_id}: #{result.errors.join('; ')}"
       end
     end
 
