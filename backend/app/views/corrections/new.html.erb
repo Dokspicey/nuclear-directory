@@ -1,0 +1,60 @@
+<%
+  r = @report
+  errors = r.errors
+  content_for :title, "Report a correction · Nuclear Directory"
+%>
+<% content_for :head do %><meta name="robots" content="noindex"><% end %>
+<%= render "shared/site_header" %>
+
+<main class="nd-page nd-page--narrow">
+  <h1 class="type-title-md m-0">Report a correction</h1>
+
+  <% if @too_many %>
+    <div class="nd-alert" role="alert">
+      <p class="type-body-strong">You've sent several corrections in the last few minutes. Wait a few minutes and send it again, or email it to us.</p>
+    </div>
+  <% elsif errors.any? %>
+    <div class="nd-alert" role="alert">
+      <p id="form-errors" class="type-body-strong">Fix this before sending:</p>
+      <ul><% errors.attribute_names.uniq.each do |attribute| %><li><a class="nd-link" href="#correction-<%= attribute %>"><%= errors.messages_for(attribute).first %></a></li><% end %></ul>
+    </div>
+  <% end %>
+
+  <dl class="nd-about">
+    <dt class="type-label">About</dt>
+    <dd><%= r.subject %><% if r.page_path != "/" %> · <%= link_to "Back to the page", r.page_path, class: "nd-link" %><% end %></dd>
+  </dl>
+
+  <%# novalidate: the server's error summary and inline errors replace the browser's popovers. %>
+  <%= form_with url: corrections_path, method: :post, class: "nd-form", local: true, html: { novalidate: true } do %>
+    <%= hidden_field_tag :subject, r.subject %>
+    <%= hidden_field_tag :page_path, r.page_path %>
+
+    <div class="nd-field<%= " nd-field--error" if errors[:message].any? %>">
+      <label for="correction-message" class="type-body-strong">What should change?</label>
+      <p id="correction-message-hint" class="nd-field__hint type-small">Say what's wrong and, if you can, link a public source that shows it.</p>
+      <% if errors[:message].any? %><p id="correction-message-error" class="nd-field__error type-body-strong"><%= errors.messages_for(:message).first %></p><% end %>
+      <%= text_area_tag :message, r.message, id: "correction-message", rows: 6, maxlength: 5000, required: true, class: "nd-input type-input",
+            aria: { describedby: [ "correction-message-hint", ("correction-message-error" if errors[:message].any?) ].compact.join(" "), invalid: errors[:message].any? || nil } %>
+    </div>
+
+    <div class="nd-field<%= " nd-field--error" if errors[:contact].any? %>">
+      <label for="correction-contact" class="type-body-strong">Email <span class="text-ink-muted">(optional)</span></label>
+      <p id="correction-contact-hint" class="nd-field__hint type-small">Only if you'd like a reply.</p>
+      <% if errors[:contact].any? %><p id="correction-contact-error" class="nd-field__error type-body-strong"><%= errors.messages_for(:contact).first %></p><% end %>
+      <%= email_field_tag :contact, r.contact, id: "correction-contact", maxlength: 200, autocomplete: "email", class: "nd-input type-input",
+            aria: { describedby: [ "correction-contact-hint", ("correction-contact-error" if errors[:contact].any?) ].compact.join(" "), invalid: errors[:contact].any? || nil } %>
+    </div>
+
+    <%# Honeypot: people never see or reach this field; bots fill it in. %>
+    <div class="nd-honeypot" aria-hidden="true">
+      <label for="correction-website">Leave this empty</label>
+      <input id="correction-website" type="text" name="website" tabindex="-1" autocomplete="off">
+    </div>
+
+    <div class="nd-form__actions">
+      <button type="submit" class="nd-btn nd-btn--primary"><%= icon("flag") %>Send correction</button>
+      <p class="type-small text-ink-muted">Or email it to <%= link_to DirectoryHelper::CORRECTIONS_EMAIL, correction_mailto(r.subject, r.page_path), class: "nd-link" %>.</p>
+    </div>
+  <% end %>
+</main>

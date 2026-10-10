@@ -1,50 +1,76 @@
 # A candidate as a plain-English claim, for the verifier model to check
-# against its source:
-#   facility: "There is a facility "Vogtle 3" with NRC docket 05200025,
-#              facility type power reactor, status operating, …"
+# against its source and for the admin to show. Visitors' words (VOICE.md):
+# company, not organization; plant, not facility.
+#   facility: "There is a plant named "Vogtle 3", with NRC docket 05200025,
+#              plant type power reactor, and status operating."
 #   facility_relationship: "Southern Nuclear Operating Co. operates the
-#              facility Vogtle 3 (NRC docket 05200025)."
+#              plant Vogtle 3 (NRC docket 05200025)."
 module DataQuality::Claim
   RELATIONSHIP_VERBS = {
     "supplies" => "supplies", "invests_in" => "invests in", "funds" => "funds",
     "offtake_with" => "has an offtake agreement with", "subsidiary_of" => "is a subsidiary of",
-    "owns" => "owns", "operates" => "operates", "vendor_for" => "is the vendor for", "offtakes_from" => "buys power from"
+    "owns" => "owns", "operates" => "operates", "vendor_for" => "is a vendor for", "offtakes_from" => "offtakes from"
   }.freeze
+  # Roles in visitors' words (VOICE.md), each with its article: the same
+  # phrases as the directory's review labels (Directory::Lookup; a test keeps
+  # them in step). The article isn't guessed from the first letter, which
+  # would say "an utility". Other roles read "has the role <name>".
+  ROLE_PHRASES = {
+    "fuel" => "a fuel supplier", "mining" => "a uranium miner", "conversion" => "a uranium converter",
+    "enrichment" => "a uranium enricher", "fabrication" => "a fuel fabricator",
+    "reactor_vendor" => "a reactor developer", "reactor_services" => "a repair and services company",
+    "utility" => "a utility", "operator" => "an operator", "data_center_offtaker" => "a power buyer",
+    "coolant" => "a coolant supplier", "molten_salt" => "a molten salt coolant supplier",
+    "water" => "a light water coolant supplier", "helium" => "a helium coolant supplier",
+    "sodium" => "a sodium coolant supplier", "lead" => "a lead coolant supplier",
+    "heavy_water" => "a heavy water supplier", "regulatory_consultant" => "a regulatory consultant",
+    "venture_capital" => "a venture capital investor", "government_agency" => "a government agency",
+    "national_lab" => "a national lab"
+  }.freeze
+  LABELS = { "nrc_docket" => "NRC docket", "facility_type" => "plant type", "ownership_pct" => "ownership",
+    "hq_city" => "headquarters city", "hq_state" => "headquarters state", "capacity_mw" => "capacity" }.freeze
 
   def self.describe(candidate)
     payload = candidate.payload
 
     case candidate.kind
     when "organization"
-      "There is an organization named #{payload['name'].inspect}#{details(payload.except('name'))}."
+      "There is a company named #{payload['name'].inspect}#{details(payload.except('name'))}."
     when "organization_alias"
       "#{name_of(payload['organization'])} is also known as #{payload['alias'].inspect}."
     when "facility"
-      "There is a facility named #{payload['name'].inspect}#{details(payload.except('name'))}."
+      "There is a plant named #{payload['name'].inspect}#{details(payload.except('name'))}."
     # Links carry every detail approval would publish (ownership %, dates,
     # description), so nothing is published that the verifier didn't check.
     when "facility_relationship"
-      "#{name_of(payload['organization'])} #{verb(payload['relationship_type'])} the facility " \
+      "#{name_of(payload['organization'])} #{verb(payload['relationship_type'])} the plant " \
         "#{facility_name(payload['facility'])}#{details(payload.except('organization', 'facility', 'relationship_type'))}."
     when "relationship"
       "#{name_of(payload['from_organization'])} #{verb(payload['relationship_type'])} #{name_of(payload['to_organization'])}" \
         "#{details(payload.except('from_organization', 'to_organization', 'relationship_type'))}."
     when "organization_role"
-      "#{name_of(payload['organization'])} has the role #{humanize(payload['role'])}."
+      role = payload["role"].to_s
+      phrase = ROLE_PHRASES[role]
+      phrase ? "#{name_of(payload['organization'])} is #{phrase}." : "#{name_of(payload['organization'])} has the role #{humanize(role)}."
     when "organization_technology"
-      "#{name_of(payload['organization'])} works with the technology #{humanize(payload['technology'])}."
+      "#{name_of(payload['organization'])} works on #{humanize(payload['technology'])}."
     else
       "#{candidate.kind.humanize}: #{payload.to_json}"
     end
   end
 
   def self.details(attributes)
-    pairs = attributes.compact_blank.map { |key, value| "#{key.humanize(capitalize: false)} #{value_text(key, value)}" }
+    pairs = attributes.compact_blank.map { |key, value| "#{LABELS.fetch(key) { key.humanize(capitalize: false) }} #{value_text(key, value)}" }
     pairs.empty? ? "" : ", with #{pairs.to_sentence}"
   end
 
   def self.value_text(key, value)
-    %w[facility_type status].include?(key) ? humanize(value) : value.to_s
+    case key
+    when "facility_type", "status" then humanize(value)
+    when "ownership_pct" then "#{value}%"
+    when "capacity_mw" then "#{value} MW"
+    else value.to_s
+    end
   end
 
   def self.name_of(ends) = ends.is_a?(Hash) ? (ends["name"] || ends["domain"]).to_s : ends.to_s

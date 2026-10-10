@@ -354,3 +354,32 @@
     .nd-columns--profile .nd-columns__main { grid-column: 1; grid-row: 1; }
   }
 }
+
+/* Report a correction (#44). */
+@layer components {
+  .nd-page--narrow { max-width: 640px; }
+  .nd-about { margin: 0; display: flex; flex-direction: column; gap: var(--nd-space-1); }
+  .nd-about dd { margin: 0; }
+  .nd-form { display: flex; flex-direction: column; gap: var(--nd-space-6); }
+  .nd-field { display: flex; flex-direction: column; gap: var(--nd-space-1); }
+  .nd-field__hint { margin: 0; color: var(--nd-ink-muted); }
+  .nd-field__error { margin: 0; color: var(--nd-ink); }
+  .nd-input { width: 100%; box-sizing: border-box; margin-top: var(--nd-space-1); padding: var(--nd-space-3); border: var(--nd-hairline) solid var(--nd-control); border-radius: var(--nd-radius-sm); background: var(--nd-paper-raised); color: var(--nd-ink); }
+  textarea.nd-input { resize: vertical; min-height: 144px; }
+  .nd-input:focus-visible { outline: var(--nd-focus-width) solid var(--nd-focus); outline-offset: 2px; }
+  /* Errors don't rely on color: a heavier border and the message in bold. */
+  .nd-field--error .nd-input { border: 2px solid var(--nd-ink); }
+  .nd-alert { padding: var(--nd-space-4); border: 2px solid var(--nd-ink); border-radius: var(--nd-radius-sm); }
+  .nd-alert p { margin: 0; }
+  .nd-alert ul { margin: var(--nd-space-2) 0 0; padding-left: 18px; }
+  .nd-form__actions { display: flex; flex-direction: column; align-items: flex-start; gap: var(--nd-space-3); }
+  .nd-honeypot { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+  .nd-confirm { display: flex; gap: var(--nd-space-4); align-items: flex-start; }
+
+  @media (max-width: 560px) {
+    .nd-form__actions .nd-btn { width: 100%; justify-content: center; height: 44px; }
+  }
+  @media (pointer: coarse) {
+    .nd-factrow__fix, .nd-overview__fix, .nd-gaps .nd-btn { display: inline-flex; align-items: center; min-height: 44px; }
+  }
+}
