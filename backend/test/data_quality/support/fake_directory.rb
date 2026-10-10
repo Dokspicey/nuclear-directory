@@ -26,6 +26,7 @@ module FakeDirectory
     # The fake knows nothing similar; match tests that need it use the real directory.
     def similar_organizations(name) = []
     def similar_facilities(name) = []
+    def facility_units(name:, state: nil) = []
 
     private
       # Same rule as the real Lookup.
