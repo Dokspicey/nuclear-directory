@@ -116,6 +116,18 @@ class CompanyPageTest < ActionDispatch::IntegrationTest
     assert_select "li#source-2 small", "energy.gov"
   end
 
+  test "on touch screens a source chip opens a sheet; without JavaScript it still jumps to the list" do
+    get company_path(slug: "kairos-power")
+
+    assert_select "[data-controller=source-sheet][data-action='click@document->source-sheet#open']" do
+      assert_select "dialog.nd-sheet[aria-labelledby=source-sheet-title]" do
+        assert_select "h2#source-sheet-title", /Source/
+        assert_select "button[type=button][data-action='source-sheet#close']", "Close"
+      end
+    end
+    assert_select ".nd-factrow a.nd-src[href='#source-1']"
+  end
+
   test "key facts" do
     get company_path(slug: "kairos-power")
 

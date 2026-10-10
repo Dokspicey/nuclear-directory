@@ -1,20 +1,35 @@
 <%# The numbered list every source chip on the page points to. Locals:
     sources: [[number, source], ...] in number order
     A source without a title shows its URL instead. Only http(s) URLs
-    become links; anything else is shown as text. %>
-<ol class="nd-sources">
-  <% sources.each do |number, source| %>
-    <% href = safe_source_url(source) %>
-    <li id="source-<%= number %>">
-      <span class="nd-num"><%= number %></span>
-      <span>
-        <% if href %>
-          <%= link_to source.title.presence || href, href, class: "nd-link", rel: "noopener noreferrer", target: "_blank" %>
-        <% else %>
-          <span><%= source.title.presence || source.url %></span>
-        <% end %>
-        <small><%= [ source_domain(source), ("published #{data_date(source.published_on)}" if source.published_on) ].compact_blank.join(" · ") %></small>
-      </span>
-    </li>
-  <% end %>
-</ol>
+    become links; anything else is shown as text.
+    On touch screens a chip opens these details in a sheet instead of
+    jumping here (source_sheet_controller.js, #90). %>
+<div data-controller="source-sheet" data-action="click@document->source-sheet#open">
+  <ol class="nd-sources">
+    <% sources.each do |number, source| %>
+      <% href = safe_source_url(source) %>
+      <li id="source-<%= number %>">
+        <span class="nd-num"><%= number %></span>
+        <span>
+          <% if href %>
+            <%= link_to source.title.presence || href, href, class: "nd-link", rel: "noopener noreferrer", target: "_blank" %>
+          <% else %>
+            <span><%= source.title.presence || source.url %></span>
+          <% end %>
+          <small><%= [ source_domain(source), ("published #{data_date(source.published_on)}" if source.published_on) ].compact_blank.join(" · ") %></small>
+        </span>
+      </li>
+    <% end %>
+  </ol>
+
+  <dialog class="nd-sheet" aria-labelledby="source-sheet-title" data-source-sheet-target="dialog"
+          data-action="click->source-sheet#backdrop close->source-sheet#closed">
+    <div class="nd-sheet__panel">
+      <div class="nd-sheet__head">
+        <h2 id="source-sheet-title" class="type-body-strong">Source <span class="type-data" data-source-sheet-target="number"></span></h2>
+        <button type="button" class="nd-btn nd-btn--ghost nd-btn--sm" data-action="source-sheet#close">Close</button>
+      </div>
+      <div class="nd-sheet__body" data-source-sheet-target="body"></div>
+    </div>
+  </dialog>
+</div>

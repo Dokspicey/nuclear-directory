@@ -234,7 +234,7 @@
   .nd-gaps ul { margin: 0; padding-left: 18px; font-size: 14px; line-height: 22px; columns: 2 200px; }
 
   .nd-sources { list-style: none; margin: 0; padding: 0; }
-  .nd-sources li { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 2px var(--nd-space-2); padding: 10px 0; border-bottom: var(--nd-hairline) solid var(--nd-rule); font-size: 14px; line-height: 20px; }
+  .nd-sources li { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 2px var(--nd-space-2); padding: 10px 0; border-bottom: var(--nd-hairline) solid var(--nd-rule); font-size: 14px; line-height: 20px; overflow-wrap: anywhere; }
   .nd-sources .nd-num { font-size: 12px; }
   .nd-sources small { display: block; font: 400 11px/16px var(--font-mono); color: var(--nd-ink-muted); }
 
@@ -396,5 +396,27 @@
   .nd-footer__links { display: flex; flex-wrap: wrap; gap: var(--nd-space-2) var(--nd-space-4); }
   @media (pointer: coarse) {
     .nd-footer__links a { display: inline-flex; align-items: center; min-height: 44px; }
+  }
+}
+
+/* Source sheet (#90): a source chip's details on touch screens. A bottom
+   sheet on phones, a centred panel elsewhere; native <dialog>. */
+@layer components {
+  .nd-sheet { padding: 0; border: 0; background: transparent; color: var(--nd-ink); max-width: 480px; width: calc(100% - 2 * var(--nd-space-4)); }
+  .nd-sheet::backdrop { background: rgb(0 0 0 / 0.5); }
+  .nd-sheet__panel { background: var(--nd-paper-raised); border: var(--nd-hairline) solid var(--nd-rule); border-radius: var(--nd-radius-md); padding: var(--nd-space-4); display: flex; flex-direction: column; gap: var(--nd-space-3); }
+  .nd-sheet__head { display: flex; align-items: center; justify-content: space-between; gap: var(--nd-space-3); }
+  .nd-sheet__head h2 { margin: 0; }
+  .nd-sheet__body { display: flex; flex-direction: column; gap: var(--nd-space-3); overflow-wrap: anywhere; }
+  .nd-sheet__body p { margin: 0; }
+  .nd-sheet__source { display: flex; flex-direction: column; gap: var(--nd-space-1); }
+  .nd-sheet__source small { color: var(--nd-ink-muted); }
+
+  @media (max-width: 560px) {
+    .nd-sheet { margin: auto 0 0; width: 100%; max-width: none; max-height: 80vh; }
+    .nd-sheet__panel { border-radius: var(--nd-radius-md) var(--nd-radius-md) 0 0; border-bottom: 0; padding-bottom: max(var(--nd-space-4), env(safe-area-inset-bottom)); }
+  }
+  @media (pointer: coarse) {
+    .nd-sheet__head .nd-btn, .nd-sheet__source a { min-height: 44px; display: inline-flex; align-items: center; }
   }
 }
