@@ -21,7 +21,8 @@ class Category
   ALL = [
     new(key: "fuel", name: "Fuel suppliers", role_keys: %w[fuel]),
     new(key: "reactor-developers", name: "Reactor developers", role_keys: %w[reactor_vendor]),
-    new(key: "power-plants", name: "Power plants", plants: true),
+    # Every kind of site: power plants, test reactors, fuel plants, mines (VOICE.md).
+    new(key: "plants", name: "Plants and sites", plants: true),
     new(key: "utilities", name: "Utilities and operators", role_keys: %w[utility operator]),
     new(key: "services", name: "Repair and services", role_keys: %w[reactor_services]),
     new(key: "power-buyers", name: "Power buyers", role_keys: %w[data_center_offtaker]),

@@ -5,6 +5,13 @@ Rails.application.routes.draw do
   # Can be used by load balancers and uptime monitors to verify that the app is live.
   get "up" => "rails/health#show", as: :rails_health_check
 
+  # The directory and search results: one page for browsing and searching (#40).
+  get "companies" => "directory#index", as: :companies
+
+  # Temporary: "/" shows the directory until the search-first home page lands
+  # (#41), so the wordmark and the 404's home link always lead somewhere.
+  root "directory#index"
+
   # Living reference for the design system (see DESIGN.md). Not public.
   get "design" => "design_system#show", as: :design_system if Rails.env.local?
 
