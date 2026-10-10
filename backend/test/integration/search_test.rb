@@ -25,6 +25,15 @@ class SearchTest < ActionDispatch::IntegrationTest
     assert_select ".nd-instant__all[href=?]", "/companies?q=kairos", text: /All results for “kairos”/
   end
 
+  test "an unpublished role doesn't show on a published company's result" do
+    OrganizationRole.joins(:organization).find_by!(organizations: { name: "Kairos Power" }).unpublish!(by: "human:test")
+
+    get search_path(q: "kairos power")
+
+    assert_select ".nd-instant__row[href='/companies/kairos-power']"
+    assert_select ".nd-instant__row[href='/companies/kairos-power']", text: /Reactor developer/, count: 0
+  end
+
   test "only verified records appear" do
     get search_path(q: "ghost")
 
