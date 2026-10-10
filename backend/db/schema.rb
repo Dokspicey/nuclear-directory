@@ -94,7 +94,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_10_000001) do
     t.index ["technology_id"], name: "index_facilities_on_technology_id"
     t.index ["verification_status"], name: "index_facilities_on_verification_status"
     t.check_constraint "confidence IS NULL OR confidence >= 0::numeric AND confidence <= 1::numeric", name: "facilities_confidence_check"
-    t.check_constraint "facility_type::text = ANY (ARRAY['power_reactor'::character varying, 'research_reactor'::character varying, 'fuel_facility'::character varying, 'enrichment'::character varying, 'fusion_facility'::character varying, 'other'::character varying, 'uranium_mine'::character varying, 'mill'::character varying]::text[])", name: "facilities_facility_type_check"
+    t.check_constraint "facility_type::text = ANY (ARRAY['power_reactor'::character varying::text, 'research_reactor'::character varying::text, 'fuel_facility'::character varying::text, 'enrichment'::character varying::text, 'fusion_facility'::character varying::text, 'other'::character varying::text, 'uranium_mine'::character varying::text, 'mill'::character varying::text])", name: "facilities_facility_type_check"
     t.check_constraint "status::text = ANY (ARRAY['operating'::character varying::text, 'under_construction'::character varying::text, 'planned'::character varying::text, 'shut_down'::character varying::text, 'decommissioning'::character varying::text])", name: "facilities_status_check"
     t.check_constraint "verification_status::text = ANY (ARRAY['pending'::character varying::text, 'verified'::character varying::text, 'rejected'::character varying::text])", name: "facilities_verification_status_check"
   end
@@ -212,7 +212,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_10_000001) do
     t.index ["verification_status"], name: "index_relationships_on_verification_status"
     t.check_constraint "confidence IS NULL OR confidence >= 0::numeric AND confidence <= 1::numeric", name: "relationships_confidence_check"
     t.check_constraint "from_organization_id <> to_organization_id", name: "relationships_not_self_check"
-    t.check_constraint "relationship_type::text = ANY (ARRAY['supplies'::character varying, 'invests_in'::character varying, 'funds'::character varying, 'offtake_with'::character varying, 'subsidiary_of'::character varying]::text[])", name: "relationships_relationship_type_check"
+    t.check_constraint "relationship_type::text = ANY (ARRAY['supplies'::character varying::text, 'invests_in'::character varying::text, 'funds'::character varying::text, 'offtake_with'::character varying::text, 'subsidiary_of'::character varying::text])", name: "relationships_relationship_type_check"
     t.check_constraint "verification_status::text = ANY (ARRAY['pending'::character varying::text, 'verified'::character varying::text, 'rejected'::character varying::text])", name: "relationships_verification_status_check"
   end
 
