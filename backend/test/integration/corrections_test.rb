@@ -20,6 +20,22 @@ class CorrectionsTest < ActionDispatch::IntegrationTest
     assert_select "a[href^='mailto:hello@nuclear-directory.org?']"
   end
 
+  test "a fact with an ampersand prefills plain text, not an HTML entity" do
+    kairos = company("Kairos Power")
+    cite!(link(company("Sargent & Lundy"), "supplies", kairos))
+    get company_path(slug: "kairos-power")
+
+    assert_select ".nd-factrow a.nd-factrow__fix[href=?]",
+      new_correction_path(subject: "Sargent & Lundy supplies Kairos Power", page: "/companies/kairos-power")
+  end
+
+  test "the form leaves validation to the server, so its error summary shows" do
+    get new_correction_path(subject: "x", page: "/")
+
+    assert_select "form.nd-form[novalidate]"
+    assert_select "textarea#correction-message[required]"
+  end
+
   test "a page outside the site is never linked" do
     [ "//evil.example/phish", "/\\evil.example/phish", "https://evil.example", "/ok\\..\\x" ].each do |page|
       get new_correction_path(subject: "Something", page:)
