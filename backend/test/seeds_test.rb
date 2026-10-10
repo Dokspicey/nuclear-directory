@@ -25,7 +25,7 @@ class SeedsTest < ActiveSupport::TestCase
     assert_equal 51, OrganizationRole.verified.count
     assert_equal 27, OrganizationTechnology.verified.count
     assert_equal 45, Relationship.verified.count
-    assert_equal 24, Facility.verified.count
+    assert_equal 23, Facility.verified.count
     assert_equal 36, FacilityRelationship.verified.count
     assert_equal [ "human:tosin" ], Relationship.distinct.pluck(:verified_by)
     assert_equal [ 1 ], OrganizationRole.distinct.pluck(:confidence)
@@ -36,6 +36,17 @@ class SeedsTest < ActiveSupport::TestCase
     assert link.subsidiary_of?
     assert_equal "human", link.evidence.sole.found_by
     assert_match "Georgia Power", link.evidence.sole.quote
+  end
+
+  test "CFS and Dominion share one ARC facility" do
+    load_seeds
+
+    arc = Facility.find_by!(name: "ARC fusion power plant (Chesterfield County, VA)")
+    links = arc.facility_relationships.includes(:organization).to_h { |link| [ link.organization.slug, link ] }
+    assert_equal %w[commonwealth-fusion-systems dominion-energy google], links.keys.sort
+    assert links["google"].offtakes_from?
+    assert_match "leasing rights", links["dominion-energy"].description
+    assert_equal "Dominion Energy Virginia currently owns the proposed site.", links["dominion-energy"].evidence.sole.quote
   end
 
   test "is safe to re-run" do
