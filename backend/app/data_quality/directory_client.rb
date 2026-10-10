@@ -47,15 +47,12 @@ class DataQuality::DirectoryClient
     record("Facility", lookup.facility(id:, name:, nrc_docket:))
   end
 
-  # The organization or facility a candidate is attached to, as it is now,
-  # or nil (links, or no subject).
+  # The fact a candidate is attached to (any kind, links included), with its
+  # current decision, or nil when it has none.
   def attached_record(candidate)
     return unless candidate.subject_id
 
-    case candidate.subject_type
-    when "Organization" then record("Organization", lookup.organization(id: candidate.subject_id))
-    when "Facility" then record("Facility", lookup.facility(id: candidate.subject_id))
-    end
+    record(candidate.subject_type, lookup.fact_state(type: candidate.subject_type, id: candidate.subject_id))
   end
 
   # Likely duplicates an exact lookup misses. Returns Records.

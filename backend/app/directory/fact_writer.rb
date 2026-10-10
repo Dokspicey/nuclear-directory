@@ -88,7 +88,7 @@ module Directory
 
         site = Facility.lock.find(unit.parent_id)
         stated = fields.to_h { |name| [ name.to_sym, unit.public_send(name) ] }.compact_blank
-        if site.human_reviewed? && !site.rejected? && (conflicts = conflicts_with(site, stated)).any?
+        if site.human_reviewed? && !site.closed? && (conflicts = conflicts_with(site, stated)).any?
           raise Conflict.new(site.id, conflicts)
         end
         values = stated.select { |name, _| site.public_send(name).blank? }
@@ -115,6 +115,8 @@ module Directory
           write = write.to_h.symbolize_keys
           unknown = write.keys - WRITE_KEYS
           next new.send(:failure, write[:kind], "unknown write keys: #{unknown.join(", ")}") if unknown.any?
+          missing = %i[kind attributes].reject { |key| write.key?(key) }
+          next new.send(:failure, write[:kind], "missing write keys: #{missing.join(", ")}") if missing.any?
 
           new.write(write.fetch(:kind), write.fetch(:attributes), **write.except(:kind, :attributes))
         end
@@ -151,8 +153,11 @@ module Directory
         # Locked, so a human's decision made while this write runs is seen, and
         # two decisions at once are recorded in the order they happen.
         record.lock! if (protect_human_verified || verification) && !created
-        # A rejected or unpublished fact only changes by a human's hand.
-        if protect_human_verified && !created && record.closed?
+        # A rejected or unpublished fact only changes by a human's hand:
+        # protected writes never change it, and an unprotected one needs a
+        # human's decision.
+        human_decision = verification.to_h.symbolize_keys[:by].to_s.start_with?("human:")
+        if !created && record.closed? && (protect_human_verified || (verification && !human_decision))
           raise Invalid, "#{record.model_name.human} was #{record.verification_status} by #{record.verified_by || 'review'}" \
             "#{" on #{record.verified_at.to_date}" if record.verified_at}; not changed"
         end
