@@ -41,6 +41,15 @@ module Directory
     end
 
     FACT_TYPES = %w[Organization OrganizationRole OrganizationTechnology Facility Relationship FacilityRelationship].freeze
+    # How a link reads to a person (VOICE.md's fixed verbs and words).
+    LINK_VERBS = {
+      "supplies" => "supplies", "invests_in" => "invests in", "funds" => "funds",
+      "offtake_with" => "has an offtake agreement with", "subsidiary_of" => "is a subsidiary of",
+      "owns" => "owns", "operates" => "operates", "vendor_for" => "is vendor for", "offtakes_from" => "offtakes from"
+    }.freeze
+    ROLE_WORDS = { "reactor_vendor" => "reactor developer", "reactor_services" => "repair and services company",
+      "data_center_offtaker" => "power buyer" }.freeze
+    private_constant :LINK_VERBS, :ROLE_WORDS
 
     # Any fact's current decision (Directory::FactStateRef), or nil.
     def fact_state(type:, id:)
@@ -109,14 +118,18 @@ module Directory
     end
 
     private
+      # A record's name; a link is "the fact “TerraPower owns Plant Vogtle”",
+      # in the words visitors use (VOICE.md), so it reads as a review note.
       def fact_label(record)
-        case record
-        when Organization, Facility then record.name
-        when OrganizationRole then "#{record.organization.name} as #{record.role.key}"
-        when OrganizationTechnology then "#{record.organization.name} in #{record.technology.key}"
-        when Relationship then "#{record.from_organization.name} #{record.relationship_type} #{record.to_organization.name}"
-        when FacilityRelationship then "#{record.organization.name} #{record.relationship_type} #{record.facility.name}"
-        end
+        statement =
+          case record
+          when Organization, Facility then return record.name
+          when OrganizationRole then "#{record.organization.name} is a #{ROLE_WORDS.fetch(record.role.key, record.role.name.downcase)}"
+          when OrganizationTechnology then "#{record.organization.name} works on #{record.technology.name.downcase}"
+          when Relationship then "#{record.from_organization.name} #{LINK_VERBS.fetch(record.relationship_type)} #{record.to_organization.name}"
+          when FacilityRelationship then "#{record.organization.name} #{LINK_VERBS.fetch(record.relationship_type)} #{record.facility.name}"
+          end
+        "the fact “#{statement}”"
       end
 
       # The same leading distinctive word, which is usually the plant's or

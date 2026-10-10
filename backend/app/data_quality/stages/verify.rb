@@ -16,7 +16,7 @@ class DataQuality::Stages::Verify < DataQuality::Stage
         # A human may have rejected or unpublished the record since match
         # attached this candidate to it; that decision goes to review, named.
         if (subject = directory.attached_record(candidate))&.closed?
-          send_to_review(candidate, "#{subject.name} was #{subject.decision} after this was matched to it. " \
+          send_to_review(candidate, "#{subject.name.upcase_first} was #{subject.decision} after this was matched to it. " \
             "The same thing again, or a new record?", stats)
           next
         end
