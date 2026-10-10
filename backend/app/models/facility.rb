@@ -5,7 +5,8 @@ class Facility < ApplicationRecord
   include Sluggable
   include Hierarchical
 
-  enum :facility_type, %w[power_reactor research_reactor fuel_facility enrichment fusion_facility other].index_by(&:itself),
+  enum :facility_type, %w[power_reactor research_reactor fuel_facility enrichment fusion_facility uranium_mine mill other]
+    .index_by(&:itself),
     validate: { allow_nil: true }
   enum :status, %w[operating under_construction planned shut_down decommissioning].index_by(&:itself),
     validate: { allow_nil: true }

@@ -94,7 +94,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_10_000001) do
     t.index ["technology_id"], name: "index_facilities_on_technology_id"
     t.index ["verification_status"], name: "index_facilities_on_verification_status"
     t.check_constraint "confidence IS NULL OR confidence >= 0::numeric AND confidence <= 1::numeric", name: "facilities_confidence_check"
-    t.check_constraint "facility_type::text = ANY (ARRAY['power_reactor'::character varying, 'research_reactor'::character varying, 'fuel_facility'::character varying, 'enrichment'::character varying, 'fusion_facility'::character varying, 'other'::character varying]::text[])", name: "facilities_facility_type_check"
+    t.check_constraint "facility_type::text = ANY (ARRAY['power_reactor'::character varying, 'research_reactor'::character varying, 'fuel_facility'::character varying, 'enrichment'::character varying, 'fusion_facility'::character varying, 'other'::character varying, 'uranium_mine'::character varying, 'mill'::character varying]::text[])", name: "facilities_facility_type_check"
     t.check_constraint "status::text = ANY (ARRAY['operating'::character varying, 'under_construction'::character varying, 'planned'::character varying, 'shut_down'::character varying, 'decommissioning'::character varying]::text[])", name: "facilities_status_check"
     t.check_constraint "verification_status::text = ANY (ARRAY['pending'::character varying, 'verified'::character varying, 'rejected'::character varying]::text[])", name: "facilities_verification_status_check"
   end
