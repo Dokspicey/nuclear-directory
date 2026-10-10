@@ -1,0 +1,6 @@
+#!/bin/bash -e
+# Install any gems added since the image was built, and clear a stale
+# server pid left behind if the container was stopped abruptly.
+bundle check > /dev/null || bundle install
+rm -f tmp/pids/server.pid
+exec "$@"
