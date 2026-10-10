@@ -50,7 +50,8 @@ module FakeDirectory
       @next_id = 1000
     end
 
-    def write(kind, attributes, evidence: [], verification: nil, fill_blank: false, protect_human_verified: false)
+    def write(kind, attributes, evidence: [], verification: nil, fill_blank: false, protect_human_verified: false,
+      remove_aliases: [])
       @writes << { kind:, attributes:, evidence:, verification:, fill_blank: }
       return Directory::FactWriter::Result.new(kind: kind.to_sym, id: nil, created: false, errors: [ @fail_with ]) if @fail_with
 

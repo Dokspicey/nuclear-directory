@@ -163,6 +163,29 @@ class Seed::OrganizationLoaderTest < ActiveSupport::TestCase
     assert_equal 1, old.facility_relationships.count
   end
 
+  test "a former name that was an unquoted legal name is dropped from the aliases on a rerun" do
+    Directory::FactWriter.write(:organization, { name: "Acme Fuel Holdings, Inc.", slug: "acme-fuel" })
+    write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com", legal_name: "Acme Fuel Holdings, Inc.",
+      aliases: [ "Acme", "Acme Fuel Holdings, Inc." ]))
+
+    Seed::OrganizationLoader.new(@dir).load!
+
+    acme = Organization.find_by!(slug: "acme-fuel")
+    assert_equal "Acme Fuel", acme.name, "found under its former name and renamed"
+    assert_equal [ "Acme", "Acme Fuel" ], acme.aliases.pluck(:alias).sort
+    assert_equal [ [ "Acme Fuel Holdings, Inc." ], [ "Acme", "Acme Fuel" ] ],
+      acme.verification_events.order(:id).last.changed_values["aliases"]
+  end
+
+  test "a facilities.yml plant already in the database must still be in an organization file" do
+    write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com"))
+    Facility.create!(name: "Nowhere Plant")
+    File.write(facilities_file, { "facilities" => [ { "name" => "Nowhere Plant" } ] }.to_yaml)
+
+    error = assert_raises(Seed::OrganizationLoader::Error) { Seed::OrganizationLoader.new(@dir, facilities: facilities_file).load! }
+    assert_match "Nowhere Plant", error.message
+  end
+
   test "a facilities.yml plant must be in an organization file" do
     write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com"))
     File.write(facilities_file, { "facilities" => [ { "name" => "Nowhere Plant" } ] }.to_yaml)
