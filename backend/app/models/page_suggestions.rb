@@ -25,8 +25,9 @@ class PageSuggestions
     return [] if words.empty?
 
     @matches ||= begin
-      companies = Organization.published.where(name_matches("organizations.name")).to_a.map { |o| [ :company, o ] }
-      plants = Facility.published.where(parent_id: nil).where(name_matches("facilities.name")).to_a.map { |f| [ :plant, f ] }
+      # Ranked and capped in SQL, so a broad word never loads whole tables.
+      companies = best(Organization.published, "organizations.name").map { |o| [ :company, o ] }
+      plants = best(Facility.published.where(parent_id: nil), "facilities.name").map { |f| [ :plant, f ] }
       (companies + plants).sort_by { |kind, record| [ -score(record.name), kind == @kind ? 0 : 1, record.name.length, record.name ] }.first(LIMIT)
     end
   end
@@ -36,8 +37,17 @@ class PageSuggestions
 
     def name_matches(column)
       clause = patterns.map { "#{column} ILIKE ?" }.join(" OR ")
-      ActiveRecord::Base.sanitize_sql_array([ clause, *patterns.map { |p| "%#{ActiveRecord::Base.sanitize_sql_like(p)}%" } ])
+      ActiveRecord::Base.sanitize_sql_array([ clause, *likes ])
     end
+
+    # The LIMIT best matches of one kind: most words matched, then shortest name.
+    def best(scope, column)
+      score_sql = patterns.map { "(CASE WHEN #{column} ILIKE ? THEN 1 ELSE 0 END)" }.join(" + ")
+      order = ActiveRecord::Base.sanitize_sql_array([ "#{score_sql} DESC, LENGTH(#{column}), #{column}", *likes ])
+      scope.where(name_matches(column)).order(Arel.sql(order)).limit(LIMIT).to_a
+    end
+
+    def likes = patterns.map { |p| "%#{ActiveRecord::Base.sanitize_sql_like(p)}%" }
 
     def score(name) = patterns.count { |pattern| name.downcase.include?(pattern) }
 end
