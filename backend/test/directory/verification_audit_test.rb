@@ -192,6 +192,12 @@ class Directory::VerificationAuditTest < ActiveSupport::TestCase
     assert_equal [ "TP Holdings" ], after - before
   end
 
+  test "a decision's date can't be changed on its own" do
+    @org.verify!(by: "human:tosin")
+
+    assert_raises(ActiveRecord::RecordInvalid) { @org.reload.update!(verified_at: 1.year.ago) }
+  end
+
   test "an agent repeating a closed decision can't edit the fact" do
     @org.reject!(by: "agent:verifier/x")
 
