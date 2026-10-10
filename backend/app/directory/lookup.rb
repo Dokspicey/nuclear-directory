@@ -201,9 +201,8 @@ module Directory
       def place_words_at_end(words, plants)
         return if OWN_BRANDS.include?(words.join(" "))
 
-        3.downto(1).find do |size|
-          next if words.size <= size
-
+        # Longest first, and always leaving at least one word of the brand.
+        (words.size - 1).downto(1).find do |size|
           tail = words.last(size).join(" ")
           REGION_WORDS.include?(tail) || plants.include?(tail)
         end
