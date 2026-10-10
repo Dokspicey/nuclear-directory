@@ -109,8 +109,7 @@ module Directory
     # once trailing entity words, and a trailing plant or region name, are
     # dropped. More than one result means the brand is ambiguous (e.g. "Urenco"
     # and "Urenco USA" are both records).
-    def same_brand_organizations(name)
-      plants = plant_names
+    def same_brand_organizations(name, plants: plant_names)
       key = brand_key(name, plants:) or return []
 
       OrganizationAlias.where("organization_aliases.normalized_alias LIKE ?", "#{ActiveRecord::Base.sanitize_sql_like(key)}%")
@@ -140,6 +139,16 @@ module Directory
       place = place_words_at_end(base, plants) or return
 
       tokens.first(base.size - place).join(" ")
+    end
+
+    # Distinctive names of known plants ("seabrook", "point beach",
+    # "palisades"), from the facility records, leaving out rejected ones.
+    # One query; read it once and pass it as plants: when checking many names.
+    def plant_names
+      Facility.where.not(verification_status: "rejected").pluck(:name).flat_map do |name|
+        words = distinctive_words(name).reject { |word| word.length < 3 }
+        [ words.join(" "), words.first(2).join(" "), (words.first if words.first.to_s.length >= 5) ]
+      end.compact_blank.to_set
     end
 
     def distinctive_words(name)
@@ -174,16 +183,6 @@ module Directory
           tail = words.last(size).join(" ")
           REGION_WORDS.include?(tail) || plants.include?(tail)
         end
-      end
-
-      # Distinctive names of known plants ("seabrook", "point beach",
-      # "palisades"), from the facility records, leaving out rejected ones.
-      # One query per lookup.
-      def plant_names
-        Facility.where.not(verification_status: "rejected").pluck(:name).flat_map do |name|
-          words = distinctive_words(name).reject { |word| word.length < 3 }
-          [ words.join(" "), words.first(2).join(" "), (words.first if words.first.to_s.length >= 5) ]
-        end.compact_blank.to_set
       end
 
       # The same leading distinctive word, which is usually the plant's or
