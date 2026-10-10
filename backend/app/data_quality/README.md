@@ -75,7 +75,10 @@ with `crawl(run)` and `extract(source, run)` (see `plugin.rb`). Match and verify
 
 Fetch with `DataQuality::Snapshot.take(source, fetcher: DataQuality::Fetcher.new)`, never your own HTTP:
 - **`Fetcher`** identifies as `NuclearDirectoryBot`, obeys robots.txt, waits between requests to a host,
-  sends ETag / If-Modified-Since, and never retries.
+  sends ETag / If-Modified-Since, and never retries. It fetches public https only: the standard port,
+  redirects that stay on the same host (with or without `www.`), and hosts that resolve only to public
+  addresses (no private, loopback, link-local or metadata IPs); it connects to the address it checked.
+  Anything else comes back as `:error`, "Not fetched: …".
 - **`Snapshot`** fetches a source at most once a day and records the result on it: content and hash,
   `blocked` with the CDN reference on a 403 (`needs_human` after 3 in a row), or `needs_human` if
   robots.txt disallows it.
@@ -99,9 +102,38 @@ Never work around a block. `plugins/nrc_reactor_list.rb` is the reference plug-i
 | `status`, `notes` | Optional: `status: "needs_review"` with the reason in `notes` sends a candidate straight to review. The stage marks it `review_origin: "extract"`, so re-extracting a changed source replaces it (with the source's `new` candidates) instead of piling up duplicates |
 
 The extract stage adds `source_id` and `crawl_run_id`. Candidates start `new` (or `needs_review` if
-the plug-in flagged them). Match links the ones it can to directory records (`matched`), and verify
-then publishes (`merged`), sends to review (`needs_review`) or rejects (`rejected`). See
-"Matching and candidate payloads" below for match's outcomes.
+the plug-in flagged them). Match links the ones it can to directory records (`matched`). Verify then
+recommends or sends to review; a human publishes (`merged`) from the admin. See "Matching and
+candidate payloads" below for match's outcomes.
+
+## Verify recommends; a human publishes
+
+Tosin approves everything that goes public. Verify (`stages/verify.rb`) never writes to the directory.
+For each `new` or `matched` candidate:
+
+1. **Code checks first**, with no model call. These go to `needs_review`, with the reason in `notes`:
+   - its record was rejected or unpublished by a human after match attached it
+   - it disagrees with a human-verified value on its record ("human-verified state is NJ; this source
+     says DE"; names aren't compared)
+   - its quote isn't in the source as stored. Each plug-in defines that: `quote_in_source?`, by default
+     the page's visible text, and for NRC a whole table row
+2. **The verifier agent** (`Verifiers::Agent`, `OPENROUTER_VERIFY_MODEL`, prompt `verify-v1`) reads the
+   claim (`Claim.describe`) against an excerpt (`verification_context`; for NRC the header and the row),
+   15 claims per call. All model calls happen before anything is written.
+   - supported and at least 80% sure: **`ai_recommendation: "recommend_publish"`**; the candidate stays
+     `new`/`matched` and the fact stays pending
+   - anything else: `needs_review`, with the model's reason
+   - it never rejects on its own
+
+The recommendation lives on the candidate: `ai_recommendation`, `ai_reason`, `ai_confidence`, `ai_model`,
+`ai_checked_at` and `verify_run`. `Candidate.recommended` lists those waiting for approval, indexed by
+recommendation and run.
+
+**Approving** (`DataQuality::Review.approve(ids, by: "human:tosin")`) publishes each candidate in one
+FactWriter write, as a human, without the protection automated writers get: the fact, its evidence (with
+the verifier's confidence and the verify run) and `verification: { status: "verified", by:, context: {
+candidate_id, crawl_run_id } }`. An approved unit then fills its site's blank fields. #85 adds listing,
+reject, unpublish and pending directory facts.
 
 **NRC extract.** The extractor model (`OPENROUTER_EXTRACT_MODEL`, prompt `nrc-extract-v1`) reads the
 reactor table as plain lines and returns each unit with its row quoted. Every answer is checked
@@ -141,7 +173,7 @@ Extract writes `candidates` (`kind`, `payload`, `quote`, `source_id`). Match
 
 | Outcome | When | Candidate becomes |
 |---|---|---|
-| **Found** | exact NRC docket, domain, or name/alias (normalized) | `matched`, subject = that record. Nothing is written yet: when verify publishes it, the quote is added as evidence and an organization gains the name as an alias (its own name is kept). A human-verified record only gets its blanks filled; a disagreement goes to review, and a rejected record is never changed. |
+| **Found** | exact NRC docket, domain, or name/alias (normalized) | `matched`, subject = that record. Nothing is written yet: when a human approves it, the quote is added as evidence and an organization gains the name as an alias (its own name is kept). If it disagrees with a human-verified value, verify sends it to review with both values; approving it then applies the new value, since the approver is a human. A record that was rejected or unpublished is never changed or attached to: the candidate goes to review, with who decided and when. |
 | **Not found** | nothing exact and nothing similar | `matched`, subject = a new **pending** record with the quote as evidence |
 | **New unit of a known site** | an NRC unit (has a docket) whose only similar record is a site (no docket, no parent) that covers it | `matched`, subject = a new **pending** unit with `parent_id` = the site |
 | **Ambiguous** | identifiers point at different records, or a similar record exists | `needs_review`, with the reason in `notes`. Never merged automatically. |
@@ -150,8 +182,8 @@ Extract writes `candidates` (`kind`, `payload`, `quote`, `source_id`). Match
 generic words ("Vogtle 3" vs "Plant Vogtle Units 3 & 4", "Southern Nuclear
 Operating Co." vs "Southern Company"). Facilities with different NRC dockets
 are never similar, so "Braidwood 2" isn't flagged against "Braidwood 1".
-Evidence from match is `found_by: crawler` with no confidence; verify sets
-the confidence and decides whether the fact is published.
+Evidence from match is `found_by: crawler` with no confidence; when a human
+approves, the evidence gets the verifier's confidence (if it recommended publishing).
 
 Organizations and facilities are matched first, so links in the same run can
 find records proposed a moment earlier.
@@ -161,10 +193,12 @@ find records proposed a moment earlier.
 covers the units its name lists ("Units 3 & 4" covers 3 and 4); a name that
 lists none ("Susquehanna Steam Electric Station") covers every unit. A unit the
 site doesn't cover ("Vogtle 1", or "Palisades" against "Palisades Pioneer Units
-1 & 2"), or with more than one possible site, goes to review. When verify
-publishes a unit, its `state`, `facility_type`, `status` and `country_code`
+1 & 2"), or with more than one possible site, goes to review. When a human
+approves a unit, its `state`, `facility_type`, `status` and `country_code`
 fill the site's **blank** fields only (FactWriter `fill_blank: true`), with
-the unit's quote as evidence; the site's verification is left alone.
+the unit's quote as evidence; the site's verification is left alone. If the
+unit disagrees with a human-reviewed site (e.g. a different state), nothing is
+filled and the candidate notes why; the unit stays published.
 
 **Payloads.** Records carry their attributes, as named in the
 [FactWriter table](../directory/README.md#kinds). Links name each end with a

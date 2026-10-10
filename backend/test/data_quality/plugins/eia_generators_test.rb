@@ -5,6 +5,7 @@ require_relative "../support/dummy_plugin"
 # August 2026 file: Vogtle 1-4, Farley 1, Hope Creek 1, Salem 1, Columbia 2,
 # Arkansas Nuclear One 1-2, and one coal plant.
 class DataQuality::Plugins::EiaGeneratorsTest < ActiveSupport::TestCase
+  include ReviewHelpers
   Plugin = DataQuality::Plugins::EiaGenerators
   Workbook = Plugin::Workbook
   INDEX = Plugin::INDEX_URL
@@ -28,8 +29,11 @@ class DataQuality::Plugins::EiaGeneratorsTest < ActiveSupport::TestCase
     Facility.create!(name: name, nrc_docket: docket, state: state, facility_type: "power_reactor", **attributes)
   end
 
+  # Extract, match and verify, then a human approves what verify recommended
+  # (verify only recommends, #15). Returns the runs.
   def match_and_verify!(verifier: PublishEverything.new)
     DataQuality::Pipeline.run("eia_generators", plugin: plugin, only: %w[extract match verify], verifier: verifier)
+      .tap { approve_recommended }
   end
 
   test "reads only the nuclear rows, keeping EIA's values verbatim" do

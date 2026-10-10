@@ -4,15 +4,15 @@
 # For every new candidate, one of three things happens:
 # - Found: an exact match on NRC docket, domain or name/alias. The candidate
 #   is attached to that record and nothing is written yet: its quote becomes
-#   evidence (and, for an organization, its name an alias) only when verify
-#   publishes it.
+#   evidence (and, for an organization, its name an alias) only when a human
+#   approves it (DataQuality::Review.approve).
 # - Not found: a new pending record is proposed with the quote as evidence.
 # - Ambiguous: identifiers point at different records, or a similar record
 #   exists ("Vogtle 3" vs "Plant Vogtle Units 3 & 4"). The candidate goes to
 #   needs_review with the reason. Never merged automatically.
 #
-# Either way a matched candidate ends up with a subject, and verify decides
-# whether that fact is published. Records go first, so links (who operates
+# Either way a matched candidate ends up with a subject. Verify then
+# recommends, and a human decides whether that fact is published. Records go first, so links (who operates
 # what) can find records proposed earlier in the same run.
 #
 # Payload for links: each end is a nested hash identifying the record, e.g.
@@ -123,16 +123,18 @@ class DataQuality::Stages::Match < DataQuality::Stage
       write(candidate, attributes, evidence: false)
     end
 
-    # Found, Review or nil (nothing like it exists). A record that was rejected
-    # (a retired proposal, or one a human turned down) is never attached to:
-    # the candidate goes to review instead.
+    # Found, Review or nil (nothing like it exists). A closed record, one that
+    # was rejected (a retired proposal, or one a human turned down) or that a
+    # human unpublished, is never attached to: the candidate goes to review.
     def resolve(type, payload)
       found = type == :organization ? resolve_organization(payload) : resolve_facility(payload)
-      if found.is_a?(Found) && found.record.rejected?
-        return Review.new("matches #{found.record.name} (by #{found.by}), which was rejected. The same thing again, or a new record?")
+      if found.is_a?(Found) && found.record.closed?
+        return Review.new("matches #{found.record.name} (by #{found.by}), which was #{found.record.decision}. " \
+          "The same thing again, or a new record?")
       end
-      if found.is_a?(Under) && found.site.rejected?
-        return Review.new("looks like a unit of #{found.site.name}, which was rejected. Under it anyway, or its own record?")
+      if found.is_a?(Under) && found.site.closed?
+        return Review.new("looks like a unit of #{found.site.name}, which was #{found.site.decision}. " \
+          "Under it anyway, or its own record?")
       end
 
       found

@@ -4,6 +4,8 @@ require_relative "../support/dummy_plugin"
 # A verified NRC unit fills its seed site's missing details, through the
 # real directory.
 class DataQuality::Stages::SiteFillTest < ActiveSupport::TestCase
+  include ReviewHelpers
+
   class UnitPlugin < DataQuality::Plugin
     def source_kind = "dummy"
   end
@@ -22,10 +24,11 @@ class DataQuality::Stages::SiteFillTest < ActiveSupport::TestCase
 
   def agree_on_state! = Candidate.sole.then { |c| c.update!(payload: c.payload.merge("state" => "GA")) }
 
-  test "publishing a unit fills only its site's blank fields, and keeps the site's verification" do
+  test "approving a unit fills only its site's blank fields, and keeps the site's verification" do
     agree_on_state!
     run_stage("match")
     run_stage("verify", verifier: PublishEverything.new)
+    approve_recommended
 
     @site.reload
     assert_equal [ "power_reactor", "operating" ], [ @site.facility_type, @site.status ], "blanks filled"
@@ -34,14 +37,15 @@ class DataQuality::Stages::SiteFillTest < ActiveSupport::TestCase
     assert_equal [ "crawler" ], @site.evidence.pluck(:found_by)
   end
 
-  test "a unit that disagrees with its human-reviewed site is published, but sent to review and fills nothing" do
+  test "an approved unit that disagrees with its human-reviewed site is published, but fills nothing, and says why" do
     run_stage("match")
     run_stage("verify", verifier: PublishEverything.new)
+    approve_recommended
 
     candidate = Candidate.sole
     assert Facility.find(candidate.subject_id).verified?, "the unit itself is published"
-    assert candidate.status_needs_review?
-    assert_match "Published, but its site disagrees: human-verified state is GA; this source says TX", candidate.notes
+    assert candidate.status_merged?, "a human already approved it"
+    assert_match "Its site disagrees, so it wasn't filled: human-verified state is GA; this source says TX", candidate.notes
     assert_nil @site.reload.facility_type
     assert_empty @site.evidence
   end
@@ -58,6 +62,7 @@ class DataQuality::Stages::SiteFillTest < ActiveSupport::TestCase
     @site.update!(state: nil)
 
     run_stage("verify", verifier: PublishEverything.new)
+    approve_recommended
 
     assert_equal "GA", @site.reload.state
   end
@@ -69,6 +74,7 @@ class DataQuality::Stages::SiteFillTest < ActiveSupport::TestCase
     Candidate.find_by!(subject_id: unit.id).then { |c| c.update!(payload: c.payload.merge("state" => "GA")) }
 
     run_stage("verify", verifier: PublishEverything.new)
+    approve_recommended
 
     @site.reload
     assert_equal "power_reactor", @site.facility_type, "stated by the NRC row"
@@ -80,6 +86,7 @@ class DataQuality::Stages::SiteFillTest < ActiveSupport::TestCase
     Facility.find_by!(nrc_docket: "05200025").reject!(by: "human:tosin")
 
     run_stage("verify", verifier: PublishEverything.new)
+    approve_recommended
 
     assert_nil @site.reload.facility_type
   end
@@ -88,25 +95,28 @@ class DataQuality::Stages::SiteFillTest < ActiveSupport::TestCase
     @site.update!(facility_type: "power_reactor", status: "operating")
     run_stage("match")
     run_stage("verify", verifier: PublishEverything.new)
+    approve_recommended
 
     assert_empty @site.reload.evidence, "the site had everything but a disagreeing state; nothing to fill"
   end
 
-  test "a site a human rejected isn't filled, and the candidate says so" do
+  test "a unit whose site a human rejected after match isn't published, and the site isn't filled" do
     run_stage("match")
     @site.reject!(by: "human:tosin")
 
-    run = run_stage("verify", verifier: PublishEverything.new).last
+    run_stage("verify", verifier: PublishEverything.new)
 
+    candidate = Candidate.find_by!(kind: "facility")
+    assert candidate.status_needs_review?, "held before any model, so approving it is a deliberate choice"
+    assert_match "Its site #{@site.name} was rejected by human:tosin", candidate.notes
+    assert Facility.find(candidate.subject_id).pending?, "the unit waits for a human too"
     assert_nil @site.reload.facility_type
     assert_empty @site.evidence
-    assert_equal 1, run.stats["site_not_filled"]
-    assert_match "Site not filled:", Candidate.find_by!(kind: "facility").notes
   end
 
   test "nothing is filled until the unit is verified" do
     run_stage("match")
-    run_stage("verify") # default verifier sends everything to review
+    run_stage("verify", verifier: DataQuality::Verifiers::ReviewEverything.new) # everything to review
 
     assert_nil @site.reload.facility_type
   end
