@@ -1,0 +1,25 @@
+# One Postgres database per environment. Solid Queue, Solid Cache and
+# Solid Cable keep their tables in it too (see db/migrate), so there is
+# only ever one database to run, back up and migrate.
+#
+# Connection details come from DATABASE_URL (see ../.env.example).
+# In development and test the URL has no database name, so the names
+# below are used and tests never touch development data.
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  max_connections: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+  url: <%= ENV["DATABASE_URL"] %>
+
+development:
+  <<: *default
+  database: nuclear_directory_development
+
+test:
+  <<: *default
+  database: nuclear_directory_test
+
+# In production DATABASE_URL includes the database name.
+production:
+  <<: *default
+  database: nuclear_directory_production
