@@ -2,7 +2,11 @@
 class SessionsController < ApplicationController
   include Authentication
   allow_unauthenticated_access only: %i[ new create ]
-  rate_limit to: 10, within: 3.minutes, only: :create, with: -> { redirect_to new_session_path, alert: "Too many attempts. Try again in a few minutes." }
+  # The app's cache in production; tests use their own store, since the test
+  # cache keeps nothing (as CorrectionsController does).
+  RATE_LIMIT_STORE = Rails.env.test? ? ActiveSupport::Cache::MemoryStore.new : Rails.cache
+  rate_limit to: 10, within: 3.minutes, only: :create, store: RATE_LIMIT_STORE,
+    with: -> { redirect_to new_session_path, alert: "Too many attempts. Try again in a few minutes." }
   layout "admin"
 
   def new

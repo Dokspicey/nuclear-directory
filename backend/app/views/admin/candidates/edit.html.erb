@@ -2,7 +2,7 @@
 <% source_url = safe_url(@item.source.url) %>
 
 <div class="nd-stack max-w-prose">
-  <p class="type-small m-0"><%= link_to "Back to the queue", admin_candidates_path(queue: @item.status == "needs_review" ? "needs_review" : "recommended"), class: "nd-link nd-link--muted nd-tap" %></p>
+  <p class="type-small m-0"><%= link_to "Back to the queue", admin_candidates_path(filters.presence || { queue: @item.status == "needs_review" ? "needs_review" : "recommended" }), class: "nd-link nd-link--muted nd-tap" %></p>
   <h1 class="type-title-md m-0">Edit, then approve</h1>
   <p class="nd-item__claim type-body-strong"><%= @item.claim %></p>
   <% if @item.quote.present? %><blockquote class="nd-quote">“<%= @item.quote %>”</blockquote><% end %>
@@ -14,7 +14,9 @@
       <%= @item.differences.map { |name, (stored, incoming)| "#{field_label(name).downcase_first} is #{stored} there, #{incoming} here" }.to_sentence %>.</p>
   <% end %>
 
-  <%= form_with url: admin_candidate_path(@item.candidate_id), method: :patch, class: "nd-stack" do |form| %>
+  <%= form_with url: admin_candidate_path(@item.candidate_id, filters), method: :patch, class: "nd-stack" do |form| %>
+    <%# Enter in a field does nothing: approving takes a click (as in the queue). %>
+    <button type="submit" disabled hidden aria-hidden="true" tabindex="-1"></button>
     <% if @errors.present? %>
       <div class="nd-alert" role="alert">
         <p class="type-body-strong">Not approved. Fix this and approve again:</p>
@@ -22,7 +24,8 @@
       </div>
     <% end %>
     <% @fields.each do |name| %>
-      <% value = @item.payload[name] %>
+      <%# After a failed approval, show what was typed so it can be corrected. %>
+      <% value = params.dig(:values, name) || @item.payload[name] %>
       <div class="nd-field">
         <%= label_tag "values_#{name}", field_label(name), class: "type-body-strong" %>
         <% if value.is_a?(Array) || value.is_a?(Hash) %>
@@ -39,7 +42,7 @@
     </div>
     <div class="nd-row">
       <%= form.submit "Approve with these values", class: "nd-btn nd-btn--primary" %>
-      <%= link_to "Cancel", admin_candidates_path, class: "nd-btn nd-btn--ghost" %>
+      <%= link_to "Cancel", admin_candidates_path(filters), class: "nd-btn nd-btn--ghost" %>
     </div>
   <% end %>
 </div>

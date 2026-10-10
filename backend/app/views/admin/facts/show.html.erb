@@ -18,7 +18,7 @@
   <h2 class="nd-sec-h">Values</h2>
   <dl class="nd-kv type-body">
     <% @fact.values.except(*AdminHelper::HIDDEN_FIELDS.map(&:to_s)).each do |name, value| %>
-      <dt class="type-label"><%= field_label(name) %></dt><dd><%= field_value(value) %></dd>
+      <dt class="type-label"><%= field_label(name) %></dt><dd><%= field_display(name, value) %></dd>
     <% end %>
   </dl>
 </section>
@@ -29,6 +29,7 @@
   <% when "verified" %>
     <p class="m-0 max-w-prose">This fact is public. Unpublishing hides it from the site and keeps the pipeline from changing it, until you republish it.</p>
     <%= form_with url: admin_fact_unpublish_path(type: @fact.type, id: @fact.id), class: "nd-item__reject" do %>
+      <button type="submit" disabled hidden aria-hidden="true" tabindex="-1"></button>
       <div class="nd-field">
         <label for="reason" class="type-body-strong">Reason <span class="type-small text-ink-muted">(optional, kept in the history)</span></label>
         <%= text_field_tag :reason, nil, class: "nd-input type-input" %>
@@ -38,6 +39,7 @@
   <% when "unpublished" %>
     <p class="m-0 max-w-prose">This fact is hidden from the public site. Republishing makes it public again.</p>
     <%= form_with url: admin_fact_republish_path(type: @fact.type, id: @fact.id), class: "nd-item__reject" do %>
+      <button type="submit" disabled hidden aria-hidden="true" tabindex="-1"></button>
       <div class="nd-field">
         <label for="reason" class="type-body-strong">Reason <span class="type-small text-ink-muted">(optional, kept in the history)</span></label>
         <%= text_field_tag :reason, nil, class: "nd-input type-input" %>
@@ -58,7 +60,7 @@
   <% else %>
     <div class="nd-table-wrap">
       <table class="nd-table">
-        <thead><tr><th scope="col">Date</th><th scope="col">Change</th><th scope="col">By</th><th scope="col">Reason</th></tr></thead>
+        <thead><tr><th scope="col">Date</th><th scope="col">Change</th><th scope="col">By</th><th scope="col">Reason</th><th scope="col">Values and context</th></tr></thead>
         <tbody>
           <% @fact.history.each do |event| %>
             <tr>
@@ -66,6 +68,11 @@
               <td><%= change_text(event) %></td>
               <td><%= who(event.by) %></td>
               <td><%= event.reason %></td>
+              <td class="type-small">
+                <%= changes_text(event.changed_values) %>
+                <% if (claim = event.context.to_h["candidate_id"]) %><span class="nd-num"> · claim <%= claim %></span><% end %>
+                <% if (run = event.context.to_h["crawl_run_id"]) %><span class="nd-num"> · run <%= run %></span><% end %>
+              </td>
             </tr>
           <% end %>
         </tbody>

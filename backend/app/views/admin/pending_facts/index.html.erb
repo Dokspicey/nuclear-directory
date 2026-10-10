@@ -23,7 +23,7 @@
             <p class="nd-item__claim type-body-strong"><%= link_to fact_heading(fact), admin_fact_path(type: fact.type, id: fact.id), class: "nd-link" %></p>
             <dl class="nd-kv type-body">
               <% fact.attributes.compact_blank.except(*AdminHelper::HIDDEN_FIELDS).each do |name, value| %>
-                <dt class="type-label"><%= field_label(name) %></dt><dd><%= field_value(value) %></dd>
+                <dt class="type-label"><%= field_label(name) %></dt><dd><%= field_display(name, value) %></dd>
               <% end %>
             </dl>
             <% fact.evidence.each do |evidence| %>
@@ -34,9 +34,11 @@
                 <span>Found by <%= evidence.found_by %></span>
               </div>
             <% end %>
-            <% if fact.evidence.empty? %><p class="type-small text-ink-muted m-0">No source recorded.</p><% end %>
+            <% if fact.evidence.empty? %><p class="type-small text-ink-muted m-0">No source recorded, so it can't be published. Reject it, or add a source first.</p><% end %>
             <div class="nd-item__actions">
-              <button type="submit" class="nd-btn nd-btn--primary nd-btn--sm" name="id" value="<%= fact.id %>">Approve</button>
+              <% if fact.evidence.any? %>
+                <button type="submit" class="nd-btn nd-btn--primary nd-btn--sm" name="id" value="<%= fact.id %>">Approve</button>
+              <% end %>
               <details>
                 <summary class="nd-btn nd-btn--sm">Reject…</summary>
                 <div class="nd-item__reject">

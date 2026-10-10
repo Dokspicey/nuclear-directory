@@ -63,7 +63,7 @@ module AdminHelper
     verb = ->(type) { DataQuality::Claim::RELATIONSHIP_VERBS.fetch(type.to_s, type.to_s.humanize(capitalize: false)) }
     case fact.kind
     when "organization", "facility" then values[:name]
-    when "organization_role" then "#{values[:organization_name]}: #{values[:role].to_s.humanize(capitalize: false)}"
+    when "organization_role" then "#{values[:organization_name]}: #{role_label(values[:role]).downcase_first}"
     when "organization_technology" then "#{values[:organization_name]}: #{values[:technology].to_s.humanize(capitalize: false)}"
     when "relationship" then "#{values[:from_organization_name]} #{verb.(values[:relationship_type])} #{values[:to_organization_name]}"
     when "facility_relationship" then "#{values[:organization_name]} #{verb.(values[:relationship_type])} #{values[:facility_name]}"
@@ -85,6 +85,16 @@ module AdminHelper
   end
 
   def field_label(name) = DataQuality::Claim::LABELS.fetch(name.to_s) { name.to_s.humanize }
+
+  # A value for its field: a role in visitors' words ("Reactor developer").
+  def field_display(name, value) = name.to_s == "role" && value.present? ? role_label(value) : field_value(value)
+
+  # What a decision changed: "state DE to NJ; aliases …".
+  def changes_text(changed_values)
+    changed_values.to_h.map do |name, (before, after)|
+      "#{field_label(name).downcase_first} #{before.presence || 'blank'} to #{after.presence || 'blank'}"
+    end.join("; ")
+  end
 
   def field_value(value)
     case value

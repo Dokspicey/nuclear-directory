@@ -80,6 +80,13 @@ module Directory
       type.to_s.constantize.published.exists?(id:)
     end
 
+    # Whether a fact has any evidence (a source).
+    def sourced?(type:, id:)
+      raise ArgumentError, "not a fact type: #{type.inspect}" unless FACT_TYPES.include?(type.to_s)
+
+      Evidence.exists?(subject_type: type.to_s, subject_id: id)
+    end
+
     # Any fact's stored values, as FactWriter names them (string keys; link
     # ends as ids, plus the linked records' names), or nil. Lets a caller
     # compare a link's values, which fact_state doesn't carry.

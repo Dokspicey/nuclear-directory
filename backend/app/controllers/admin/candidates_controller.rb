@@ -57,9 +57,11 @@ class Admin::CandidatesController < Admin::BaseController
 
   private
     # Back to the queue, with the filters it had.
-    def queue_path
-      admin_candidates_path(params.permit(:queue, :reason, :run_id).to_h.compact_blank)
-    end
+    # The queue's filters, carried through edit and back.
+    def filters = params.permit(:queue, :reason, :run_id).to_h.compact_blank
+    helper_method :filters
+
+    def queue_path = admin_candidates_path(filters)
 
     # The claim's own values; link ends were matched and can't be edited here.
     def editable_fields(item)
