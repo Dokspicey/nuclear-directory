@@ -1,4 +1,5 @@
-# NRC's list of operating power reactor units (#12): the first source.
+# NRC's list of operating power reactor units: the first source.
+# Crawl is #12; extract (#13) is described at #extract.
 #
 # Crawl fetches the HTML list page, then the 365-day power status file, and
 # checks that both name the same units. Rules (agreed on #12):
@@ -23,8 +24,9 @@ class DataQuality::Plugins::NrcReactorList < DataQuality::Plugin
     "River Bend Station 1" => "River Bend 1"
   }.freeze
 
-  def initialize(fetcher: DataQuality::Fetcher.new)
+  def initialize(fetcher: DataQuality::Fetcher.new, extractor: Extractor.new)
     @fetcher = fetcher
+    @extractor = extractor
   end
 
   def crawl(_run)
@@ -36,6 +38,48 @@ class DataQuality::Plugins::NrcReactorList < DataQuality::Plugin
 
     stats["status_file"] = DataQuality::Snapshot.take(status, fetcher: @fetcher).to_s
     stats.merge(check(list, status))
+  end
+
+  # Extract (#13): the extractor model reads the table and every answer is
+  # checked against the exact parse, matched by NRC docket. The candidates
+  # always carry the table's values; the model's job here is to prove
+  # itself on a source we can check, before it's trusted on messier ones.
+  # - agrees: candidates go on as new
+  # - disagrees, or its quote isn't the row as written: candidates go to
+  #   review, with both values in the notes
+  # - skips a unit: that unit's candidates go to review
+  # - invents a unit: dropped and counted
+  # The tally is saved on the run as stats["ai_check"].
+  # Per unit: the unit (facility), its operator (organization, one per
+  # name) and the "operates" link, in the shape match expects (README).
+  def extract(source, run)
+    table = Page.units(source.content_text).index_by(&:nrc_docket)
+    text = Page.lines(source.content_text)
+    lines = text.index_by { |line| line[/(?:\A| \| )(\d{8})(?: \| |\z)/, 1] }
+    answers = @extractor.call(text, run: run)
+
+    tally = { "table_units" => table.size, "ai_units" => answers.size,
+      "agreed" => 0, "disagreed" => 0, "missed" => 0, "made_up" => 0 }
+    seen = {}
+    units = answers.filter_map do |answer|
+      unit = table[answer["nrc_docket"]]
+      if unit.nil? || seen[unit.nrc_docket]
+        tally["made_up"] += 1
+        next
+      end
+
+      seen[unit.nrc_docket] = true
+      problems = disagreements(answer, unit, lines[unit.nrc_docket])
+      tally[problems.empty? ? "agreed" : "disagreed"] += 1
+      [ unit, problems.presence && "The extractor model disagreed with the table: #{problems.join('; ')}" ]
+    end
+    (table.keys - seen.keys).each do |docket|
+      tally["missed"] += 1
+      units << [ table[docket], "The extractor model skipped this unit; values are from the table" ]
+    end
+
+    run.update!(stats: run.stats.merge("ai_check" => tally))
+    operator_candidates(table.values, lines) + units.flat_map { |unit, review| unit_candidates(unit, lines[unit.nrc_docket], review) }
   end
 
   private
@@ -73,6 +117,40 @@ class DataQuality::Plugins::NrcReactorList < DataQuality::Plugin
       end
 
       stats.merge("cross_check" => "ok")
+    end
+
+    # What the model got wrong about one unit, in words; [] when it agrees.
+    def disagreements(answer, unit, line)
+      problems = []
+      problems << differs("name", answer["name"], unit.name) unless normalize(answer["name"].to_s) == normalize(unit.name)
+      problems << differs("reactor type", answer["reactor_type"], unit.reactor_type) unless answer["reactor_type"] == unit.reactor_type
+      problems << differs("state", answer["state"], unit.state) unless answer["state"] == unit.state
+      unless answer["operator"].to_s.squish.casecmp?(unit.owner_operator)
+        problems << differs("operator", answer["operator"], unit.owner_operator)
+      end
+      problems << "its quote isn't the table row as written" unless answer["quote"].to_s.squish == line
+      problems
+    end
+
+    def differs(field, said, table) = "#{field}: model said #{said.inspect}, table says #{table.inspect}"
+
+    def operator_candidates(units, lines)
+      units.uniq(&:owner_operator).map do |unit|
+        { kind: "organization", payload: { "name" => unit.owner_operator }, quote: lines[unit.nrc_docket] }
+      end
+    end
+
+    def unit_candidates(unit, line, review)
+      facility = { "name" => unit.name, "nrc_docket" => unit.nrc_docket }
+      flags = review ? { status: "needs_review", notes: review } : {}
+
+      [
+        { kind: "facility", quote: line, payload: facility.merge(
+          "facility_type" => "power_reactor", "status" => "operating", "reactor_type" => unit.reactor_type,
+          "state" => unit.state, "country_code" => "US") },
+        { kind: "facility_relationship", quote: line, payload: {
+          "organization" => { "name" => unit.owner_operator }, "facility" => facility, "relationship_type" => "operates" } }
+      ].map { |candidate| candidate.merge(flags) }
     end
 
     # Why the status file can't be used for the cross-check, or nil if it can.

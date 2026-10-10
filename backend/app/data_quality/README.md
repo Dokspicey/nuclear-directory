@@ -66,6 +66,28 @@ Fetch with `DataQuality::Snapshot.take(source, fetcher: DataQuality::Fetcher.new
 
 Never work around a block. `plugins/nrc_reactor_list.rb` is the reference plug-in.
 
+## What extract produces
+
+`extract(source, run)` returns candidate hashes, which the extract stage saves to `candidates`:
+
+| Key | What it is |
+|---|---|
+| `kind` | One of `Candidate::KINDS`: the six FactWriter kinds plus `organization_alias` |
+| `payload` | String keys. Records use FactWriter attribute names. Links name each end with a nested hash (`"organization" => { "name" => … }`, `"facility" => { "name" => …, "nrc_docket" => … }`), never `*_id`; match resolves those |
+| `quote` | The supporting text, copied exactly from the source |
+| `status`, `notes` | Optional: `status: "needs_review"` with the reason in `notes` sends a candidate straight to review |
+
+The extract stage adds `source_id` and `crawl_run_id`. Match turns candidates into `matched` or
+`needs_review`, and verify into `merged`, `needs_review` or `rejected`.
+
+**NRC extract.** The extractor model (`OPENROUTER_EXTRACT_MODEL`, prompt `nrc-extract-v1`) reads the
+reactor table as plain lines and returns each unit with its row quoted. Every answer is checked
+against the exact parse of the table, by docket. Candidates always carry the table's values; a unit
+the model got wrong, misquoted or skipped goes to review with both values in `notes`, and units it
+invents are dropped. The tally is in the extract run's `stats["ai_check"]`, so the model's accuracy
+is measured on a source we can check before it's trusted on messier ones. Per unit: the unit
+(`facility`), its operator (`organization`, one per name) and an `operates` link.
+
 ## Talking to the directory
 
 The contract is in [`app/directory/README.md`](../directory/README.md).

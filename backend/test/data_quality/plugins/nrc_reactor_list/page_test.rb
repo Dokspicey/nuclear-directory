@@ -18,6 +18,14 @@ class DataQuality::Plugins::NrcReactorList::PageTest < ActiveSupport::TestCase
     assert_equal %w[BWR PWR], units.map(&:reactor_type).uniq.sort
   end
 
+  test "renders the table as one plain line per row, for the extractor model" do
+    lines = Page.lines(file_fixture("nrc/list-power-reactor-units.html").read)
+
+    assert_equal 96, lines.size, "the header plus 95 units"
+    assert_equal "Plant Name | Docket Number | License Number | Reactor | Type | Location | Owner/Operator | NRC Region", lines.first
+    assert_includes lines, "Vogtle 3 | 05200025 | NPF-91 | PWR | 26 miles SE of Augusta, GA | Southern Nuclear Operating Co. | 2"
+  end
+
   test "no table, no units" do
     assert_empty Page.units("<html><body><table><tr><td>menu</td></tr></table></body></html>")
     assert_empty Page.units(nil)
