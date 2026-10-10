@@ -17,6 +17,11 @@ namespace :data_quality do
     report.call DataQuality::Pipeline.run(args[:source_kind], only: args[:stage])
   end
 
+  desc "How the pipeline is doing: blocked sources, last runs, review queue, model spend"
+  task status: :environment do
+    puts DataQuality::StatusReport.call
+  end
+
   desc "One-off: fetch a title for every source that has none (#64), politely"
   task backfill_titles: :environment do
     stats = DataQuality::TitleBackfill.run(log: ->(line) { puts line })

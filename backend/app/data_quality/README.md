@@ -51,6 +51,21 @@ docker compose run --rm web bin/rails "data_quality:stage[extract,nrc_reactor_li
 Or from code: `DataQuality::RunJob.perform_later("nrc_reactor_list", only: "extract")`.
 The quotes stop zsh from treating `[...]` as a file pattern.
 
+To see how it's doing (blocked sources, last runs, review queue, model spend):
+
+```bash
+docker compose run --rm web bin/rails data_quality:status
+```
+
+**Guards (#81):**
+- **One run per source kind at a time.** `Pipeline.run` holds a Postgres advisory lock, and a second
+  run stops with `Pipeline::AlreadyRunning`. `RunJob` also limits concurrency per source kind in Solid Queue.
+- **No stuck runs.** Each run first marks runs of its source kind left "running" for over 2 hours as
+  failed ("Abandoned…").
+- **Spend guard.** Before every model call, this month's model cost (from `crawl_runs.stats`) is checked
+  against `DATA_QUALITY_MONTHLY_BUDGET` (default $5). Once it's used up, calls are refused with
+  `Budget::Exceeded` and the run fails with that reason.
+
 ## Adding a source
 
 Create `plugins/<source_kind>.rb` defining `DataQuality::Plugins::<SourceKind> < DataQuality::Plugin`

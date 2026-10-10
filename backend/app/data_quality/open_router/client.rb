@@ -55,6 +55,8 @@ class DataQuality::OpenRouter::Client
     validator = JSONSchemer.schema(schema)
 
     with_retries do |attempt|
+      # Before every attempt, retries included; raises Budget::Exceeded.
+      DataQuality::Budget.check!(@config.monthly_budget)
       payload = post(body)
       record_usage(crawl_run, model, payload["usage"], attempt:)
 
