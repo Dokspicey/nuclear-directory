@@ -147,6 +147,31 @@ Directory::Lookup.verification_history(type: "Organization", id: 12)
 # changed_values: { "hq_state" => ["DE", "WA"] }
 ```
 
+### Pending facts (the review queue)
+
+Facts waiting for a human's decision (`pending`; never rejected or
+unpublished), one kind per call, oldest first:
+
+```ruby
+Directory::Lookup.pending_facts(kind: "facility_relationship", after_id: nil, limit: 50)
+# => [PendingFactRef(type:, id:, kind:, attributes:, evidence:, created_at:, last_event:), …]
+```
+
+- `kind`: one of `Directory::Lookup::FACT_KINDS`. Page with `after_id:` (the
+  last id seen).
+- `attributes`: the FactWriter attributes as stored (roles and technologies
+  as keys), plus the linked records' names (`organization_name`,
+  `facility_name`, `from_organization_name`, `to_organization_name`,
+  `parent_name`).
+- `evidence`: `EvidenceRef(source_id:, quote:, found_by:, confidence:, crawl_run_id:)`.
+  Only the source's id: sources belong to the data quality module, which
+  resolves URLs and titles.
+- `last_event`: the latest `VerificationEventRef`, e.g. why it's waiting.
+
+Candidates aren't consulted: the data quality module leaves out facts an
+open candidate already points at. To decide, write the fact as a human:
+`FactWriter.write(kind, { id:, … }, verification: { status: "verified", by: "human:tosin", reason:, context: })`.
+
 ### Confidence
 
 Recomputed after every write, by one rule in `Evidence.combined_confidence`:

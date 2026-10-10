@@ -41,6 +41,36 @@ module Directory
     end
 
     FACT_TYPES = %w[Organization OrganizationRole OrganizationTechnology Facility Relationship FacilityRelationship].freeze
+    # FactWriter kinds, one per fact type.
+    FACT_KINDS = FACT_TYPES.map(&:underscore).freeze
+
+    # Facts of one kind waiting for a human's decision (verification_status
+    # pending; never rejected or unpublished), oldest first, as
+    # Directory::PendingFactRefs. Page with after_id: the last id seen.
+    #
+    #   Directory::Lookup.pending_facts(kind: "facility_relationship", limit: 50)
+    def pending_facts(kind:, after_id: nil, limit: 50)
+      kind = kind.to_s
+      raise ArgumentError, "not a fact kind: #{kind.inspect}" unless FACT_KINDS.include?(kind)
+
+      model = kind.camelize.constantize
+      scope = model.pending.order(:id).limit(limit).includes(*PENDING_INCLUDES.fetch(kind), :evidence)
+      scope = scope.where("#{model.table_name}.id > ?", after_id) if after_id
+      latest = latest_events(model.name, scope.map(&:id))
+
+      scope.map do |record|
+        PendingFactRef.new(type: model.name, id: record.id, kind:, attributes: pending_attributes(kind, record),
+          evidence: record.evidence.sort_by(&:id).map { |item| EvidenceRef.from(item) },
+          created_at: record.created_at, last_event: latest[record.id])
+      end
+    end
+
+    PENDING_INCLUDES = {
+      "organization" => [], "facility" => [ :parent, :technology ], "organization_role" => [ :organization, :role ],
+      "organization_technology" => [ :organization, :technology ],
+      "relationship" => [ :from_organization, :to_organization ], "facility_relationship" => [ :organization, :facility ]
+    }.freeze
+    private_constant :PENDING_INCLUDES
 
     # Pass exactly one of id, slug, name or nrc_docket.
     # name is matched case-insensitively; names aren't unique, so the oldest
@@ -100,6 +130,28 @@ module Directory
     end
 
     private
+      # The fact's FactWriter attributes as stored (role and technology as
+      # their keys), plus the names of the records it links.
+      def pending_attributes(kind, record)
+        names = FactWriter::KINDS.fetch(kind.to_sym)[:attributes] - %i[aliases role technology]
+        values = names.to_h { |name| [ name, record.public_send(name) ] }
+        values[:role] = record.role.key if kind == "organization_role"
+        values[:technology] = record.technology&.key if record.respond_to?(:technology)
+        values[:organization_name] = record.organization.name if record.respond_to?(:organization)
+        values[:facility_name] = record.facility.name if kind == "facility_relationship"
+        if kind == "relationship"
+          values[:from_organization_name] = record.from_organization.name
+          values[:to_organization_name] = record.to_organization.name
+        end
+        values[:parent_name] = record.parent&.name if kind == "facility"
+        values
+      end
+
+      def latest_events(type, ids)
+        VerificationEvent.where(subject_type: type, subject_id: ids).order(:created_at, :id)
+          .index_by(&:subject_id).transform_values { |event| VerificationEventRef.from(event) }
+      end
+
       # The same leading distinctive word, which is usually the plant's or
       # company's own name ("Vogtle", "Susquehanna", "Southern"). Later words
       # tend to be places ("Hope Creek" vs "Lost Creek") and don't count. The
