@@ -23,6 +23,11 @@ services:
     healthCheckPath: /up
     # Deploy a commit on main only after its GitHub checks (CI) pass.
     autoDeployTrigger: checksPass
+    # Only app changes trigger a build; README-only merges don't redeploy.
+    # (render.yaml changes are picked up by the Blueprint sync.)
+    buildFilter:
+      paths:
+        - backend/**
     envVars:
       - key: DATABASE_URL
         fromDatabase:
@@ -33,16 +38,20 @@ services:
       # Run the Solid Queue supervisor inside Puma (no separate worker).
       - key: SOLID_QUEUE_IN_PUMA
         value: "true"
-      # Secrets and per-environment settings, pasted in the dashboard.
+      # Non-secret settings, kept here so changes are reviewed in a PR.
+      # Same values as .env.example; they must stay two different models.
+      - key: OPENROUTER_EXTRACT_MODEL
+        value: openai/gpt-6-luna
+      - key: OPENROUTER_VERIFY_MODEL
+        value: anthropic/claude-haiku-5.5
+      # Model spend cap per calendar month, in US dollars.
+      - key: DATA_QUALITY_MONTHLY_BUDGET
+        value: "5"
+      # Secrets, pasted in the dashboard. POSTHOG_HOST may be left blank
+      # (lib/analytics.rb has a default).
       - key: RAILS_MASTER_KEY
         sync: false
       - key: OPENROUTER_API_KEY
-        sync: false
-      - key: OPENROUTER_EXTRACT_MODEL
-        sync: false
-      - key: OPENROUTER_VERIFY_MODEL
-        sync: false
-      - key: DATA_QUALITY_MONTHLY_BUDGET
         sync: false
       - key: POSTHOG_API_KEY
         sync: false

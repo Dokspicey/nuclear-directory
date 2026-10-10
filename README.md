@@ -93,7 +93,7 @@ one Postgres 16 database, both in Oregon. Solid Queue runs inside Puma
 **Every deploy** builds the image, runs `bin/rails db:migrate`, then starts
 the new version and switches traffic once `/up` returns 200. If the build,
 the migration or the health check fails, the old version keeps serving.
-Pushes to `main` deploy only after CI passes.
+Pushes to `main` that change `backend/` deploy only after CI passes.
 
 **First deploy.** In the Render dashboard: New → Blueprint, pick this repo,
 fill in the secrets it asks for, then Apply. Render creates the database and
@@ -111,9 +111,10 @@ It loads the same verified seed as development and is safe to re-run.
 
 **Secrets** live only in the Render dashboard (web service → Environment),
 never in git: `RAILS_MASTER_KEY` (the contents of `backend/config/master.key`),
-`OPENROUTER_API_KEY`, `OPENROUTER_EXTRACT_MODEL`, `OPENROUTER_VERIFY_MODEL`,
-`DATA_QUALITY_MONTHLY_BUDGET`, `POSTHOG_API_KEY` and `POSTHOG_HOST`.
-`DATABASE_URL` is filled in by Render from the database. Render asks for the
+`OPENROUTER_API_KEY`, `POSTHOG_API_KEY` and `POSTHOG_HOST` (optional).
+`DATABASE_URL` is filled in by Render from the database. The model ids and
+`DATA_QUALITY_MONTHLY_BUDGET` aren't secret, so they're set in `render.yaml`;
+change them there in a PR. Render asks for the
 secrets only when the Blueprint is first created; change them later under
 Environment (saving restarts the service). Adding a new secret means adding it
 to `render.yaml` with `sync: false` and then setting its value in the
