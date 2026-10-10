@@ -13,6 +13,12 @@ Rails.application.routes.draw do
   post "corrections" => "corrections#create", as: :corrections
   get "corrections/sent" => "corrections#sent", as: :correction_sent
 
+  get "privacy" => "pages#privacy", as: :privacy
+  get "disclaimer" => "pages#disclaimer", as: :disclaimer
+  get "bot" => "pages#bot", as: :bot
+  get "sitemap.xml" => "sitemaps#show", as: :sitemap, format: false, defaults: { format: :xml }
+  get "robots.txt" => "sitemaps#robots", as: :robots, format: false
+
   # The home page and its instant search (#41). /search returns a Turbo Frame
   # of grouped results for the home and header search fields.
   root "home#show"
