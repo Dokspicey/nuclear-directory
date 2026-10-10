@@ -208,19 +208,34 @@ class DirectoryListing
       "SELECT #{aggregate} FROM facilities u WHERE u.parent_id = facilities.id AND u.verification_status = 'verified'"
     end
 
-    # When searching, names that start with the query come first, then names
-    # that contain it, then matches through a role, technology or deal; the
-    # chosen sort orders within each band.
+    # When searching, names (or a company's aliases) that start with the
+    # query come first, then names that contain it, then matches through a
+    # role, technology or deal; the chosen sort orders within each band.
     def ordered(scope, name_column)
-      scope = scope.order(relevance_sql(name_column)) if query
+      scope = scope.order(relevance_sql(name_column, aliases: name_column == "organizations.name")) if query
       sort == "connections" ? scope.order(Arel.sql("connections_count DESC"), name_column) : scope.order(name_column)
     end
 
-    def relevance_sql(name_column)
+    def relevance_sql(name_column, aliases: false)
+      prefix = "#{ActiveRecord::Base.sanitize_sql_like(query)}%"
       Arel.sql(ActiveRecord::Base.sanitize_sql_array(
-        [ "CASE WHEN #{name_column} ILIKE ? THEN 0 WHEN #{name_column} ILIKE ? THEN 1 ELSE 2 END",
-          "#{ActiveRecord::Base.sanitize_sql_like(query)}%", like(query) ]
+        [ "CASE WHEN #{name_column} ILIKE ? OR #{alias_match_sql(aliases, :prefix)} THEN 0 " \
+          "WHEN #{name_column} ILIKE ? OR #{alias_match_sql(aliases, :contains)} THEN 1 ELSE 2 END",
+          prefix, like(query) ]
       ))
+    end
+
+    # A company alias that starts with or contains the query, compared
+    # normalized as search does ("Kairos Power, LLC").
+    def alias_match_sql(aliases, position)
+      normalized = OrganizationAlias.normalize(query)
+      return "FALSE" unless aliases && normalized.present?
+
+      escaped = ActiveRecord::Base.sanitize_sql_like(normalized)
+      pattern = position == :prefix ? "#{escaped}%" : "%#{escaped}%"
+      ActiveRecord::Base.sanitize_sql_array([
+        "EXISTS (SELECT 1 FROM organization_aliases oa WHERE oa.organization_id = organizations.id AND oa.normalized_alias LIKE ?)", pattern
+      ])
     end
 
     def like(text) = "%#{ActiveRecord::Base.sanitize_sql_like(text.to_s)}%"

@@ -12,8 +12,12 @@ export default class extends Controller {
     clearTimeout(this.timer)
   }
 
-  search() {
+  search(event) {
+    // Focus moved back to the field by this controller isn't a new search.
+    if (event?.type === "focus" && this.movingFocus) return
+
     clearTimeout(this.timer)
+    this.pending = false
     this.timer = setTimeout(() => this.load(), this.delayValue)
   }
 
@@ -30,6 +34,10 @@ export default class extends Controller {
   // A load that finishes after the results were closed stays closed.
   loaded() {
     if (!this.pending) return
+    // A response for an older query: the newer one is on its way, or the
+    // field was cleared.
+    const requested = new URL(this.frameTarget.src, window.location.origin).searchParams.get("q")
+    if (requested !== this.inputTarget.value.trim()) return
     this.pending = false
 
     const panel = this.frameTarget.querySelector("[data-instant-search-count]")
@@ -45,7 +53,9 @@ export default class extends Controller {
     if (event.key === "ArrowDown" && this.isOpen) {
       event.preventDefault()
       this.links[0]?.focus()
-    } else if (event.key === "Escape") {
+    } else if (event.key === "Escape" && this.isOpen) {
+      // A search field clears itself on Escape; here it only closes the results.
+      event.preventDefault()
       this.close()
     }
   }
@@ -59,16 +69,20 @@ export default class extends Controller {
       links[Math.min(index + 1, links.length - 1)]?.focus()
     } else if (event.key === "ArrowUp") {
       event.preventDefault()
-      index <= 0 ? this.inputTarget.focus() : links[index - 1].focus()
+      index <= 0 ? this.focusInput() : links[index - 1].focus()
     } else if (event.key === "Escape") {
+      event.preventDefault()
       this.close()
-      this.inputTarget.focus()
+      this.focusInput()
     }
   }
 
   // A click anywhere outside the search box closes the results.
   outside(event) {
-    if (!this.element.contains(event.target)) this.close()
+    if (this.element.contains(event.target)) return
+    // Focus left on a hidden result would be lost; a clicked control keeps it.
+    if (this.resultsTarget.contains(document.activeElement)) this.focusInput()
+    this.close()
   }
 
   open() {
@@ -82,6 +96,12 @@ export default class extends Controller {
     this.resultsTarget.hidden = true
     this.inputTarget.setAttribute("aria-expanded", "false")
     this.statusTarget.textContent = ""
+  }
+
+  focusInput() {
+    this.movingFocus = true
+    this.inputTarget.focus()
+    this.movingFocus = false
   }
 
   get isOpen() {

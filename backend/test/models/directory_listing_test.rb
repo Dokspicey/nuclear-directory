@@ -176,6 +176,14 @@ class DirectoryListingTest < ActiveSupport::TestCase
     assert_equal [ "Kairos Power", "Akairos Labs", "Amazon" ], names(DirectoryListing.new(q: "kairos"))
   end
 
+  test "an alias that starts with the query ranks with name matches" do
+    Relationship.find_by!(from_organization: @amazon).update!(description: "Backs Kairos with equity.")
+    company("Akairos Labs")
+    company("Zephyr Energy", aliases: [ "Kairos Fuel Co" ])
+
+    assert_equal [ "Kairos Power", "Zephyr Energy", "Akairos Labs", "Amazon" ], names(DirectoryListing.new(q: "kairos"))
+  end
+
   test "search within a category" do
     assert_empty names(DirectoryListing.new(category: "fuel", q: "kairos"))
   end
