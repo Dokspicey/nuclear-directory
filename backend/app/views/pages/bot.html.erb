@@ -17,7 +17,7 @@
   <section aria-labelledby="behaviour">
     <h2 id="behaviour" class="type-body-strong">How it behaves</h2>
     <ul class="type-body">
-      <li>It reads robots.txt before every page, including pages it's redirected to, and follows it.</li>
+      <li>It checks every page against the site's robots.txt, including pages it's redirected to. It reads a site's robots.txt once per visit, not once per page.</li>
       <li>It fetches each page at most once a day and waits <%= DataQuality::Fetcher::HOST_INTERVAL %> seconds between requests to the same site.</li>
       <li>It asks only for changes (ETag and Last-Modified), so an unchanged page costs a short reply.</li>
       <li>When a site blocks it, it stops. It doesn't retry, work around the block or pretend to be a browser.</li>

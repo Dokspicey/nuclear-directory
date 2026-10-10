@@ -1,22 +1,27 @@
 <% content_for :title, "Privacy · Nuclear Directory" %>
 <% content_for :head do %>
-  <meta name="description" content="What Nuclear Directory records: anonymous page and search counts, and what you type into a correction. No accounts, cookies or advertising trackers.">
+  <meta name="description" content="What Nuclear Directory records: anonymous page and search counts, and what you type into a correction. No accounts, no advertising trackers, one security cookie.">
 <% end %>
 <%= render "shared/site_header" %>
 
 <main class="nd-page nd-page--narrow nd-prose">
   <h1 class="type-title-md">Privacy</h1>
-  <p class="type-body">Nuclear Directory doesn't ask who you are. There are no accounts, no cookies and no advertising trackers.</p>
+  <p class="type-body">Nuclear Directory doesn't ask who you are. There are no accounts and no advertising trackers.</p>
+
+  <section aria-labelledby="cookie">
+    <h2 id="cookie" class="type-body-strong">One cookie</h2>
+    <p class="type-body">The site sets a single session cookie that protects its forms against forged submissions. It holds no information about you, isn't used to count or follow visits, and ends when you close your browser.</p>
+  </section>
 
   <section aria-labelledby="counts">
     <h2 id="counts" class="type-body-strong">Page views and searches</h2>
     <p class="type-body">We count page views and searches without knowing who made them. We use PostHog in cookieless mode: nothing is stored in your browser, one visit isn't linked to the next, and page addresses are recorded without their query strings. Searches are counted by their words and how many results they found, so we can see what people look for and don't find.</p>
-    <p class="type-body">Like any web service, PostHog receives your IP address with each request, and its script loads from jsDelivr, a public code network. Neither is given anything else about you.</p>
+    <p class="type-body">PostHog's script loads from jsDelivr, a public code network. Like any web service, PostHog and jsDelivr receive standard request details, such as your IP address and browser. PostHog is set to discard IP addresses, so it doesn't store them.</p>
   </section>
 
   <section aria-labelledby="corrections">
     <h2 id="corrections" class="type-body-strong">Corrections</h2>
-    <p class="type-body">When you report a correction, we keep what you type (your message and, if you add one, your email address) and the page it's about. We use your email only to reply about that correction. We don't store your IP address. To stop floods of reports, a scrambled form of it is held in memory for ten minutes and then dropped.</p>
+    <p class="type-body">When you report a correction, we keep what you type (your message and, if you add one, your email address) and the page it's about. We use your email only to reply about that correction. We don't store your IP address with it. To stop floods of reports, a scrambled form of your IP address is kept in the site's cache for ten minutes and then deleted.</p>
   </section>
 
   <section aria-labelledby="errors">
@@ -25,8 +30,8 @@
   </section>
 
   <section aria-labelledby="hosting">
-    <h2 id="hosting" class="type-body-strong">Hosting</h2>
-    <p class="type-body">The site runs on Render. Like any web host, Render keeps standard server logs, which include IP addresses, for a limited time to run and secure the service.</p>
+    <h2 id="hosting" class="type-body-strong">Hosting and fonts</h2>
+    <p class="type-body">The site runs on Render. Like any web host, Render keeps standard server logs, which include IP addresses, for a limited time to run and secure the service. Fonts load from Google Fonts, which also receives standard request details such as your IP address.</p>
   </section>
 
   <section aria-labelledby="contact">

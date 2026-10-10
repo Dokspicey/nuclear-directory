@@ -43,6 +43,7 @@ class PagesTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "<loc>http://www.example.com/companies/kairos-power</loc>"
     assert_includes response.body, "<loc>http://www.example.com/plants/plant-vogtle</loc>"
     assert_includes response.body, "<loc>http://www.example.com/companies?category=reactor-developers</loc>"
+    assert_not_includes response.body, "<lastmod>"
     assert_not_includes response.body, "hidden"
   end
 

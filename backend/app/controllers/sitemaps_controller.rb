@@ -2,8 +2,8 @@
 # on every deploy (preview URLs and the real domain alike).
 class SitemapsController < ApplicationController
   def show
-    @companies = Organization.verified.select(:slug, :updated_at).order(:slug)
-    @plants = DirectoryListing.new.public_sites.select(:slug, :updated_at).order(:slug)
+    @companies = Organization.verified.select(:slug).order(:slug)
+    @plants = DirectoryListing.new.public_sites.select(:slug).order(:slug)
     expires_in 1.hour, public: true
   end
 
