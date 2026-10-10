@@ -28,6 +28,8 @@ module Seed
 
       ActiveRecord::Base.transaction do
         sources = write_sources(docs)
+        # Facts can't cite a source that wasn't saved, so stop here.
+        raise Error, "Seed failed, nothing was written:\n  #{@errors.join("\n  ")}" if @errors.any?
         shared = shared_domains(docs)
 
         # Organizations first, so relationships can find the other side.
@@ -46,7 +48,9 @@ module Seed
         items = docs.values.flat_map { |doc| evidence_items(doc) }
         items.group_by { |item| item["source_url"] }.to_h do |url, group|
           published_on = group.filter_map { |item| item["published"] }.min
-          [ url, DataQuality::Sources.find_or_create(url: url, published_on: published_on).id ]
+          result = DataQuality::Sources.find_or_create(url: url, published_on: published_on)
+          @errors << "source #{url.inspect}: #{result.errors.join('; ')}" unless result.ok?
+          [ url, result.ref&.id ]
         end
       end
 

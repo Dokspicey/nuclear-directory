@@ -1,0 +1,22 @@
+<%# One power plant or site in a list. Locals:
+    facility:    a Facility
+    connections: number of verified links (optional)
+    Type, status and place are left out when not known. %>
+<% kind = [ facility_type_label(facility.facility_type), facility_status_label(facility.status) ].compact.join(" · ").presence %>
+<% where = place(facility.city, facility.state) %>
+<% connections = local_assigns[:connections] %>
+<li>
+  <%= link_to plant_url_for(facility), class: "nd-listrow" do %>
+    <span class="nd-ring" aria-hidden="true"><%= icon("factory", size: 20) %></span>
+    <span class="nd-listrow__main">
+      <span class="nd-listrow__name"><%= facility.name %></span>
+      <% if kind %><span class="nd-listrow__desc"><%= kind %></span><% end %>
+    </span>
+    <% if where || connections %>
+      <span class="nd-listrow__side">
+        <% if where %><span><%= where %></span><% end %>
+        <% if connections %><span class="nd-num"><%= pluralize(connections, "connection") %></span><% end %>
+      </span>
+    <% end %>
+  <% end %>
+</li>

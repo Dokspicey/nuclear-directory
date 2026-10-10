@@ -63,6 +63,10 @@ Fetch with `DataQuality::Snapshot.take(source, fetcher: DataQuality::Fetcher.new
   `blocked` with the CDN reference on a 403 (`needs_human` after 3 in a row), or `needs_human` if
   robots.txt disallows it.
 - **Extract skips** sources whose content hash hasn't changed since the last extraction.
+- **Titles:** a fetched HTML page's `<title>` (or `og:title`) becomes `sources.title`. For sources that
+  were never fetched (e.g. the hand-checked seed), run the one-off
+  `bin/rails data_quality:backfill_titles`: one polite fetch per untitled URL, keeping only the title.
+  A page without one (a PDF) gets "site, date", and a block leaves the title empty.
 
 Never work around a block. `plugins/nrc_reactor_list.rb` is the reference plug-in.
 
@@ -110,7 +114,8 @@ Two tests keep the module and the directory in step:
 
 Sources belong to this module. Code outside it (e.g. the seed loader) gets one
 with `DataQuality::Sources.find_or_create(url:, source_kind:, published_on:)`,
-which returns a plain `SourceRef`.
+which returns a result: `ok?` with a plain `SourceRef` in `ref`, or `errors`. Only absolute http(s)
+URLs are accepted (no `javascript:`, `data:` or relative paths), since sources are shown as links.
 
 ## Matching and candidate payloads
 
