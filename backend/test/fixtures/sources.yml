@@ -1,0 +1,15 @@
+nrc:
+  url: https://www.nrc.gov/reactors/operating/list-power-reactor-units.html
+  domain: nrc.gov
+  source_kind: nrc_reactor_list
+  crawl_status: ok
+
+press_release:
+  url: https://www.terrapower.com/news/haleu-agreement
+  domain: terrapower.com
+  source_kind: web_page
+
+press_release_same_domain:
+  url: https://www.terrapower.com/news/another
+  domain: terrapower.com
+  source_kind: web_page

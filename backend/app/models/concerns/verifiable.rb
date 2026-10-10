@@ -9,12 +9,20 @@ module Verifiable
   included do
     enum :verification_status, VERIFICATION_STATUSES.index_by(&:itself), default: "pending", validate: true
 
+    has_many :evidence, as: :subject, dependent: :destroy
+
     validates :confidence, numericality: { in: 0..1 }, allow_nil: true
   end
 
   # by: who made the call, e.g. "human:tosin" or "agent:verifier/<model>"
   def verify!(by:)
     update!(verification_status: "verified", verified_at: Time.current, verified_by: by)
+  end
+
+  # Called whenever this fact's evidence changes. The rule itself lives in
+  # Evidence.combined_confidence.
+  def recompute_confidence!
+    update_column(:confidence, Evidence.combined_confidence(evidence.includes(:source)))
   end
 
   def reject!(by:)

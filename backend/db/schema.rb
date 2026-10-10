@@ -10,9 +10,62 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_09_100000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_09_100001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
+
+  create_table "candidates", force: :cascade do |t|
+    t.bigint "source_id", null: false
+    t.bigint "crawl_run_id"
+    t.string "kind", null: false
+    t.jsonb "payload", default: {}, null: false
+    t.text "quote"
+    t.string "status", default: "new", null: false
+    t.string "subject_type"
+    t.bigint "subject_id"
+    t.text "notes"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["crawl_run_id"], name: "index_candidates_on_crawl_run_id"
+    t.index ["source_id"], name: "index_candidates_on_source_id"
+    t.index ["status", "kind"], name: "index_candidates_on_status_and_kind"
+    t.index ["subject_type", "subject_id"], name: "index_candidates_on_subject"
+    t.check_constraint "kind::text = ANY (ARRAY['organization'::character varying, 'organization_alias'::character varying, 'organization_role'::character varying, 'organization_technology'::character varying, 'facility'::character varying, 'relationship'::character varying, 'facility_relationship'::character varying]::text[])", name: "candidates_kind_check"
+    t.check_constraint "status::text = ANY (ARRAY['new'::character varying, 'matched'::character varying, 'merged'::character varying, 'rejected'::character varying, 'needs_review'::character varying]::text[])", name: "candidates_status_check"
+  end
+
+  create_table "crawl_runs", force: :cascade do |t|
+    t.string "stage", null: false
+    t.string "source_kind"
+    t.string "model"
+    t.string "prompt_version"
+    t.string "status", default: "running", null: false
+    t.jsonb "stats", default: {}, null: false
+    t.text "error"
+    t.datetime "started_at", null: false
+    t.datetime "finished_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["stage", "started_at"], name: "index_crawl_runs_on_stage_and_started_at"
+    t.check_constraint "stage::text = ANY (ARRAY['crawl'::character varying, 'extract'::character varying, 'match'::character varying, 'verify'::character varying]::text[])", name: "crawl_runs_stage_check"
+    t.check_constraint "status::text = ANY (ARRAY['running'::character varying, 'succeeded'::character varying, 'failed'::character varying]::text[])", name: "crawl_runs_status_check"
+  end
+
+  create_table "evidence", force: :cascade do |t|
+    t.string "subject_type", null: false
+    t.bigint "subject_id", null: false
+    t.bigint "source_id", null: false
+    t.text "quote"
+    t.string "found_by", null: false
+    t.bigint "crawl_run_id"
+    t.decimal "confidence", precision: 3, scale: 2
+    t.datetime "created_at", null: false
+    t.index ["crawl_run_id"], name: "index_evidence_on_crawl_run_id"
+    t.index ["source_id"], name: "index_evidence_on_source_id"
+    t.index ["subject_type", "subject_id"], name: "index_evidence_on_subject"
+    t.check_constraint "confidence IS NULL OR confidence >= 0::numeric AND confidence <= 1::numeric", name: "evidence_confidence_check"
+    t.check_constraint "found_by::text = ANY (ARRAY['crawler'::character varying, 'verifier'::character varying, 'human'::character varying]::text[])", name: "evidence_found_by_check"
+  end
 
   create_table "facilities", force: :cascade do |t|
     t.string "name", null: false
@@ -343,6 +396,25 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_09_100000) do
     t.index ["key"], name: "index_solid_queue_semaphores_on_key", unique: true
   end
 
+  create_table "sources", force: :cascade do |t|
+    t.string "url", null: false
+    t.string "domain"
+    t.string "title"
+    t.string "source_kind", null: false
+    t.string "crawl_status", default: "pending", null: false
+    t.text "status_reason"
+    t.integer "http_status"
+    t.datetime "fetched_at"
+    t.string "content_sha256"
+    t.text "content_text"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["domain"], name: "index_sources_on_domain"
+    t.index ["source_kind"], name: "index_sources_on_source_kind"
+    t.index ["url"], name: "index_sources_on_url", unique: true
+    t.check_constraint "crawl_status::text = ANY (ARRAY['pending'::character varying, 'ok'::character varying, 'blocked'::character varying, 'needs_human'::character varying]::text[])", name: "sources_crawl_status_check"
+  end
+
   create_table "technologies", force: :cascade do |t|
     t.string "key", null: false
     t.string "name", null: false
@@ -354,6 +426,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_09_100000) do
     t.index ["parent_id"], name: "index_technologies_on_parent_id"
   end
 
+  add_foreign_key "candidates", "crawl_runs"
+  add_foreign_key "candidates", "sources"
+  add_foreign_key "evidence", "crawl_runs"
+  add_foreign_key "evidence", "sources"
   add_foreign_key "facilities", "facilities", column: "parent_id"
   add_foreign_key "facilities", "technologies"
   add_foreign_key "facility_relationships", "facilities"
