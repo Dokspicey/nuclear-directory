@@ -257,6 +257,7 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
     assert record.operates?
     assert record.pending?
     assert_equal "Arkansas Nuclear 1", record.facility.name
+    assert_equal [ link.quote ], record.evidence.pluck(:quote), "a new link is a proposal and carries its quote"
     assert_equal 3, run.stats["proposed"]
   end
 
@@ -280,6 +281,7 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
     assert_equal [ "Curated description", 40 ], link.slice(:description, :ownership_pct).values
     assert_equal "human:tosin", link.verified_by
     assert link.verified?
+    assert_empty link.evidence, "an existing link gets the quote only when it's published"
   end
 
   test "matching an existing pending link defers candidate attributes until publication" do
