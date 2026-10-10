@@ -7,4 +7,4 @@
       sentence: safe_join([ from, " #{relationship_verb(deal.relationship_type)} ", to ]),
       detail: [ deal.description, prose_month(deal.started_on) ].compact_blank.join(" ").presence,
       quote: deal.evidence.max_by { |e| e.confidence || 0 }&.quote,
-      citations: profile.citations_for(deal), confidence: deal.confidence, checked: deal.verified_at %>
+      citations: profile.citations_for(deal), confidence: deal.confidence, checked: deal.verified_at, correctable: true %>

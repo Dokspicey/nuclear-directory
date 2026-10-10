@@ -10,4 +10,4 @@
       detail: [ (facility_type_label(link.facility.facility_type) if profile.plant_facts?(link.facility)),
                 (facility_status_label(link.facility.status) if profile.plant_facts?(link.facility)),
                 (place(plant.city, plant.state) if profile.plant_facts?(plant)), link.description ].compact_blank.join(" · ").presence,
-      citations: profile.plant_link_citations(link), confidence: link.confidence, checked: link.verified_at %>
+      citations: profile.plant_link_citations(link), confidence: link.confidence, checked: link.verified_at, correctable: true %>
