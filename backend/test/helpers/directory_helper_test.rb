@@ -16,6 +16,14 @@ class DirectoryHelperTest < ActionView::TestCase
     assert_equal FacilityRelationship.relationship_types.keys.sort, FACILITY_RELATIONSHIP_VERBS.keys.sort
   end
 
+  test "every seeded role has on-screen wording" do
+    roles_block = File.read(Rails.root.join("db/seeds.rb"))[/^ROLES = \[(.*?)^\]\.freeze/m, 1]
+    seeded_roles = roles_block.scan(/\[ "([a-z_]+)", /).flatten
+
+    assert_operator seeded_roles.size, :>, 10
+    assert_empty seeded_roles - ROLE_LABELS.keys, "add wording for these roles to DirectoryHelper::ROLE_LABELS"
+  end
+
   test "labels use the words in VOICE.md" do
     assert_equal "Power plant", facility_type_label("power_reactor")
     assert_equal "Reactor developer", role_label("reactor_vendor")

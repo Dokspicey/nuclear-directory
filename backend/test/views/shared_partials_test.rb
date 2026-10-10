@@ -76,6 +76,13 @@ class SharedPartialsTest < ActionView::TestCase
     assert_select "li#source-1 span", text: "Looks harmless"
   end
 
+  test "sources list leaves out a blank domain" do
+    hostless = Source.new(url: "mailto:press@example.com", published_on: Date.new(2024, 10, 14))
+    render partial: "shared/sources_list", locals: { sources: [ [ 1, hostless ] ] }
+
+    assert_select "li#source-1 small", "published 2024-10-14"
+  end
+
   test "fact row shows the checked date on its first source chip only" do
     render partial: "shared/fact_row", locals: { sentence: "Google offtakes from Kairos Power",
       citations: [ [ 1, @source ], [ 2, @untitled ] ], checked: Date.new(2026, 10, 9) }
