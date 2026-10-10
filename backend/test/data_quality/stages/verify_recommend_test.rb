@@ -45,6 +45,20 @@ class DataQuality::Stages::VerifyRecommendTest < ActiveSupport::TestCase
     assert_includes Candidate.recommended, c
   end
 
+  test "a company on a human-verified record: its domain or website is compared as a host" do
+    terrapower = organizations(:terrapower)
+    terrapower.verify!(by: "human:tosin")
+    same = candidate("organization", { "name" => "TerraPower", "domain" => "WWW.TerraPower.com" })
+    elsewhere = candidate("organization", { "name" => "TerraPower", "website" => "https://other.example/terrapower" })
+    [ same, elsewhere ].each { |c| c.update!(status: "matched", subject_type: "Organization", subject_id: terrapower.id) }
+
+    run_stage("verify", verifier: CountingVerifier.new)
+
+    assert_equal "recommend_publish", same.reload.ai_recommendation, "www and case don't make a different domain"
+    assert elsewhere.reload.status_needs_review?, "a website on another domain disagrees"
+    assert_equal "human-verified domain is terrapower.com; this source says other.example", elsewhere.notes
+  end
+
   test "a candidate disagreeing with a human-verified record goes to review with both values, unasked" do
     unit = Facility.create!(name: "Hope Creek 1", nrc_docket: "05000354", state: "NJ", facility_type: "power_reactor")
     unit.verify!(by: "human:tosin")
@@ -90,6 +104,19 @@ class DataQuality::Stages::VerifyRecommendTest < ActiveSupport::TestCase
     assert_equal 0.85, evidence.confidence.to_f
     event = Directory::Lookup.verification_history(type: "Organization", id: organization.id).first
     assert_equal [ "verified", "human:tosin", c.id ], [ event.to_status, event.by, event.context["candidate_id"] ]
+  end
+
+  test "approving a candidate the verifier disputed doesn't record its confidence as support" do
+    c = candidate("organization", { "name" => "Imaginary Fission Co" })
+    run_stage("match")
+    disputing = Object.new
+    def disputing.call(_) = DataQuality::Verdict.new(outcome: :review, confidence: 0.9, reason: "The source names someone else.")
+    run_stage("verify", verifier: disputing)
+
+    assert DataQuality::Review.approve([ c.id ], by: "human:tosin").sole.ok?
+
+    evidence = Organization.find(c.reload.subject_id).evidence.where.not(crawl_run_id: nil).sole
+    assert_nil evidence.confidence, "0.9 was confidence in the dispute, not in the fact"
   end
 
   test "only a human approves, and a decided candidate isn't approved again" do

@@ -4,15 +4,15 @@
 # For every new candidate, one of three things happens:
 # - Found: an exact match on NRC docket, domain or name/alias. The candidate
 #   is attached to that record and nothing is written yet: its quote becomes
-#   evidence (and, for an organization, its name an alias) only when verify
-#   publishes it.
+#   evidence (and, for an organization, its name an alias) only when a human
+#   approves it (DataQuality::Review.approve).
 # - Not found: a new pending record is proposed with the quote as evidence.
 # - Ambiguous: identifiers point at different records, or a similar record
 #   exists ("Vogtle 3" vs "Plant Vogtle Units 3 & 4"). The candidate goes to
 #   needs_review with the reason. Never merged automatically.
 #
-# Either way a matched candidate ends up with a subject, and verify decides
-# whether that fact is published. Records go first, so links (who operates
+# Either way a matched candidate ends up with a subject. Verify then
+# recommends, and a human decides whether that fact is published. Records go first, so links (who operates
 # what) can find records proposed earlier in the same run.
 #
 # Payload for links: each end is a nested hash identifying the record, e.g.

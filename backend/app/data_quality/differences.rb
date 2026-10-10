@@ -18,11 +18,11 @@ module DataQuality::Differences
     return {} unless record && record.verification_status == "verified" && record.verified_by.to_s.start_with?("human:")
 
     COMPARED.fetch(candidate.kind, []).each_with_object({}) do |name, differences|
-      stored = record.public_send(name)
-      incoming = candidate.payload[name]
-      next if stored.blank? || incoming.blank? || stored.to_s == incoming.to_s
+      stored = comparable(name, record.public_send(name))
+      incoming = comparable(name, incoming_value(candidate, name))
+      next if stored.blank? || incoming.blank? || stored == incoming
 
-      differences[name] = [ stored.to_s, incoming.to_s ]
+      differences[name] = [ stored, incoming ]
     end
   end
 
@@ -31,4 +31,21 @@ module DataQuality::Differences
     differences.map { |name, (stored, incoming)| "human-verified #{name.humanize(capitalize: false)} is #{stored}; this source says #{incoming}" }
       .join("; ")
   end
+
+  # An organization's domain may arrive as domain or only as website.
+  def self.incoming_value(candidate, name)
+    name == "domain" ? candidate.payload["domain"].presence || candidate.payload["website"] : candidate.payload[name]
+  end
+
+  # Domains compare as hosts: "https://WWW.TerraPower.com/news" is "terrapower.com".
+  def self.comparable(name, value)
+    return value.to_s unless name == "domain" && value.present?
+
+    text = value.to_s.strip
+    host = URI.parse(text.match?(%r{\A[a-z][a-z0-9+.-]*://}i) ? text : "https://#{text}").host
+    host.to_s.downcase.delete_prefix("www.")
+  rescue URI::InvalidURIError
+    text.downcase.delete_prefix("www.")
+  end
+  private_class_method :incoming_value, :comparable
 end
