@@ -168,7 +168,10 @@ class DirectoryListing
     # link to the site or a unit whose description matches.
     def matching_plants(scope)
       units = Facility.verified.where.not(parent_id: nil).where("facilities.name ILIKE ?", like(query)).select(:parent_id)
-      linked = Facility.where(id: FacilityRelationship.verified.where("facility_relationships.description ILIKE ?", like(query)).select(:facility_id))
+      # Only links a page shows: a verified company and a verified site or unit.
+      links = FacilityRelationship.verified.where("facility_relationships.description ILIKE ?", like(query))
+        .where(organization_id: Organization.verified.select(:id), facility_id: Facility.verified.select(:id))
+      linked = Facility.where(id: links.select(:facility_id))
       linked_sites = Facility.where(id: linked.select(:id)).or(Facility.where(id: linked.select(:parent_id))).select(:id)
       techs = Technology.where("technologies.name ILIKE :q OR technologies.key ILIKE :q", q: like(query)).select(:id)
       tech_units = Facility.verified.where.not(parent_id: nil).where(technology_id: techs).select(:parent_id)
