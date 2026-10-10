@@ -36,6 +36,11 @@ gem "bootsnap", require: false
 # Use Active Storage variants [https://guides.rubyonrails.org/active_storage_overview.html#transforming-images]
 gem "image_processing", "~> 1.2"
 
+# Reads spreadsheet sources (EIA's generator inventory is an .xlsx, which is a zip of XML).
+gem "rubyzip", "~> 3.0", require: "zip"
+# Stored source rows (no longer a default gem from Ruby 3.4).
+gem "csv"
+
 # Validates LLM JSON output against a schema [https://github.com/davishmcclurg/json_schemer]
 gem "json_schemer", "~> 2.4"
 
