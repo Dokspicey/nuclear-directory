@@ -100,6 +100,6 @@ class CorrectionsTest < ActionDispatch::IntegrationTest
     assert_select ".nd-factrow a.nd-factrow__fix[href=?]",
       new_correction_path(subject: "Georgia Power owns Plant Vogtle", page: "/plants/plant-vogtle")
     assert_select ".nd-overview a[href=?]", new_correction_path(subject: "Plant Vogtle", page: "/plants/plant-vogtle"), text: "Report a correction"
-    assert_select ".nd-gaps a[href=?]", new_correction_path(subject: "Plant Vogtle: Status, Location, Operator", page: "/plants/plant-vogtle"), text: "Suggest a source"
+    assert_select ".nd-gaps a[href=?]", new_correction_path(subject: "Plant Vogtle: Status, Location, NRC docket, Operator", page: "/plants/plant-vogtle"), text: "Suggest a source"
   end
 end
