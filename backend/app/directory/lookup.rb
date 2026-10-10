@@ -47,8 +47,20 @@ module Directory
       "offtake_with" => "has an offtake agreement with", "subsidiary_of" => "is a subsidiary of",
       "owns" => "owns", "operates" => "operates", "vendor_for" => "is vendor for", "offtakes_from" => "offtakes from"
     }.freeze
-    ROLE_WORDS = { "reactor_vendor" => "reactor developer", "reactor_services" => "repair and services company",
-      "data_center_offtaker" => "power buyer" }.freeze
+    # What a company with each role is, in a sentence ("TerraPower is a reactor
+    # developer"), in visitors' words. A role not listed reads "has the role …".
+    ROLE_WORDS = {
+      "fuel" => "a fuel supplier", "mining" => "a uranium miner", "conversion" => "a uranium converter",
+      "enrichment" => "a uranium enricher", "fabrication" => "a fuel fabricator",
+      "reactor_vendor" => "a reactor developer", "reactor_services" => "a repair and services company",
+      "utility" => "a utility", "operator" => "an operator", "data_center_offtaker" => "a power buyer",
+      "coolant" => "a coolant supplier", "molten_salt" => "a molten salt coolant supplier",
+      "water" => "a light water coolant supplier", "helium" => "a helium coolant supplier",
+      "sodium" => "a sodium coolant supplier", "lead" => "a lead coolant supplier",
+      "heavy_water" => "a heavy water supplier", "regulatory_consultant" => "a regulatory consultant",
+      "venture_capital" => "a venture capital investor", "government_agency" => "a government agency",
+      "national_lab" => "a national lab"
+    }.freeze
     private_constant :LINK_VERBS, :ROLE_WORDS
 
     # Any fact's current decision (Directory::FactStateRef), or nil.
@@ -124,7 +136,9 @@ module Directory
         statement =
           case record
           when Organization, Facility then return record.name
-          when OrganizationRole then "#{record.organization.name} is #{with_article(ROLE_WORDS.fetch(record.role.key) { in_sentence(record.role.name) })}"
+          when OrganizationRole
+            phrase = ROLE_WORDS[record.role.key]
+            phrase ? "#{record.organization.name} is #{phrase}" : "#{record.organization.name} has the role #{record.role.name}"
           when OrganizationTechnology then "#{record.organization.name} works on #{in_sentence(record.technology.name)}"
           when Relationship then "#{record.from_organization.name} #{LINK_VERBS.fetch(record.relationship_type)} #{record.to_organization.name}"
           when FacilityRelationship then "#{record.organization.name} #{LINK_VERBS.fetch(record.relationship_type)} #{record.facility.name}"
@@ -137,8 +151,6 @@ module Directory
       def in_sentence(name)
         name.split.map { |word| word.match?(/\A[[:upper:]][[:lower:]]+\z/) ? word.downcase : word }.join(" ")
       end
-
-      def with_article(phrase) = "#{phrase.match?(/\A[aeiou]/i) ? 'an' : 'a'} #{phrase}"
 
       # The same leading distinctive word, which is usually the plant's or
       # company's own name ("Vogtle", "Susquehanna", "Southern"). Later words
