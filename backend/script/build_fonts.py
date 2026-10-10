@@ -6,9 +6,10 @@ ofl/robotoserif/RobotoSerif[GRAD,opsz,wdth,wght].ttf saved as RobotoSerif.ttf,
 ofl/robotomono/RobotoMono[wght].ttf saved as RobotoMono.ttf.
 
 Needs fonttools with woff2 support (pip install "fonttools[woff]==4.54.1").
-Usage:
-  python build_fonts.py <source dir> app/assets/fonts <wordmark.svg>
-then paste the SVG into app/views/shared/_wordmark.html.erb.
+Usage, from backend/:
+  python script/build_fonts.py <source dir> app/assets/fonts <wordmark.svg>
+then paste the SVG into app/views/shared/_wordmark.html.erb. Timestamps are
+kept from the source fonts, so the same inputs give the same files.
 """
 import io
 import sys
