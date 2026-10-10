@@ -12,8 +12,8 @@ class DataQuality::DirectoryClient
   Ref = Data.define(:type, :id)
   # What a lookup found: enough to match on and to explain a match.
   # values: a link's stored values ({ "ownership_pct" => 45.7, ... }), else nil.
-  Record = Data.define(:type, :id, :name, :domain, :nrc_docket, :parent_id, :facility_type, :status, :state, :country_code,
-    :verification_status, :verified_by, :verified_at, :values) do
+  Record = Data.define(:type, :id, :name, :domain, :nrc_docket, :eia_plant_id, :parent_id, :facility_type, :status, :state,
+    :country_code, :verification_status, :verified_by, :verified_at, :values) do
     def ref = Ref.new(type:, id:)
     def rejected? = verification_status == "rejected"
     def unpublished? = verification_status == "unpublished"
@@ -47,8 +47,8 @@ class DataQuality::DirectoryClient
     record("Organization", lookup.organization(name:, domain:))
   end
 
-  def facility(id: nil, name: nil, nrc_docket: nil)
-    record("Facility", lookup.facility(id:, name:, nrc_docket:))
+  def facility(id: nil, name: nil, site_name: nil, nrc_docket: nil, eia_plant_id: nil)
+    record("Facility", lookup.facility(id:, name:, site_name:, nrc_docket:, eia_plant_id:))
   end
 
   # Runs the block with the candidate's attached fact locked, unless it was
@@ -274,7 +274,8 @@ class DataQuality::DirectoryClient
     def plant_names = @plant_names ||= lookup.plant_names(owners: owner_hints)
 
     def record(type, ref, values: nil)
-      Record.new(type:, id: ref.id, name: ref.name, domain: ref.try(:domain), nrc_docket: ref.try(:nrc_docket), parent_id: ref.try(:parent_id),
+      Record.new(type:, id: ref.id, name: ref.name, domain: ref.try(:domain), nrc_docket: ref.try(:nrc_docket),
+        eia_plant_id: ref.try(:eia_plant_id), parent_id: ref.try(:parent_id),
         facility_type: ref.try(:facility_type), status: ref.try(:status), state: ref.try(:state),
         country_code: ref.try(:country_code), verification_status: ref.verification_status,
         verified_by: ref.try(:verified_by), verified_at: ref.try(:verified_at), values:) if ref

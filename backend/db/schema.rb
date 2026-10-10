@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_11_010002) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_11_020000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -113,6 +113,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_010002) do
     t.string "verified_by"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "eia_plant_id"
+    t.index ["eia_plant_id"], name: "index_facilities_on_eia_plant_id_for_sites", unique: true, where: "((parent_id IS NULL) AND (eia_plant_id IS NOT NULL))"
     t.index ["nrc_docket"], name: "index_facilities_on_nrc_docket", unique: true, where: "(nrc_docket IS NOT NULL)"
     t.index ["parent_id"], name: "index_facilities_on_parent_id"
     t.index ["slug"], name: "index_facilities_on_slug", unique: true

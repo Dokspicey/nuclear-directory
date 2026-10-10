@@ -56,7 +56,7 @@ module Directory
       facility: {
         model: Facility,
         attributes: %i[name slug parent_id facility_type status technology reactor_type capacity_mw nrc_docket
-          city state country_code latitude longitude aliases]
+          eia_plant_id city state country_code latitude longitude aliases]
       },
       relationship: {
         model: Relationship,
@@ -305,7 +305,10 @@ module Directory
           Organization.find(ref.id) if ref
         when :facility
           ref = Lookup.facility(nrc_docket: attrs[:nrc_docket]) if attrs[:nrc_docket].present?
-          ref ||= [ attrs[:name], *attrs[:aliases] ].compact_blank.lazy.filter_map { |name| Lookup.facility(name:) }.first
+          ref ||= Lookup.facility(eia_plant_id: attrs[:eia_plant_id]) if attrs[:eia_plant_id].present?
+          # An EIA site is found among sites only, never as a same-name NRC unit.
+          key = attrs[:eia_plant_id].present? && attrs[:nrc_docket].blank? ? :site_name : :name
+          ref ||= [ attrs[:name], *attrs[:aliases] ].compact_blank.lazy.filter_map { |name| Lookup.facility(key => name) }.first
           Facility.find(ref.id) if ref
         when :organization_role
           model.find_by(organization_id: attrs[:organization_id], role: lookup_row(Role, attrs[:role]))

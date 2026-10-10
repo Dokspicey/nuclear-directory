@@ -33,6 +33,14 @@ class FacilityTest < ActiveSupport::TestCase
     assert_not Facility.exists?(name: "Top Site")
   end
 
+  test "a generated slug that's taken gets a number" do
+    first = Facility.create!(name: "Palisades", nrc_docket: "05000255")
+    second = Facility.create!(name: "Palisades")
+    third = Facility.create!(name: "Palisades")
+
+    assert_equal %w[palisades palisades-2 palisades-3], [ first, second, third ].map(&:slug)
+  end
+
   test "nrc docket is unique when present" do
     Facility.create!(name: "Unit A", facility_type: "power_reactor", status: "operating", nrc_docket: "05000424")
     dup = Facility.new(name: "Unit B", facility_type: "power_reactor", status: "operating", nrc_docket: "05000424")
