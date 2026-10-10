@@ -393,3 +393,13 @@
     .nd-footer__links a { display: inline-flex; align-items: center; min-height: 44px; }
   }
 }
+
+/* Page not found (#110): a large 404, then the index-entry details. */
+@layer components {
+  .nd-notfound__numeral { margin: 0; color: var(--nd-ink); }
+  .nd-notfound__lead { display: flex; flex-direction: column; gap: var(--nd-space-2); }
+  .nd-notfound__lead p, .nd-notfound__lead h1 { margin: 0; }
+  .nd-notfound__path { margin: 0; padding: var(--nd-space-2) var(--nd-space-3); background: var(--nd-paper-sunken); border: var(--nd-hairline) solid var(--nd-rule); border-radius: var(--nd-radius-sm); overflow-wrap: anywhere; }
+  .nd-notfound__search { display: flex; flex-direction: column; gap: var(--nd-space-3); }
+  .nd-notfound__search p { margin: 0; }
+}

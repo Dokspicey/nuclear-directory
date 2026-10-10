@@ -26,6 +26,8 @@ Rails.application.routes.draw do
 
   # Living reference for the design system (see DESIGN.md). Not public.
   get "design" => "design_system#show", as: :design_system if Rails.env.local?
+  # Development shows Rails' debug page for a 404; this previews the real one.
+  get "design/not-found/*path" => "errors#not_found", format: false if Rails.env.local?
 
   # Render dynamic PWA files from app/views/pwa/* (remember to link manifest in application.html.erb)
   # get "manifest" => "rails/pwa#manifest", as: :pwa_manifest

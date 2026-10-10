@@ -1,9 +1,33 @@
-<% content_for :title, "Page not found · Nuclear Directory" %>
+<%
+  s = @suggestions
+  content_for :title, "Page not found · Nuclear Directory"
+%>
+<% content_for :head do %><meta name="robots" content="noindex"><% end %>
 <%= render "shared/site_header" %>
-<main class="nd-page">
-  <section class="flex flex-col gap-3 max-w-prose py-12">
-    <h1 class="type-title-md">Page not found</h1>
-    <p class="type-body text-ink-muted">There’s no page at this address. The link may be wrong, or the page may have moved.</p>
-    <p class="type-body">Search above, or <%= link_to "go to the home page", "/", class: "nd-link" %>.</p>
+
+<main class="nd-page nd-page--narrow nd-notfound">
+  <p class="nd-notfound__numeral type-numeral" aria-hidden="true">404</p>
+
+  <section class="nd-notfound__lead" aria-labelledby="notfound-heading">
+    <p class="type-data-sm text-ink-muted">404 · Not in the directory</p>
+    <h1 id="notfound-heading" class="type-title-md">We don't have a page at this address.</h1>
+    <p class="nd-notfound__path type-data"><%= @path %></p>
+  </section>
+
+  <% if s.matches.any? %>
+    <section aria-labelledby="notfound-matches">
+      <h2 id="notfound-matches" class="nd-sec-h">Did you mean</h2>
+      <ul class="nd-list">
+        <% s.matches.each do |kind, record| %>
+          <%= kind == :company ? render("shared/company_row", organization: record) : render("shared/plant_row", facility: record) %>
+        <% end %>
+      </ul>
+    </section>
+  <% end %>
+
+  <section class="nd-notfound__search" aria-labelledby="notfound-search">
+    <h2 id="notfound-search" class="nd-sec-h">Search the directory</h2>
+    <%= render "shared/search_box", size: :large, query: s.query, id: "search-notfound" %>
+    <p class="type-small text-ink-muted">Or <%= link_to "go to the home page", "/", class: "nd-link" %>.</p>
   </section>
 </main>
