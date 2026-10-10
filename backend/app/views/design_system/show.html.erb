@@ -257,12 +257,12 @@
           <h3 class="nd-sec-h">Deals and links <small>full, then sentence and source only</small></h3>
           <ul class="nd-list">
             <%= render "shared/fact_row",
-                  sentence: safe_join([ link_to("Google", "#", class: "nd-link font-semibold"), " #{relationship_verb("offtake_with")} Kairos Power" ]),
+                  sentence: safe_join([ link_to("Google", "#", class: "nd-link type-body-strong"), " #{relationship_verb("offtake_with")} Kairos Power" ]),
                   detail: "Master Plant Development Agreement for 500 MW of Kairos plants by 2035. October 2024.",
                   quote: "Kairos Power and Google have signed a Master Plant Development Agreement, creating a path to deploy a U.S. fleet of advanced nuclear power projects totaling 500 MW by 2035.",
                   citations: [ [ 1, m[:sources][0] ] ], confidence: 1.0, checked: m[:verified_at] %>
             <%= render "shared/fact_row",
-                  sentence: safe_join([ link_to("US Department of Energy", "#", class: "nd-link font-semibold"), " #{relationship_verb("funds")} Kairos Power" ]),
+                  sentence: safe_join([ link_to("US Department of Energy", "#", class: "nd-link type-body-strong"), " #{relationship_verb("funds")} Kairos Power" ]),
                   citations: [ [ 2, m[:sources][1] ] ] %>
           </ul>
         </section>
