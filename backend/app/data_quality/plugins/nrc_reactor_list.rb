@@ -1,4 +1,5 @@
-# NRC's list of operating power reactor units (#12): the first source.
+# NRC's list of operating power reactor units: the first source.
+# Crawl is #12; extract (#13) is described at #extract.
 #
 # Crawl fetches the HTML list page, then the 365-day power status file, and
 # checks that both name the same units. Rules (agreed on #12):
@@ -22,9 +23,14 @@ class DataQuality::Plugins::NrcReactorList < DataQuality::Plugin
     "Harris 1" => "Shearon Harris 1",
     "River Bend Station 1" => "River Bend 1"
   }.freeze
+  TABLE_MISSING = "Couldn't find the reactor table; the page layout may have changed"
 
-  def initialize(fetcher: DataQuality::Fetcher.new)
+  # The stored page has no reactor table to extract from.
+  class TableMissing < StandardError; end
+
+  def initialize(fetcher: DataQuality::Fetcher.new, extractor: Extractor.new)
     @fetcher = fetcher
+    @extractor = extractor
   end
 
   def crawl(_run)
@@ -36,6 +42,61 @@ class DataQuality::Plugins::NrcReactorList < DataQuality::Plugin
 
     stats["status_file"] = DataQuality::Snapshot.take(status, fetcher: @fetcher).to_s
     stats.merge(check(list, status))
+  end
+
+  # Extract (#13): the extractor model reads the table and every answer is
+  # checked against the exact parse, matched by NRC docket. The candidates
+  # always carry the table's values; the model's job here is to prove
+  # itself on a source we can check, before it's trusted on messier ones.
+  # - agrees: candidates go on as new
+  # - disagrees, or its quote isn't the row as written: candidates go to
+  #   review, with both values in the notes
+  # - skips a unit: that unit's candidates go to review
+  # - invents a unit: dropped and counted
+  # - an operator goes to review unless the model agreed on one of its rows
+  # The tally is saved on the run as stats["ai_check"].
+  # Per unit: the unit (facility), its operator (organization, one per
+  # name) and the "operates" link, in the shape match expects (README).
+  # A page without the table (normally caught at crawl, but extract can be
+  # run on its own) marks the source needs_human and fails the run before
+  # any model call, so earlier candidates stay and the page is retried.
+  def extract(source, run)
+    table = Page.units(source.content_text).index_by(&:nrc_docket)
+    text = Page.lines(source.content_text)
+    if table.empty? || text.size < 2
+      # Only flag the snapshot that was read. If a crawl has stored new
+      # content since, return nothing: the extract stage sees the changed
+      # hash and discards this result as superseded.
+      return [] unless flag_if_unchanged(source, TABLE_MISSING)
+
+      raise TableMissing, "#{TABLE_MISSING} (#{source.url})"
+    end
+
+    lines = text.index_by { |line| line[/(?:\A| \| )(\d{8})(?: \| |\z)/, 1] }
+    answers = @extractor.call(text, run: run)
+
+    tally = { "table_units" => table.size, "ai_units" => answers.size,
+      "agreed" => 0, "disagreed" => 0, "missed" => 0, "made_up" => 0 }
+    seen = {}
+    units = answers.filter_map do |answer|
+      unit = table[answer["nrc_docket"]]
+      if unit.nil? || seen[unit.nrc_docket]
+        tally["made_up"] += 1
+        next
+      end
+
+      seen[unit.nrc_docket] = true
+      problems = disagreements(answer, unit, lines[unit.nrc_docket])
+      tally[problems.empty? ? "agreed" : "disagreed"] += 1
+      [ unit, problems.presence && "The extractor model disagreed with the table: #{problems.join('; ')}" ]
+    end
+    (table.keys - seen.keys).each do |docket|
+      tally["missed"] += 1
+      units << [ table[docket], "The extractor model skipped this unit; values are from the table" ]
+    end
+
+    run.update!(stats: run.stats.merge("ai_check" => tally))
+    operator_candidates(units, lines) + units.flat_map { |unit, review| unit_candidates(unit, lines[unit.nrc_docket], review) }
   end
 
   private
@@ -53,7 +114,7 @@ class DataQuality::Plugins::NrcReactorList < DataQuality::Plugin
 
       units = Page.units(list.content_text)
       if units.empty?
-        needs_human(list, "Couldn't find the reactor table; the page layout may have changed")
+        needs_human(list, TABLE_MISSING)
         return { "units" => 0 }
       end
 
@@ -73,6 +134,54 @@ class DataQuality::Plugins::NrcReactorList < DataQuality::Plugin
       end
 
       stats.merge("cross_check" => "ok")
+    end
+
+    # What the model got wrong about one unit, in words; [] when it agrees.
+    # The model is told to copy values exactly, so it's checked exactly:
+    # "DC Cook 1" for "D.C. Cook 1" is a disagreement, not a match.
+    def disagreements(answer, unit, line)
+      {
+        "name" => [ answer["name"], unit.name ],
+        "reactor type" => [ answer["reactor_type"], unit.reactor_type ],
+        "state" => [ answer["state"], unit.state ],
+        "operator" => [ answer["operator"], unit.owner_operator ]
+      }.filter_map { |field, (said, table)| differs(field, said, table) unless said == table }
+        .tap { |problems| problems << differs("quote", answer["quote"], line) unless answer["quote"] == line }
+    end
+
+    def differs(field, said, table) = "#{field}: model said #{said.inspect}, table says #{table.inspect}"
+
+    # One per operator name. An operator is only as confirmed as its units:
+    # it goes on as new if the model agreed on at least one of its rows
+    # (operator included), else to review. The quote is an agreed row when
+    # there is one.
+    def operator_candidates(units, lines)
+      units.group_by { |unit, _review| unit.owner_operator }.map do |operator, rows|
+        agreed = rows.find { |_unit, review| review.nil? }
+        quote_unit = (agreed || rows.first).first
+        candidate = { kind: "organization", payload: { "name" => operator }, quote: lines[quote_unit.nrc_docket] }
+        next candidate if agreed
+
+        candidate.merge(status: "needs_review",
+          notes: "The extractor model didn't confirm any row for this operator: #{rows.map { |_unit, review| review }.uniq.join(' / ')}")
+      end
+    end
+
+    def unit_candidates(unit, line, review)
+      facility = { "name" => unit.name, "nrc_docket" => unit.nrc_docket }
+      flags = review ? { status: "needs_review", notes: review } : {}
+
+      # "state" is NRC's, which is the state of the city Location measures
+      # from; near a border that's not the plant's (Salem NJ shows as DE).
+      # It's evidence; EIA's plant state is to win for that field (planned in
+      # the EIA plug-in, #72).
+      [
+        { kind: "facility", quote: line, payload: facility.merge(
+          "facility_type" => "power_reactor", "status" => "operating", "reactor_type" => unit.reactor_type,
+          "state" => unit.state, "country_code" => "US") },
+        { kind: "facility_relationship", quote: line, payload: {
+          "organization" => { "name" => unit.owner_operator }, "facility" => facility, "relationship_type" => "operates" } }
+      ].map { |candidate| candidate.merge(flags) }
     end
 
     # Why the status file can't be used for the cross-check, or nil if it can.
@@ -99,5 +208,17 @@ class DataQuality::Plugins::NrcReactorList < DataQuality::Plugin
 
     def needs_human(source, reason)
       source.update!(crawl_status: "needs_human", status_reason: reason)
+    end
+
+    # Marks the source needs_human only if, under a row lock, it still holds
+    # the snapshot this object was loaded with. Returns whether it did.
+    def flag_if_unchanged(source, reason)
+      Source.transaction do
+        current = Source.lock.find(source.id)
+        next false unless current.content_sha256 == source.content_sha256
+
+        needs_human(current, reason)
+        true
+      end
     end
 end

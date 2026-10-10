@@ -1,0 +1,70 @@
+<%
+  listing = @listing
+  heading = if listing.category then listing.category.name
+            elsif listing.searching? then "Results for “#{listing.query}”"
+            else "All companies"
+            end
+  total = @companies.size + @plants.size
+  # The plants category mixes plants, mines and test reactors (VOICE.md).
+  noun, plural = if listing.category&.plants then [ "plant or site", "plants and sites" ]
+                 elsif listing.searching? && listing.category.nil? then [ "result", "results" ]
+                 else [ "company", "companies" ]
+                 end
+  content_for :title, "#{heading} · Nuclear Directory"
+%>
+<%= render "shared/site_header", query: listing.query %>
+
+<main class="nd-page">
+  <%= render "shared/category_pills", current: listing.category, counts: @counts %>
+
+  <div class="nd-listhead">
+    <h1 class="nd-listhead__title"><%= heading %> <span class="nd-num"><%= pluralize(total, noun, plural:) %></span></h1>
+
+    <%= form_with url: companies_path, method: :get, class: "nd-filters" do %>
+      <%= hidden_field_tag :category, listing.category&.key, id: nil if listing.category %>
+      <%= hidden_field_tag :q, listing.query, id: nil if listing.searching? %>
+      <label class="nd-select"><b>Technology</b>
+        <%= select_tag :technology, options_for_select(listing.technology_options, listing.technology), include_blank: "Any" %>
+      </label>
+      <label class="nd-select"><b>State</b>
+        <%= select_tag :state, options_for_select(listing.state_options, listing.state), include_blank: "Any" %>
+      </label>
+      <label class="nd-select"><b>Sort</b>
+        <%= select_tag :sort, options_for_select(DirectoryListing::SORTS.invert, listing.sort) %>
+      </label>
+      <button type="submit" class="nd-btn nd-btn--sm">Apply</button>
+    <% end %>
+  </div>
+
+  <% if total.zero? %>
+    <% if listing.searching? %>
+      <%= render "shared/empty_state", message: "No results for “#{listing.query}”#{" in #{listing.category.name}" if listing.category}.",
+            action_label: "Clear search",
+            action_url: directory_url_for(category: listing.category, technology: listing.technology, state: listing.state,
+                                          sort: (listing.sort unless listing.sort == "name")) %>
+    <% elsif listing.filtered? %>
+      <%= render "shared/empty_state", message: "Nothing matches these filters.", action_label: "Clear filters", action_url: directory_url_for(category: listing.category) %>
+    <% else %>
+      <%= render "shared/empty_state", message: listing.category ? "Nothing verified in this category yet." : "No companies verified yet." %>
+    <% end %>
+  <% elsif listing.searching? && listing.category.nil? %>
+    <%# Search results are always grouped, so each row's type is announced. %>
+    <% if @companies.any? %>
+      <section aria-labelledby="companies-heading">
+        <h2 id="companies-heading" class="nd-label mb-1">Companies</h2>
+        <ul class="nd-list"><% @companies.each do |company| %><%= render "shared/company_row", organization: company, connections: company.connections_count %><% end %></ul>
+      </section>
+    <% end %>
+    <% if @plants.any? %>
+      <section aria-labelledby="plants-heading">
+        <h2 id="plants-heading" class="nd-label mb-1">Plants and sites</h2>
+        <ul class="nd-list"><% @plants.each do |plant| %><%= render "shared/plant_row", facility: plant, connections: plant.connections_count %><% end %></ul>
+      </section>
+    <% end %>
+  <% else %>
+    <ul class="nd-list">
+      <% @companies.each do |company| %><%= render "shared/company_row", organization: company, connections: company.connections_count %><% end %>
+      <% @plants.each do |plant| %><%= render "shared/plant_row", facility: plant, connections: plant.connections_count %><% end %>
+    </ul>
+  <% end %>
+</main>

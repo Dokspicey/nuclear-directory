@@ -1,7 +1,7 @@
 <% content_for :title, "Design system · Nuclear Directory" %>
 <%# Every component from DESIGN.md with real markup. Organizations and figures are sample data. %>
 
-<div class="mx-auto max-w-content px-4 md:px-8 py-12 flex flex-col gap-16">
+<main class="mx-auto max-w-content px-4 md:px-8 py-12 flex flex-col gap-16">
   <header class="flex flex-col gap-4 max-w-prose">
     <span class="type-label">Nuclear Directory · design system</span>
     <h1 class="type-display">The US nuclear industry, mapped</h1>
@@ -214,6 +214,85 @@
     </div>
   </section>
 
+  <section class="flex flex-col gap-6" id="page-parts">
+    <div class="flex flex-col gap-1">
+      <h2 class="type-title-md">Page parts (shared partials)</h2>
+      <p class="type-small text-ink-muted">Rendered from <code class="type-data-sm">app/views/shared/</code> with mock records (unsaved, this page only). Each part appears with its optional fields filled and again with them empty.</p>
+    </div>
+    <% m = @mock %>
+
+    <div class="flex flex-col gap-2">
+      <span class="type-label">Site header: with a query, then empty</span>
+      <div class="border border-rule"><%= render "shared/site_header", query: "haleu" %></div>
+      <div class="border border-rule"><%= render "shared/site_header" %></div>
+    </div>
+
+    <div class="flex flex-col gap-2">
+      <span class="type-label">Category pills (with and without counts) and boxes</span>
+      <%= render "shared/category_pills", current: Category.find("reactor-developers"), counts: { "fuel" => 11, "reactor-developers" => 9, "plants" => 28 } %>
+      <%= render "shared/category_pills", current: nil %>
+      <%= render "shared/category_boxes", examples: { "fuel" => [ "Centrus Energy", "Urenco USA" ], "reactor-developers" => [ "Kairos Power", "X-energy", "TerraPower" ] } %>
+    </div>
+
+    <div class="flex flex-col gap-2">
+      <span class="type-label">Company and power plant rows: full, then sparse</span>
+      <ul class="nd-list">
+        <%= render "shared/company_row", organization: m[:company], connections: 6 %>
+        <%= render "shared/company_row", organization: m[:company_sparse] %>
+        <%= render "shared/plant_row", facility: m[:plant], connections: 9 %>
+        <%= render "shared/plant_row", facility: m[:plant_sparse] %>
+      </ul>
+    </div>
+
+    <div class="flex flex-col gap-2">
+      <span class="type-label">Profile header: company with description, plant without</span>
+      <%= render "shared/profile_header", name: m[:company].name, kind: :company, description: m[:company].description,
+            citations: [ [ 1, m[:sources][0] ] ], tags: [ "Reactor developer", "Molten salt coolant", "Fission" ], heading_id: "design-profile-company" %>
+      <%= render "shared/profile_header", name: m[:plant_sparse].name, kind: :plant, heading_id: "design-profile-plant" %>
+    </div>
+
+    <div class="nd-columns">
+      <div class="nd-columns__main">
+        <section>
+          <h3 class="nd-sec-h">Deals and links <small>full, then sentence and source only</small></h3>
+          <ul class="nd-list">
+            <%= render "shared/fact_row",
+                  sentence: safe_join([ link_to("Google", "#", class: "nd-link type-body-strong"), " #{relationship_verb("offtake_with")} Kairos Power" ]),
+                  detail: "Master Plant Development Agreement for 500 MW of Kairos plants by 2035. October 2024.",
+                  quote: "Kairos Power and Google have signed a Master Plant Development Agreement, creating a path to deploy a U.S. fleet of advanced nuclear power projects totaling 500 MW by 2035.",
+                  citations: [ [ 1, m[:sources][0] ] ], confidence: 1.0, checked: m[:verified_at] %>
+            <%= render "shared/fact_row",
+                  sentence: safe_join([ link_to("US Department of Energy", "#", class: "nd-link type-body-strong"), " #{relationship_verb("funds")} Kairos Power" ]),
+                  citations: [ [ 2, m[:sources][1] ] ] %>
+          </ul>
+        </section>
+        <%= render "shared/missing_fields", fields: [ "Location", "Status", "Reactor units and capacity", "NRC docket numbers" ], suggest_url: "#" %>
+        <section>
+          <h3 class="nd-sec-h">Sources <small>2 (the second has no title)</small></h3>
+          <%= render "shared/sources_list", sources: m[:sources].each_with_index.map { |source, i| [ i + 1, source ] } %>
+        </section>
+        <div class="flex flex-col">
+          <span class="type-label">Empty state: with an action, then without</span>
+          <%= render "shared/empty_state", message: "No results for “molten salt pump” in Reactor developers.", action_label: "Clear search", action_url: "#" %>
+          <%= render "shared/empty_state", message: "Nothing verified in this category yet." %>
+        </div>
+        <div class="flex flex-col gap-2">
+          <span class="type-label">Verified badge: with a checked date, then without</span>
+          <div class="nd-row"><%= render "shared/verified_badge", verified_at: m[:verified_at] %></div>
+          <div class="nd-row"><%= render "shared/verified_badge" %></div>
+        </div>
+      </div>
+      <div class="nd-columns__side">
+        <%= render "shared/overview_panel", verified_at: m[:verified_at], correction_url: "#",
+              rows: [ [ "Website", link_to("kairospower.com", "#", class: "nd-link"), nil ],
+                      [ "HQ", nil, nil ],
+                      [ "Role", "Reactor developer", [ [ 1, m[:sources][0] ] ] ],
+                      [ "Technology", "Fission, small modular reactor", nil ] ] %>
+        <%= render "shared/overview_panel", rows: [ [ "Website", nil, nil ] ] %>
+      </div>
+    </div>
+  </section>
+
   <section class="flex flex-col gap-4" id="icons">
     <h2 class="type-title-md">Icons (Phosphor)</h2>
     <div class="grid gap-3" style="grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));">
@@ -222,4 +301,4 @@
       <% end %>
     </div>
   </section>
-</div>
+</main>
