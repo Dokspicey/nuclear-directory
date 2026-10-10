@@ -64,7 +64,11 @@ class DataQuality::Plugins::NrcReactorList < DataQuality::Plugin
     table = Page.units(source.content_text).index_by(&:nrc_docket)
     text = Page.lines(source.content_text)
     if table.empty? || text.size < 2
-      needs_human(source, TABLE_MISSING)
+      # Only flag the snapshot that was read. If a crawl has stored new
+      # content since, return nothing: the extract stage sees the changed
+      # hash and discards this result as superseded.
+      return [] unless flag_if_unchanged(source, TABLE_MISSING)
+
       raise TableMissing, "#{TABLE_MISSING} (#{source.url})"
     end
 
@@ -204,5 +208,17 @@ class DataQuality::Plugins::NrcReactorList < DataQuality::Plugin
 
     def needs_human(source, reason)
       source.update!(crawl_status: "needs_human", status_reason: reason)
+    end
+
+    # Marks the source needs_human only if, under a row lock, it still holds
+    # the snapshot this object was loaded with. Returns whether it did.
+    def flag_if_unchanged(source, reason)
+      Source.transaction do
+        current = Source.lock.find(source.id)
+        next false unless current.content_sha256 == source.content_sha256
+
+        needs_human(current, reason)
+        true
+      end
     end
 end

@@ -217,6 +217,21 @@ class DataQuality::Plugins::NrcReactorList::ExtractTest < ActiveSupport::TestCas
     assert CrawlRun.where(stage: "extract").order(:id).last.failed?
   end
 
+  test "a broken snapshot replaced by a good one meanwhile doesn't flag the good one" do
+    broken = "<html><body><p>We moved things around.</p></body></html>"
+    @source.update!(content_text: broken, content_sha256: Digest::SHA256.hexdigest(broken))
+    stale = Source.find(@source.id) # what extract loaded
+    good = file_fixture("nrc/list-power-reactor-units.html").read
+    Source.where(id: @source.id).update_all(content_text: good, content_sha256: Digest::SHA256.hexdigest(good))
+    model = FakeModel.new
+
+    result = Plugin.new(fetcher: nil, extractor: Extractor.new(llm: model)).extract(stale, CrawlRun.create!(stage: "extract"))
+
+    assert_empty result
+    assert_empty model.calls
+    assert @source.reload.crawl_ok?, "the new, good snapshot isn't flagged"
+  end
+
   test "a source with nothing stored is skipped, not treated as a broken page" do
     empty = Source.create!(url: "https://www.nrc.gov/empty", source_kind: "nrc_reactor_list", crawl_status: "ok")
 
