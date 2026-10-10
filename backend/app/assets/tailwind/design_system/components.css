@@ -312,7 +312,7 @@
   /* 44px tap targets on touch screens, without changing how small parts look. */
   @media (pointer: coarse) {
     .nd-pill, .nd-sugg, .nd-select, .nd-instant__row, .nd-instant__all { min-height: 44px; }
-    .nd-src, .nd-az a { position: relative; }
-    .nd-src::after, .nd-az a::after { content: ""; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); transform: translate(-50%, -50%); }
+    .nd-src, .nd-az a, .nd-wordmark { position: relative; }
+    .nd-src::after, .nd-az a::after, .nd-wordmark::after { content: ""; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); transform: translate(-50%, -50%); }
   }
 }
