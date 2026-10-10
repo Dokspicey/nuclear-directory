@@ -71,6 +71,23 @@ module Directory
     EVIDENCE_ATTRIBUTES = %i[source_id quote found_by confidence crawl_run_id].freeze
 
     def self.write(...) = new.write(...)
+
+    # Runs the block while holding a lock on the fact, unless a human has
+    # closed it (rejected or unpublished): then the block doesn't run and the
+    # fact's Directory::FactStateRef is returned. nil otherwise. For callers
+    # that act on a fact staying open, e.g. rejecting a candidate attached to
+    # it, so a human's decision made meanwhile is never missed.
+    def self.while_open(type:, id:)
+      raise ArgumentError, "not a fact type: #{type.inspect}" unless Lookup::FACT_TYPES.include?(type.to_s)
+
+      ActiveRecord::Base.transaction(requires_new: true) do
+        record = type.to_s.constantize.lock.find_by(id:)
+        next Lookup.fact_state(type:, id:) if record&.closed?
+
+        yield
+        nil
+      end
+    end
     def self.fill_site_from_unit(...) = new.fill_site_from_unit(...)
 
     # Fills a site's blank fields (from fields:) with its unit's stored
@@ -171,7 +188,10 @@ module Directory
         if protect_human_verified && site_id && (site = Facility.lock.find_by(id: site_id))&.closed?
           raise Invalid, "site #{site.name} was #{site.verification_status} by #{site.verified_by || 'review'}; no units under it"
         end
-        check_link_ends(kind, attributes, record) if protect_human_verified
+        # Rejecting an existing link (no values, just the decision) needs no open
+        # ends: retiring a proposal whose company was closed must still work.
+        rejecting_only = !created && attributes.keys == [ :id ] && verification.to_h.symbolize_keys[:status].to_s == "rejected"
+        check_link_ends(kind, attributes, record) if protect_human_verified && !rejecting_only
         curated = protect_human_verified && !created && record.human_reviewed?
         changes = model_attributes(kind, attributes)
         if curated && (conflicts = conflicts_with(record, changes)).any?
