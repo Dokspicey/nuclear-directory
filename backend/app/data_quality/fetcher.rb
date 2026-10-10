@@ -110,7 +110,7 @@ class DataQuality::Fetcher
           response = res
           res.read_body do |chunk|
             body << chunk
-            raise BodyLimitReached if body.bytesize >= max_bytes
+            raise BodyLimitReached if body.bytesize > max_bytes
           end
         end
       end
