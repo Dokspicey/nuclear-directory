@@ -82,6 +82,22 @@ class Directory::LookupTest < ActiveSupport::TestCase
     assert_nil Directory::Lookup.facility(nrc_docket: " "), "the Vogtle fixture has no docket"
   end
 
+  test "a link's decision reads as a plain fact, in the words visitors use" do
+    org = organizations(:terrapower)
+    role = OrganizationRole.create!(organization: org, role: Role.create!(key: "reactor_vendor", name: "Reactor vendor"))
+    deal = Relationship.create!(from_organization: organizations(:westinghouse), to_organization: org, relationship_type: "invests_in")
+
+    assert_equal "the fact “TerraPower is a reactor developer”", Directory::Lookup.fact_state(type: "OrganizationRole", id: role.id).name
+    assert_equal "the fact “#{organizations(:westinghouse).name} invests in TerraPower”",
+      Directory::Lookup.fact_state(type: "Relationship", id: deal.id).name
+    assert_equal "TerraPower", Directory::Lookup.fact_state(type: "Organization", id: org.id).name
+
+    operator = OrganizationRole.create!(organization: org, role: Role.create!(key: "operator", name: "Operator"))
+    smr = OrganizationTechnology.create!(organization: org, technology: Technology.create!(key: "smr", name: "SMR"))
+    assert_equal "the fact “TerraPower is an operator”", Directory::Lookup.fact_state(type: "OrganizationRole", id: operator.id).name
+    assert_equal "the fact “TerraPower works on SMR”", Directory::Lookup.fact_state(type: "OrganizationTechnology", id: smr.id).name
+  end
+
   test "needs exactly one way to look up" do
     assert_raises(ArgumentError) { Directory::Lookup.organization }
     assert_raises(ArgumentError) { Directory::Lookup.organization(name: "TerraPower", domain: "terrapower.com") }

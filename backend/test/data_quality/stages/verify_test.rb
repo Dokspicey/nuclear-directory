@@ -92,6 +92,22 @@ class DataQuality::Stages::VerifyTest < ActiveSupport::TestCase
     assert_match(/TerraPower was unpublished by human:tosin on \d{4}-\d{2}-\d{2} after this was matched/, c.notes)
   end
 
+  test "a decision made while the verifier is thinking still wins" do
+    c = candidate("organization", { "name" => "TP Nuclear Holdings", "domain" => "terrapower.com" })
+    run_stage("match")
+    terrapower = organizations(:terrapower)
+    slow = Object.new
+    slow.define_singleton_method(:call) do |_candidate|
+      terrapower.tap { |o| o.verify!(by: "human:tosin") }.unpublish!(by: "human:tosin")
+      DataQuality::Verdict.new(outcome: :reject, reason: "not a real company")
+    end
+
+    run_stage("verify", verifier: slow)
+
+    assert c.reload.status_needs_review?, "sent to review, not rejected"
+    assert_match "TerraPower was unpublished by human:tosin", c.notes
+  end
+
   test "a link unpublished after match sends its candidate to review too" do
     link = FacilityRelationship.create!(organization: organizations(:terrapower), facility: facilities(:vogtle),
       relationship_type: "owns")
@@ -104,7 +120,7 @@ class DataQuality::Stages::VerifyTest < ActiveSupport::TestCase
     run_stage("verify", verifier: RejectEverything.new)
 
     assert c.reload.status_needs_review?, "not rejected by the verifier"
-    assert_match "TerraPower owns #{facilities(:vogtle).name} was unpublished by human:tosin", c.notes
+    assert_match "The fact “TerraPower owns #{facilities(:vogtle).name}” was unpublished by human:tosin", c.notes
   end
 
   test "publishing a match keeps the company's own name, adding the candidate's as an alias" do

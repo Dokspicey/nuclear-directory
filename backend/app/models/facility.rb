@@ -25,8 +25,13 @@ class Facility < ApplicationRecord
   validates :latitude, numericality: { in: -90..90 }, allow_nil: true
   validates :longitude, numericality: { in: -180..180 }, allow_nil: true
 
-  # A unit is hidden when its site isn't published.
+  # What the public sees. A unit: verified, under a site that isn't rejected
+  # or unpublished. A site: verified, or pending with at least one such unit
+  # (#73: a site made from NRC units goes public with its first verified unit).
   def self.published
-    verified.where(parent_id: nil).or(verified.where(parent_id: Facility.verified.select(:id)))
+    closed_sites = where(parent_id: nil, verification_status: Verifiable::CLOSED_STATUSES).select(:id)
+    units = verified.where.not(parent_id: nil).where.not(parent_id: closed_sites)
+    sites = where(parent_id: nil)
+    sites.verified.or(sites.pending.where(id: units.select(:parent_id))).or(units)
   end
 end

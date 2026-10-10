@@ -72,6 +72,16 @@ module Directory
     }.freeze
     private_constant :PENDING_INCLUDES
 
+    # How a link reads to a person (VOICE.md's fixed verbs and words).
+    LINK_VERBS = {
+      "supplies" => "supplies", "invests_in" => "invests in", "funds" => "funds",
+      "offtake_with" => "has an offtake agreement with", "subsidiary_of" => "is a subsidiary of",
+      "owns" => "owns", "operates" => "operates", "vendor_for" => "is vendor for", "offtakes_from" => "offtakes from"
+    }.freeze
+    ROLE_WORDS = { "reactor_vendor" => "reactor developer", "reactor_services" => "repair and services company",
+      "data_center_offtaker" => "power buyer" }.freeze
+    private_constant :LINK_VERBS, :ROLE_WORDS
+
     # Any fact's current decision (Directory::FactStateRef), or nil.
     def fact_state(type:, id:)
       raise ArgumentError, "not a fact type: #{type.inspect}" unless FACT_TYPES.include?(type.to_s)
@@ -162,15 +172,27 @@ module Directory
           .index_by(&:subject_id).transform_values { |event| VerificationEventRef.from(event) }
       end
 
+      # A record's name; a link is "the fact “TerraPower owns Plant Vogtle”",
+      # in the words visitors use (VOICE.md), so it reads as a review note.
       def fact_label(record)
-        case record
-        when Organization, Facility then record.name
-        when OrganizationRole then "#{record.organization.name} as #{record.role.key}"
-        when OrganizationTechnology then "#{record.organization.name} in #{record.technology.key}"
-        when Relationship then "#{record.from_organization.name} #{record.relationship_type} #{record.to_organization.name}"
-        when FacilityRelationship then "#{record.organization.name} #{record.relationship_type} #{record.facility.name}"
-        end
+        statement =
+          case record
+          when Organization, Facility then return record.name
+          when OrganizationRole then "#{record.organization.name} is #{with_article(ROLE_WORDS.fetch(record.role.key) { in_sentence(record.role.name) })}"
+          when OrganizationTechnology then "#{record.organization.name} works on #{in_sentence(record.technology.name)}"
+          when Relationship then "#{record.from_organization.name} #{LINK_VERBS.fetch(record.relationship_type)} #{record.to_organization.name}"
+          when FacilityRelationship then "#{record.organization.name} #{LINK_VERBS.fetch(record.relationship_type)} #{record.facility.name}"
+          end
+        "the fact “#{statement}”"
       end
+
+      # A display name inside a sentence: lowercased, except acronyms ("SMR",
+      # "HALEU") and words with capitals inside ("TRISO-X").
+      def in_sentence(name)
+        name.split.map { |word| word.match?(/\A[[:upper:]][[:lower:]]+\z/) ? word.downcase : word }.join(" ")
+      end
+
+      def with_article(phrase) = "#{phrase.match?(/\A[aeiou]/i) ? 'an' : 'a'} #{phrase}"
 
       # The same leading distinctive word, which is usually the plant's or
       # company's own name ("Vogtle", "Susquehanna", "Southern"). Later words
