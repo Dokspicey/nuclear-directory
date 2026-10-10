@@ -51,6 +51,13 @@ docker compose run --rm web bin/rails "data_quality:stage[extract,nrc_reactor_li
 Or from code: `DataQuality::RunJob.perform_later("nrc_reactor_list", only: "extract")`.
 The quotes stop zsh from treating `[...]` as a file pattern.
 
+**In production it runs every day (#53):** `config/recurring.yml` queues `RunJob` for
+`nrc_reactor_list` at 3am and `eia_generators` at 4am US Eastern (Solid Queue's scheduler, inside
+Puma via `SOLID_QUEUE_IN_PUMA`). Each source is fetched at most once a day; a blocked source is
+recorded (blocked, then needs_human after 3 days) and the run goes on with nothing new. Verify only
+recommends: nothing is published until a person approves it in the admin. Results are in
+`crawl_runs` and on the admin's Sources and runs page.
+
 To see how it's doing (blocked sources, last runs, review queue, model spend):
 
 ```bash
