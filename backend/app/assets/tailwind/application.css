@@ -1,1 +1,5 @@
 @import "tailwindcss";
+
+/* Nuclear Directory design system. Read DESIGN.md before building a view. */
+@import "./design_system/tokens.css";
+@import "./design_system/components.css";
