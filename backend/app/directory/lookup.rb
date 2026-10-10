@@ -66,7 +66,7 @@ module Directory
     end
 
     PENDING_INCLUDES = {
-      "organization" => [], "facility" => [ :parent, :technology ], "organization_role" => [ :organization, :role ],
+      "organization" => [ :aliases ], "facility" => [ :parent, :technology ], "organization_role" => [ :organization, :role ],
       "organization_technology" => [ :organization, :technology ],
       "relationship" => [ :from_organization, :to_organization ], "facility_relationship" => [ :organization, :facility ]
     }.freeze
@@ -136,6 +136,7 @@ module Directory
         names = FactWriter::KINDS.fetch(kind.to_sym)[:attributes] - %i[aliases role technology]
         values = names.to_h { |name| [ name, record.public_send(name) ] }
         values[:role] = record.role.key if kind == "organization_role"
+        values[:aliases] = record.aliases.map(&:alias).sort if kind == "organization"
         values[:technology] = record.technology&.key if record.respond_to?(:technology)
         values[:organization_name] = record.organization.name if record.respond_to?(:organization)
         values[:facility_name] = record.facility.name if kind == "facility_relationship"
