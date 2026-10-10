@@ -149,6 +149,27 @@ class Directory::VerificationAuditTest < ActiveSupport::TestCase
     assert_not FacilityRelationship.exists?(organization_id: @org.id, facility_id: plant.id)
   end
 
+  test "an automated link to a unit whose site was closed isn't written" do
+    site = facilities(:vogtle)
+    unit = Facility.create!(name: "Vogtle 3", parent: site)
+    site.unpublish!(by: "human:tosin")
+
+    result = write(:facility_relationship, { organization_id: @org.id, facility_id: unit.id, relationship_type: "operates" },
+      protect_human_verified: true)
+
+    assert_match "#{site.name} was unpublished by human:tosin; not linked", result.errors.join
+  end
+
+  test "a bad verification key fails even a protected write to a curated fact" do
+    @org.verify!(by: "human:tosin")
+
+    result = write(:organization, { id: @org.id, hq_city: "Bellevue" }, protect_human_verified: true,
+      verification: { status: "verified", by: "agent:x", because: "typo" })
+
+    assert_match "unknown verification keys: because", result.errors.join
+    assert_nil @org.reload.hq_city
+  end
+
   test "a proposed link whose company was closed can still be retired" do
     link = FacilityRelationship.create!(organization: @org, facility: facilities(:vogtle), relationship_type: "owns")
     @org.unpublish!(by: "human:tosin")
@@ -171,6 +192,12 @@ class Directory::VerificationAuditTest < ActiveSupport::TestCase
     assert_equal [ "TP Holdings" ], after - before
   end
 
+  test "a decision's date can't be changed on its own" do
+    @org.verify!(by: "human:tosin")
+
+    assert_raises(ActiveRecord::RecordInvalid) { @org.reload.update!(verified_at: 1.year.ago) }
+  end
+
   test "an agent repeating a closed decision can't edit the fact" do
     @org.reject!(by: "agent:verifier/x")
 
@@ -187,6 +214,9 @@ class Directory::VerificationAuditTest < ActiveSupport::TestCase
 
     assert_equal [ false, true ], results.map(&:ok?)
     assert_match "missing write keys: kind", results.first.errors.join
+
+    odd = Directory::FactWriter.write_many([ { kind: nil, attributes: { id: @org.id } }, { kind: 12, attributes: { id: @org.id } } ])
+    assert_equal [ false, false ], odd.map(&:ok?), "a bad kind fails its own write, never the batch"
   end
 
   test "write_many fails a write with a misspelled key instead of dropping it" do

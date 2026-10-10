@@ -27,4 +27,19 @@ module DirectoryBuilders
       Relationship.create!(from_organization: from, to_organization: to, relationship_type: type, **verification(verified))
     end
   end
+
+  # Attaches a source to each record, as profile pages show only sourced
+  # facts. A company also gets its roles and technologies sourced.
+  def cite!(*records, source: default_source)
+    records.each do |record|
+      [ record, *(record.organization_roles + record.organization_technologies if record.is_a?(Organization)) ].each do |fact|
+        fact.evidence.create!(source:, found_by: "human", confidence: 1)
+      end
+    end
+    records.first
+  end
+
+  def default_source
+    @default_source ||= Source.create!(url: "https://example.org/source", source_kind: "web_page")
+  end
 end
