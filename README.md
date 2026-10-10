@@ -133,7 +133,9 @@ to `render.yaml` with `sync: false` and then setting its value in the
 dashboard.
 
 **Domain.** `nuclear-directory.org` is the web service's custom domain
-(`domains` in `render.yaml`; Render adds `www`, which redirects to it). DNS is
+(`domains` in `render.yaml`; Render adds `www`, which redirects to it). The
+`nuclear-directory.onrender.com` address is turned off
+(`renderSubdomainPolicy: disabled`), so the site has one public address. DNS is
 at Namecheap: the bare domain is an ALIAS to `nuclear-directory.onrender.com`
 (or an A record to `216.24.57.1`) and `www` is a CNAME to
 `nuclear-directory.onrender.com`. The iCloud
