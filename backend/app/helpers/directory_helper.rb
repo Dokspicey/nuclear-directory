@@ -69,16 +69,15 @@ module DirectoryHelper
     [ 0.0, 1, "Low" ]
   ].freeze
 
-  # Public URLs. The routes arrive with their pages (#40 directory and search,
-  # #42 company, #43 power plant); until then the paths are built here, in one
-  # place, so those issues only swap in the route helpers.
-  def directory_url_for(category: nil, q: nil)
-    query = { category: category&.to_param, q: q.presence }.compact.to_query
-    [ "/companies", query.presence ].compact.join("?")
+  # Public URLs. Company and power plant pages arrive with #42 and #43; until
+  # then their paths are built here, in one place, so those issues only swap
+  # in the route helpers.
+  def directory_url_for(category: nil, q: nil, **filters)
+    companies_path({ category: category&.to_param, q: q.presence }.merge(filters).compact_blank)
   end
 
   def company_url_for(organization) = "/companies/#{organization.slug}"
-  def plant_url_for(facility) = "/power-plants/#{facility.slug}"
+  def plant_url_for(facility) = "/plants/#{facility.slug}"
 
   def relationship_verb(type) = RELATIONSHIP_VERBS.fetch(type.to_s)
   def facility_relationship_verb(type) = FACILITY_RELATIONSHIP_VERBS.fetch(type.to_s)
