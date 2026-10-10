@@ -1,0 +1,38 @@
+<% content_for :title, "Privacy · Nuclear Directory" %>
+<% content_for :head do %>
+  <meta name="description" content="What Nuclear Directory records: anonymous page and search counts, and what you type into a correction. No accounts, cookies or advertising trackers.">
+<% end %>
+<%= render "shared/site_header" %>
+
+<main class="nd-page nd-page--narrow nd-prose">
+  <h1 class="type-title-md">Privacy</h1>
+  <p class="type-body">Nuclear Directory doesn't ask who you are. There are no accounts, no cookies and no advertising trackers.</p>
+
+  <section aria-labelledby="counts">
+    <h2 id="counts" class="type-body-strong">Page views and searches</h2>
+    <p class="type-body">We count page views and searches without knowing who made them. We use PostHog in cookieless mode: nothing is stored in your browser, one visit isn't linked to the next, and page addresses are recorded without their query strings. Searches are counted by their words and how many results they found, so we can see what people look for and don't find.</p>
+    <p class="type-body">Like any web service, PostHog receives your IP address with each request, and its script loads from jsDelivr, a public code network. Neither is given anything else about you.</p>
+  </section>
+
+  <section aria-labelledby="corrections">
+    <h2 id="corrections" class="type-body-strong">Corrections</h2>
+    <p class="type-body">When you report a correction, we keep what you type (your message and, if you add one, your email address) and the page it's about. We use your email only to reply about that correction. We don't store your IP address. To stop floods of reports, a scrambled form of it is held in memory for ten minutes and then dropped.</p>
+  </section>
+
+  <section aria-labelledby="errors">
+    <h2 id="errors" class="type-body-strong">Error reports</h2>
+    <p class="type-body">When a page fails, an error report goes to Sentry with the page address and the error. It leaves out cookies, form contents, query strings and anything that identifies you.</p>
+  </section>
+
+  <section aria-labelledby="hosting">
+    <h2 id="hosting" class="type-body-strong">Hosting</h2>
+    <p class="type-body">The site runs on Render. Like any web host, Render keeps standard server logs, which include IP addresses, for a limited time to run and secure the service.</p>
+  </section>
+
+  <section aria-labelledby="contact">
+    <h2 id="contact" class="type-body-strong">Questions</h2>
+    <p class="type-body">Email <%= mail_to DirectoryHelper::CORRECTIONS_EMAIL, nil, class: "nd-link" %>.</p>
+  </section>
+
+  <p class="type-small text-ink-muted">Last updated <span class="type-data-sm">2026-10-10</span></p>
+</main>

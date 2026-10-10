@@ -1,0 +1,38 @@
+<% content_for :title, "NuclearDirectoryBot · Nuclear Directory" %>
+<% content_for :head do %>
+  <meta name="description" content="NuclearDirectoryBot keeps Nuclear Directory up to date from public pages. It follows robots.txt, visits each page at most once a day and stops when blocked.">
+<% end %>
+<%= render "shared/site_header" %>
+
+<main class="nd-page nd-page--narrow nd-prose">
+  <h1 class="type-title-md">NuclearDirectoryBot</h1>
+  <p class="type-body">NuclearDirectoryBot is the crawler that keeps Nuclear Directory up to date. It reads public pages, such as regulator filings, company press releases and news reports, and looks for facts about the US nuclear industry.</p>
+
+  <section aria-labelledby="identity">
+    <h2 id="identity" class="type-body-strong">How to recognize it</h2>
+    <p class="type-body">Every request sends this user agent:</p>
+    <pre class="nd-code type-data"><%= DataQuality::Fetcher::USER_AGENT %></pre>
+  </section>
+
+  <section aria-labelledby="behaviour">
+    <h2 id="behaviour" class="type-body-strong">How it behaves</h2>
+    <ul class="type-body">
+      <li>It reads robots.txt before every page, including pages it's redirected to, and follows it.</li>
+      <li>It fetches each page at most once a day and waits <%= DataQuality::Fetcher::HOST_INTERVAL %> seconds between requests to the same site.</li>
+      <li>It asks only for changes (ETag and Last-Modified), so an unchanged page costs a short reply.</li>
+      <li>When a site blocks it, it stops. It doesn't retry, work around the block or pretend to be a browser.</li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="blocking">
+    <h2 id="blocking" class="type-body-strong">How to block it</h2>
+    <p class="type-body">Add this to your robots.txt. It stops on its next visit.</p>
+    <pre class="nd-code type-data">User-agent: <%= DataQuality::Fetcher::AGENT_TOKEN %>
+Disallow: /</pre>
+  </section>
+
+  <section aria-labelledby="contact">
+    <h2 id="contact" class="type-body-strong">Questions about a visit</h2>
+    <p class="type-body">Email <%= mail_to DirectoryHelper::CORRECTIONS_EMAIL, nil, class: "nd-link" %> with the time and the page, or the reference number from your firewall's block page.</p>
+  </section>
+</main>

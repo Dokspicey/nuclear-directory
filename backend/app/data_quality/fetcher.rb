@@ -11,7 +11,7 @@ require "net/http"
 #   response = DataQuality::Fetcher.new.get(url, etag: source.etag)
 #   response.kind # => :ok, :not_modified, :blocked, :disallowed or :error
 class DataQuality::Fetcher
-  USER_AGENT = "NuclearDirectoryBot/0.1 (+https://nuclear-directory.org)"
+  USER_AGENT = "NuclearDirectoryBot/0.1 (+https://nuclear-directory.org/bot)"
   AGENT_TOKEN = "NuclearDirectoryBot"
   HOST_INTERVAL = 3 # seconds between requests to one host
   MAX_REDIRECTS = 3
