@@ -33,7 +33,7 @@
   <%# Key facts come first in reading and focus order; wide screens place them on the right. %>
   <div class="nd-columns nd-columns--profile">
     <div class="nd-columns__side">
-      <%= render "shared/overview_panel", verified_at: p.verified_at, rows: [
+      <%= render "shared/overview_panel", verified_at: p.verified_at, verified: p.site.verified?, rows: [
             [ "Type", facility_type_label(p.facility_type), p.site_citations ],
             [ "Status", facility_status_label(p.status), p.site_citations ],
             [ "Location", where, p.site_citations ],

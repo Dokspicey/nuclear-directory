@@ -50,7 +50,7 @@ class PlantPageTest < ActionDispatch::IntegrationTest
       assert_select ".nd-quote", "“the project's co-owners”"
     end
     assert_select ".nd-factrow", text: /Southern Nuclear\s+operates\s+Plant Vogtle/
-    assert_select ".nd-factrow", text: /Westinghouse Nuclear\s+is the reactor vendor for\s+Plant Vogtle/
+    assert_select ".nd-factrow", text: /Westinghouse Nuclear\s+is the reactor developer for\s+Plant Vogtle/
   end
 
   test "unverified companies and links never appear" do
@@ -128,7 +128,8 @@ class PlantPageTest < ActionDispatch::IntegrationTest
     assert_select "tr#unit-clinch-river-unit-1"
     assert_select "body", text: /Oak Ridge/, count: 0
     assert_select ".nd-gaps li", text: "Location"
-    assert_select ".nd-overview__foot", /checked 2026-10-08/
+    assert_select ".nd-overview__foot", /Site not verified yet\s+units checked 2026-10-08/
+    assert_select ".nd-badge--verified", count: 0
   end
 
   test "a link to a pending site itself isn't shown, only links to its verified units" do
@@ -150,6 +151,13 @@ class PlantPageTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "body", text: /Nowhere|Quiet Unit|BWR|Quiet Owner/, count: 0
     %w[Type Location Owner].each { |field| assert_select ".nd-gaps li", text: field }
+  end
+
+  test "an unsourced unit's address isn't redirected to a row that isn't there" do
+    plant("Unit 9", parent: @vogtle)
+    get plant_path(slug: "unit-9")
+
+    assert_response :not_found
   end
 
   test "link preview tags" do
