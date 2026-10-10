@@ -50,6 +50,8 @@ class DataQuality::Plugins::NrcReactorList::Page
       license_number: cells[1].text.squish,
       reactor_type: cells[2].text.squish,
       location: location,
+      # The state of the city Location measures from, which near a border
+      # isn't the plant's own state. Not published; see extract.
       state: location[/,\s*([A-Z]{2})\z/, 1],
       owner_operator: cells[4].text.squish,
       nrc_region: cells[5].text.squish,
