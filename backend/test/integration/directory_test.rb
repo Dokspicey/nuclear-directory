@@ -72,6 +72,19 @@ class DirectoryTest < ActionDispatch::IntegrationTest
     assert_select ".nd-notice a[href=?]", "/companies?category=reactor-developers&sort=connections&state=CA", text: "Clear search"
   end
 
+  test "search and filtered lists aren't indexed; plain lists and categories are" do
+    [ companies_path(q: "kairos"), companies_path(state: "CA"), companies_path(category: "reactor-developers", state: "CA") ].each do |path|
+      get path
+      assert_select "meta[name=robots][content=noindex]", 1, "#{path} should be noindex"
+    end
+
+    [ companies_path, companies_path(category: "reactor-developers") ].each do |path|
+      get path
+      assert_select "meta[name=robots]", 0, "#{path} should be indexable"
+      assert_select "meta[name=description]"
+    end
+  end
+
   test "filters that match nothing offer to clear them" do
     company("Constellation", state: "MD")
     get companies_path(category: "reactor-developers", state: "MD")
