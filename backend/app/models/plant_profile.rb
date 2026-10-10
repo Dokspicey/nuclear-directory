@@ -1,8 +1,8 @@
-# Everything the power plant page shows (#43), verified facts only. A page
-# is for a site the public can see (DirectoryListing#public_sites); its
-# verified units are listed on it. A pending site shows because a unit is
-# verified, so its own details (type, status, place) stay hidden until the
-# site itself is verified.
+# Everything the power plant page shows (#43), verified and sourced facts
+# only. A page is for a site the public can see (DirectoryListing#public_sites);
+# its verified, sourced units are listed on it. A pending site shows because
+# a unit is verified, so its own details (type, status, place) stay hidden
+# until the site itself is verified and has a source.
 #
 # Sources are numbered once, in reading order (the site, its companies,
 # then its units), so chips and the source list agree.
@@ -30,47 +30,48 @@ class PlantProfile
   # [[number, source], ...] for a fact on this page.
   def citations_for(fact) = @cited.fetch(fact) { [] }
 
-  # The site's own fields, only once the site is verified.
-  def site_verified? = site.verified?
-  def facility_type = (site.facility_type if site_verified?)
-  def status = (site.status if site_verified?)
-  def city = (site.city if site_verified?)
-  def state = (site.state if site_verified?)
-  def nrc_docket = (site.nrc_docket if site_verified?)
+  # The site's own fields show once the site is verified and sourced.
+  def site_facts? = site.verified? && site.evidence.any?
+  def facility_type = (site.facility_type if site_facts?)
+  def status = (site.status if site_facts?)
+  def city = (site.city if site_facts?)
+  def state = (site.state if site_facts?)
+  def nrc_docket = (site.nrc_docket if site_facts?)
 
   def units
-    @units ||= Facility.verified.where(parent: site).includes(:technology, evidence: :source).order(:name).to_a
+    @units ||= Facility.verified.where(parent: site).includes(:technology, evidence: :source).order(:name).select { |unit| unit.evidence.any? }
   end
 
   # Current links from a verified company to the site (once verified) or one
   # of its verified units. A link that has ended isn't shown as current.
   def links
-    @links ||= FacilityRelationship.verified.where(facility: [ (site if site_verified?), *units ].compact)
+    @links ||= FacilityRelationship.verified.where(facility: [ (site if site.verified?), *units ].compact)
       .where("facility_relationships.ended_on IS NULL OR facility_relationships.ended_on > ?", Date.current)
       .joins(:organization).merge(Organization.verified)
       .includes(:organization, :facility, evidence: :source).to_a
+      .select { |link| link.evidence.any? }
       .sort_by { |link| [ LINK_ORDER.index(link.relationship_type), link.organization.name, link.facility.name ] }
   end
 
   def companies_for(type) = links.select { |link| link.relationship_type == type }.map(&:organization).uniq
 
   def technologies
-    [ (site.technology if site_verified?), *units.map(&:technology) ].compact.uniq.map(&:name)
+    [ (site.technology if site_facts?), *units.map(&:technology) ].compact.uniq.map(&:name)
   end
 
   def reactor_types
-    [ (site.reactor_type if site_verified?), *units.map(&:reactor_type) ].compact_blank.uniq
+    [ (site.reactor_type if site_facts?), *units.map(&:reactor_type) ].compact_blank.uniq
   end
 
   # The site's own figure, or the sum of its units' when each is known.
   def capacity_mw
-    return site.capacity_mw if site_verified? && site.capacity_mw
+    return site.capacity_mw if site_facts? && site.capacity_mw
     capacities = units.map(&:capacity_mw)
     capacities.sum if capacities.any? && capacities.none?(&:nil?)
   end
 
   # When the site was checked, or (for a pending site) its latest unit.
-  def verified_at = site_verified? ? site.verified_at : units.filter_map(&:verified_at).max
+  def verified_at = site.verified? ? site.verified_at : units.filter_map(&:verified_at).max
 
   # Fields DESIGN.md marks "must" that this plant doesn't have yet.
   def missing_fields
@@ -82,11 +83,11 @@ class PlantProfile
   end
 
   # The site's own evidence backs its type, status and place.
-  def site_citations = site_verified? ? citations_for(site) : []
+  def site_citations = site_facts? ? citations_for(site) : []
 
   private
     def number_sources
-      cite(site) if site_verified?
+      cite(site) if site_facts?
       links.each { |link| cite(link) }
       units.each { |unit| cite(unit) }
     end
