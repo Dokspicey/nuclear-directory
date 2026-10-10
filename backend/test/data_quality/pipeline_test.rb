@@ -3,6 +3,8 @@ require_relative "support/fake_directory"
 require_relative "support/dummy_plugin"
 
 class DataQuality::PipelineTest < ActiveSupport::TestCase
+  include ReviewHelpers
+
   setup do
     @lookup = FakeDirectory::Lookup.new(organizations: { "Acme Nuclear" => 7 })
     @writer = FakeDirectory::FactWriter.new
@@ -15,7 +17,7 @@ class DataQuality::PipelineTest < ActiveSupport::TestCase
 
   def dummy_candidates = Candidate.where(source: Source.where(source_kind: "dummy")).order(:id)
 
-  test "a dummy plug-in runs through every stage and publishes via FactWriter" do
+  test "a dummy plug-in runs through every stage; verify recommends, a human approves via FactWriter" do
     runs = run_pipeline(verifier: PublishEverything.new)
 
     assert_equal %w[crawl extract match verify], runs.map(&:stage)
@@ -23,49 +25,62 @@ class DataQuality::PipelineTest < ActiveSupport::TestCase
     assert runs.all? { |run| run.source_kind == "dummy" && run.finished_at }
     assert_equal({ "sources" => 1, "candidates" => 2, "unchanged" => 0, "empty" => 0 }, runs[1].stats)
     assert_equal 1, runs[2].stats["matched"]
-    assert_equal 2, runs[3].stats["published"]
-
     assert_equal 1, runs[2].stats["proposed"]
+    assert_equal 2, runs[3].stats["recommended"]
 
     existing, created = dummy_candidates
-    assert existing.status_merged?
-    assert_equal [ "Organization", 7 ], [ existing.subject_type, existing.subject_id ]
-    assert created.status_merged?
-    assert_equal 1001, created.subject_id, "verify publishes the record match proposed"
+    assert existing.status_matched?, "verify doesn't publish"
+    assert_equal [ "recommend_publish", 0.9, runs.last ], [ existing.ai_recommendation, existing.ai_confidence.to_f, existing.verify_run ]
+    assert @writer.writes.none? { |write| write[:verification] }, "nothing verified yet"
 
-    match_writes, verify_writes = @writer.writes.partition { |write| write[:verification].nil? }
+    results = approve_recommended(directory: @directory)
+
+    assert results.all?(&:ok?)
+    assert existing.reload.status_merged?
+    assert_equal [ "Organization", 7 ], [ existing.subject_type, existing.subject_id ]
+    assert created.reload.status_merged?
+    assert_equal 1001, created.subject_id, "approving publishes the record match proposed"
+
+    match_writes, approve_writes = @writer.writes.partition { |write| write[:verification].nil? }
     assert_equal [ { name: "NewCo Fission" } ], match_writes.map { |w| w[:attributes] },
       "match proposes the new one; attaching to the existing one writes nothing"
 
-    assert_equal 2, verify_writes.size
-    write = verify_writes.first
+    assert_equal 2, approve_writes.size
+    write = approve_writes.first
     assert_equal "organization", write[:kind]
     assert_equal({ id: 7, aliases: [ "Acme Nuclear" ] }, write[:attributes],
-      "a published match keeps its own name and gains the one it was found under as an alias")
+      "an approved match keeps its own name and gains the one it was found under as an alias")
     evidence = write[:evidence].sole
-    assert_equal "crawler", evidence[:found_by]
-    assert_equal existing.source_id, evidence[:source_id]
-    assert_equal "Acme Nuclear", evidence[:quote]
-    assert_equal runs.last.id, evidence[:crawl_run_id]
-    assert_equal "verified", write[:verification][:status]
-    assert_equal 1001, verify_writes.second[:attributes][:id]
+    assert_equal [ "crawler", existing.source_id, "Acme Nuclear", 0.9 ],
+      [ evidence[:found_by], evidence[:source_id], evidence[:quote], evidence[:confidence].to_f ]
+    assert_equal runs.last.id, evidence[:crawl_run_id], "the run that judged it"
+    assert_equal({ status: "verified", by: "human:tosin", context: { "candidate_id" => existing.id, "crawl_run_id" => runs.last.id } },
+      write[:verification])
+    assert_equal 1001, approve_writes.second[:attributes][:id]
   end
 
-  test "by default nothing is published; everything goes to review" do
-    run_pipeline
+  test "with the review-everything verifier nothing is published" do
+    run_pipeline(verifier: DataQuality::Verifiers::ReviewEverything.new)
 
     assert dummy_candidates.all?(&:status_needs_review?)
     assert @writer.writes.none? { |write| write[:verification] }, "only pending writes, nothing verified"
   end
 
-  test "a write the directory rejects goes to review with the reason" do
+  test "a write the directory rejects: the proposal goes to review at match, an approval returns the error" do
     @directory = FakeDirectory.client(lookup: @lookup, fact_writer: FakeDirectory::FactWriter.new(fail_with: "name taken"))
 
     match = run_pipeline(verifier: PublishEverything.new)[2]
+    assert_equal 1, match.stats["write_errors"], "the proposal fails at match"
+    existing, proposed = dummy_candidates
+    assert proposed.status_needs_review?
+    assert_match "name taken", proposed.notes
 
-    assert_equal 1, match.stats["write_errors"], "the proposal fails at match; the attached one fails on publish"
-    assert dummy_candidates.all?(&:status_needs_review?)
-    assert_match "name taken", dummy_candidates.first.notes
+    result = approve_recommended(directory: @directory).sole
+
+    assert_equal existing.id, result.candidate_id
+    assert_not result.ok?
+    assert_equal [ "name taken" ], result.errors
+    assert existing.reload.status_matched?, "a failed approval changes nothing; the admin shows the error"
   end
 
   test "extract skips content it has already processed" do

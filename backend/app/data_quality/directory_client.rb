@@ -11,7 +11,7 @@ class DataQuality::DirectoryClient
   # type is what candidates store in subject_type.
   Ref = Data.define(:type, :id)
   # What a lookup found: enough to match on and to explain a match.
-  Record = Data.define(:type, :id, :name, :nrc_docket, :parent_id, :facility_type, :status, :state, :country_code,
+  Record = Data.define(:type, :id, :name, :domain, :nrc_docket, :parent_id, :facility_type, :status, :state, :country_code,
     :verification_status, :verified_by, :verified_at) do
     def ref = Ref.new(type:, id:)
     def rejected? = verification_status == "rejected"
@@ -57,11 +57,17 @@ class DataQuality::DirectoryClient
   end
 
   # The fact a candidate is attached to (any kind, links included), with its
-  # current decision, or nil when it has none.
+  # current decision, or nil when it has none. Organizations and facilities
+  # come with their values, so verify can compare them; a link has only its
+  # decision.
   def attached_record(candidate)
     return unless candidate.subject_id
 
-    record(candidate.subject_type, lookup.fact_state(type: candidate.subject_type, id: candidate.subject_id))
+    case candidate.subject_type
+    when "Organization" then record("Organization", lookup.organization(id: candidate.subject_id))
+    when "Facility" then record("Facility", lookup.facility(id: candidate.subject_id))
+    else record(candidate.subject_type, lookup.fact_state(type: candidate.subject_type, id: candidate.subject_id))
+    end
   end
 
   # Likely duplicates an exact lookup misses. Returns Records.
@@ -97,12 +103,21 @@ class DataQuality::DirectoryClient
   # link kinds the ends were resolved by match, so the rest of the payload is
   # sent. A fact a human has verified is never overwritten: only its blank
   # attributes are filled and its verification stays. A fact a human rejected
-  # or unpublished isn't changed at all; the result has an error instead
-  # (FactWriter protect_human_verified). An enrichment candidate (see
-  # enrichment?) sets only its values and leaves the record's verification
-  # alone, since it doesn't vouch for the record itself. Returns a
-  # WriteResult; never raises on validation problems.
-  def write_fact(candidate, confidence:, crawl_run:)
+  # or unpublished isn't changed at all; the result has an error instead (FactWriter
+  # protect_human_verified). Returns a WriteResult; never raises on
+  # validation problems.
+  #
+  # by: a human ("human:tosin") approving it in the admin
+  # (DataQuality::Review). A human is the authority, so their write isn't
+  # protected: it applies the candidate's values even over a human-verified
+  # fact, and records the candidate and run in the audit trail. Without by:,
+  # it's the automated writer described above.
+  #
+  # An enrichment candidate (see enrichment?) sets only its values and leaves
+  # the record's verification alone, since it doesn't vouch for the record
+  # itself; even when a human approves it, it doesn't overwrite a
+  # human-verified value (that comes back as a conflict).
+  def write_fact(candidate, confidence:, crawl_run:, by: nil, reason: nil)
     attributes = candidate.payload.except(*LINK_ENDS, ENRICHMENT_KEY).symbolize_keys
     attributes[:id] = candidate.subject_id if candidate.subject_id
     if candidate.kind == "organization"
@@ -111,7 +126,14 @@ class DataQuality::DirectoryClient
       attributes[:aliases] = [ *attributes[:aliases], attributes[:name] ].compact_blank.uniq
       attributes.delete(:name) if candidate.subject_id
     end
-    verification = { status: "verified", by: "agent:verifier/#{crawl_run.model || 'unknown'}" } unless enrichment?(candidate)
+    enrichment = enrichment?(candidate)
+    verification =
+      if enrichment then nil
+      elsif by
+        { status: "verified", by:, reason:, context: { "candidate_id" => candidate.id, "crawl_run_id" => crawl_run&.id } }.compact
+      else
+        { status: "verified", by: "agent:verifier/#{crawl_run&.model || 'unknown'}" }
+      end
 
     result = fact_writer.write(
       candidate.kind,
@@ -121,10 +143,10 @@ class DataQuality::DirectoryClient
         quote: candidate.quote,
         found_by: "crawler",
         confidence: confidence,
-        crawl_run_id: crawl_run.id
+        crawl_run_id: crawl_run&.id
       } ],
       verification: verification,
-      protect_human_verified: true
+      protect_human_verified: by.nil? || enrichment
     )
     write_result(result)
   end
@@ -168,7 +190,7 @@ class DataQuality::DirectoryClient
     return if stated.empty?
 
     result = fact_writer.fill_site_from_unit(facility_id, fields: stated,
-      evidence: [ { source_id: candidate.source_id, quote: candidate.quote, found_by: "crawler", crawl_run_id: crawl_run.id } ])
+      evidence: [ { source_id: candidate.source_id, quote: candidate.quote, found_by: "crawler", crawl_run_id: crawl_run&.id } ])
     write_result(result) if result
   end
 
@@ -178,7 +200,7 @@ class DataQuality::DirectoryClient
     def fact_writer = @fact_writer ||= "Directory::FactWriter".constantize
 
     def record(type, ref)
-      Record.new(type:, id: ref.id, name: ref.name, nrc_docket: ref.try(:nrc_docket), parent_id: ref.try(:parent_id),
+      Record.new(type:, id: ref.id, name: ref.name, domain: ref.try(:domain), nrc_docket: ref.try(:nrc_docket), parent_id: ref.try(:parent_id),
         facility_type: ref.try(:facility_type), status: ref.try(:status), state: ref.try(:state),
         country_code: ref.try(:country_code), verification_status: ref.verification_status,
         verified_by: ref.try(:verified_by), verified_at: ref.try(:verified_at)) if ref
