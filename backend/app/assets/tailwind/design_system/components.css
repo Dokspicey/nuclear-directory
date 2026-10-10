@@ -250,7 +250,7 @@
 /* Directory and search results heading and filters (#40). */
 @layer components {
   .nd-listhead { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--nd-space-3) var(--nd-space-6); border-bottom: 2px solid var(--nd-ink); padding-bottom: var(--nd-space-3); margin-bottom: calc(var(--nd-space-8) * -1 + var(--nd-space-2)); }
-  .nd-listhead__title { margin: 0; font: 600 24px/32px var(--font-text); }
+  .nd-listhead__title { margin: 0; }
   .nd-listhead__title .nd-num { margin-left: 6px; font-size: 13px; font-weight: 400; color: var(--nd-ink-muted); }
   .nd-filters { display: flex; flex-wrap: wrap; align-items: center; gap: var(--nd-space-2); }
   .nd-select select { border: 0; background: transparent; color: inherit; font: inherit; padding: 0 2px; cursor: pointer; }
@@ -261,7 +261,7 @@
 /* Home page and instant search (#41). */
 @layer components {
   .nd-home { min-height: 100vh; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; gap: 28px; padding: clamp(80px, 18vh, 180px) clamp(16px, 4vw, 32px) 80px; }
-  .nd-home__wordmark { margin: 0; font: 400 clamp(40px, 7vw, 72px)/1 var(--font-display); letter-spacing: .01em; text-transform: uppercase; text-align: center; }
+  .nd-home__wordmark { margin: 0; text-align: center; }
   .nd-home__search { width: 100%; max-width: 720px; display: flex; flex-direction: column; gap: var(--nd-space-4); }
   .nd-home__cats { width: 100%; max-width: 880px; margin-top: var(--nd-space-6); }
 
@@ -295,7 +295,6 @@
   @media (max-width: 560px) {
     /* Search near the top, so the keyboard doesn't cover the results. */
     .nd-home { min-height: 0; padding-top: max(var(--nd-space-12), env(safe-area-inset-top)); gap: var(--nd-space-6); }
-    .nd-home__wordmark { font-size: 40px; }
     .nd-searchbox__results { max-height: 60vh; }
     .nd-searchbox--large .nd-search { height: 52px; padding: 0 var(--nd-space-4); gap: var(--nd-space-3); }
     .nd-searchbox--large .nd-search input { font-size: 16px; }

@@ -116,6 +116,29 @@ class DirectoryListingTest < ActiveSupport::TestCase
     assert_not_includes DirectoryListing.new(category: "plants").technology_options.map(&:last), "molten_salt"
   end
 
+  test "filter options come only from companies and plants the public can see" do
+    hidden_tech = technology("pebble_bed", "Pebble bed")
+    company("Pending Pebbles", techs: [ hidden_tech ], verified: false)
+    rejected = Facility.create!(name: "Rejected Site", verification_status: "rejected")
+    plant("Rejected Unit", parent: rejected, technology: technology("sfr", "Sodium fast reactor"))
+    OrganizationRole.create!(organization: @pending, role: role("lead_coolant", parent: Role.find_by!(key: "coolant")), verification_status: "verified")
+
+    options = DirectoryListing.new.technology_options.map(&:last)
+    assert_not_includes options, "pebble_bed"
+    assert_not_includes options, "sfr"
+    assert_not_includes options, "lead_coolant"
+    assert_includes options, "molten_salt"
+  end
+
+  test "searching a technology finds plants of that technology, through the site or a unit" do
+    site = plant("Fermi America", technology: Technology.find_by!(key: "smr"))
+    plant("Clinch River", verified: false).tap do |river|
+      plant("Clinch River Unit 1", parent: river, technology: Technology.find_by!(key: "smr"))
+    end
+
+    assert_equal [ "Clinch River", site.name ], DirectoryListing.new(q: "SMR").plants.map(&:name).sort
+  end
+
   test "a parent technology filter includes its sub-technologies" do
     assert_equal [ "Kairos Power" ], names(DirectoryListing.new(technology: "fission"))
   end

@@ -21,12 +21,17 @@ export default class extends Controller {
     const query = this.inputTarget.value.trim()
     if (query.length < this.minimumValue) return this.close()
 
+    this.pending = true
     const url = new URL(this.urlValue, window.location.origin)
     url.searchParams.set("q", query)
     this.frameTarget.src = url.toString()
   }
 
+  // A load that finishes after the results were closed stays closed.
   loaded() {
+    if (!this.pending) return
+    this.pending = false
+
     const panel = this.frameTarget.querySelector("[data-instant-search-count]")
     if (!panel) return this.close()
 
@@ -72,6 +77,8 @@ export default class extends Controller {
   }
 
   close() {
+    clearTimeout(this.timer)
+    this.pending = false
     this.resultsTarget.hidden = true
     this.inputTarget.setAttribute("aria-expanded", "false")
     this.statusTarget.textContent = ""

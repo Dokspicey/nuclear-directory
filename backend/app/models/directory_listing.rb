@@ -77,11 +77,13 @@ class DirectoryListing
   # apply to companies and so aren't offered on the plants list.
   def technology_options
     @technology_options ||= begin
-      used = Technology.where(id: OrganizationTechnology.verified.select(:technology_id))
-        .or(Technology.where(id: Facility.verified.where.not(technology_id: nil).select(:technology_id)))
+      companies = Organization.verified.select(:id)
+      used = Technology.where(id: OrganizationTechnology.verified.where(organization_id: companies).select(:technology_id))
+        .or(Technology.where(id: public_facilities.where.not(technology_id: nil).select(:technology_id)))
       techs = Technology.where(id: used.select(:id)).or(Technology.where(id: used.select(:parent_id)))
         .order(:name).map { |t| [ t.name, t.key ] }
-      coolants = Role.where(parent: Role.find_by(key: "coolant")).where(id: OrganizationRole.verified.select(:role_id))
+      coolants = Role.where(parent: Role.find_by(key: "coolant"))
+        .where(id: OrganizationRole.verified.where(organization_id: companies).select(:role_id))
         .order(:name).map { |r| [ "#{r.name} coolant", r.key ] }
       category&.plants ? techs : techs + coolants
     end
@@ -99,6 +101,11 @@ class DirectoryListing
   def public_sites
     sites = Facility.where(parent_id: nil)
     sites.verified.or(sites.pending.where(id: Facility.verified.where.not(parent_id: nil).select(:parent_id)))
+  end
+
+  # Public sites and the verified units under them.
+  def public_facilities
+    Facility.where(id: public_sites.select(:id)).or(Facility.verified.where(parent_id: public_sites.select(:id)))
   end
 
   private
@@ -141,13 +148,17 @@ class DirectoryListing
     end
 
     # The site's name, a verified unit's name ("Vogtle Unit 3" finds Plant
-    # Vogtle), or a verified link to the site or a unit whose description matches.
+    # Vogtle), a technology of the site or a verified unit ("SMR"), or a
+    # verified link to the site or a unit whose description matches.
     def matching_plants(scope)
       units = Facility.verified.where.not(parent_id: nil).where("facilities.name ILIKE ?", like(query)).select(:parent_id)
       linked = Facility.where(id: FacilityRelationship.verified.where("facility_relationships.description ILIKE ?", like(query)).select(:facility_id))
       linked_sites = Facility.where(id: linked.select(:id)).or(Facility.where(id: linked.select(:parent_id))).select(:id)
+      techs = Technology.where("technologies.name ILIKE :q OR technologies.key ILIKE :q", q: like(query)).select(:id)
+      tech_units = Facility.verified.where.not(parent_id: nil).where(technology_id: techs).select(:parent_id)
 
       scope.where("facilities.name ILIKE ?", like(query)).or(scope.where(id: units)).or(scope.where(id: linked_sites))
+        .or(scope.where(technology_id: techs)).or(scope.where(id: tech_units))
     end
 
     # A technology key (fission, smr) or a coolant sub-role key (molten_salt).
