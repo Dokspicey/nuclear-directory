@@ -227,6 +227,25 @@ class DataQuality::Plugins::NrcReactorList::ExtractTest < ActiveSupport::TestCas
     assert empty.reload.crawl_ok?
   end
 
+  test "results for a snapshot that changed while the model was working are discarded" do
+    extract
+    @source.update!(content_sha256: "h1")
+    before = @source.candidates.reload.pluck(:id).sort
+    model = FakeModel.new
+    # A crawl stores new content (h2) while the model is still reading h1.
+    model.define_singleton_method(:structured) do |**args|
+      Source.where(url: Plugin::LIST_URL).update_all(content_sha256: "h2")
+      super(**args)
+    end
+
+    run = extract(model)
+
+    assert run.succeeded?
+    assert_equal 1, run.stats["superseded"]
+    assert_equal before, @source.candidates.reload.pluck(:id).sort, "h2's candidates aren't replaced with h1's"
+    assert_not_equal "h1", @source.reload.extracted_sha256, "h1 isn't recorded as extracted"
+  end
+
   test "calls the model outside any database transaction" do
     baseline = ActiveRecord::Base.connection.open_transactions # the test's own
     model = FakeModel.new

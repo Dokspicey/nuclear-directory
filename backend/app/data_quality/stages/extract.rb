@@ -29,16 +29,29 @@ class DataQuality::Stages::Extract < DataQuality::Stage
         # The plug-in may take minutes (model calls with retries), so it runs
         # before the transaction: no locks held meanwhile, and if it fails
         # the source's existing candidates are untouched.
+        snapshot = source.content_sha256
         extracted = plugin.extract(source, run).map do |attrs|
           attrs = attrs.slice(:kind, :payload, :quote, :status, :notes)
           attrs[:review_origin] = "extract" if attrs[:status].to_s == "needs_review"
           attrs.merge(crawl_run: run)
         end
 
-        Candidate.transaction do
+        # Results belong to the snapshot they were read from. If a crawl
+        # stored new content meanwhile, or another run already extracted
+        # this snapshot, they're discarded rather than written over it.
+        written = Candidate.transaction do
+          source.lock!
+          next false if source.content_sha256 != snapshot || source.extracted_sha256 == snapshot
+
           stale(source).delete_all
           extracted.each { |attrs| source.candidates.create!(attrs) }
-          source.update!(extracted_sha256: source.content_sha256)
+          source.update!(extracted_sha256: snapshot)
+          true
+        end
+
+        unless written
+          stats["superseded"] = stats.fetch("superseded", 0) + 1
+          next
         end
         stats["candidates"] += extracted.size
         stats["sources"] += 1
