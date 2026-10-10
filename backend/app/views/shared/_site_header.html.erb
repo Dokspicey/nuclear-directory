@@ -5,7 +5,7 @@
     <a class="nd-wordmark" href="/">Nuclear Directory</a>
     <form class="nd-search" action="<%= directory_url_for %>" method="get" role="search">
       <%= icon("magnifying-glass", size: 20) %>
-      <input type="search" name="q" value="<%= local_assigns[:query] %>" aria-label="Search a company or power plant" placeholder="Search a company or power plant" autocomplete="off">
+      <input type="search" name="q" value="<%= local_assigns[:query] %>" aria-label="Search a company, plant or site" placeholder="Search a company, plant or site" autocomplete="off">
     </form>
   </div>
 </header>
