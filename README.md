@@ -118,7 +118,8 @@ It loads the same verified seed as development and is safe to re-run.
 
 **Secrets** live only in the Render dashboard (web service → Environment),
 never in git: `RAILS_MASTER_KEY` (the contents of `backend/config/master.key`),
-`OPENROUTER_API_KEY`, `POSTHOG_API_KEY` and `POSTHOG_HOST` (optional).
+`OPENROUTER_API_KEY`, `POSTHOG_API_KEY`, `POSTHOG_HOST` (optional) and
+`SENTRY_DSN`.
 `DATABASE_URL` is filled in by Render from the database. The model ids and
 `DATA_QUALITY_MONTHLY_BUDGET` aren't secret, so they're set in `render.yaml`;
 change them there in a PR. Render asks for the
@@ -126,6 +127,15 @@ secrets only when the Blueprint is first created; change them later under
 Environment (saving restarts the service). Adding a new secret means adding it
 to `render.yaml` with `sync: false` and then setting its value in the
 dashboard.
+
+**Errors and uptime.** Errors go to Sentry once `SENTRY_DSN` is set; until
+then nothing is sent. Visitor data stays out: no IPs, cookies, form or request
+bodies, search queries, SQL or job arguments (see
+`backend/config/initializers/sentry.rb`). Setting it up is a one-time job in
+Sentry (issue #102, section F): create the project, turn on "Prevent Storing
+of IP Addresses", add `SENTRY_DSN` to the web service's Environment, and add
+an uptime monitor that checks `/up` every 5 minutes and emails
+hello@nuclear-directory.org when it fails.
 
 **Roll back.** Web service → Events (or Deploys), find the last good deploy and
 choose Rollback. This redeploys that image; it does not undo database
