@@ -111,7 +111,9 @@ module Seed
       # of its details, so blank details never overwrite ones already set.
       # county isn't loaded (no column); it stays in the YAML.
       def facility_attributes(item)
-        item.slice("name", "facility_type", "status", "city", "state").compact.symbolize_keys
+        item.slice("name", "facility_type", "status", "city", "state")
+          .transform_values { |value| value.is_a?(String) ? value.strip : value }
+          .compact_blank.symbolize_keys
       end
 
       # nil when the file gives no source (e.g. an HQ city stated without one).

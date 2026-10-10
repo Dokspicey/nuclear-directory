@@ -46,6 +46,19 @@ class Seed::OrganizationLoaderTest < ActiveSupport::TestCase
     assert_equal "solo.com", Organization.find_by!(slug: "solo").domain
   end
 
+  test "a later facility entry with blank details doesn't erase ones already stored" do
+    write_file("a-owner", org("A Owner", website: "https://a-owner.com",
+      facilities: [ item(name: "Plant Vogtle", type: "owns", city: "Waynesboro", state: "GA") ]))
+    write_file("b-operator", org("B Operator", website: "https://b-operator.com",
+      facilities: [ item(name: "Plant Vogtle", type: "operates", city: "", state: "  ") ]))
+
+    Seed::OrganizationLoader.new(@dir).load!
+
+    vogtle = Facility.find_by!(name: "Plant Vogtle")
+    assert_equal [ "Waynesboro", "GA" ], [ vogtle.city, vogtle.state ]
+    assert_equal 2, vogtle.facility_relationships.count
+  end
+
   test "fails as a whole when any fact can't be written" do
     write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com",
       relationships: [ item(type: "supplies", to: "Nobody At All", description: "x") ]))
