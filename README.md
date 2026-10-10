@@ -142,7 +142,61 @@ choose Rollback. This redeploys that image; it does not undo database
 migrations, so a migration that must be reversed needs a new commit. Render
 turns off auto-deploy after a rollback; turn it back on (Settings → Auto-Deploy:
 "After CI checks pass") once the fix is on `main`. To restore data, paid
-Render Postgres offers point-in-time recovery (database → Recovery).
+Render Postgres offers point-in-time recovery (see Backups below).
+
+## Backups
+
+There are two kinds, so a problem at Render alone can't lose the data.
+
+**Point-in-time recovery, on Render.** The paid database can be rewound to
+any moment in the last 3 days (Hobby workspace; 7 on Pro). Database →
+Recovery → pick a time. Render creates a *new* database at that moment and
+leaves the current one alone; check it, then point the web service's
+`DATABASE_URL` at it. Use this for recent mistakes, like a bad migration or a
+wrong bulk edit.
+
+**Weekly encrypted copy, off Render.** The `nuclear-directory-backup` cron
+job (`backup/`) runs every Sunday at 10:00 UTC. It dumps the database with
+`pg_dump`, encrypts the dump with [age](https://age-encryption.org) and
+uploads it as a release to the private repo
+`tosinoladokun/nuclear-directory-backups`, keeping the newest 12 (about three
+months). Only the private key decrypts them. It lives in Tosin's password
+manager, never in git or on Render; `render.yaml` holds just the public key.
+If that key is lost, so are the backups. The job's log on Render lists every
+table's row count at backup time. Run it on demand with Cron job → Trigger
+Run. A failed run shows in the cron job's Events, and Render emails about
+failures if Workspace Settings → Notifications has them on (the default).
+
+The upload uses `BACKUP_GITHUB_TOKEN`, a fine-grained GitHub token that can
+only write to the backups repo. The repo needs at least one commit (create
+it with a README), since releases need something to tag. The token expires after a year; make a new one the
+same way and replace it under the cron job's Environment.
+
+**Test a restore** (do this after setting up backups, and every few months).
+It needs Docker, the GitHub CLI signed in (`gh auth login`) and this repo:
+
+1. Copy the backup key from the password manager (the whole
+   `AGE-SECRET-KEY-1…` text).
+2. From the repo root, run:
+
+   ```bash
+   backup/restore-latest
+   ```
+
+   This downloads the newest backup, restores it into a fresh local database
+   called `nuclear_directory_restore_test` and prints row counts. The key
+   goes from the clipboard straight into the container and is never saved.
+   Pass a release tag (`backup/restore-latest backup-2026-10-11T1000Z`) to
+   restore an older one.
+3. Compare the counts with the ones in that run's log on Render. They should
+   match exactly.
+
+**Restore into production** (only if Render's own recovery can't help, for
+example the data is older than 3 days). On Render, create a new, empty
+Postgres 16 database. Then restore the backup into it with `backup/restore.sh`
+(it refuses a database that already has tables) from a Render Shell or a
+one-off job that can reach it, and point the web service's `DATABASE_URL` at
+it. Ask in an issue first; this is rare enough to walk through together.
 
 ## Starting over
 
