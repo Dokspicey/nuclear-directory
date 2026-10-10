@@ -38,17 +38,19 @@ module Analytics
     def public_key = (api_key if enabled?)
     def host = ENV["POSTHOG_HOST"].presence || DEFAULT_HOST
 
-    # Sends one anonymous event. Never raises: analytics must not break a page.
+    # Sends one anonymous event. An unknown event name is a programming error
+    # and raises; anything that goes wrong sending it never does, since
+    # analytics must not break a page.
     def capture(event, properties = {})
       raise ArgumentError, "unknown analytics event #{event.inspect}" unless EVENTS.include?(event.to_s)
       return unless enabled?
 
-      client.capture(distinct_id: DISTINCT_ID, event: event.to_s, properties: properties.stringify_keys.merge(ANONYMOUS))
-    rescue ArgumentError
-      raise
-    rescue => error
-      Rails.logger.warn("[analytics] #{event} not sent: #{error.class}: #{error.message}")
-      nil
+      begin
+        client.capture(distinct_id: DISTINCT_ID, event: event.to_s, properties: properties.stringify_keys.merge(ANONYMOUS))
+      rescue => error
+        Rails.logger.warn("[analytics] #{event} not sent: #{error.class}: #{error.message}")
+        nil
+      end
     end
 
     # The search interface Design calls (same as #62's). Queries are

@@ -34,9 +34,20 @@ class AnalyticsTest < ActiveSupport::TestCase
     assert_raises(ArgumentError) { Analytics.capture("clicked_ad") }
   end
 
-  test "a PostHog failure never raises" do
+  test "a PostHog failure never raises, even an ArgumentError from the client" do
     Analytics.client = FakePostHog.new(fail_with: Errno::ECONNREFUSED.new)
     assert_nil Analytics.capture("search", query: "x")
+
+    Analytics.client = FakePostHog.new(fail_with: ArgumentError.new("bad property"))
+    assert_nil Analytics.capture("search", query: "x")
+  end
+
+  test "the browser snippet sends page views only, with query strings stripped" do
+    snippet = Rails.root.join("app/javascript/analytics.js").read
+
+    assert_includes snippet, "autocapture: false"
+    assert_includes snippet, "before_send: sanitize"
+    assert_includes snippet, 'cookieless_mode: "always"'
   end
 
   test "without a client nothing is sent and no key is exposed" do
