@@ -11,7 +11,7 @@
     <%= icon("magnifying-glass", size: size == :large ? 24 : 20) %>
     <label for="<%= field_id %>" class="sr-only">Search a company, plant or site</label>
     <input id="<%= field_id %>" type="search" name="q" value="<%= local_assigns[:query] %>"
-           placeholder="Search a company, plant or site" autocomplete="off"
+           placeholder="Search a company, plant or site" autocomplete="off" enterkeyhint="search"
            aria-controls="<%= field_id %>-results" aria-expanded="false" aria-describedby="<%= field_id %>-status"
            data-instant-search-target="input"
            data-action="input->instant-search#search keydown->instant-search#keydown focus->instant-search#search">

@@ -289,3 +289,28 @@
   .nd-sugg:hover { border-color: var(--nd-ink); }
   .nd-sugg .nd-ic { color: var(--nd-ink-muted); }
 }
+
+/* Phones and touch screens (#90). */
+@layer components {
+  @media (max-width: 560px) {
+    /* Search near the top, so the keyboard doesn't cover the results. */
+    .nd-home { min-height: 0; padding-top: max(var(--nd-space-12), env(safe-area-inset-top)); gap: var(--nd-space-6); }
+    .nd-home__wordmark { font-size: 40px; }
+    .nd-searchbox__results { max-height: 60vh; }
+    .nd-searchbox--large .nd-search { height: 52px; padding: 0 var(--nd-space-4); gap: var(--nd-space-3); }
+    .nd-searchbox--large .nd-search input { font-size: 16px; }
+    .nd-cats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--nd-space-2); }
+    .nd-cat { padding: var(--nd-space-3); }
+    /* One scrolling row of pills, faded at the edge so more is visible. */
+    .nd-pills { flex-wrap: nowrap; scroll-snap-type: x proximity; padding-right: var(--nd-space-8);
+      mask-image: linear-gradient(to right, #000 85%, transparent); -webkit-mask-image: linear-gradient(to right, #000 85%, transparent); }
+    .nd-pill { scroll-snap-align: start; }
+  }
+
+  /* 44px tap targets on touch screens, without changing how small parts look. */
+  @media (pointer: coarse) {
+    .nd-pill, .nd-sugg, .nd-select, .nd-instant__row, .nd-instant__all { min-height: 44px; }
+    .nd-src, .nd-az a { position: relative; }
+    .nd-src::after, .nd-az a::after { content: ""; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); transform: translate(-50%, -50%); }
+  }
+}
