@@ -25,7 +25,8 @@
     <dd><%= r.subject %><% if r.page_path != "/" %> · <%= link_to "Back to the page", r.page_path, class: "nd-link" %><% end %></dd>
   </dl>
 
-  <%= form_with url: corrections_path, method: :post, class: "nd-form", local: true do %>
+  <%# novalidate: the server's error summary and inline errors replace the browser's popovers. %>
+  <%= form_with url: corrections_path, method: :post, class: "nd-form", local: true, html: { novalidate: true } do %>
     <%= hidden_field_tag :subject, r.subject %>
     <%= hidden_field_tag :page_path, r.page_path %>
 

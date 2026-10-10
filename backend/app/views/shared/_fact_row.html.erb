@@ -18,7 +18,9 @@
     <% end %>
     <%= render "shared/confidence", value: local_assigns[:confidence] %>
     <% if local_assigns[:correctable] %>
-      <%= link_to correction_url_for(strip_tags(sentence).squish), class: "nd-link nd-link--muted nd-factrow__fix type-small" do %>Report a correction<span class="sr-only">: <%= strip_tags(sentence).squish %></span><% end %>
+      <%# Plain text of the fact, entities decoded ("Sargent & Lundy", not "&amp;"). %>
+      <% fact = CGI.unescapeHTML(strip_tags(sentence.to_s)).squish %>
+      <%= link_to correction_url_for(fact), class: "nd-link nd-link--muted nd-factrow__fix type-small" do %>Report a correction<span class="sr-only">: <%= fact %></span><% end %>
     <% end %>
   </div>
 </li>
