@@ -15,6 +15,7 @@
 #   Review.reject_fact(type:, id:, by:, reason:)
 #   Review.unpublish(type:, id:, by:, reason:)
 #   Review.history(type:, id:)
+#   Review.fact(type:, id:)                                   # one fact, any kind
 #
 # Every action is a human's (by: "human:…") and returns Results; a refused
 # write (e.g. an edit that duplicates another fact) comes back as errors,
@@ -28,13 +29,17 @@ module DataQuality::Review
   # attached to (DirectoryClient::Record: name, decision, values), or nil.
   # differences: { "state" => ["NJ", "DE"] } ([human-verified, this source])
   # when it disagrees with a human-verified record; approving would apply the
-  # source's value.
+  # source's value. found_by: the model of the run that extracted it (nil for
+  # hand-made ones).
   Item = Data.define(:candidate_id, :kind, :status, :claim, :payload, :quote, :source, :notes,
     :ai_recommendation, :ai_reason, :ai_confidence, :ai_model, :ai_checked_at, :verify_run_id,
-    :subject_type, :subject_id, :record, :differences)
+    :subject_type, :subject_id, :record, :differences, :found_by, :crawl_run_id)
   Source = Data.define(:id, :url, :title)
   EvidenceItem = Data.define(:source, :quote, :found_by, :confidence)
   PendingFact = Data.define(:type, :id, :kind, :attributes, :evidence, :created_at, :last_event)
+  # One directory fact as the admin shows it. values: its stored values;
+  # history: Directory::VerificationEventRefs, newest first.
+  Fact = Data.define(:type, :id, :name, :verification_status, :verified_by, :verified_at, :values, :history)
 
   QUEUES = {
     recommended: -> { Candidate.recommended },
@@ -59,12 +64,24 @@ module DataQuality::Review
     # verify run, and by reason (the start of the note, e.g. "human-verified").
     def candidates(queue: :recommended, run_id: nil, reason: nil, after_id: nil, limit: 50,
       directory: DataQuality::DirectoryClient.new)
-      scope = QUEUES.fetch(queue.to_sym).call.includes(:source).order(:id).limit(limit)
+      scope = QUEUES.fetch(queue.to_sym).call.includes(:source, :crawl_run).order(:id).limit(limit)
       scope = scope.where(verify_run_id: run_id) if run_id
       scope = filter_by_reason(scope, reason) if reason.present?
       scope = scope.where("candidates.id > ?", after_id) if after_id
       scope.map { |candidate| item(candidate, directory) }
     end
+
+    # One candidate as the admin shows it, whatever its status, or nil.
+    def candidate(id, directory: DataQuality::DirectoryClient.new)
+      found = Candidate.includes(:source, :crawl_run).find_by(id:)
+      found && item(found, directory)
+    end
+
+    # The kinds of directory fact, for pending_facts(kind:).
+    def fact_kinds(directory: DataQuality::DirectoryClient.new) = directory.fact_kinds
+
+    # How many candidates wait in each queue: { recommended: 12, needs_review: 3 }.
+    def counts = QUEUES.transform_values { |scope| scope.call.count }
 
     # Kinds of question in a queue, most common first, quoted names blanked
     # ('no exact match for "…"'), for the admin's reason filter: passing one
@@ -72,7 +89,7 @@ module DataQuality::Review
     def reasons(queue: :needs_review, run_id: nil)
       scope = QUEUES.fetch(queue.to_sym).call
       scope = scope.where(verify_run_id: run_id) if run_id
-      scope.pluck(:notes).map { |notes| notes.to_s.split(":").first.to_s.gsub(/"[^"]*"/, '"…"').squish.presence || NO_REASON }
+      scope.pluck(:notes).map { |notes| reason_of(notes) }
         .tally.sort_by { |reason, n| [ -n, reason ] }
     end
 
@@ -82,13 +99,15 @@ module DataQuality::Review
     # candidate that disagrees with a human-verified value applies the new
     # value; the admin shows `differences` first. An approved unit fills its
     # site's blank fields. Already-decided candidates are refused.
+    # only_recommended: true for bulk approval, which covers the Recommended
+    # queue only; anything else needs a look on its own (#86).
     # One outer transaction: an unexpected error rolls the whole batch back
     # (a refused item is a Result with errors, not an error).
-    def approve(candidate_ids, by:, reason: nil, directory: DataQuality::DirectoryClient.new)
+    def approve(candidate_ids, by:, reason: nil, only_recommended: false, directory: DataQuality::DirectoryClient.new)
       human!(by)
       Candidate.transaction do
         Candidate.where(id: candidate_ids).includes(:crawl_run, :verify_run).order(:id).map do |candidate|
-          approve_one(candidate, by:, reason:, directory:)
+          approve_one(candidate, by:, reason:, directory:, only_recommended:)
         end
       end
     end
@@ -162,8 +181,10 @@ module DataQuality::Review
 
     # Approves (or republishes) a directory fact, optionally with edited
     # values; the edit is recorded in its history.
+    # A fact with no source isn't published (VOICE.md: if we can't source it,
+    # we don't publish it).
     def approve_fact(type:, id:, by:, reason: nil, attributes: {}, directory: DataQuality::DirectoryClient.new)
-      decide_fact(type, id, "verified", by:, reason:, attributes:, directory:)
+      decide_fact(type, id, "verified", by:, reason:, attributes:, directory:, require_source: true)
     end
 
     def reject_fact(type:, id:, by:, reason: nil, directory: DataQuality::DirectoryClient.new)
@@ -177,6 +198,14 @@ module DataQuality::Review
     end
 
     def history(type:, id:, directory: DataQuality::DirectoryClient.new) = directory.verification_history(type:, id:)
+
+    # A fact with its decision, values and history, or nil.
+    def fact(type:, id:, directory: DataQuality::DirectoryClient.new)
+      record = directory.fact(type:, id:) or return
+      Fact.new(type: record.type, id: record.id, name: record.name, verification_status: record.verification_status,
+        verified_by: record.verified_by, verified_at: record.verified_at, values: record.values || {},
+        history: directory.verification_history(type: record.type, id: record.id))
+    end
 
     private
       # Evidence confidence means "how sure the source supports this". The
@@ -207,10 +236,15 @@ module DataQuality::Review
       # Locked, and in one transaction with the directory write: two people
       # approving at once publish once, and a crash can't leave a published
       # fact still waiting for approval.
-      def approve_one(candidate, by:, reason:, directory:, edited: false)
+      # only_recommended (bulk approval): checked under the lock, so a claim a
+      # verify run moved to review a moment ago isn't published in bulk.
+      def approve_one(candidate, by:, reason:, directory:, edited: false, only_recommended: false)
         Candidate.transaction do
           lock_for_decision(candidate)
           next Result.new(candidate_id: candidate.id, ref: nil, errors: [ already(candidate) ]) unless open?(candidate)
+          if only_recommended && !(candidate.ai_recommendation == "recommend_publish" && !candidate.status_needs_review?)
+            next Result.new(candidate_id: candidate.id, ref: nil, errors: [ "it isn't recommended, so approve it on its own" ])
+          end
           if lapsed?(candidate)
             next Result.new(candidate_id: candidate.id, ref: nil,
               errors: [ "its source changed after the verifier checked it; the next verify run checks it again" ])
@@ -231,8 +265,20 @@ module DataQuality::Review
 
       # The ILIKE pattern for a reason from reasons(): its start, with each
       # blanked name ("…") matching any name.
-      def reason_pattern(reason)
-        "#{Candidate.sanitize_sql_like(reason).gsub('"…"', '"%"')}%"
+      # Match notes about a link's end start with that end ("organization: no
+      # exact match for …"); the reason is what follows.
+      NOTE_PREFIXES = %w[organization facility from_organization to_organization].freeze
+
+      def reason_of(notes)
+        text = notes.to_s.sub(/\A(?:#{NOTE_PREFIXES.join('|')}): /, "")
+        text.split(":").first.to_s.gsub(/"[^"]*"/, '"…"').squish.presence || NO_REASON
+      end
+
+      # ILIKE patterns for a reason from reasons(): its start, with or without
+      # a link end's prefix, each blanked name ("…") matching any name.
+      def reason_patterns(reason)
+        pattern = "#{Candidate.sanitize_sql_like(reason).gsub('"…"', '"%"')}%"
+        [ pattern ] + NOTE_PREFIXES.map { |prefix| "#{prefix}: #{pattern}" }
       end
 
       # A published unit completes its site's missing details (see
@@ -277,13 +323,16 @@ module DataQuality::Review
       def filter_by_reason(scope, reason)
         return scope.where(notes: [ nil, "" ]) if reason == NO_REASON
 
-        scope.where("candidates.notes ILIKE ?", reason_pattern(reason))
+        scope.where("candidates.notes ILIKE ANY (ARRAY[?])", reason_patterns(reason))
       end
 
-      def decide_fact(type, id, status, by:, reason:, attributes: {}, directory:)
+      def decide_fact(type, id, status, by:, reason:, attributes: {}, directory:, require_source: false)
         human!(by)
         if (locked = attributes.to_h.stringify_keys.keys & locked_keys(type.to_s.underscore)).any?
           return Result.new(candidate_id: nil, ref: nil, errors: [ "can't edit #{locked.to_sentence} here" ])
+        end
+        if require_source && !directory.sourced?(type: type.to_s.camelize, id:)
+          return Result.new(candidate_id: nil, ref: nil, errors: [ "it has no source; add one before publishing it" ])
         end
 
         result = directory.decide_fact(type.to_s.underscore, id:, status:, by:, reason:, attributes:)
@@ -301,7 +350,8 @@ module DataQuality::Review
           source: Source.new(id: candidate.source.id, url: candidate.source.url, title: candidate.source.title),
           ai_recommendation: candidate.ai_recommendation, ai_reason: candidate.ai_reason, ai_confidence: candidate.ai_confidence,
           ai_model: candidate.ai_model, ai_checked_at: candidate.ai_checked_at, verify_run_id: candidate.verify_run_id,
-          subject_type: candidate.subject_type, subject_id: candidate.subject_id, record:, differences:)
+          subject_type: candidate.subject_type, subject_id: candidate.subject_id, record:, differences:,
+          found_by: candidate.crawl_run&.model, crawl_run_id: candidate.crawl_run_id)
       end
 
       def sources_by_id(ids)
