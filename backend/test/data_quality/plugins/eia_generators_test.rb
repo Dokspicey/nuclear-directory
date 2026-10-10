@@ -71,8 +71,15 @@ class DataQuality::Plugins::EiaGeneratorsTest < ActiveSupport::TestCase
     stub_request(:get, FILE).to_return(status: 302, headers: { "Location" => "http://169.254.169.254/latest" })
     Source.find_by!(url: FILE).update_columns(fetched_at: nil)
     crawl!
-    assert_match "Redirected to 169.254.169.254, another site; not followed", Source.find_by!(url: FILE).status_reason
+    assert_match "Not fetched: only https URLs are fetched", Source.find_by!(url: FILE).status_reason
     assert_not_requested :get, "http://169.254.169.254/latest"
+
+    stub_request(:get, FILE).to_return(status: 302, headers: { "Location" => "https://169.254.169.254/latest" })
+    Source.find_by!(url: FILE).update_columns(fetched_at: nil)
+    crawl!
+    assert_match "Not fetched: redirected to another host (169.254.169.254)", Source.find_by!(url: FILE).status_reason,
+      "the shared Fetcher (#114) refuses it"
+    assert_not_requested :get, "https://169.254.169.254/latest"
   end
 
   test "a newer monthly file withdraws the older file's unpublished candidates" do
