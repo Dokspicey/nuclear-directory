@@ -149,6 +149,27 @@ class Directory::VerificationAuditTest < ActiveSupport::TestCase
     assert_not FacilityRelationship.exists?(organization_id: @org.id, facility_id: plant.id)
   end
 
+  test "an automated link to a unit whose site was closed isn't written" do
+    site = facilities(:vogtle)
+    unit = Facility.create!(name: "Vogtle 3", parent: site)
+    site.unpublish!(by: "human:tosin")
+
+    result = write(:facility_relationship, { organization_id: @org.id, facility_id: unit.id, relationship_type: "operates" },
+      protect_human_verified: true)
+
+    assert_match "#{site.name} was unpublished by human:tosin; not linked", result.errors.join
+  end
+
+  test "a bad verification key fails even a protected write to a curated fact" do
+    @org.verify!(by: "human:tosin")
+
+    result = write(:organization, { id: @org.id, hq_city: "Bellevue" }, protect_human_verified: true,
+      verification: { status: "verified", by: "agent:x", because: "typo" })
+
+    assert_match "unknown verification keys: because", result.errors.join
+    assert_nil @org.reload.hq_city
+  end
+
   test "a proposed link whose company was closed can still be retired" do
     link = FacilityRelationship.create!(organization: @org, facility: facilities(:vogtle), relationship_type: "owns")
     @org.unpublish!(by: "human:tosin")
