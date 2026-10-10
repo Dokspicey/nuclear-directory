@@ -75,7 +75,10 @@ with `crawl(run)` and `extract(source, run)` (see `plugin.rb`). Match and verify
 
 Fetch with `DataQuality::Snapshot.take(source, fetcher: DataQuality::Fetcher.new)`, never your own HTTP:
 - **`Fetcher`** identifies as `NuclearDirectoryBot`, obeys robots.txt, waits between requests to a host,
-  sends ETag / If-Modified-Since, and never retries.
+  sends ETag / If-Modified-Since, and never retries. It fetches public https only: the standard port,
+  redirects that stay on the same host (with or without `www.`), and hosts that resolve only to public
+  addresses (no private, loopback, link-local or metadata IPs); it connects to the address it checked.
+  Anything else comes back as `:error`, "Not fetched: …".
 - **`Snapshot`** fetches a source at most once a day and records the result on it: content and hash,
   `blocked` with the CDN reference on a 403 (`needs_human` after 3 in a row), or `needs_human` if
   robots.txt disallows it.
