@@ -3,20 +3,22 @@
     kind:        :company (initials in a square) or :plant (a ring)
     description: one plain line (optional; left out when unknown)
     citations:   [[number, source], ...] backing the description (optional)
-    tags:        short labels, e.g. ["Reactor developer", "Fission"] (optional) %>
-<section class="nd-profile" aria-labelledby="profile-name">
+    tags:        short labels, e.g. ["Reactor developer", "Fission"] (optional)
+    heading_id:  the h1's id, unique on the page (optional, default "profile-name") %>
+<% heading_id = local_assigns.fetch(:heading_id, "profile-name") %>
+<section class="nd-profile" aria-labelledby="<%= heading_id %>">
   <% if kind == :plant %>
     <span class="nd-ring nd-ring--lg" aria-hidden="true"><%= icon("factory", size: 24) %></span>
   <% else %>
     <span class="nd-mono nd-mono--md" aria-hidden="true"><%= initials(name) %></span>
   <% end %>
   <div class="nd-profile__main">
-    <h1 id="profile-name" class="nd-profile__name"><%= name %></h1>
+    <h1 id="<%= heading_id %>" class="nd-profile__name"><%= name %></h1>
     <% if local_assigns[:description].present? %>
       <p class="nd-profile__desc"><%= description %><% Array(local_assigns[:citations]).each do |number, source| %><%= render "shared/source_chip", number:, source:, compact: true %><% end %></p>
     <% end %>
     <% if local_assigns[:tags].present? %>
-      <div class="nd-row gap-1.5"><% tags.each do |tag_label| %><span class="nd-tag"><%= tag_label %></span><% end %></div>
+      <div class="nd-row gap-2"><% tags.each do |tag_label| %><span class="nd-tag"><%= tag_label %></span><% end %></div>
     <% end %>
   </div>
 </section>
