@@ -350,7 +350,6 @@
 @layer components {
   .nd-page--narrow { max-width: 640px; }
   .nd-about { margin: 0; display: flex; flex-direction: column; gap: var(--nd-space-1); }
-  .nd-about dt { font: 700 11px/16px var(--font-text); letter-spacing: .08em; text-transform: uppercase; color: var(--nd-ink-muted); }
   .nd-about dd { margin: 0; }
   .nd-form { display: flex; flex-direction: column; gap: var(--nd-space-6); }
   .nd-field { display: flex; flex-direction: column; gap: var(--nd-space-1); }
@@ -362,12 +361,11 @@
   /* Errors don't rely on color: a heavier border and the message in bold. */
   .nd-field--error .nd-input { border: 2px solid var(--nd-ink); }
   .nd-alert { padding: var(--nd-space-4); border: 2px solid var(--nd-ink); border-radius: var(--nd-radius-sm); }
-  .nd-alert p { margin: 0; font-weight: 600; }
+  .nd-alert p { margin: 0; }
   .nd-alert ul { margin: var(--nd-space-2) 0 0; padding-left: 18px; }
   .nd-form__actions { display: flex; flex-direction: column; align-items: flex-start; gap: var(--nd-space-3); }
   .nd-honeypot { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
   .nd-confirm { display: flex; gap: var(--nd-space-4); align-items: flex-start; }
-  .nd-factrow__fix { font-size: 12px; line-height: 16px; color: var(--nd-ink-muted); }
 
   @media (max-width: 560px) {
     .nd-form__actions .nd-btn { width: 100%; justify-content: center; height: 44px; }

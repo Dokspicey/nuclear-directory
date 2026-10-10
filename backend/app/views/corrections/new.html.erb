@@ -11,17 +11,17 @@
 
   <% if @too_many %>
     <div class="nd-alert" role="alert">
-      <p>You've sent several corrections in the last few minutes. Wait a few minutes and send it again, or email it to us.</p>
+      <p class="type-body-strong">You've sent several corrections in the last few minutes. Wait a few minutes and send it again, or email it to us.</p>
     </div>
   <% elsif errors.any? %>
     <div class="nd-alert" role="alert">
-      <p id="form-errors">Fix this before sending:</p>
+      <p id="form-errors" class="type-body-strong">Fix this before sending:</p>
       <ul><% errors.attribute_names.uniq.each do |attribute| %><li><a class="nd-link" href="#correction-<%= attribute %>"><%= errors.messages_for(attribute).first %></a></li><% end %></ul>
     </div>
   <% end %>
 
   <dl class="nd-about">
-    <dt>About</dt>
+    <dt class="type-label">About</dt>
     <dd><%= r.subject %><% if r.page_path != "/" %> · <%= link_to "Back to the page", r.page_path, class: "nd-link" %><% end %></dd>
   </dl>
 

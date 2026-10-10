@@ -21,10 +21,16 @@ class CorrectionsTest < ActionDispatch::IntegrationTest
   end
 
   test "a page outside the site is never linked" do
-    get new_correction_path(subject: "Something", page: "//evil.example/phish")
+    [ "//evil.example/phish", "/\\evil.example/phish", "https://evil.example", "/ok\\..\\x" ].each do |page|
+      get new_correction_path(subject: "Something", page:)
 
-    assert_select "input[name=page_path][value='/']"
-    assert_select ".nd-about a", count: 0
+      assert_select "input[name=page_path][value='/']"
+      assert_select ".nd-about a", count: 0
+    end
+
+    post corrections_path, params: { subject: "x", page_path: "/\\evil.example/phish", message: "m" }
+    assert_redirected_to correction_sent_path(page: "/")
+    assert_equal "/", CorrectionReport.last.page_path
   end
 
   test "sending saves an open report, without any IP, and confirms" do
@@ -84,5 +90,16 @@ class CorrectionsTest < ActionDispatch::IntegrationTest
       new_correction_path(subject: "Google offtakes from Kairos Power", page: "/companies/kairos-power")
     assert_select ".nd-overview a[href=?]", new_correction_path(subject: "Kairos Power", page: "/companies/kairos-power"), text: "Report a correction"
     assert_select ".nd-gaps a[href^='/corrections/new']", "Suggest a source"
+  end
+
+  test "plant pages link their facts, key facts and gaps to a prefilled correction" do
+    vogtle = plant("Plant Vogtle", facility_type: "power_reactor")
+    link(company("Georgia Power"), "owns", vogtle)
+    get plant_path(slug: "plant-vogtle")
+
+    assert_select ".nd-factrow a.nd-factrow__fix[href=?]",
+      new_correction_path(subject: "Georgia Power owns Plant Vogtle", page: "/plants/plant-vogtle")
+    assert_select ".nd-overview a[href=?]", new_correction_path(subject: "Plant Vogtle", page: "/plants/plant-vogtle"), text: "Report a correction"
+    assert_select ".nd-gaps a[href=?]", new_correction_path(subject: "Plant Vogtle: Status, Location, Operator", page: "/plants/plant-vogtle"), text: "Suggest a source"
   end
 end

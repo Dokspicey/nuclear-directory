@@ -40,10 +40,10 @@ class CorrectionsController < ApplicationController
     # What the correction is about: the fact or page it came from.
     def subject = params[:subject].to_s.squish.first(300).presence || "Nuclear Directory"
 
-    # Only a path on this site, so the form never links elsewhere.
-    def safe_path(path)
-      path.to_s.match?(%r{\A/(?!/)\S{0,299}\z}) ? path.to_s : "/"
-    end
+    # Only a path on this site, so the form never links elsewhere. Browsers
+    # read a leading "//" or "/\" as another host, so neither may start it,
+    # and no backslash or whitespace is allowed anywhere.
+    def safe_path(path) = CorrectionReport.local_path?(path) ? path.to_s : "/"
 
     def too_many
       @report = CorrectionReport.new(report_params)

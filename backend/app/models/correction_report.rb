@@ -7,7 +7,12 @@ class CorrectionReport < ApplicationRecord
   normalizes :message, with: ->(value) { value.strip }
 
   validates :subject, presence: true, length: { maximum: 300 }
-  validates :page_path, presence: true, length: { maximum: 300 }, format: { with: %r{\A/(?!/)\S*\z} }
+  LOCAL_PATH = %r{\A/(?![/\\])[^\s\\]{0,299}\z}
+
+  # A path on this site: one leading slash, no backslashes or whitespace.
+  def self.local_path?(path) = path.to_s.match?(LOCAL_PATH)
+
+  validates :page_path, presence: true, format: { with: LOCAL_PATH }
   validates :message, presence: { message: "Say what should change before sending." },
     length: { maximum: 5000, message: "Keep it under 5,000 characters." }
   validates :contact, length: { maximum: 200, message: "Keep the email under 200 characters." },
