@@ -15,10 +15,16 @@
   <% end %>
 
   <%= form_with url: admin_candidate_path(@item.candidate_id), method: :patch, class: "nd-stack" do |form| %>
+    <% if @errors.present? %>
+      <div class="nd-alert" role="alert">
+        <p class="type-body-strong">Not approved. Fix this and approve again:</p>
+        <ul class="type-body"><% @errors.each do |error| %><li><%= error.upcase_first %></li><% end %></ul>
+      </div>
+    <% end %>
     <% @fields.each do |name| %>
       <% value = @item.payload[name] %>
       <div class="nd-field">
-        <%= label_tag "values_#{name}", field_label(name), class: "type-ui" %>
+        <%= label_tag "values_#{name}", field_label(name), class: "type-body-strong" %>
         <% if value.is_a?(Array) || value.is_a?(Hash) %>
           <span><%= field_value(value) %></span>
           <span class="type-small text-ink-muted">Can't be edited here.</span>
@@ -28,7 +34,7 @@
       </div>
     <% end %>
     <div class="nd-field">
-      <label for="note" class="type-ui">What you changed and why <span class="type-small text-ink-muted">(optional, kept in the record's history)</span></label>
+      <label for="note" class="type-body-strong">What you changed and why <span class="type-small text-ink-muted">(optional, kept in the record's history)</span></label>
       <%= text_field_tag :note, params[:note], class: "nd-input type-input" %>
     </div>
     <div class="nd-row">

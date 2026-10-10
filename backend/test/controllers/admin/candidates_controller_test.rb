@@ -164,7 +164,7 @@ class Admin::CandidatesControllerTest < ActionDispatch::IntegrationTest
     patch admin_candidate_path(c), params: { values: { founded_year: "not a year" } }
 
     assert_response :unprocessable_content
-    assert_select ".nd-flash[role=alert]"
+    assert_select ".nd-alert[role=alert]", /Not approved. Fix this and approve again/
     assert c.reload.status_matched?, "nothing approved"
   end
 end

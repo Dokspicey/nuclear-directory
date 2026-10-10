@@ -50,7 +50,7 @@ class Admin::CandidatesController < Admin::BaseController
     else
       @item = item
       @fields = editable_fields(item)
-      flash.now[:alert] = result.errors.to_sentence
+      @errors = result.errors
       render :edit, status: :unprocessable_content
     end
   end

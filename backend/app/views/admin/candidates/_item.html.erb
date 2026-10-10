@@ -54,7 +54,7 @@
         <summary class="nd-btn nd-btn--sm">Reject…</summary>
         <div class="nd-item__reject">
           <div class="nd-field">
-            <label for="reason-<%= item.candidate_id %>" class="type-ui">Reason <span class="type-small text-ink-muted">(optional, kept in the record's history)</span></label>
+            <label for="reason-<%= item.candidate_id %>" class="type-body-strong">Reason <span class="type-small text-ink-muted">(optional, kept in the record's history)</span></label>
             <input type="text" class="nd-input type-input" id="reason-<%= item.candidate_id %>" name="reasons[<%= item.candidate_id %>]">
           </div>
           <button type="submit" class="nd-btn nd-btn--sm" name="candidate_id" value="<%= item.candidate_id %>"
