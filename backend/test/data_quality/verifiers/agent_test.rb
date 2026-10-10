@@ -91,6 +91,7 @@ class DataQuality::Verifiers::AgentTest < ActiveSupport::TestCase
 
     assert_equal :review, verdict.outcome
     assert_match "only 79% sure", verdict.reason
+    assert_equal 0.79, verdict.confidence, "stored rounded down, so it never reads as 80%"
   end
 
   test "a confidence outside 0 to 1 is a malformed answer, sent to review rather than clamped" do
