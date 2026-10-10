@@ -84,6 +84,55 @@ class DataQuality::Stages::VerifyRecommendTest < ActiveSupport::TestCase
     assert_equal [ "recommend_publish", "vendor/verifier" ], [ asked.reload.ai_recommendation, asked.ai_model ]
   end
 
+  test "values are compared as the directory stores them: a padded docket or lowercase country isn't a conflict" do
+    unit = Facility.create!(name: "Hope Creek 1", nrc_docket: "05000354", state: "NJ", country_code: "US")
+    unit.verify!(by: "human:tosin")
+    c = candidate("facility", { "name" => "Hope Creek 1", "nrc_docket" => " 05000354 ", "country_code" => " us " })
+    c.update!(status: "matched", subject_type: "Facility", subject_id: unit.id)
+
+    run_stage("verify", verifier: CountingVerifier.new)
+
+    assert_equal "recommend_publish", c.reload.ai_recommendation
+  end
+
+  test "a human's decision made while the model is asked is never overwritten" do
+    c = candidate("organization", { "name" => "Imaginary Fission Co" })
+    run_stage("match")
+    # Approves the candidate in the admin mid-run, then answers "review".
+    racing = Object.new
+    def racing.verdicts(candidates, run:, plugin:)
+      DataQuality::Review.approve(candidates.map(&:id), by: "human:tosin")
+      candidates.to_h { |x| [ x.id, DataQuality::Verdict.new(outcome: :review, reason: "Unsure.") ] }
+    end
+
+    verify = run_stage("verify", verifier: racing)
+
+    assert c.reload.status_merged?, "the approval stands"
+    assert_nil c.ai_recommendation
+    assert_equal 1, verify.stats["decided_meanwhile"]
+  end
+
+  test "a verdict a code check produced records no model, even when the run asked one for others" do
+    by_code = candidate("organization", { "name" => "Nothing Stored Co" })
+    asked = candidate("organization", { "name" => "Imaginary Fission Co" })
+    run_stage("match")
+    mixed = Object.new
+    def mixed.verdicts(candidates, run:, plugin:)
+      run.update!(model: "vendor/verifier")
+      candidates.to_h do |x|
+        verdict = x.payload["name"].start_with?("Nothing") ?
+          DataQuality::Verdict.new(outcome: :review, reason: "Nothing stored.", by_code: true) :
+          DataQuality::Verdict.new(outcome: :publish, confidence: 0.9, reason: "Yes.")
+        [ x.id, verdict ]
+      end
+    end
+
+    run_stage("verify", verifier: mixed)
+
+    assert_nil by_code.reload.ai_model
+    assert_equal "vendor/verifier", asked.reload.ai_model
+  end
+
   test "a company on a human-verified record: its domain or website is compared as a host" do
     terrapower = organizations(:terrapower)
     terrapower.verify!(by: "human:tosin")

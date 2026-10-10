@@ -25,13 +25,15 @@ module DataQuality::Review
     def ok? = errors.empty?
   end
 
-  # A candidate as the admin shows it. differences: { "state" => ["NJ", "DE"] }
-  # ([human-verified, this source]) when it disagrees with a human-verified
-  # record; approving would apply the source's value.
-  # found_by: the model of the run that extracted it (nil for hand-made ones).
+  # A candidate as the admin shows it. record: the directory fact it's
+  # attached to (DirectoryClient::Record: name, decision, values), or nil.
+  # differences: { "state" => ["NJ", "DE"] } ([human-verified, this source])
+  # when it disagrees with a human-verified record; approving would apply the
+  # source's value. found_by: the model of the run that extracted it (nil for
+  # hand-made ones).
   Item = Data.define(:candidate_id, :kind, :status, :claim, :payload, :quote, :source, :notes,
     :ai_recommendation, :ai_reason, :ai_confidence, :ai_model, :ai_checked_at, :verify_run_id,
-    :subject_type, :subject_id, :differences, :found_by, :crawl_run_id)
+    :subject_type, :subject_id, :record, :differences, :found_by, :crawl_run_id)
   Source = Data.define(:id, :url, :title)
   EvidenceItem = Data.define(:source, :quote, :found_by, :confidence)
   PendingFact = Data.define(:type, :id, :kind, :attributes, :evidence, :created_at, :last_event)
@@ -48,6 +50,9 @@ module DataQuality::Review
   LINK_ENDS = %w[organization facility from_organization to_organization
     organization_id facility_id from_organization_id to_organization_id].freeze
   NOT_EDITABLE = (LINK_ENDS + %w[slug]).freeze
+  # A company's role or technology is what that fact is (a plant's
+  # technology is an ordinary value).
+  IDENTIFYING = { "organization_role" => %w[role], "organization_technology" => %w[technology] }.freeze
 
   class << self
     # Candidates waiting for a decision, oldest first. queue: :recommended
@@ -103,7 +108,7 @@ module DataQuality::Review
       human!(by)
       candidate = Candidate.find(candidate_id)
       attributes = attributes.to_h.stringify_keys
-      if (locked = attributes.keys & NOT_EDITABLE).any?
+      if (locked = attributes.keys & locked_keys(candidate.kind)).any?
         return Result.new(candidate_id:, ref: nil, errors: [ "can't edit #{locked.to_sentence} here" ])
       end
 
@@ -263,7 +268,7 @@ module DataQuality::Review
 
       def decide_fact(type, id, status, by:, reason:, attributes: {}, directory:)
         human!(by)
-        if (locked = attributes.to_h.stringify_keys.keys & NOT_EDITABLE).any?
+        if (locked = attributes.to_h.stringify_keys.keys & locked_keys(type.to_s.underscore)).any?
           return Result.new(candidate_id: nil, ref: nil, errors: [ "can't edit #{locked.to_sentence} here" ])
         end
 
@@ -271,14 +276,18 @@ module DataQuality::Review
         Result.new(candidate_id: nil, ref: result.ref, errors: result.errors)
       end
 
+      # Keys an edit may not change for this kind of fact.
+      def locked_keys(kind) = NOT_EDITABLE + IDENTIFYING.fetch(kind.to_s, [])
+
       def item(candidate, directory)
-        differences = DataQuality::Differences.with_human_verified(candidate, directory.attached_record(candidate))
+        record = directory.attached_record(candidate)
+        differences = DataQuality::Differences.with_human_verified(candidate, record)
         Item.new(candidate_id: candidate.id, kind: candidate.kind, status: candidate.status, claim: DataQuality::Claim.describe(candidate),
           payload: candidate.payload, quote: candidate.quote, notes: candidate.notes,
           source: Source.new(id: candidate.source.id, url: candidate.source.url, title: candidate.source.title),
           ai_recommendation: candidate.ai_recommendation, ai_reason: candidate.ai_reason, ai_confidence: candidate.ai_confidence,
           ai_model: candidate.ai_model, ai_checked_at: candidate.ai_checked_at, verify_run_id: candidate.verify_run_id,
-          subject_type: candidate.subject_type, subject_id: candidate.subject_id, differences:,
+          subject_type: candidate.subject_type, subject_id: candidate.subject_id, record:, differences:,
           found_by: candidate.crawl_run&.model, crawl_run_id: candidate.crawl_run_id)
       end
 

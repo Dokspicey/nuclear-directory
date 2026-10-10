@@ -127,6 +127,29 @@ class DataQuality::ReviewTest < ActiveSupport::TestCase
     assert_equal "recommend_publish", same.reload.ai_recommendation, "40 and 40.0 are the same share"
   end
 
+  test "a company role's role and a company technology's technology identify the fact, so they can't be edited" do
+    role = candidate("organization_role", { "organization" => { "name" => "TerraPower" }, "role" => "reactor_vendor" })
+    tech = candidate("organization_technology", { "organization" => { "name" => "TerraPower" }, "technology" => "fusion" })
+
+    assert_match "can't edit role", Review.edit_and_approve(role.id, attributes: { "role" => "utility" }, by: BY).errors.join
+    assert_match "can't edit technology", Review.edit_and_approve(tech.id, attributes: { "technology" => "smr" }, by: BY).errors.join
+
+    link = OrganizationRole.create!(organization: organizations(:terrapower), role: Role.create!(key: "reactor_vendor", name: "Reactor vendor"))
+    assert_match "can't edit role", Review.approve_fact(type: "OrganizationRole", id: link.id, by: BY,
+      attributes: { role: "utility" }).errors.join
+  end
+
+  test "an item carries the record it's attached to" do
+    c = candidate("organization", { "name" => "Imaginary Fission Co" })
+    run_stage("match")
+    run_stage("verify", verifier: Recommend.new)
+
+    record = Review.candidates.sole.record
+
+    assert_equal [ "Organization", c.reload.subject_id, "Imaginary Fission Co", "pending" ],
+      [ record.type, record.id, record.name, record.verification_status ]
+  end
+
   test "a failed edit-then-approve keeps the candidate's original values" do
     c = candidate("organization", { "name" => "Imaginary Fission Co" })
     run_stage("match")

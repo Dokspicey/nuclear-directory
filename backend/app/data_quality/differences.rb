@@ -42,13 +42,15 @@ module DataQuality::Differences
     name == "domain" ? candidate.payload["domain"].presence || candidate.payload["website"] : candidate.payload[name]
   end
 
-  # Domains compare as hosts: "https://WWW.TerraPower.com/news" is "terrapower.com";
-  # percentages as numbers (40 is 40.0).
+  # Values compare as the directory stores them: text stripped, country
+  # codes upcased, domains as hosts ("https://WWW.TerraPower.com/news" is
+  # "terrapower.com"), percentages as numbers (40 is 40.0).
   def self.comparable(name, value)
     if name == "ownership_pct" && (number = BigDecimal(value.to_s, exception: false))
       return number.to_s("F").delete_suffix(".0")
     end
-    return value.to_s unless name == "domain" && value.present?
+    return value.to_s.strip.upcase if name == "country_code"
+    return value.to_s.strip unless name == "domain" && value.present?
 
     text = value.to_s.strip
     host = URI.parse(text.match?(%r{\A[a-z][a-z0-9+.-]*://}i) ? text : "https://#{text}").host
