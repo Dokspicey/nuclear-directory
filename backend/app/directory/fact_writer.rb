@@ -147,6 +147,8 @@ module Directory
     # verification: { status: "pending" | "verified" | "rejected" | "unpublished",
     #   by: "human:tosin", reason: "optional, kept in the audit trail",
     #   context: { "candidate_id" => 12 } (optional, kept with the reason) }
+    # remove_aliases: names to drop from an organization's aliases (never its
+    # current name), audited with the write. Only with a human's verification.
     # fill_blank: true sets only attributes that are blank on an existing row,
     # so new data can complete a record without overwriting anything.
     # protect_human_verified: true treats a row a human has verified (or
@@ -158,9 +160,13 @@ module Directory
     # - otherwise only blank attributes are filled, evidence is added, and the
     #   verification is left alone
     # Automated writers pass this.
-    def write(kind, attributes, evidence: [], verification: nil, fill_blank: false, protect_human_verified: false)
+    def write(kind, attributes, evidence: [], verification: nil, fill_blank: false, protect_human_verified: false,
+      remove_aliases: [])
       kind = kind.to_sym
       spec = KINDS[kind] or return failure(kind, "unknown kind #{kind.inspect}")
+      if Array(remove_aliases).any? && (kind != :organization || verification.blank?)
+        return failure(kind, "remove_aliases: is only for an organization, with a human's verification")
+      end
       attributes = attributes.to_h.symbolize_keys
       unknown = attributes.keys - spec[:attributes] - [ :id ]
       return failure(kind, "unknown attributes: #{unknown.join(", ")}") if unknown.any?
@@ -216,6 +222,8 @@ module Directory
         if kind == :organization
           aliases_before = record.aliases.pluck(:alias).sort
           write_aliases(record, [ record.name, *attributes[:aliases] ])
+          dropped = Array(remove_aliases).map { |name| OrganizationAlias.normalize(name) } - [ OrganizationAlias.normalize(record.name) ]
+          record.aliases.where(normalized_alias: dropped).delete_all if dropped.any?
           aliases_after = record.aliases.reload.pluck(:alias).sort
           edited["aliases"] = [ aliases_before, aliases_after ] if edited && aliases_after != aliases_before
         end
