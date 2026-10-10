@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_11_010002) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_11_030000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -55,7 +55,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_010002) do
     t.string "status", default: "open", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "resolution"
+    t.string "decided_by"
+    t.datetime "decided_at"
     t.index ["status"], name: "index_correction_reports_on_status"
+    t.check_constraint "resolution::text = ANY (ARRAY['fixed'::character varying::text, 'dismissed'::character varying::text])", name: "correction_reports_resolution_check"
     t.check_constraint "status::text = ANY (ARRAY['open'::character varying::text, 'reviewed'::character varying::text, 'closed'::character varying::text])", name: "correction_reports_status_check"
   end
 
@@ -113,6 +117,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_010002) do
     t.string "verified_by"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "eia_plant_id"
+    t.index ["eia_plant_id"], name: "index_facilities_on_eia_plant_id_for_sites", unique: true, where: "((parent_id IS NULL) AND (eia_plant_id IS NOT NULL))"
     t.index ["nrc_docket"], name: "index_facilities_on_nrc_docket", unique: true, where: "(nrc_docket IS NOT NULL)"
     t.index ["parent_id"], name: "index_facilities_on_parent_id"
     t.index ["slug"], name: "index_facilities_on_slug", unique: true

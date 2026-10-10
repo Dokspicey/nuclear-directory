@@ -194,12 +194,20 @@ class DataQuality::Stages::Match < DataQuality::Stage
     end
 
     def resolve_facility(payload)
-      name, docket = payload.values_at("name", "nrc_docket").map(&:presence)
+      name, docket, eia_plant = payload.values_at("name", "nrc_docket", "eia_plant_id").map(&:presence)
+      # EIA's plant ID is exact: the site for that plant, already proposed or linked.
+      by_eia = directory.facility(eia_plant_id: eia_plant) if eia_plant
+      return Found.new(by_eia, "EIA plant ID") if by_eia
+
       by_docket = directory.facility(nrc_docket: docket) if docket
-      by_name = directory.facility(name:) if name
+      # An EIA plant is a site; an NRC unit of the same name ("Palisades")
+      # isn't it, and mustn't hide a site of that name either.
+      eia_site = eia_plant && !docket
+      by = ->(other) { eia_site ? directory.facility(site_name: other) : directory.facility(name: other) }
+      by_name = by.call(name) if name
       # A candidate's other names find its plant here, so it's attached
       # without writing; its aliases are added only when it's approved.
-      by_name ||= Array(payload["aliases"]).compact_blank.lazy.filter_map { |other| directory.facility(name: other) }.first
+      by_name ||= Array(payload["aliases"]).compact_blank.lazy.filter_map { |other| by.call(other) }.first
 
       if by_docket && by_name && by_docket.id != by_name.id
         return Review.new("docket matches #{by_docket.name} but name matches #{by_name.name}")
@@ -210,9 +218,12 @@ class DataQuality::Stages::Match < DataQuality::Stage
       end
       return Found.new(by_name, "name") if by_name
 
-      # Units with different dockets are different units, not duplicates.
+      # Units with different dockets are different units, not duplicates. And
+      # an EIA plant (a site, no docket) isn't a duplicate of NRC's units: it's
+      # the site they belong under (#73), so only other sites count.
       others = directory.similar_facilities(name.to_s).reject do |facility|
-        docket && facility.nrc_docket.present? && facility.nrc_docket != docket
+        (docket && facility.nrc_docket.present? && facility.nrc_docket != docket) ||
+          (eia_plant && !docket && facility.nrc_docket.present?)
       end
       site_for_unit(others, name, docket) || similar(others, name)
     end

@@ -16,9 +16,9 @@ module FakeDirectory
         verification_status: "verified", verified_by: nil, verified_at: nil) if @organizations.key?(name)
     end
 
-    def facility(id: nil, slug: nil, name: nil, nrc_docket: nil)
-      one_of!(id:, slug:, name:, nrc_docket:)
-      Directory::FacilityRef.new(id: @facilities[name], slug: nil, name: name, nrc_docket: nil, parent_id: nil,
+    def facility(id: nil, slug: nil, name: nil, site_name: nil, nrc_docket: nil, eia_plant_id: nil)
+      one_of!(id:, slug:, name:, site_name:, nrc_docket:, eia_plant_id:)
+      Directory::FacilityRef.new(id: @facilities[name], slug: nil, name: name, nrc_docket: nil, eia_plant_id: nil, parent_id: nil,
         verification_status: "verified", verified_by: nil, verified_at: nil, facility_type: nil, status: nil, state: nil, country_code: nil,
         latitude: nil, longitude: nil) if @facilities.key?(name)
     end
@@ -32,6 +32,7 @@ module FakeDirectory
 
     def fact_state(type:, id:) = nil
     def fact_attributes(type:, id:) = nil
+    def published?(type:, id:) = false
     def sourced?(type:, id:) = true
     def similar_facilities(name) = []
     def facility_units(name:, state: nil) = []
