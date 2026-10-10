@@ -23,10 +23,16 @@ class DataQuality::Fetcher
   MAX_BYTES = 20.megabytes
   NETWORK_ERRORS = [ Net::OpenTimeout, Net::ReadTimeout, Errno::ECONNRESET, Errno::ECONNREFUSED,
     Errno::EHOSTUNREACH, SocketError, EOFError, OpenSSL::SSL::SSLError ].freeze
-  # Not the public internet: besides IPAddr's private, loopback and
-  # link-local (169.254.0.0/16 holds cloud metadata services).
-  NON_PUBLIC = %w[0.0.0.0/8 100.64.0.0/10 192.0.0.0/24 192.0.2.0/24 198.18.0.0/15 198.51.100.0/24 203.0.113.0/24
-    224.0.0.0/4 240.0.0.0/4 ::/128 ::1/128 64:ff9b::/96 100::/64 2001:db8::/32 fc00::/7 fe80::/10 ff00::/8].map { IPAddr.new(_1) }.freeze
+  # IPv4 that isn't the public internet, besides IPAddr's private, loopback
+  # and link-local (169.254.0.0/16 holds cloud metadata services).
+  NON_PUBLIC_V4 = %w[0.0.0.0/8 100.64.0.0/10 192.0.0.0/24 192.0.2.0/24 198.18.0.0/15 198.51.100.0/24 203.0.113.0/24
+    224.0.0.0/4 240.0.0.0/4].map { IPAddr.new(_1) }.freeze
+  # IPv6 is public only inside global unicast (2000::/3), minus its
+  # special-use blocks: IETF protocol assignments (incl. Teredo), 6to4 (which
+  # can wrap any IPv4 address) and the documentation prefixes. Everything
+  # else (local, NAT64, reserved, site-local, multicast) is refused.
+  GLOBAL_V6 = IPAddr.new("2000::/3")
+  NON_PUBLIC_V6 = %w[2001::/23 2001:db8::/32 2002::/16 3fff::/20].map { IPAddr.new(_1) }.freeze
 
   # A URL the fetcher won't request (not https, another host, an internal address).
   class Refused < StandardError; end
@@ -52,7 +58,7 @@ class DataQuality::Fetcher
   class BodyLimitReached < StandardError; end
 
   def initialize(sleeper: ->(seconds) { sleep seconds }, clock: -> { Process.clock_gettime(Process::CLOCK_MONOTONIC) },
-    open_timeout: 10, read_timeout: 60, resolver: self.class.resolver)
+    open_timeout: 10, read_timeout: 60, resolver: DataQuality::Fetcher.resolver)
     @resolver = resolver
     @sleeper = sleeper
     @clock = clock
@@ -115,9 +121,12 @@ class DataQuality::Fetcher
     end
 
     def public_ip?(address)
-      ip = IPAddr.new(address)
-      ip = ip.native # an IPv4-mapped IPv6 address is checked as IPv4
-      !(ip.private? || ip.loopback? || ip.link_local? || NON_PUBLIC.any? { |range| range.family == ip.family && range.include?(ip) })
+      ip = IPAddr.new(address).native # an IPv4-mapped IPv6 address is checked as IPv4
+      if ip.ipv4?
+        !(ip.private? || ip.loopback? || ip.link_local? || NON_PUBLIC_V4.any? { |range| range.include?(ip) })
+      else
+        GLOBAL_V6.include?(ip) && NON_PUBLIC_V6.none? { |range| range.include?(ip) }
+      end
     rescue IPAddr::InvalidAddressError
       false
     end
@@ -176,9 +185,11 @@ class DataQuality::Fetcher
     end
 
     # Connects to the address public_address! checked; TLS (SNI, the
-    # certificate) and the Host header still use the name.
+    # certificate) and the Host header still use the name. Never through a
+    # proxy (Net::HTTP would read http_proxy from the environment), which
+    # would resolve the name itself.
     def connection(uri)
-      Net::HTTP.new(uri.host, uri.port).tap do |http|
+      Net::HTTP.new(uri.host, uri.port, nil).tap do |http|
         http.ipaddr = public_address!(uri.host)
         http.use_ssl = true
         http.open_timeout = @open_timeout

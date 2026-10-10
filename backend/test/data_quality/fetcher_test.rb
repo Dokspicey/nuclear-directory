@@ -1,6 +1,14 @@
 require "test_helper"
 
 class DataQuality::FetcherTest < ActiveSupport::TestCase
+  def with_env(vars)
+    saved = vars.keys.to_h { |key| [ key, ENV[key] ] }
+    vars.each { |key, value| ENV[key] = value }
+    yield
+  ensure
+    saved.each { |key, value| ENV[key] = value }
+  end
+
   PAGE = "https://example.gov/reactors"
   ROBOTS = "https://example.gov/robots.txt"
 
@@ -123,7 +131,9 @@ class DataQuality::FetcherTest < ActiveSupport::TestCase
       "127.0.0.1" => "loopback", "10.1.2.3" => "private", "172.16.0.1" => "private", "192.168.1.1" => "private",
       "169.254.169.254" => "cloud metadata", "100.64.0.1" => "carrier-grade NAT", "0.0.0.0" => "this host",
       "::1" => "IPv6 loopback", "fd00::1" => "IPv6 unique local", "fe80::1" => "IPv6 link-local",
-      "::ffff:127.0.0.1" => "IPv4-mapped loopback"
+      "::ffff:127.0.0.1" => "IPv4-mapped loopback", "4000::1" => "IPv6 reserved", "fec0::1" => "IPv6 site-local",
+      "64:ff9b::a00:1" => "NAT64", "64:ff9b:1::1" => "local-use NAT64", "3fff::1" => "IPv6 documentation",
+      "2002:a00:1::1" => "6to4 wrapping 10.0.0.1", "2001::1" => "Teredo", "ff02::1" => "IPv6 multicast"
     }.each do |address, what|
       fetcher = DataQuality::Fetcher.new(sleeper: ->(_) { }, resolver: ->(_host) { [ address ] })
       response = fetcher.get("https://internal.example/x")
@@ -131,6 +141,29 @@ class DataQuality::FetcherTest < ActiveSupport::TestCase
       assert_match "resolves to an internal address (#{address})", response.reason, what
     end
     assert_not_requested :get, %r{internal\.example}
+  end
+
+  test "public IPv6 is fetched" do
+    stub_request(:get, PAGE).to_return(body: "ok")
+    fetcher = DataQuality::Fetcher.new(sleeper: ->(_) { }, resolver: ->(_host) { [ "2606:4700::6810:84e5" ] })
+
+    assert_equal :ok, fetcher.get(PAGE).kind
+  end
+
+  test "never connects through a proxy from the environment, which would resolve the name itself" do
+    recording = Class.new(DataQuality::Fetcher) do
+      attr_reader :proxied
+
+      def connection(uri) = super.tap { |http| @proxied = http.proxy? }
+    end
+    fetcher = recording.new(sleeper: ->(_) { })
+    stub_request(:get, PAGE).to_return(body: "ok")
+
+    with_env("https_proxy" => "http://proxy.internal:3128", "http_proxy" => "http://proxy.internal:3128") do
+      response = fetcher.get(PAGE)
+      assert_equal :ok, response.kind, response.reason
+    end
+    assert_equal false, fetcher.proxied
   end
 
   test "a host with any internal address is refused, and a redirect's new host is checked too" do
