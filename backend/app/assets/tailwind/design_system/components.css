@@ -333,10 +333,7 @@
   .nd-flash p { margin: 0; }
   .nd-flash .nd-ic { margin-top: 2px; }
 
-  .nd-field { display: flex; flex-direction: column; gap: var(--nd-space-1); min-width: 0; }
-  .nd-input { width: 100%; box-sizing: border-box; min-height: 40px; padding: var(--nd-space-2) var(--nd-space-3); border: var(--nd-hairline) solid var(--nd-control); border-radius: var(--nd-radius-sm); background: var(--nd-paper-raised); color: var(--nd-ink); }
-  textarea.nd-input { min-height: 72px; resize: vertical; }
-  .nd-input:focus-visible { outline: var(--nd-focus-width) solid var(--nd-focus); outline-offset: 2px; }
+  /* .nd-field and .nd-input are the shared ones from the corrections form (#103). */
   .nd-check { width: 18px; height: 18px; accent-color: var(--nd-ink); cursor: pointer; }
 
   .nd-items { list-style: none; margin: 0; padding: 0; border-top: var(--nd-hairline) solid var(--nd-rule); }
@@ -350,7 +347,7 @@
   .nd-item__actions summary { list-style: none; display: inline-flex; }
   .nd-item__actions summary::-webkit-details-marker { display: none; }
   .nd-item__reject { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--nd-space-2); margin-top: var(--nd-space-2); max-width: 560px; }
-  .nd-item__reject .nd-field { flex: 1 1 260px; }
+  .nd-item__reject .nd-field { flex: 1 1 260px; min-width: 0; }
 
   .nd-bulk { position: sticky; top: 0; z-index: 10; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--nd-space-3); padding: var(--nd-space-3) 0; background: var(--nd-paper); border-bottom: var(--nd-hairline) solid var(--nd-rule); }
   .nd-bulk label { display: inline-flex; align-items: center; gap: var(--nd-space-2); }
