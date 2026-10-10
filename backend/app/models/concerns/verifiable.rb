@@ -1,6 +1,8 @@
 # Shared by every fact table (organizations, facilities, their join tables
-# and both relationship tables). A fact starts as pending and only verified
-# facts are shown publicly. A human can take a fact down again: it becomes
+# and both relationship tables). A fact starts as pending; what's shown
+# publicly is each model's .published scope (verified, and what it hangs on
+# published too; a pending site shows with a published unit, #73). A human can
+# take a fact down again: it becomes
 # "unpublished", which records who and when and is a human decision like a
 # rejection. Every change is kept in verification_events.
 module Verifiable
