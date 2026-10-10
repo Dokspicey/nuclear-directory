@@ -84,6 +84,41 @@ class DataQuality::Verifiers::AgentTest < ActiveSupport::TestCase
     assert_equal candidates.map(&:id).sort, results.keys.sort
   end
 
+  test "the threshold is checked before rounding: 79.5% sure is under 80%" do
+    c = candidate("Acme Nuclear")
+
+    verdict = verdicts(FakeModel.new { { "verdict" => "supported", "confidence" => 0.795, "reason" => "Close." } }, [ c ]).fetch(c.id)
+
+    assert_equal :review, verdict.outcome
+    assert_match "only 79% sure", verdict.reason
+  end
+
+  test "a confidence outside 0 to 1 is a malformed answer, sent to review rather than clamped" do
+    c = candidate("Acme Nuclear")
+    # Past the fake's schema check, as a provider that ignores the range might answer.
+    answer = { "id" => c.id.to_s, "verdict" => "supported", "confidence" => 2, "reason" => "Sure." }
+    model = Struct.new(:answer) do
+      def structured(**) = FakeModel::Response.new(data: { "results" => [ answer ] })
+    end.new(answer)
+
+    verdict = verdicts(model, [ c ]).fetch(c.id)
+
+    assert_equal [ :review, nil ], [ verdict.outcome, verdict.confidence ]
+    assert_match "invalid confidence (2)", verdict.reason
+  end
+
+  test "a source with nothing stored goes to review without asking the model" do
+    @source.update!(content_text: nil)
+    c = candidate("Acme Nuclear")
+    model = FakeModel.new
+
+    verdict = verdicts(model, [ c ]).fetch(c.id)
+
+    assert_empty model.calls
+    assert_equal :review, verdict.outcome
+    assert_match "no stored content", verdict.reason
+  end
+
   test "is the default verifier" do
     assert_instance_of Agent, DataQuality::Stages::Verify.new(plugin: DummyPlugin.new).instance_variable_get(:@verifier)
   end

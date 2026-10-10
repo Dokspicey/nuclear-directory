@@ -170,7 +170,7 @@ Extract writes `candidates` (`kind`, `payload`, `quote`, `source_id`). Match
 
 | Outcome | When | Candidate becomes |
 |---|---|---|
-| **Found** | exact NRC docket, domain, or name/alias (normalized) | `matched`, subject = that record. Nothing is written yet: when verify publishes it, the quote is added as evidence and an organization gains the name as an alias (its own name is kept). A human-verified record only gets its blanks filled; a disagreement goes to review. A record that was rejected or unpublished is never changed or attached to: the candidate goes to review, with who decided and when. |
+| **Found** | exact NRC docket, domain, or name/alias (normalized) | `matched`, subject = that record. Nothing is written yet: when a human approves it, the quote is added as evidence and an organization gains the name as an alias (its own name is kept). If it disagrees with a human-verified value, verify sends it to review with both values; approving it then applies the new value, since the approver is a human. A record that was rejected or unpublished is never changed or attached to: the candidate goes to review, with who decided and when. |
 | **Not found** | nothing exact and nothing similar | `matched`, subject = a new **pending** record with the quote as evidence |
 | **New unit of a known site** | an NRC unit (has a docket) whose only similar record is a site (no docket, no parent) that covers it | `matched`, subject = a new **pending** unit with `parent_id` = the site |
 | **Ambiguous** | identifiers point at different records, or a similar record exists | `needs_review`, with the reason in `notes`. Never merged automatically. |
@@ -179,8 +179,8 @@ Extract writes `candidates` (`kind`, `payload`, `quote`, `source_id`). Match
 generic words ("Vogtle 3" vs "Plant Vogtle Units 3 & 4", "Southern Nuclear
 Operating Co." vs "Southern Company"). Facilities with different NRC dockets
 are never similar, so "Braidwood 2" isn't flagged against "Braidwood 1".
-Evidence from match is `found_by: crawler` with no confidence; verify sets
-the confidence and decides whether the fact is published.
+Evidence from match is `found_by: crawler` with no confidence; when a human
+approves, the evidence gets the verifier's confidence (if it recommended publishing).
 
 Organizations and facilities are matched first, so links in the same run can
 find records proposed a moment earlier.
@@ -190,10 +190,12 @@ find records proposed a moment earlier.
 covers the units its name lists ("Units 3 & 4" covers 3 and 4); a name that
 lists none ("Susquehanna Steam Electric Station") covers every unit. A unit the
 site doesn't cover ("Vogtle 1", or "Palisades" against "Palisades Pioneer Units
-1 & 2"), or with more than one possible site, goes to review. When verify
-publishes a unit, its `state`, `facility_type`, `status` and `country_code`
+1 & 2"), or with more than one possible site, goes to review. When a human
+approves a unit, its `state`, `facility_type`, `status` and `country_code`
 fill the site's **blank** fields only (FactWriter `fill_blank: true`), with
-the unit's quote as evidence; the site's verification is left alone.
+the unit's quote as evidence; the site's verification is left alone. If the
+unit disagrees with a human-reviewed site (e.g. a different state), nothing is
+filled and the candidate notes why; the unit stays published.
 
 **Payloads.** Records carry their attributes, as named in the
 [FactWriter table](../directory/README.md#kinds). Links name each end with a

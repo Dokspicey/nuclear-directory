@@ -26,19 +26,25 @@ module DataQuality::Review
     end
   end
 
+  # Locked, and in one transaction with the directory write: two people
+  # approving at once publish once, and a crash can't leave a published fact
+  # still waiting for approval.
   def self.approve_one(candidate, by:, reason:, directory:)
-    unless candidate.status_new? || candidate.status_matched? || candidate.status_needs_review?
-      return Result.new(candidate_id: candidate.id, ref: nil, errors: [ "it's already #{candidate.status.humanize(capitalize: false)}" ])
+    Candidate.transaction do
+      candidate.lock!
+      unless candidate.status_new? || candidate.status_matched? || candidate.status_needs_review?
+        next Result.new(candidate_id: candidate.id, ref: nil, errors: [ "it's already #{candidate.status.humanize(capitalize: false)}" ])
+      end
+
+      # The evidence belongs to the run that judged it (verify), else the one that found it.
+      run = candidate.verify_run || candidate.crawl_run
+      result = directory.write_fact(candidate, confidence: supporting_confidence(candidate), crawl_run: run, by:, reason:)
+      next Result.new(candidate_id: candidate.id, ref: nil, errors: result.errors) unless result.success?
+
+      candidate.update!(status: "merged", subject_type: result.ref.type, subject_id: result.ref.id)
+      fill_site(candidate, result.ref.id, run, directory) if candidate.kind_facility?
+      Result.new(candidate_id: candidate.id, ref: result.ref, errors: [])
     end
-
-    # The evidence belongs to the run that judged it (verify), else the one that found it.
-    run = candidate.verify_run || candidate.crawl_run
-    result = directory.write_fact(candidate, confidence: supporting_confidence(candidate), crawl_run: run, by:, reason:)
-    return Result.new(candidate_id: candidate.id, ref: nil, errors: result.errors) unless result.success?
-
-    candidate.update!(status: "merged", subject_type: result.ref.type, subject_id: result.ref.id)
-    fill_site(candidate, result.ref.id, run, directory) if candidate.kind_facility?
-    Result.new(candidate_id: candidate.id, ref: result.ref, errors: [])
   end
 
   # A published unit completes its site's missing details (see

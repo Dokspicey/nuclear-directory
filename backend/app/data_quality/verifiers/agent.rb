@@ -10,6 +10,8 @@ class DataQuality::Verifiers::Agent
   PROMPT_VERSION = "verify-v1"
   BATCH_SIZE = 15
   PUBLISH_AT = 0.8
+  NOTHING_STORED = DataQuality::Verdict.new(outcome: :review,
+    reason: "The source has no stored content, so the claim can't be checked against it")
 
   SCHEMA = {
     "type" => "object",
@@ -21,6 +23,8 @@ class DataQuality::Verifiers::Agent
           "properties" => {
             "id" => { "type" => "string" },
             "verdict" => { "type" => "string", "enum" => %w[supported contradicted not_enough_info] },
+            # No minimum/maximum: not every provider's structured output accepts
+            # them. verdict_for sends an out-of-range value to review.
             "confidence" => { "type" => "number", "description" => "0 to 1" },
             "reason" => { "type" => "string", "description" => "One short sentence, citing the excerpt" }
           },
@@ -53,6 +57,9 @@ class DataQuality::Verifiers::Agent
     run.update!(prompt_version: PROMPT_VERSION)
 
     candidates.group_by(&:source).flat_map do |source, from_source|
+      # With nothing stored there's nothing to read, so no model is asked.
+      next from_source.map { |candidate| [ candidate.id, NOTHING_STORED ] } if source.content_text.blank?
+
       from_source.each_slice(BATCH_SIZE).flat_map { |batch| ask(source, batch, run, plugin) }
     end.to_h
   end
@@ -84,16 +91,25 @@ class DataQuality::Verifiers::Agent
     def verdict_for(answer)
       return DataQuality::Verdict.new(outcome: :review, reason: "The verifier gave no answer for this claim") unless answer
 
-      confidence = answer["confidence"].to_f.clamp(0.0, 1.0).round(2)
       reason = answer["reason"].to_s.squish
+      raw = answer["confidence"]
+      # Out of range means the answer is malformed: a person looks, rather
+      # than clamping 2 into "100% sure".
+      unless raw.is_a?(Numeric) && raw.between?(0, 1)
+        return DataQuality::Verdict.new(outcome: :review, reason: "The verifier gave an invalid confidence (#{raw.inspect}): #{reason}")
+      end
+
+      # The threshold is checked before rounding, so 0.795 stays below 80%.
+      sure_enough = raw >= PUBLISH_AT
+      confidence = raw.to_f.round(2)
 
       case answer["verdict"]
       when "supported"
-        if confidence >= PUBLISH_AT
+        if sure_enough
           DataQuality::Verdict.new(outcome: :publish, confidence:, reason:)
         else
           DataQuality::Verdict.new(outcome: :review, confidence:,
-            reason: "The verifier thinks the source supports this, but is only #{(confidence * 100).round}% sure: #{reason}")
+            reason: "The verifier thinks the source supports this, but is only #{(raw * 100).floor}% sure: #{reason}")
         end
       when "contradicted"
         DataQuality::Verdict.new(outcome: :review, confidence:, reason: "The verifier says the source contradicts this: #{reason}")

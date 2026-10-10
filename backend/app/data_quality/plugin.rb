@@ -46,7 +46,8 @@ class DataQuality::Plugin
   end
 
   private
-    # The source's text as a reader sees it: tags dropped for HTML, with a
+    # The source's text as a reader sees it: tags dropped for HTML (and
+    # script, style, template and noscript contents, which nobody reads), with a
     # space between pieces so table cells don't run together ("Vogtle 3",
     # "05200025", not "Vogtle 305200025"), spacing tidied. Cached per snapshot.
     def visible_text(source)
@@ -54,7 +55,8 @@ class DataQuality::Plugin
       @visible_text[[ source.id, source.content_sha256 ]] ||= begin
         content = source.content_text.to_s
         if content.lstrip.first(200).match?(/<(!doctype html|html|head|body|table)\b/i)
-          content = Nokogiri::HTML(content).xpath("//body//text()").map(&:text).join(" ")
+          content = Nokogiri::HTML(content).xpath("//body//text()[not(ancestor::script or ancestor::style or " \
+            "ancestor::template or ancestor::noscript)]").map(&:text).join(" ")
         end
         content.squish
       end

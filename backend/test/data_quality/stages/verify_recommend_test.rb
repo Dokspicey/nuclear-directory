@@ -45,6 +45,45 @@ class DataQuality::Stages::VerifyRecommendTest < ActiveSupport::TestCase
     assert_includes Candidate.recommended, c
   end
 
+  test "a later run doesn't ask the model again about a recommended candidate, but repeats the code checks" do
+    kept = candidate("organization", { "name" => "Imaginary Fission Co" })
+    closed = candidate("organization", { "name" => "Another Fission Co" })
+    run_stage("match")
+    run_stage("verify", verifier: CountingVerifier.new)
+    first_run = kept.reload.verify_run_id
+    Organization.find(closed.reload.subject_id).reject!(by: "human:tosin")
+    verifier = CountingVerifier.new
+
+    again = run_stage("verify", verifier:)
+
+    assert_empty verifier.asked, "no second model call"
+    assert_equal [ "recommend_publish", first_run ], [ kept.reload.ai_recommendation, kept.verify_run_id ]
+    assert_equal 1, again.stats["already_recommended"]
+    assert closed.reload.status_needs_review?, "a human rejected its record since"
+    assert_match "was rejected by human:tosin", closed.notes
+  end
+
+  test "a candidate held by a code check records no model, since none was asked" do
+    unit = Facility.create!(name: "Hope Creek 1", nrc_docket: "05000354", state: "NJ")
+    unit.verify!(by: "human:tosin")
+    held = candidate("facility", { "name" => "Hope Creek 1", "nrc_docket" => "05000354", "state" => "DE" })
+    asked = candidate("organization", { "name" => "Imaginary Fission Co" })
+    run_stage("match")
+
+    # Records its model on the run while answering, as the OpenRouter client does.
+    batch = Object.new
+    def batch.verdicts(candidates, run:, plugin:)
+      run.update!(model: "vendor/verifier")
+      candidates.to_h { |c| [ c.id, DataQuality::Verdict.new(outcome: :publish, confidence: 0.9, reason: "Yes.") ] }
+    end
+
+    verify = run_stage("verify", verifier: batch)
+
+    assert_nil held.reload.ai_model
+    assert_equal verify.id, held.verify_run_id
+    assert_equal [ "recommend_publish", "vendor/verifier" ], [ asked.reload.ai_recommendation, asked.ai_model ]
+  end
+
   test "a company on a human-verified record: its domain or website is compared as a host" do
     terrapower = organizations(:terrapower)
     terrapower.verify!(by: "human:tosin")
@@ -117,6 +156,20 @@ class DataQuality::Stages::VerifyRecommendTest < ActiveSupport::TestCase
 
     evidence = Organization.find(c.reload.subject_id).evidence.where.not(crawl_run_id: nil).sole
     assert_nil evidence.confidence, "0.9 was confidence in the dispute, not in the fact"
+  end
+
+  test "approval is all or nothing: a failure after the write leaves the fact unpublished and the candidate waiting" do
+    c = candidate("facility", { "name" => "Imaginary 1", "nrc_docket" => "05099999" })
+    run_stage("match")
+    run_stage("verify", verifier: CountingVerifier.new)
+    failing = Class.new(DataQuality::DirectoryClient) do
+      def fill_site_from_unit(*, **) = raise("database went away")
+    end.new
+
+    assert_raises(RuntimeError) { DataQuality::Review.approve([ c.id ], by: "human:tosin", directory: failing) }
+
+    assert c.reload.status_matched?, "still waiting for approval"
+    assert Facility.find(c.subject_id).pending?, "the write was rolled back"
   end
 
   test "only a human approves, and a decided candidate isn't approved again" do
