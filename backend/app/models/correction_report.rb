@@ -14,8 +14,8 @@ class CorrectionReport < ApplicationRecord
 
   validates :page_path, presence: true, format: { with: LOCAL_PATH }
   validates :message, presence: { message: "Say what should change before sending." },
-    length: { maximum: 5000, message: "Keep it under 5,000 characters." }
-  validates :contact, length: { maximum: 200, message: "Keep the email under 200 characters." },
+    length: { maximum: 5000, message: "Keep it to 5,000 characters or fewer." }
+  validates :contact, length: { maximum: 200, message: "Keep the email to 200 characters or fewer." },
     format: { with: /\A[^@\s]+@[^@\s]+\.[^@\s]+\z/, message: "Enter an email like name@example.com, or leave it empty." },
     allow_nil: true
 end
