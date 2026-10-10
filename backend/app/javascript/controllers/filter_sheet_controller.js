@@ -45,6 +45,13 @@ export default class extends Controller {
     this.closed()
   }
 
+  // The native popover opened or closed (the no-JavaScript path, or a tap
+  // before this controller connected).
+  toggled(event) {
+    if (event.newState === "open") this.count()
+    else this.closed()
+  }
+
   // The contents go back to their inline home. Also bound to the dialog's
   // close event, which some browsers deliver late; safe to run twice.
   closed() {
@@ -58,6 +65,8 @@ export default class extends Controller {
     if (!this.isOpen) return
 
     const request = (this.request = Symbol())
+    // Until the new count arrives, the button mustn't promise the old one.
+    this.show(this.label, "")
     const params = new URLSearchParams(new FormData(this.formTarget))
     let count = null
     try {
