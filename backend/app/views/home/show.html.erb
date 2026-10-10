@@ -5,10 +5,10 @@
   <div class="nd-home__search">
     <%= render "shared/search_box", size: :large %>
     <nav class="nd-suggs" aria-label="Suggested searches">
-      <%= link_to directory_url_for(q: "HALEU"), class: "nd-sugg" do %><%= icon("magnifying-glass", size: 12) %>HALEU<% end %>
-      <%= link_to directory_url_for(q: "SMR"), class: "nd-sugg" do %><%= icon("magnifying-glass", size: 12) %>SMR<% end %>
-      <%= link_to directory_url_for(q: "Vogtle"), class: "nd-sugg" do %><%= icon("magnifying-glass", size: 12) %>Plant Vogtle<% end %>
-      <%= link_to directory_url_for(category: Category.find("power-buyers")), class: "nd-sugg" do %><%= icon("magnifying-glass", size: 12) %>Power deals<% end %>
+      <%= link_to directory_url_for(q: "HALEU"), class: "nd-sugg type-ui" do %><%= icon("magnifying-glass", size: 12) %>HALEU<% end %>
+      <%= link_to directory_url_for(q: "SMR"), class: "nd-sugg type-ui" do %><%= icon("magnifying-glass", size: 12) %>SMR<% end %>
+      <%= link_to directory_url_for(q: "Vogtle"), class: "nd-sugg type-ui" do %><%= icon("magnifying-glass", size: 12) %>Plant Vogtle<% end %>
+      <%= link_to directory_url_for(category: Category.find("power-buyers")), class: "nd-sugg type-ui" do %><%= icon("magnifying-glass", size: 12) %>Power deals<% end %>
     </nav>
   </div>
 
