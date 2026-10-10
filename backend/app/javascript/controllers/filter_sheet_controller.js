@@ -37,7 +37,8 @@ export default class extends Controller {
     this.count()
   }
 
-  // Close filters, Escape (the dialog's cancel) or the screen growing.
+  // Close filters, Escape (the dialog's cancel), the screen growing, or Turbo
+  // about to cache the page (so Back never restores an open, non-modal copy).
   close(event) {
     event?.preventDefault()
     if (this.dialogTarget.open) this.dialogTarget.close()

@@ -30,7 +30,8 @@
         modal <dialog> (page behind inert) with a live "Show N results". On
         wide screens, and without popover support, the form shows inline. %>
     <% active = [ listing.technology, listing.state ].compact.size %>
-    <div class="nd-filterwrap" data-controller="filter-sheet" data-filter-sheet-count-url-value="<%= companies_path(format: :json) %>">
+    <div class="nd-filterwrap" data-controller="filter-sheet" data-filter-sheet-count-url-value="<%= companies_path(format: :json) %>"
+         data-action="turbo:before-cache@document->filter-sheet#close">
       <button type="button" class="nd-btn nd-btn--sm nd-filterwrap__open" popovertarget="filter-sheet" popovertargetaction="show" data-action="filter-sheet#open">
         <%= icon("sliders-horizontal") %>Filters<% if active.positive? %> <span class="type-data">(<%= active %>)</span><% end %>
       </button>
