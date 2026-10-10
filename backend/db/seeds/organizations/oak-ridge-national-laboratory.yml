@@ -2,7 +2,7 @@
 name: Oak Ridge National Laboratory
 aliases:
 - ORNL
-website: "https://www.ornl.gov"
+website: https://www.ornl.gov
 hq:
   city: Oak Ridge
   state: TN
@@ -10,20 +10,24 @@ country_code: US
 status: active
 roles:
 - key: national_lab
-  source_url: "https://neutrons.ornl.gov/hfir"
-  quote: "Completed in 1965 and operating at 85 megawatts, HFIR’s steady-state neutron beam is the strongest reactor-based neutron source in the United States."
+  source_url: https://neutrons.ornl.gov/hfir
+  quote: Completed in 1965 and operating at 85 megawatts, HFIR’s steady-state neutron beam is the strongest reactor-based neutron source in the United States.
   confidence: 1.0
 technologies:
 - key: fission
-  source_url: "https://neutrons.ornl.gov/hfir"
-  quote: "HFIR is also used for medical, industrial, and research isotope production; research on severe neutron damage to materials; and neutron activation analysis to examine trace elements in the environment."
+  source_url: https://neutrons.ornl.gov/hfir
+  quote: HFIR is also used for medical, industrial, and research isotope production; research on severe neutron damage to materials; and neutron activation analysis to examine trace elements in the environment.
   confidence: 1.0
 relationships: []
 facilities:
-- name: High Flux Isotope Reactor (HFIR)
+- name: High Flux Isotope Reactor
   type: operates
-  source_url: "https://neutrons.ornl.gov/hfir"
-  quote: "Oak Ridge National Laboratory is managed by UT-Battelle LLC for the US Department of Energy"
+  source_url: https://neutrons.ornl.gov/hfir
+  quote: Oak Ridge National Laboratory is managed by UT-Battelle LLC for the US Department of Energy
   confidence: 1.0
-  note: "Research reactor, 85 MW thermal. Quote supports ORNL management; HFIR page is on ORNL's site."
-notes: "X-energy/TRISO-X operated a pilot TRISO fuel facility at ORNL since 2016 (per X-energy's Feb 2026 release) - no relationship type fits. Flibe was first used in ORNL's 1960s Molten Salt Reactor Experiment (per Kairos). City 'Oak Ridge' inferred from the name - verify."
+  note: Research reactor, 85 MW thermal. Quote supports ORNL management; HFIR page is on ORNL's site.
+notes: 'X-energy/TRISO-X operated a pilot TRISO fuel facility at ORNL since 2016 (per X-energy''s Feb 2026 release) - no relationship type fits. Flibe was first used in ORNL''s 1960s Molten Salt Reactor Experiment (per Kairos). City ''Oak Ridge'' inferred from the name - verify. #63: HQ already in seed.'
+description:
+  text: DOE national laboratory in Oak Ridge, Tennessee; the largest science and energy lab in the DOE system.
+  source_url: https://www.energy.gov/national-laboratories
+  quote: Oak Ridge National Laboratory (ORNL) is the largest science and energy national laboratory in the U.S. Department of Energy (DOE) system by size. It's located in Oak Ridge, Tennessee

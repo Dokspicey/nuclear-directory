@@ -3,80 +3,109 @@ name: U.S. Department of Energy
 aliases:
 - DOE
 - Office of Nuclear Energy
-website: "https://www.energy.gov"
-hq: null
+website: https://www.energy.gov
+hq:
+  city: Washington
+  state: DC
+  source_url: https://www.energy.gov/contact-us
+  quote: U.S. Department of Energy 1000 Independence Ave., SW Washington, DC 20585
+  confidence: 0.8
 country_code: US
 status: active
 roles:
 - key: government_agency
-  source_url: "https://www.energy.gov/articles/us-department-energy-awards-27-billion-restore-american-uranium-enrichment"
-  quote: "The U.S. Department of Energy (DOE) today announced $2.7 billion to strengthen domestic enrichment services over the next ten years."
+  source_url: https://www.energy.gov/articles/us-department-energy-awards-27-billion-restore-american-uranium-enrichment
+  quote: The U.S. Department of Energy (DOE) today announced $2.7 billion to strengthen domestic enrichment services over the next ten years.
   published: '2026-01-05'
   confidence: 1.0
 technologies: []
 relationships:
 - type: funds
   to: TerraPower, LLC
-  description: "ARDP award (Oct 2020): $80M initial funding to demonstrate Natrium; cost-shared, DOE total up to $3.2B over seven years across both ARDP demos subject to appropriations."
-  source_url: "https://www.energy.gov/ne/articles/us-department-energy-announces-160-million-first-awards-under-advanced-reactor"
-  quote: "DOE is awarding TerraPower LLC (Bellevue, Washington) and X-energy (Rockville, Maryland) $80 million each in initial funding to build two advanced nuclear reactors that can be operational within seven years."
+  description: 'ARDP award (Oct 2020): $80M initial funding to demonstrate Natrium; cost-shared, DOE total up to $3.2B over seven years across both ARDP demos subject to appropriations.'
+  source_url: https://www.energy.gov/ne/articles/us-department-energy-announces-160-million-first-awards-under-advanced-reactor
+  quote: DOE is awarding TerraPower LLC (Bellevue, Washington) and X-energy (Rockville, Maryland) $80 million each in initial funding to build two advanced nuclear reactors that can be operational within seven years.
   published: '2020-10-13'
   confidence: 1.0
 - type: funds
   to: X-Energy, Inc.
-  description: "ARDP award (Oct 2020): $80M initial funding for a four-unit Xe-100 plant and TRISO fuel fabrication facility; cost-shared."
-  source_url: "https://www.energy.gov/ne/articles/us-department-energy-announces-160-million-first-awards-under-advanced-reactor"
-  quote: "DOE is awarding TerraPower LLC (Bellevue, Washington) and X-energy (Rockville, Maryland) $80 million each in initial funding to build two advanced nuclear reactors that can be operational within seven years."
+  description: 'ARDP award (Oct 2020): $80M initial funding for a four-unit Xe-100 plant and TRISO fuel fabrication facility; cost-shared.'
+  source_url: https://www.energy.gov/ne/articles/us-department-energy-announces-160-million-first-awards-under-advanced-reactor
+  quote: DOE is awarding TerraPower LLC (Bellevue, Washington) and X-energy (Rockville, Maryland) $80 million each in initial funding to build two advanced nuclear reactors that can be operational within seven years.
   published: '2020-10-13'
   confidence: 1.0
 - type: funds
   to: Kairos Power
-  description: "Hermes is supported by DOE's Advanced Reactor Demonstration Program (award amount not stated on fetched page)."
-  source_url: "https://www.energy.gov/node/4845535"
-  quote: "Hermes is one of several projects supported by the U.S. Department of Energy’s (DOE) Advanced Reactor Demonstration Program."
+  description: Hermes is supported by DOE's Advanced Reactor Demonstration Program (award amount not stated on fetched page).
+  source_url: https://www.energy.gov/node/4845535
+  quote: Hermes is one of several projects supported by the U.S. Department of Energy’s (DOE) Advanced Reactor Demonstration Program.
   published: '2024-10-03'
   confidence: 1.0
 - type: funds
   to: Commonwealth Fusion Systems
-  description: "Selected (May 2023) in the $46M Milestone-Based Fusion Development Program; payments only on verified milestones."
-  source_url: "https://cfs.energy/news-and-media/cfs-doe-milestone-fusion-development-program/"
-  quote: "Commonwealth Fusion Systems (CFS) has been selected by the U.S. Department of Energy (DOE) as an awardee in its $46 million milestone-based commercial fusion energy development program, a program designed to solidify U.S. leadership in commercial fusion energy."
+  description: Selected (May 2023) in the $46M Milestone-Based Fusion Development Program; payments only on verified milestones.
+  source_url: https://cfs.energy/news-and-media/cfs-doe-milestone-fusion-development-program/
+  quote: Commonwealth Fusion Systems (CFS) has been selected by the U.S. Department of Energy (DOE) as an awardee in its $46 million milestone-based commercial fusion energy development program, a program designed to solidify U.S. leadership in commercial fusion energy.
   published: '2023-05-31'
   confidence: 1.0
 - type: funds
   to: Type One Energy Group
-  description: "One of eight awardees (May 2023) of the Milestone-Based Fusion Development Program."
-  source_url: "https://content.govdelivery.com/accounts/USDOEOS/bulletins/35d8483"
+  description: One of eight awardees (May 2023) of the Milestone-Based Fusion Development Program.
+  source_url: https://content.govdelivery.com/accounts/USDOEOS/bulletins/35d8483
   quote: Type One Energy Group (Madison, WI)
   published: '2023-05-31'
   confidence: 1.0
 - type: supplies
   to: TerraPower, LLC
-  description: "Conditional commitment (Apr 2025) to provide HALEU from DOE sources (first-round HALEU allocation); contracting to follow."
-  source_url: "https://www.energy.gov/articles/us-department-energy-distribute-first-amounts-haleu-us-advanced-reactor-developers"
-  quote: "The U.S. Department of Energy (DOE) today made conditional commitments to provide high-assay low-enriched uranium (HALEU) to five U.S. nuclear developers to meet their near-term fuel needs."
+  description: Conditional commitment (Apr 2025) to provide HALEU from DOE sources (first-round HALEU allocation); contracting to follow.
+  source_url: https://www.energy.gov/articles/us-department-energy-distribute-first-amounts-haleu-us-advanced-reactor-developers
+  quote: The U.S. Department of Energy (DOE) today made conditional commitments to provide high-assay low-enriched uranium (HALEU) to five U.S. nuclear developers to meet their near-term fuel needs.
   published: '2025-04-09'
   confidence: 1.0
 - type: supplies
   to: Kairos Power
   description: Conditional HALEU allocation (Apr 2025), first round.
-  source_url: "https://www.energy.gov/articles/us-department-energy-distribute-first-amounts-haleu-us-advanced-reactor-developers"
-  quote: "The U.S. Department of Energy (DOE) today made conditional commitments to provide high-assay low-enriched uranium (HALEU) to five U.S. nuclear developers to meet their near-term fuel needs."
+  source_url: https://www.energy.gov/articles/us-department-energy-distribute-first-amounts-haleu-us-advanced-reactor-developers
+  quote: The U.S. Department of Energy (DOE) today made conditional commitments to provide high-assay low-enriched uranium (HALEU) to five U.S. nuclear developers to meet their near-term fuel needs.
   published: '2025-04-09'
   confidence: 1.0
 - type: supplies
   to: TRISO-X, LLC
   description: Conditional HALEU allocation (Apr 2025), first round.
-  source_url: "https://www.energy.gov/articles/us-department-energy-distribute-first-amounts-haleu-us-advanced-reactor-developers"
-  quote: "The U.S. Department of Energy (DOE) today made conditional commitments to provide high-assay low-enriched uranium (HALEU) to five U.S. nuclear developers to meet their near-term fuel needs."
+  source_url: https://www.energy.gov/articles/us-department-energy-distribute-first-amounts-haleu-us-advanced-reactor-developers
+  quote: The U.S. Department of Energy (DOE) today made conditional commitments to provide high-assay low-enriched uranium (HALEU) to five U.S. nuclear developers to meet their near-term fuel needs.
   published: '2025-04-09'
   confidence: 1.0
 - type: supplies
   to: Westinghouse Electric Company LLC
   description: Conditional HALEU allocation (Apr 2025), first round.
-  source_url: "https://www.energy.gov/articles/us-department-energy-distribute-first-amounts-haleu-us-advanced-reactor-developers"
-  quote: "The U.S. Department of Energy (DOE) today made conditional commitments to provide high-assay low-enriched uranium (HALEU) to five U.S. nuclear developers to meet their near-term fuel needs."
+  source_url: https://www.energy.gov/articles/us-department-energy-distribute-first-amounts-haleu-us-advanced-reactor-developers
+  quote: The U.S. Department of Energy (DOE) today made conditional commitments to provide high-assay low-enriched uranium (HALEU) to five U.S. nuclear developers to meet their near-term fuel needs.
   published: '2025-04-09'
   confidence: 1.0
-facilities: []
-notes: "The govdelivery.com bulletin is DOE Office of Science's official email bulletin (account USDOEOS); the energy.gov original was not located (404). Recipient names for the HALEU allocation appear as a list on the DOE page ('TRISO-X, LLC.', 'Kairos Power, LLC.', 'Radiant Industries, Inc.', 'Westinghouse Electric Company, LLC', 'TerraPower, LLC.'). DOE enrichment task orders to Centrus (American Centrifuge Operating) and General Matter are recorded as Centrus/General Matter `supplies` DOE (edit 2026-10-09). DOE also selected Urenco USA for an LEU enrichment IDIQ (Dec 2024; no funds stated) and Westinghouse/Radiant for first DOME tests at INL (2025). Radiant Industries not added."
+facilities:
+- name: American Centrifuge Plant
+  type: owns
+  source_url: https://www.powermag.com/centrus-signs-900m-doe-contract-pivots-sole-u-s-haleu-cascade-to-commercial-operation/
+  quote: Chief among those is a long-term lease extension for the American Centrifuge Plant (ACP) site, which Centrus leases from DOE.
+  confidence: 0.9
+- name: High Flux Isotope Reactor
+  type: owns
+  source_url: https://www.energy.gov/sites/prod/files/2017/04/f34/Assessment%20of%20Nuclear%20Reactor%20Factility%20Ops%20at%20ORNL%20HFIR.pdf
+  quote: University of Tennessee-Battelle, LLC (UT-Battelle), under contract to DOE, manages and is the primary operator for ORNL.
+  published: 2017-04
+  confidence: 0.8
+  pending: true
+  pending_reason: The quote doesn't state ownership directly; pending until a direct quote is found or Tosin accepts this one.
+- name: Advanced Test Reactor
+  type: owns
+  source_url: https://www.energy.gov/ea/articles/independent-assessment-safety-system-management-advanced-test-reactor-idaho-national
+  quote: INL is managed and operated by Battelle Energy Alliance, LLC (BEA)
+  confidence: 0.8
+  pending: true
+  pending_reason: The quote doesn't state ownership directly; pending until a direct quote is found or Tosin accepts this one.
+notes: 'The govdelivery.com bulletin is DOE Office of Science''s official email bulletin (account USDOEOS); the energy.gov original was not located (404). Recipient names for the HALEU allocation appear as a list on the DOE page (''TRISO-X, LLC.'', ''Kairos Power, LLC.'', ''Radiant Industries, Inc.'', ''Westinghouse Electric Company, LLC'', ''TerraPower, LLC.''). DOE enrichment task orders to Centrus (American Centrifuge Operating) and General Matter are recorded as Centrus/General Matter `supplies` DOE (edit 2026-10-09). DOE also selected Urenco USA for an LEU enrichment IDIQ (Dec 2024; no funds stated) and Westinghouse/Radiant for first DOME tests at INL (2025). Radiant Industries not added. #63: HQ is the mailing address on the contact page. #60 (American Centrifuge Plant owns): Site is leased from DOE, so DOE is the site owner (suggest DOE ''owns'' link). Seed already has Centrus ''operates'' (via subsidiary American Centrifuge Operating LLC). #60 (High Flux Isotope Reactor owns): DOE-owned national-lab facility; seed has ORNL ''operates''. Suggest DOE ''owns'' link. #60 (Advanced Test Reactor owns): DOE-owned facility at a DOE lab; quote supports the M&O-contractor arrangement. Suggest DOE ''owns'' link.'
+description:
+  text: Federal department that addresses U.S. energy, environmental and nuclear challenges through science and technology.
+  source_url: https://www.energy.gov/mission
+  quote: The mission of the Energy Department is to ensure America’s security and prosperity by addressing its energy, environmental and nuclear challenges through transformative science and technology solutions.

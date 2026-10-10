@@ -2,30 +2,38 @@
 name: Breakthrough Energy Ventures
 aliases:
 - BEV
-website: "https://www.breakthroughenergy.org"
+website: https://www.breakthroughenergy.org
 hq: null
 country_code: US
 status: active
 roles:
 - key: venture_capital
-  source_url: "https://www.breakthroughenergy.org/our-work/breakthrough-energy-ventures/"
-  quote: "We partner with the world's leading innovators to turn breakthrough technologies into great businesses."
+  source_url: https://www.breakthroughenergy.org/our-work/breakthrough-energy-ventures/
+  quote: We partner with the world's leading innovators to turn breakthrough technologies into great businesses.
   confidence: 1.0
-technologies: []
+technologies:
+- key: fusion
+  source_url: https://typeoneenergy.com
+  quote: Type One Energy today announced the successful completion of a $200 million Series B financing round co-led by Breakthrough Energy Ventures and Clutterbuck Capital
+  confidence: 0.8
 relationships:
 - type: invests_in
   to: Commonwealth Fusion Systems
-  description: "Existing investor that increased its stake in CFS's $863M Series B2 (Aug 2025). Completed."
-  source_url: "https://cfs.energy/news-and-media/commonwealth-fusion-systems-raises-863-million-series-b2-round-to-accelerate-the-commercialization-of-fusion-energy"
-  quote: "They join existing CFS investors who increased their stakes, including Breakthrough Energy Ventures; Emerson Collective; Eni; Future Ventures; Gates Frontier; Google; Hostplus Superannuation Fund; Khosla Ventures; Lowercarbon Capital; Safar Partners; Eric Schmidt, former CEO of Google; Starlight Ventures; Tiger Global; a large state pension fund and others who support CFS’ leadership in this energy transition."
+  description: Existing investor that increased its stake in CFS's $863M Series B2 (Aug 2025). Completed.
+  source_url: https://cfs.energy/news-and-media/commonwealth-fusion-systems-raises-863-million-series-b2-round-to-accelerate-the-commercialization-of-fusion-energy
+  quote: They join existing CFS investors who increased their stakes, including Breakthrough Energy Ventures; Emerson Collective; Eni; Future Ventures; Gates Frontier; Google; Hostplus Superannuation Fund; Khosla Ventures; Lowercarbon Capital; Safar Partners; Eric Schmidt, former CEO of Google; Starlight Ventures; Tiger Global; a large state pension fund and others who support CFS’ leadership in this energy transition.
   published: '2025-08-28'
   confidence: 1.0
 - type: invests_in
   to: Type One Energy Group
-  description: "Co-led Type One Energy's financing round (Mar 2023) with TDK Ventures and Doral Energy-Tech Ventures. Completed."
-  source_url: "https://tdk-ventures.com/news/announcements/tdk-ventures-co-leads-next-round-of-financing-in-fusion-innovator-type-one-energy/"
-  quote: "Joining them as co-leads are Breakthrough Energy Ventures and Doral Energy-Tech Ventures."
+  description: Co-led Type One Energy's financing round (Mar 2023) with TDK Ventures and Doral Energy-Tech Ventures. Completed.
+  source_url: https://tdk-ventures.com/news/announcements/tdk-ventures-co-leads-next-round-of-financing-in-fusion-innovator-type-one-energy/
+  quote: Joining them as co-leads are Breakthrough Energy Ventures and Doral Energy-Tech Ventures.
   published: '2023-03-28'
   confidence: 1.0
 facilities: []
-notes: "Role quote from BEV's page is generic; the venture-investing role is clearer from the investment quotes. HQ not verified. Type One round size ($29M) seen only in secondary sources."
+notes: 'Role quote from BEV''s page is generic; the venture-investing role is clearer from the investment quotes. HQ not verified. Type One round size ($29M) seen only in secondary sources. #63: breakthroughenergy.org renders the same page for /about and /our-work/breakthrough-energy-ventures; the page describes Breakthrough Energy as "a global platform to accelerate clean energy innovation and build the industries of the future." Fusion tag is based on a portfolio company (Type One Energy) site. HQ not found on a first-party page.'
+description:
+  text: Investment arm of Breakthrough Energy that backs clean energy technology companies.
+  source_url: https://www.breakthroughenergy.org
+  quote: We partner with the world's leading innovators to turn breakthrough technologies into great businesses.

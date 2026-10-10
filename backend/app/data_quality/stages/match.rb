@@ -51,6 +51,9 @@ class DataQuality::Stages::Match < DataQuality::Stage
       @stats = { "candidates" => 0, "matched" => 0, "proposed" => 0, "needs_review" => 0, "waiting" => 0, "write_errors" => 0 }
 
       one_run_at_a_time do
+        # Every company name in this run counts as an owner for the brand
+        # rule from the start, so matching doesn't depend on candidate order.
+        directory.owner_hints = candidates.status_new.where(kind: "organization").filter_map { |c| c.payload["name"] }
         ORDER.each do |kind|
           candidates.status_new.where(kind: kind).find_each { |candidate| match(candidate) }
         end

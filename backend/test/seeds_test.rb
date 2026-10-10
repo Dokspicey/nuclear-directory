@@ -21,12 +21,12 @@ class SeedsTest < ActiveSupport::TestCase
   test "loads the hand-checked organizations as verified facts with evidence" do
     load_seeds
 
-    assert_equal 44, Organization.verified.count
-    assert_equal 58, OrganizationRole.verified.count
-    assert_equal 27, OrganizationTechnology.verified.count
+    assert_equal 50, Organization.verified.count
+    assert_equal 66, OrganizationRole.verified.count
+    assert_equal 48, OrganizationTechnology.verified.count
     assert_equal 52, Relationship.verified.count
     assert_equal 28, Facility.verified.count
-    assert_equal 45, FacilityRelationship.verified.count
+    assert_equal [ 53, 3 ], [ FacilityRelationship.verified.count, FacilityRelationship.pending.count ]
     assert_equal [ "human:tosin" ], Relationship.distinct.pluck(:verified_by)
     assert_equal [ 1 ], OrganizationRole.distinct.pluck(:confidence)
 
@@ -58,15 +58,73 @@ class SeedsTest < ActiveSupport::TestCase
 
     urenco = Directory::Lookup.organization(name: "Urenco USA")
     assert_equal "Urenco", urenco.name
-    eunice = Facility.find_by!(name: "Urenco USA enrichment facility (Eunice, NM)")
+    eunice = Facility.find_by!(name: "Urenco USA enrichment facility")
     assert_equal [ "Urenco" ], eunice.organizations.pluck(:name)
     assert_not Relationship.subsidiary_of.exists?(from_organization_id: urenco.id)
+  end
+
+  test "Plant Vogtle is one site-level record covering every unit" do
+    load_seeds
+
+    vogtle = Facility.find_by!(name: "Plant Vogtle")
+    assert_nil Facility.find_by(name: "Plant Vogtle Units 3 & 4")
+    links = vogtle.facility_relationships.includes(:organization).to_h { |link| [ link.organization.slug, link ] }
+    assert links["georgia-power"].owns?
+    assert links["westinghouse-electric-company"].vendor_for?
+    assert_match "Units 3 and 4", links["westinghouse-electric-company"].description
+  end
+
+  test "companies are named by brand, with the legal name kept" do
+    load_seeds
+
+    westinghouse = Organization.find_by!(slug: "westinghouse-electric-company")
+    assert_equal [ "Westinghouse", "Westinghouse Electric Company LLC" ], [ westinghouse.name, westinghouse.legal_name ]
+    assert_equal westinghouse.id, Directory::Lookup.organization(name: "Westinghouse Electric Company LLC").id
+    assert_equal "X-energy", Directory::Lookup.organization(name: "X-Energy, Inc.").name
+  end
+
+  test "plant details carry their own sources, and co-owners their stakes" do
+    load_seeds
+
+    hermes = Facility.find_by!(name: "Hermes 2")
+    assert_equal [ "power_reactor", "under_construction", "Oak Ridge", "TN" ],
+      hermes.slice(:facility_type, :status, :city, :state).values
+    assert hermes.evidence.count >= 4, "one evidence row per sourced field"
+
+    vogtle = Facility.find_by!(name: "Plant Vogtle")
+    shares = vogtle.facility_relationships.owns.includes(:organization).to_h { |l| [ l.organization.name, l.ownership_pct.to_f ] }
+    assert_equal({ "Georgia Power" => 45.7, "Oglethorpe Power" => 30.0, "MEAG Power" => 22.7, "Dalton Utilities" => 1.6 }, shares)
+    assert_match "Units 3 and 4", vogtle.facility_relationships.owns.first.description
+
+    doe = Organization.find_by!(slug: "us-department-of-energy")
+    assert_equal [ "Advanced Test Reactor", "American Centrifuge Plant", "High Flux Isotope Reactor" ],
+      doe.facility_relationships.owns.joins(:facility).pluck("facilities.name").sort
+    # Tosin, 2026-10-10: links whose quote doesn't state ownership wait in review.
+    assert_equal [ "American Centrifuge Plant" ], doe.facility_relationships.owns.verified.joins(:facility).pluck("facilities.name")
+    assert_equal [ "Advanced Test Reactor", "High Flux Isotope Reactor" ],
+      doe.facility_relationships.owns.pending.joins(:facility).pluck("facilities.name").sort
+    long_mott = Organization.find_by!(slug: "long-mott-energy").facility_relationships.owns.sole
+    assert long_mott.pending?
+    assert_equal 1, long_mott.evidence.count, "its quote is kept as evidence"
+  end
+
+  test "the approved #63 calls: descriptions and HQs, no NRC description, no Bernhard role" do
+    load_seeds
+
+    centrus = Organization.find_by!(slug: "centrus-energy")
+    assert_match "enriched uranium", centrus.description
+    assert_equal [ "Bethesda", "MD" ], [ centrus.hq_city, centrus.hq_state ]
+
+    nrc = Organization.find_by!(slug: "us-nuclear-regulatory-commission")
+    assert_nil nrc.description
+    assert_equal [ "Rockville", "MD" ], [ nrc.hq_city, nrc.hq_state ]
+    assert_empty Organization.find_by!(slug: "bernhard-capital-partners").roles
   end
 
   test "CFS and Dominion share one ARC facility" do
     load_seeds
 
-    arc = Facility.find_by!(name: "ARC fusion power plant (Chesterfield County, VA)")
+    arc = Facility.find_by!(name: "Fall Line Fusion Power Station")
     links = arc.facility_relationships.includes(:organization).to_h { |link| [ link.organization.slug, link ] }
     assert_equal %w[commonwealth-fusion-systems dominion-energy google], links.keys.sort
     assert links["google"].offtakes_from?

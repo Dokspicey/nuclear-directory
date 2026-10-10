@@ -235,37 +235,52 @@ module Directory
       # Words are found in the name as written, so the brand keeps its own
       # spelling ("Sargent & Lundy", "Babcock-Wilcox"); "&" counts as "and"
       # only for finding the plant or region at the end.
-      text = join_initials(name).sub(/\A\s*the\s+(?=\S+\s)/i, "")
-      words = text.to_enum(:scan, /[[:alnum:]]+|&/).map { [ Regexp.last_match[0], Regexp.last_match.end(0) ] }
-      base = strip_entities(words.map { |word, _| word == "&" ? "and" : word.downcase })
+      # Dotted initials are one word ("L.L. Bean" stays as written).
+      text = name.to_s.sub(/\A\s*the\s+(?=\S+\s)/i, "")
+      words = text.to_enum(:scan, /(?:[[:alpha:]]\.){2,}|[[:alnum:]]+|&/).map { [ Regexp.last_match[0], Regexp.last_match.end(0) ] }
+      base = strip_entities(words.map { |word, _| word == "&" ? "and" : word.delete(".").downcase })
       place = place_words_at_end(base, plants) or return
 
       text[0, words[base.size - place - 1].last].strip
     end
 
-    # Words that start many place names ("North Anna", "Point Beach"); on its
-    # own, one of these isn't a plant's name, so "Acme North" keeps "North".
-    PLACE_PREFIXES = %w[north south east west new upper lower lake river point fort mount port saint grand great
-      little big old].to_set.freeze
+    # Ordinary words that start plant names ("Advanced Test Reactor", "White
+    # Mesa Mill", "North Anna"): on its own, one of these isn't a plant's
+    # name, so "Acme Advanced" and "Acme North" keep them. A distinctive first
+    # word ("Palisades" of "Palisades Pioneer Units 1 & 2") is.
+    ORDINARY_WORDS = %w[
+      advanced white black green red blue gold silver crystal golden
+      north south east west new upper lower lake river point fort mount port saint grand great little big old
+      experimental research demonstration training test university central
+    ].to_set.freeze
 
     # Distinctive names of known plants ("seabrook", "point beach",
     # "palisades"), from the facility records, leaving out rejected ones: the
-    # full distinctive name, its first two words, and its first word alone
-    # when that is a name in itself (five letters or more, not a place word).
+    # full distinctive name and its first two words (a one-word plant like
+    # Palisades counts in full, but a longer name never gives a single word).
     # One query; read it once and pass it as plants: when checking many names.
-    def plant_names
+    # owners: more company names to treat as owners, e.g. ones proposed in the
+    # same match run, so the result doesn't depend on processing order.
+    def plant_names(owners: [])
       # Plants are often named after their owner ("Urenco USA enrichment
       # facility", "Kairos Power Salt Production Facility"), so a short form
       # that starts a company's name isn't a plant name on its own.
-      owners = OrganizationAlias.pluck(:normalized_alias).flat_map do |name|
-        words = without_article(name.split)
-        [ words.first, words.first(2).join(" ") ]
-      end.to_set
+      owner_forms = (OrganizationAlias.pluck(:normalized_alias) + owners.map { |name| OrganizationAlias.normalize(name) })
+        .flat_map do |name|
+          words = without_article(name.split)
+          [ words.first, words.first(2).join(" ") ]
+        end.to_set
+      # The full distinctive name, its first two words ("point beach" from
+      # "Point Beach Nuclear Plant"), and its first word alone when that is a
+      # name in itself: five letters or more and not an ORDINARY_WORDS word.
       Facility.where.not(verification_status: "rejected").pluck(:name).flat_map do |name|
         words = distinctive_words(name).reject { |word| word.length < 3 }
-        first = words.first.to_s
-        short = [ words.first(2).join(" "), (first if first.length >= 5 && !PLACE_PREFIXES.include?(first)) ]
-        [ words.join(" "), *short.compact.reject { |form| owners.include?(form) } ]
+        full = words.join(" ")
+        two = words.first(2).join(" ") if words.size >= 2
+        one = words.first if words.size >= 2 && words.first.length >= 5 && !ORDINARY_WORDS.include?(words.first)
+        # A one-word name ("Palisades") is always the plant's own.
+        [ (full unless words.size >= 2 && owner_forms.include?(full)),
+          (two unless owner_forms.include?(two)), (one unless owner_forms.include?(one)) ]
       end.compact_blank.to_set
     end
 

@@ -7,7 +7,13 @@ class Seed::OrganizationLoaderTest < ActiveSupport::TestCase
     @dir = Dir.mktmpdir
   end
 
-  teardown { FileUtils.remove_entry(@dir) }
+  teardown do
+    FileUtils.remove_entry(@dir)
+    FileUtils.remove_entry(@facilities_dir) if @facilities_dir
+  end
+
+  # Kept out of @dir, which holds only organization files.
+  def facilities_file = File.join(@facilities_dir ||= Dir.mktmpdir, "facilities.yml")
 
   def write_file(slug, doc)
     File.write(File.join(@dir, "#{slug}.yml"), doc.deep_stringify_keys.to_yaml)
@@ -57,6 +63,149 @@ class Seed::OrganizationLoaderTest < ActiveSupport::TestCase
     vogtle = Facility.find_by!(name: "Plant Vogtle")
     assert_equal [ "Waynesboro", "GA" ], [ vogtle.city, vogtle.state ]
     assert_equal 2, vogtle.facility_relationships.count
+  end
+
+  test "loads brand names, descriptions, an HQ in two entries, and ownership stakes" do
+    write_file("acme-fuel", org("Acme Fuel, Inc.", website: "https://acmefuel.com",
+      legal_name: "Acme Fuel, Inc.",
+      description: { "text" => "Makes fuel.", "source_url" => "https://example.com/about", "quote" => "Acme Fuel, Inc. makes fuel." },
+      hq: [ { "state" => "TN" }, item(city: "Oak Ridge", source_url: "https://example.com/hq", quote: "Based in Oak Ridge.") ],
+      facilities: [ item(name: "Acme Plant", type: "owns", ownership_pct: 40.0) ]))
+
+    Seed::OrganizationLoader.new(@dir).load!
+
+    acme = Organization.find_by!(slug: "acme-fuel")
+    assert_equal [ "Acme Fuel, Inc.", "Makes fuel.", "Oak Ridge", "TN" ], [ acme.legal_name, acme.description, acme.hq_city, acme.hq_state ]
+    assert_equal 2, acme.evidence.count, "the description and the sourced HQ entry"
+    assert_equal 40, acme.facility_relationships.sole.ownership_pct
+  end
+
+  test "a legal name is cited by the quote that states it" do
+    write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com", legal_name: "Acme Fuel, Inc.",
+      roles: [ item(key: "fuel", source_url: "https://example.com/role", quote: "Acme Fuel, Inc. supplies fuel.") ]))
+
+    Seed::OrganizationLoader.new(@dir).load!
+
+    acme = Organization.find_by!(slug: "acme-fuel")
+    assert_equal "Acme Fuel, Inc.", acme.legal_name
+    assert_equal [ "Acme Fuel, Inc. supplies fuel." ], acme.evidence.map(&:quote)
+  end
+
+  test "a legal name no quote states is left blank" do
+    write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com", legal_name: "Acme Fuel Holdings, Inc.",
+      aliases: [ "Acme", "Acme Fuel Holdings, Inc." ],
+      description: { "text" => "Makes fuel.", "source_url" => "https://example.com/about", "quote" => "We make fuel." }))
+
+    Seed::OrganizationLoader.new(@dir).load!
+
+    acme = Organization.find_by!(slug: "acme-fuel")
+    assert_nil acme.legal_name
+    assert_equal [ "Acme" ], acme.aliases.map(&:alias) - [ "Acme Fuel" ], "nor is it an alias"
+  end
+
+  test "a description's other quotes back the rest of its text" do
+    write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com",
+      description: { "text" => "Makes fuel and vanadium.", "source_url" => "https://example.com/about", "quote" => "We make fuel.",
+        "also" => [ { "quote" => "We also make vanadium." },
+          { "quote" => "Acme's vanadium plant opened.", "source_url" => "https://example.com/news" } ] }))
+
+    Seed::OrganizationLoader.new(@dir).load!
+
+    evidence = Organization.find_by!(slug: "acme-fuel").evidence.includes(:source)
+    assert_equal [ [ "We make fuel.", "https://example.com/about" ], [ "We also make vanadium.", "https://example.com/about" ],
+      [ "Acme's vanadium plant opened.", "https://example.com/news" ] ].sort, evidence.map { |e| [ e.quote, e.source.url ] }.sort
+  end
+
+  test "facilities.yml details are written field by field, each with its own quote" do
+    write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com", facilities: [ item(name: "Acme Plant", type: "owns") ]))
+    File.write(facilities_file, { "facilities" => [ {
+      "name" => "Acme Plant",
+      "status" => { "value" => "operating", "source_url" => "https://example.com/status", "quote" => "Running since 2020." },
+      "city" => { "value" => nil, "source_url" => "https://example.com/where", "quote" => "Near Sometown." }
+    } ] }.to_yaml)
+
+    Seed::OrganizationLoader.new(@dir, facilities: facilities_file).load!
+
+    plant = Facility.find_by!(name: "Acme Plant")
+    assert plant.operating?
+    assert_nil plant.city, "a blank value isn't written"
+    assert_includes plant.evidence.pluck(:quote), "Running since 2020."
+  end
+
+  test "a plant link marked pending is created pending, and a rerun keeps a later decision" do
+    write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com",
+      facilities: [ item(name: "Acme Plant", type: "owns", pending: true, pending_reason: "quote doesn't say owns") ]))
+
+    Seed::OrganizationLoader.new(@dir).load!
+    link = FacilityRelationship.sole
+    assert link.pending?
+    assert_equal 1, link.evidence.count
+    assert Facility.find_by!(name: "Acme Plant").verified?, "only the link waits, not the plant"
+
+    link.verify!(by: "human:tosin")
+    Seed::OrganizationLoader.new(@dir).load!
+    assert link.reload.verified?
+
+    link.reject!(by: "human:tosin")
+    assert_nothing_raised { Seed::OrganizationLoader.new(@dir).load! }
+    assert link.reload.rejected?, "a rejection made in the admin survives a rerun"
+  end
+
+  test "a plant an earlier seed loaded under a former name is renamed, not created again" do
+    old = Facility.create!(name: "Acme Plant (Oak Ridge, TN)")
+    write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com", facilities: [ item(name: "Acme Plant", type: "owns") ]))
+    File.write(facilities_file, { "facilities" => [ { "name" => "Acme Plant", "other_names" => [ "Acme Plant (Oak Ridge, TN)" ] } ] }.to_yaml)
+
+    Seed::OrganizationLoader.new(@dir, facilities: facilities_file).load!
+
+    assert_equal [ old.id ], Facility.where("name LIKE ?", "Acme Plant%").pluck(:id)
+    assert_equal [ "Acme Plant", "acme-plant" ], [ old.reload.name, old.slug ], "the slug a fresh seed would give it"
+    assert_equal 1, old.facility_relationships.count
+  end
+
+  test "a former name that was an unquoted legal name is dropped from the aliases on a rerun" do
+    Directory::FactWriter.write(:organization, { name: "Acme Fuel Holdings, Inc.", slug: "acme-fuel" })
+    write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com", legal_name: "Acme Fuel Holdings, Inc.",
+      aliases: [ "Acme", "Acme Fuel Holdings, Inc." ]))
+
+    Seed::OrganizationLoader.new(@dir).load!
+
+    acme = Organization.find_by!(slug: "acme-fuel")
+    assert_equal "Acme Fuel", acme.name, "found under its former name and renamed"
+    assert_equal [ "Acme", "Acme Fuel" ], acme.aliases.pluck(:alias).sort
+    assert_equal [ [ "Acme Fuel Holdings, Inc." ], [ "Acme", "Acme Fuel" ] ],
+      acme.verification_events.order(:id).last.changed_values["aliases"]
+  end
+
+  test "a facilities.yml plant already in the database must still be in an organization file" do
+    write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com"))
+    Facility.create!(name: "Nowhere Plant")
+    File.write(facilities_file, { "facilities" => [ { "name" => "Nowhere Plant" } ] }.to_yaml)
+
+    error = assert_raises(Seed::OrganizationLoader::Error) { Seed::OrganizationLoader.new(@dir, facilities: facilities_file).load! }
+    assert_match "Nowhere Plant", error.message
+  end
+
+  test "a facilities.yml plant must be in an organization file" do
+    write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com"))
+    File.write(facilities_file, { "facilities" => [ { "name" => "Nowhere Plant" } ] }.to_yaml)
+
+    error = assert_raises(Seed::OrganizationLoader::Error) do
+      Seed::OrganizationLoader.new(@dir, facilities: facilities_file).load!
+    end
+    assert_match "Nowhere Plant", error.message
+  end
+
+  test "a plant whose organization-file write failed is reported, not crashed on, by its details" do
+    write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com",
+      facilities: [ item(name: "Acme Plant", type: "owns", facility_type: "not_a_type") ]))
+    File.write(facilities_file, { "facilities" => [ { "name" => "Acme Plant",
+      "city" => { "value" => "Oak Ridge", "source_url" => "https://example.com/news", "quote" => "In Oak Ridge." } } ] }.to_yaml)
+
+    error = assert_raises(Seed::OrganizationLoader::Error) do
+      Seed::OrganizationLoader.new(@dir, facilities: facilities_file).load!
+    end
+    assert_match "Acme Plant", error.message
   end
 
   test "a seed file citing a non-web URL fails the load and names it" do

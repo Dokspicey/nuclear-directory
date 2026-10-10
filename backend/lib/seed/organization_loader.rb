@@ -2,14 +2,21 @@ require "yaml"
 
 module Seed
   # Loads the hand-checked organization files in db/seeds/organizations/
-  # (researched in #8, approved by Tosin) through Directory::FactWriter.
+  # (researched in #8, #30, #60 and #63, approved by Tosin) and the plant
+  # details in db/seeds/facilities.yml through Directory::FactWriter.
   #
   # Every fact is marked verified by human:tosin and gets one evidence row
   # (found_by: human) pointing at the source page and quote from the file.
+  # A fact marked `pending: true` (with a `pending_reason`, kept in the YAML)
+  # is created pending instead, for Tosin to approve in the admin, and the
+  # seed never changes a decision already made on it.
   # Safe to re-run: FactWriter updates existing facts, never duplicates them.
   # All or nothing: if any fact fails, nothing is written and Error lists why.
   #
   # Not loaded: each file's `notes` (research notes, kept in the YAML).
+  # facilities.yml's other_names (facility aliases are #65) are only used to
+  # find a plant still stored under a former name, so a rerun renames it
+  # rather than creating it again.
   class OrganizationLoader
     class Error < StandardError; end
 
@@ -17,24 +24,33 @@ module Seed
 
     attr_reader :results
 
-    def initialize(dir)
+    FACILITY_FIELDS = %w[facility_type status city state].freeze
+
+    # facilities: the plant-details file; defaults to facilities.yml next to dir.
+    def initialize(dir, facilities: File.join(File.dirname(dir), "facilities.yml"))
       @files = Dir[File.join(dir, "*.yml")].sort
+      @facilities_file = facilities
       @results = Hash.new { |h, kind| h[kind] = { created: 0, updated: 0 } }
       @errors = []
     end
 
     def load!
-      docs = @files.to_h { |path| [ File.basename(path, ".yml"), YAML.safe_load_file(path, permitted_classes: [ Date ]) ] }
+      docs = @files.to_h { |path| [ File.basename(path, ".yml"), read(path) ] }
+      facilities = File.exist?(@facilities_file.to_s) ? Array(read(@facilities_file)["facilities"]) : []
 
       ActiveRecord::Base.transaction do
-        sources = write_sources(docs)
+        sources = write_sources(docs.values.flat_map { |doc| evidence_items(doc) } +
+          facilities.flat_map { |facility| facility.values_at(*FACILITY_FIELDS).select { |f| f.is_a?(Hash) } })
         # Facts can't cite a source that wasn't saved, so stop here.
         raise Error, "Seed failed, nothing was written:\n  #{@errors.join("\n  ")}" if @errors.any?
         shared = shared_domains(docs)
 
+        facilities.each { |facility| rename_from_former_name(facility) }
         # Organizations first, so relationships can find the other side.
         docs.each { |slug, doc| write_organization(slug, doc, sources, shared) }
         docs.each { |slug, doc| write_facts(slug, doc, sources) }
+        in_docs = docs.values.flat_map { |doc| Array(doc["facilities"]).map { |item| item["name"] } }.to_set
+        facilities.each { |facility| write_facility_details(facility, sources, in_docs) }
 
         raise Error, "Seed failed, nothing was written:\n  #{@errors.join("\n  ")}" if @errors.any?
       end
@@ -44,9 +60,8 @@ module Seed
     private
       # One sources row per URL. Sources belong to the data quality module,
       # so they're created through its entry point, not FactWriter.
-      def write_sources(docs)
-        items = docs.values.flat_map { |doc| evidence_items(doc) }
-        items.group_by { |item| item["source_url"] }.to_h do |url, group|
+      def write_sources(items)
+        items.select { |item| item["source_url"] }.group_by { |item| item["source_url"] }.to_h do |url, group|
           published_on = group.filter_map { |item| item["published"] }.min
           result = DataQuality::Sources.find_or_create(url: url, published_on: published_on)
           @errors << "source #{url.inspect}: #{result.errors.join('; ')}" unless result.ok?
@@ -55,9 +70,31 @@ module Seed
       end
 
       def evidence_items(doc)
-        [ doc["hq"], *doc["roles"], *doc["technologies"], *doc["relationships"], *doc["facilities"] ]
-          .compact.select { |item| item["source_url"] }
+        [ *hq_entries(doc), *description_items(doc), *doc["roles"], *doc["technologies"], *doc["relationships"],
+          *doc["facilities"] ].compact.select { |item| item["source_url"] }
       end
+
+      # The description's quote, plus any "also" quotes that support the rest
+      # of its text (from the same page unless they name their own source_url).
+      def description_items(doc)
+        description = doc["description"] or return []
+        [ description, *Array(description["also"]).map { |extra| { "source_url" => description["source_url"] }.merge(extra) } ]
+      end
+
+      # A legal name is public only when one of the file's quotes states it
+      # word for word (that quote is then its evidence); otherwise it's left
+      # blank, and isn't kept as an alias either, rather than shown
+      # unsourced.
+      def legal_name_item(doc)
+        name = doc["legal_name"].presence or return
+        evidence_items(doc).find { |item| item["quote"].to_s.include?(name) }
+      end
+
+      def read(path) = YAML.safe_load_file(path, permitted_classes: [ Date ])
+
+      # hq is one entry, or a list when research added to what the seed had
+      # (later entries fill in what earlier ones left blank).
+      def hq_entries(doc) = Array.wrap(doc["hq"]).compact
 
       # Websites shared by several organizations (a parent and its
       # subsidiaries, often) can't identify any one of them, so those
@@ -67,14 +104,23 @@ module Seed
       end
 
       def write_organization(slug, doc, sources, shared)
-        hq = doc["hq"] || {}
+        hq = hq_entries(doc)
+        description = doc["description"] || {}
+        legal = legal_name_item(doc)
         attributes = {
-          name: doc["name"], slug: slug, website: doc["website"], aliases: doc["aliases"],
-          country_code: doc["country_code"], status: doc["status"], hq_city: hq["city"], hq_state: hq["state"]
+          name: doc["name"], slug: slug, legal_name: (doc["legal_name"] if legal), website: doc["website"],
+          aliases: doc["aliases"],
+          country_code: doc["country_code"], status: doc["status"], description: description["text"],
+          hq_city: hq.filter_map { |entry| entry["city"].presence }.last, hq_state: hq.filter_map { |entry| entry["state"].presence }.last
         }
         attributes[:domain] = nil if shared.include?(Organization.domain_from(doc["website"]))
 
-        write(slug, :organization, attributes, evidence(hq, sources))
+        items = [ *hq, *description_items(doc), legal ].compact.uniq
+        # An unquoted legal name still finds a record an earlier seed loaded
+        # under it (it's in aliases), then is removed from the aliases in the
+        # same write.
+        write(slug, :organization, attributes, items.filter_map { |item| evidence(item, sources) },
+          remove_aliases: legal ? [] : Array(doc["legal_name"]))
       end
 
       def write_facts(slug, doc, sources)
@@ -105,9 +151,47 @@ module Seed
         Array(doc["facilities"]).each do |item|
           facility = write(slug, :facility, facility_attributes(item), evidence(item, sources))
           next unless facility&.ok?
+          # A pending link a human has since rejected or unpublished stays decided.
+          next if item["pending"] && closed_link?(organization.id, facility.id, item["type"])
 
           write(slug, :facility_relationship, { organization_id: organization.id, facility_id: facility.id,
-            relationship_type: item["type"], description: item["note"] }, evidence(item, sources))
+            relationship_type: item["type"], description: item["note"], ownership_pct: item["ownership_pct"] },
+            evidence(item, sources), pending: item["pending"])
+        end
+      end
+
+      # A plant loaded by an earlier seed under one of its other_names takes
+      # its current name, keeping its links, unless the current name is
+      # already taken. It takes the slug a fresh seed would give it too, so
+      # its URL doesn't depend on which seed loaded it first.
+      def rename_from_former_name(entry)
+        return if Directory::Lookup.facility(name: entry["name"])
+
+        former = Array(entry["other_names"]).lazy.filter_map { |name| Directory::Lookup.facility(name:) }.first or return
+        attributes = { id: former.id, name: entry["name"] }
+        slug = entry["name"].parameterize
+        attributes[:slug] = slug unless Directory::Lookup.facility(slug:)
+        write("facilities.yml", :facility, attributes, [])
+      end
+
+      # Plant details from facilities.yml: each field has its own source, so
+      # each is written with its own evidence. The plant must already be in an
+      # organization file. A field with no value (e.g. no city, with a quote
+      # naming the nearest town) is kept in the YAML but not written.
+      def write_facility_details(entry, sources, in_docs)
+        name = entry["name"]
+        # Checked against the files, not the database, so a plant left over
+        # from an earlier load or a crawl doesn't let an orphan entry through.
+        return @errors << "facilities.yml: #{name.inspect} isn't in any organization file" unless in_docs.include?(name)
+
+        # Its organization-file write failed (already in @errors): nothing to fill.
+        facility = Directory::Lookup.facility(name:) or return
+
+        FACILITY_FIELDS.each do |field|
+          detail = entry[field]
+          next unless detail.is_a?(Hash) && detail["value"].present?
+
+          write("facilities.yml", :facility, { id: facility.id, field.to_sym => detail["value"] }, evidence(detail, sources))
         end
       end
 
@@ -128,8 +212,13 @@ module Seed
           confidence: item["confidence"] }
       end
 
-      def write(slug, kind, attributes, evidence)
-        result = Directory::FactWriter.write(kind, attributes, evidence: Array.wrap(evidence), verification: VERIFICATION)
+      def closed_link?(organization_id, facility_id, type)
+        FacilityRelationship.find_by(organization_id:, facility_id:, relationship_type: type)&.closed?
+      end
+
+      def write(slug, kind, attributes, evidence, pending: false, remove_aliases: [])
+        result = Directory::FactWriter.write(kind, attributes, evidence: Array.wrap(evidence),
+          verification: (VERIFICATION unless pending), remove_aliases:)
         if result.ok?
           @results[kind][result.created ? :created : :updated] += 1
         else

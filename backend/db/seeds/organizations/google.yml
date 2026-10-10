@@ -1,52 +1,66 @@
 # Seed research for issue #8 - generated 2026-10-09. Quotes copied from pages fetched this session.
-name: Google LLC
+name: Google
+legal_name: Google LLC
 aliases:
 - Google
-website: "https://www.google.com"
+- Google LLC
+website: https://www.google.com
 hq: null
 country_code: US
 status: active
 roles:
 - key: data_center_offtaker
-  source_url: "https://kairospower.com/external_updates/google-and-kairos-power-partner-to-deploy-500-mw-of-clean-electricity-generation/"
-  quote: "Plants will be sited in relevant service territories to supply clean electricity to Google data centers, with the first deployment by 2030 to support Google’s 24/7 carbon-free energy and net zero goals."
+  source_url: https://kairospower.com/external_updates/google-and-kairos-power-partner-to-deploy-500-mw-of-clean-electricity-generation/
+  quote: Plants will be sited in relevant service territories to supply clean electricity to Google data centers, with the first deployment by 2030 to support Google’s 24/7 carbon-free energy and net zero goals.
   published: '2024-10-14'
   confidence: 1.0
-technologies: []
+technologies:
+- key: smr
+  source_url: https://blog.google/outreach-initiatives/sustainability/google-kairos-power-nuclear-energy-agreement/
+  quote: signing the world’s first corporate agreement to purchase nuclear energy from multiple small modular reactors (SMRs) to be developed by Kairos Power
+  confidence: 1.0
+- key: fusion
+  source_url: https://blog.google/outreach-initiatives/sustainability/our-latest-bet-on-a-fusion-powered-future/
+  quote: We’ve signed the largest direct corporate offtake agreement for fusion energy with Commonwealth Fusion Systems (CFS) to help prove out their pathway to commercial fusion power.
+  confidence: 1.0
 relationships:
 - type: offtake_with
   to: Commonwealth Fusion Systems
-  description: "Signed PPA (June 2025) for 200 MW from CFS's first ARC plant, with option on future plants."
-  source_url: "https://cfs.energy/news-and-media/google-and-commonwealth-fusion-systems-sign-strategic-partnership/"
-  quote: "Google signed a power purchase agreement (PPA) for 200 megawatts (MW) of electricity from CFS’ inaugural ARC power plant, which CFS expects will put power on the grid in the early 2030s, in Chesterfield County, Virginia."
+  description: Signed PPA (June 2025) for 200 MW from CFS's first ARC plant, with option on future plants.
+  source_url: https://cfs.energy/news-and-media/google-and-commonwealth-fusion-systems-sign-strategic-partnership/
+  quote: Google signed a power purchase agreement (PPA) for 200 megawatts (MW) of electricity from CFS’ inaugural ARC power plant, which CFS expects will put power on the grid in the early 2030s, in Chesterfield County, Virginia.
   published: '2025-06-30'
   confidence: 1.0
 - type: invests_in
   to: Commonwealth Fusion Systems
-  description: "Equity investor since 2021; increased stake in June 2025 (terms undisclosed) and participated in the Aug 2025 Series B2."
-  source_url: "https://cfs.energy/news-and-media/google-and-commonwealth-fusion-systems-sign-strategic-partnership/"
-  quote: "An investor in CFS since 2021, Google also is deepening its relationship with CFS by increasing its stake in the company."
+  description: Equity investor since 2021; increased stake in June 2025 (terms undisclosed) and participated in the Aug 2025 Series B2.
+  source_url: https://cfs.energy/news-and-media/google-and-commonwealth-fusion-systems-sign-strategic-partnership/
+  quote: An investor in CFS since 2021, Google also is deepening its relationship with CFS by increasing its stake in the company.
   published: '2025-06-30'
   confidence: 1.0
 - type: offtake_with
   to: Kairos Power
-  description: "Signed Master Plant Development Agreement (Oct 2024) for 500 MW of Kairos plants by 2035 under PPAs; first deployment is Hermes 2 via TVA."
-  source_url: "https://kairospower.com/external_updates/google-and-kairos-power-partner-to-deploy-500-mw-of-clean-electricity-generation/"
-  quote: "Kairos Power and Google have signed a Master Plant Development Agreement, creating a path to deploy a U.S. fleet of advanced nuclear power projects totaling 500 MW by 2035."
+  description: Signed Master Plant Development Agreement (Oct 2024) for 500 MW of Kairos plants by 2035 under PPAs; first deployment is Hermes 2 via TVA.
+  source_url: https://kairospower.com/external_updates/google-and-kairos-power-partner-to-deploy-500-mw-of-clean-electricity-generation/
+  quote: Kairos Power and Google have signed a Master Plant Development Agreement, creating a path to deploy a U.S. fleet of advanced nuclear power projects totaling 500 MW by 2035.
   published: '2024-10-14'
   confidence: 1.0
 - type: offtake_with
   to: Tennessee Valley Authority
-  description: "Google receives clean energy attributes from Hermes 2 through the TVA system (part of the Aug 2025 Kairos-TVA-Google agreement)."
-  source_url: "https://world-nuclear-news.org/articles/google-kairos-power-tva-announce-collaboration"
-  quote: "The agreement will see Google receive the clean energy attributes from the plant through the TVA system to further decarbonise its data centre operations in Montgomery County, Tennessee, and Jackson County, Alabama, and support future growth in the region."
+  description: Google receives clean energy attributes from Hermes 2 through the TVA system (part of the Aug 2025 Kairos-TVA-Google agreement).
+  source_url: https://world-nuclear-news.org/articles/google-kairos-power-tva-announce-collaboration
+  quote: The agreement will see Google receive the clean energy attributes from the plant through the TVA system to further decarbonise its data centre operations in Montgomery County, Tennessee, and Jackson County, Alabama, and support future growth in the region.
   published: '2025-08-18'
   confidence: 0.8
 facilities:
-- name: ARC fusion power plant (Chesterfield County, VA)
+- name: Fall Line Fusion Power Station
   type: offtakes_from
-  source_url: "https://cfs.energy/news-and-media/google-and-commonwealth-fusion-systems-sign-strategic-partnership/"
-  quote: "Google signed a power purchase agreement (PPA) for 200 megawatts (MW) of electricity from CFS’ inaugural ARC power plant, which CFS expects will put power on the grid in the early 2030s, in Chesterfield County, Virginia."
+  source_url: https://cfs.energy/news-and-media/google-and-commonwealth-fusion-systems-sign-strategic-partnership/
+  quote: Google signed a power purchase agreement (PPA) for 200 megawatts (MW) of electricity from CFS’ inaugural ARC power plant, which CFS expects will put power on the grid in the early 2030s, in Chesterfield County, Virginia.
   published: '2025-06-30'
   confidence: 1.0
-notes: "Google is also listed as a CFS investor (corporate, not VC). blog.google announcement URL returned 404. HQ not verified. Google also has a PPA with Constellation (890 MW) per Constellation newsroom headline; not researched."
+notes: 'Google is also listed as a CFS investor (corporate, not VC). blog.google announcement URL returned 404. HQ not verified. Google also has a PPA with Constellation (890 MW) per Constellation newsroom headline; not researched. #63: "Technology company" is not in the quote; about.google has no clean one-line description. HQ not added: about.google/locations lists the Googleplex address (Mountain View, CA) among many offices without calling it headquarters.'
+description:
+  text: Power buyer that agreed to buy power from multiple Kairos Power small modular reactors.
+  source_url: https://blog.google/outreach-initiatives/sustainability/google-kairos-power-nuclear-energy-agreement/
+  quote: Today, we’re building on these efforts by signing the world’s first corporate agreement to purchase nuclear energy from multiple small modular reactors (SMRs) to be developed by Kairos Power.

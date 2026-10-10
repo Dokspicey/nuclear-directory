@@ -107,6 +107,16 @@ class Directory::LookupTest < ActiveSupport::TestCase
     assert_equal "acme urenco", Directory::Lookup.brand_key("Acme Urenco, LLC")
   end
 
+  test "a plant whose whole distinctive name is an owner's isn't a plant name" do
+    Facility.create!(name: "Urenco Eunice Enrichment Plant")
+    Facility.create!(name: "Palisades")
+
+    names = Directory::Lookup.plant_names(owners: [ "Urenco Eunice" ])
+    assert_not_includes names, "urenco eunice"
+    assert_includes names, "palisades", "a one-word plant name is the plant's own"
+    assert_includes Directory::Lookup.plant_names, "urenco eunice", "without that owner it's a plant name"
+  end
+
   test "a plant name of four or more words is recognized at the end of a company name" do
     Facility.create!(name: "Crane Clean Energy Center (Three Mile Island Unit 1)")
 
@@ -146,7 +156,22 @@ class Directory::LookupTest < ActiveSupport::TestCase
 
     assert_equal "acme north", Directory::Lookup.brand_key("Acme North, LLC"), "North alone isn't a plant"
     assert_equal "dominion", Directory::Lookup.brand_key("Dominion Energy North Anna, LLC"), "North Anna is"
-    assert_equal "holtec", Directory::Lookup.brand_key("Holtec Palisades, LLC"), "a plant's own first word still counts"
+    assert_equal "holtec", Directory::Lookup.brand_key("Holtec Palisades, LLC"),
+      "a distinctive first word of a longer plant name counts"
+  end
+
+  test "a single ordinary word that starts a plant name isn't a plant" do
+    Facility.create!(name: "Advanced Test Reactor")
+    Facility.create!(name: "White Mesa Mill")
+
+    assert_equal "acme advanced", Directory::Lookup.brand_key("Acme Advanced, LLC")
+    assert_equal "acme white", Directory::Lookup.brand_key("Acme White LLC")
+    assert_not_includes Directory::Lookup.plant_names, "advanced"
+  end
+
+  test "dotted initials in a brand are kept as written" do
+    Facility.create!(name: "Seabrook Station")
+    assert_equal "L.L. Bean", Directory::Lookup.brand_name("L.L. Bean Seabrook, LLC")
   end
 
   test "a trailing known plant or region is dropped from the brand" do

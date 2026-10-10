@@ -1,0 +1,29 @@
+# Research for issue #60 - generated 2026-10-10. Quotes copied from pages fetched this session.
+name: Dalton Utilities
+aliases: []
+website: https://www.dutil.com
+hq: null
+country_code: US
+status: active
+roles:
+- key: utility
+  source_url: https://www.dutil.com/
+  quote: Dalton Utilities has operated as a public utility since 1889. Dalton Utilities provides potable water, electric, natural gas, and wastewater treatment services to the City of Dalton and portions of Whitfield, Murray, Gordon, Catoosa and Floyd counties.
+  confidence: 1.0
+technologies:
+- key: fission
+  source_url: https://www.world-nuclear-news.org/Articles/Vogtle-progress-rests-on-Oglethorpe-vote
+  quote: Vogtle units 3 and 4, AP1000 units scheduled to enter service in November 2021 and November 2022 respectively, are co-owned by Georgia Power (45.7%), Oglethorpe Power (30%), MEAG Power (22.7%) and Dalton city (1.6%).
+  published: '2018-09-25'
+  confidence: 0.9
+relationships: []
+facilities:
+- name: Plant Vogtle
+  type: owns
+  ownership_pct: 1.6
+  source_url: https://www.world-nuclear-news.org/Articles/Vogtle-progress-rests-on-Oglethorpe-vote
+  quote: Vogtle units 3 and 4, AP1000 units scheduled to enter service in November 2021 and November 2022 respectively, are co-owned by Georgia Power (45.7%), Oglethorpe Power (30%), MEAG Power (22.7%) and Dalton city (1.6%).
+  published: '2018-09-25'
+  confidence: 0.9
+  note: Co-owned with Georgia Power, Oglethorpe Power, MEAG Power and Dalton Utilities; the ownership shares are for Units 3 and 4.
+notes: Municipal utility of the City of Dalton, Georgia. WNN names the co-owner 'Dalton city'; Georgia Power's 2024 release (already in seed) names 'Dalton Utilities'. HQ (Dalton, GA) implied by the homepage but not formally captured.

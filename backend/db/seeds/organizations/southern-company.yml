@@ -2,16 +2,28 @@
 name: Southern Company
 aliases:
 - The Southern Company
-website: "https://www.southerncompany.com"
+website: https://www.southerncompany.com
 hq:
   city: Atlanta
   state: GA
-  source_url: "https://www.southerncompany.com/about.html"
-  quote: "While Atlanta is our home, our energy reaches homes and businesses across the country."
+  source_url: https://www.southerncompany.com/about.html
+  quote: While Atlanta is our home, our energy reaches homes and businesses across the country.
 country_code: US
 status: active
-roles: []
-technologies: []
+roles:
+- key: utility
+  source_url: https://www.southerncompany.com/innovation/nuclear-energy.html
+  quote: Our investment in carbon-free nuclear generation, including the expansion of Plant Vogtle, will provide reliable energy to customers and communities for decades to come.
+  confidence: 0.8
+technologies:
+- key: fission
+  source_url: https://www.southerncompany.com/innovation/nuclear-energy.html
+  quote: Plant Vogtle is the largest generator of carbon-free nuclear energy in the United States.
+  confidence: 0.9
 relationships: []
 facilities: []
-notes: "Parent of Georgia Power. Southern Nuclear (Vogtle operator, per Westinghouse) is also a Southern Company subsidiary per common knowledge but not sourced here; not added. Roles not added (no role quote captured)."
+notes: 'Parent of Georgia Power. Southern Nuclear (Vogtle operator, per Westinghouse) is also a Southern Company subsidiary per common knowledge but not sourced here; not added. Roles not added (no role quote captured). #63: "Based in Atlanta" comes from the seed HQ quote (about page). Role is utility at 0.8: page shows Southern serves customers with its own generation but does not use the word utility; its utility subsidiaries (e.g., Georgia Power) are separate records. Fission tag inferred from Plant Vogtle (operating fission plant).'
+description:
+  text: Energy company based in Atlanta that invested in the expansion of Plant Vogtle, the largest generator of carbon-free nuclear energy in the U.S.
+  source_url: https://www.southerncompany.com/innovation/nuclear-energy.html
+  quote: Our investment in carbon-free nuclear generation, including the expansion of Plant Vogtle, will provide reliable energy to customers and communities for decades to come. Plant Vogtle is the largest generator of carbon-free nuclear energy in the United States.

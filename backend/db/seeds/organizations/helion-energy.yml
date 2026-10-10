@@ -2,32 +2,41 @@
 name: Helion Energy
 aliases:
 - Helion
-website: "https://www.helionenergy.com"
+website: https://www.helionenergy.com
 hq:
+- state: WA
+  source_url: https://www.helionenergy.com/newsroom/helion-secures-land-and-begins-building-site-of-worlds-first-fusion-power-plant
+  quote: Helion, a Washington-based fusion energy company, today announced that it has begun work on the site of its first fusion power plant, Orion, marking a major step in bringing fusion electricity to the grid.
+- city: Everett
   state: WA
-  source_url: "https://www.helionenergy.com/newsroom/helion-secures-land-and-begins-building-site-of-worlds-first-fusion-power-plant"
-  quote: "Helion, a Washington-based fusion energy company, today announced that it has begun work on the site of its first fusion power plant, Orion, marking a major step in bringing fusion electricity to the grid."
+  source_url: https://www.helionenergy.com/careers
+  quote: Headquartered in Everett, WA, most team members take advantage of the immediate year-round access to the ocean and mountains.
+  confidence: 1.0
 country_code: US
 status: active
 roles:
 - key: reactor_vendor
-  source_url: "https://www.helionenergy.com/newsroom/helion-announces-425m-series-f-investment-to-scale-commercialized-fusion-power"
-  quote: "Helion is a fusion energy company focused on generating zero-carbon electricity from fusion."
+  source_url: https://www.helionenergy.com/newsroom/helion-announces-425m-series-f-investment-to-scale-commercialized-fusion-power
+  quote: Helion is a fusion energy company focused on generating zero-carbon electricity from fusion.
   published: '2025-01-28'
   confidence: 1.0
 technologies:
 - key: fusion
-  source_url: "https://www.helionenergy.com/newsroom/helion-announces-425m-series-f-investment-to-scale-commercialized-fusion-power"
-  quote: "Its mission is to build the world’s first fusion power plant, enabling a future with unlimited clean electricity."
+  source_url: https://www.helionenergy.com/newsroom/helion-announces-425m-series-f-investment-to-scale-commercialized-fusion-power
+  quote: Its mission is to build the world’s first fusion power plant, enabling a future with unlimited clean electricity.
   published: '2025-01-28'
   confidence: 1.0
 relationships: []
 facilities:
-- name: Orion fusion power plant (Malaga, Chelan County, WA)
+- name: Orion fusion power plant
   type: owns
-  source_url: "https://www.helionenergy.com/newsroom/helion-secures-land-and-begins-building-site-of-worlds-first-fusion-power-plant"
-  quote: "Helion began building in Malaga, Washington, on land it is leasing from the Chelan County Public Utilities District (PUD)."
+  source_url: https://www.helionenergy.com/newsroom/helion-secures-land-and-begins-building-site-of-worlds-first-fusion-power-plant
+  quote: Helion began building in Malaga, Washington, on land it is leasing from the Chelan County Public Utilities District (PUD).
   published: '2025-07-30'
   confidence: 1.0
-  note: "Under construction; land leased from Chelan County PUD, so 'owns' refers to the plant, not the land. Target online 2028, 50 MW+."
-notes: "Press releases are datelined Everett, WA, but HQ city not explicitly stated in fetched text. Later Series G ($465M, led by Thrive Capital) appears on Helion's site but was not researched."
+  note: Under construction; land leased from Chelan County PUD, so 'owns' refers to the plant, not the land. Target online 2028, 50 MW+.
+notes: 'Press releases are datelined Everett, WA, but HQ city not explicitly stated in fetched text. Later Series G ($465M, led by Thrive Capital) appears on Helion''s site but was not researched. #63: Seed had state WA only; this adds the city. Description quote is the homepage meta description.'
+description:
+  text: Fusion company building a fusion power plant to supply electricity to the grid.
+  source_url: https://www.helionenergy.com
+  quote: Helion is building the world's first fusion power plant to deliver clean, reliable, and abundant electricity to the grid.

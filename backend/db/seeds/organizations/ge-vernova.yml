@@ -2,16 +2,35 @@
 name: GE Vernova
 aliases:
 - GE Vernova Inc.
-website: "https://www.gevernova.com"
+website: https://www.gevernova.com
 hq:
   city: Cambridge
   state: MA
-  source_url: "https://www.gevernova.com/about"
-  quote: "GE Vernova’s global headquarters in Cambridge, MA reflects our commitment to operating at the center of a vibrant ecosystem defined by talent, innovation, and academic excellence."
+  source_url: https://www.gevernova.com/about
+  quote: GE Vernova’s global headquarters in Cambridge, MA reflects our commitment to operating at the center of a vibrant ecosystem defined by talent, innovation, and academic excellence.
 country_code: US
 status: active
-roles: []
-technologies: []
+roles:
+- key: reactor_vendor
+  source_url: https://www.gevernova.com/news/press-releases/nrc-issues-first-us-construction-permit-bwrx-300-small-modular-reactor-tva-clinch-river
+  quote: GE Vernova’s Nuclear energy business, through its global alliance with Hitachi, is a world-leading provider of nuclear fuel bundles, services, and advanced nuclear reactor designs.
+  confidence: 1.0
+technologies:
+- key: smr
+  source_url: https://www.gevernova.com/news/press-releases/nrc-issues-first-us-construction-permit-bwrx-300-small-modular-reactor-tva-clinch-river
+  quote: Technologies include boiling water reactors and small modular reactors, such as the BWRX-300
+  confidence: 1.0
+- key: fission
+  source_url: https://www.gevernova.com/news/press-releases/nrc-issues-first-us-construction-permit-bwrx-300-small-modular-reactor-tva-clinch-river
+  quote: Technologies include boiling water reactors and small modular reactors
+  confidence: 1.0
 relationships: []
 facilities: []
-notes: "Lead parent of GE Vernova Hitachi Nuclear Energy and Global Nuclear Fuel (both JVs with Hitachi). Older sources (2022) name 'GE' as the parent; GE Vernova is the successor energy business. Roles left empty (nuclear roles sit with GVH/GNF)."
+notes: 'Lead parent of GE Vernova Hitachi Nuclear Energy and Global Nuclear Fuel (both JVs with Hitachi). Older sources (2022) name ''GE'' as the parent; GE Vernova is the successor energy business. Roles left empty (nuclear roles sit with GVH/GNF). #63: Nuclear clause in description is supported by the role quote (press-release boilerplate). Same boilerplate supports a fuel/fabrication role via Global Nuclear Fuel, but GNF is its own record, so only reactor_vendor added. HQ already in seed.'
+description:
+  text: Energy equipment company making wind and gas turbines; its nuclear business designs reactors with Hitachi.
+  source_url: https://www.gevernova.com/about
+  quote: With approximate 59,000 wind turbines and 7,000 gas turbines, GE Vernova's technology base helps generate approximately 25% of the world's electricity.
+  also:
+  - quote: 'GE Vernova’s Nuclear energy business, through its global alliance with Hitachi, is a world-leading provider of nuclear fuel bundles, services, and advanced nuclear reactor designs.'
+    source_url: https://www.gevernova.com/news/press-releases/nrc-issues-first-us-construction-permit-bwrx-300-small-modular-reactor-tva-clinch-river

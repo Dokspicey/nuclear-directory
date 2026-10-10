@@ -2,30 +2,43 @@
 name: ConverDyn
 aliases:
 - ConverDyn, GP
-website: "https://www.converdyn.com"
-hq: null
+website: https://www.converdyn.com
+hq:
+  city: Greenwood Village
+  state: CO
+  source_url: https://www.converdyn.com/contact-us
+  quote: 7800 East Dorado Place, Suite 200 Greenwood Village, CO 80111, U.S.A.
+  confidence: 0.8
 country_code: US
 status: active
 roles:
 - key: fuel
   subtype: conversion
-  source_url: "https://www.converdyn.com/"
-  quote: "ConverDyn supplies uranium hexafluoride conversion services to the global nuclear industry for clean energy worldwide."
+  source_url: https://www.converdyn.com/
+  quote: ConverDyn supplies uranium hexafluoride conversion services to the global nuclear industry for clean energy worldwide.
   confidence: 1.0
-technologies: []
+technologies:
+- key: fission
+  source_url: https://www.converdyn.com/about-us
+  quote: 'Our mission is clear: to provide the highest quality UF6, ensuring the smooth operation of nuclear power plants worldwide.'
+  confidence: 0.8
 relationships:
 - type: supplies
   to: U.S. Department of Energy
-  description: "Award made (early 2023) by DOE's National Nuclear Security Administration: ~USD 14M for conversion services (U3O8 to UF6) supporting the domestic uranium reserve. Signed award; performance status not verified."
-  source_url: "https://www.energy.gov/sites/default/files/2024-02/HALEU%20DEIS%20Volume%201_March%202024.pdf"
-  quote: "In early 2023, DOE awarded ConverDyn (the marketing arm for the Metropolis Works Plant) a $14 million award for conversion services supporting the domestic uranium reserve."
+  description: 'Award made (early 2023) by DOE''s National Nuclear Security Administration: ~USD 14M for conversion services (U3O8 to UF6) supporting the domestic uranium reserve. Signed award; performance status not verified.'
+  source_url: https://www.energy.gov/sites/default/files/2024-02/HALEU%20DEIS%20Volume%201_March%202024.pdf
+  quote: In early 2023, DOE awarded ConverDyn (the marketing arm for the Metropolis Works Plant) a $14 million award for conversion services supporting the domestic uranium reserve.
   published: 2024-03
   confidence: 1.0
 - type: subsidiary_of
   to: Solstice Advanced Materials
-  description: "ConverDyn is a partnership of General Atomics and Solstice Advanced Materials (JV-style link, like the GVH/GNF edges in the seed). General Atomics is not an org in the seed; ownership split not sourced."
-  source_url: "https://www.converdyn.com/"
-  quote: "Our company, through a strategic partnership between industry giants General Atomics and Solstice Advanced Materials, operates at the forefront of the nuclear fuel cycle, ensuring the highest quality UF6."
+  description: ConverDyn is a partnership of General Atomics and Solstice Advanced Materials (JV-style link, like the GVH/GNF edges in the seed). General Atomics is not an org in the seed; ownership split not sourced.
+  source_url: https://www.converdyn.com/
+  quote: Our company, through a strategic partnership between industry giants General Atomics and Solstice Advanced Materials, operates at the forefront of the nuclear fuel cycle, ensuring the highest quality UF6.
   confidence: 1.0
 facilities: []
-notes: "Fuel sub-type: conversion. ConverDyn is the exclusive marketing agent for UF6 from Metropolis Works; it does not own or operate the plant (that is Solstice), so no org->facility link is recorded (no 'markets_for' facility relationship type exists). Additional ConverDyn contracts seen but not linked because the counterparties are not seed orgs: Hadron Energy Uranium Conversion Services Agreement (Apr 2026, WNN 2026-05-07), KHNP and Energoatom (headlines only). S&P Global article on the NNSA award returned HTTP 403. HQ not stated on fetched pages."
+notes: 'Fuel sub-type: conversion. ConverDyn is the exclusive marketing agent for UF6 from Metropolis Works; it does not own or operate the plant (that is Solstice), so no org->facility link is recorded (no ''markets_for'' facility relationship type exists). Additional ConverDyn contracts seen but not linked because the counterparties are not seed orgs: Hadron Energy Uranium Conversion Services Agreement (Apr 2026, WNN 2026-05-07), KHNP and Energoatom (headlines only). S&P Global article on the NNSA award returned HTTP 403. HQ not stated on fetched pages. #63: HQ is the only company address on the contact page (not labeled "headquarters"). Fission tag is inferred: UF6 is fuel feed for nuclear power plants, which are fission plants.'
+description:
+  text: Company that supplies uranium hexafluoride (UF6) conversion services to nuclear power plants worldwide.
+  source_url: https://www.converdyn.com
+  quote: ConverDyn supplies uranium hexafluoride conversion services to the global nuclear industry for clean energy worldwide.
