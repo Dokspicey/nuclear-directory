@@ -33,7 +33,9 @@ class DataQuality::Fetcher
     @last_request_at = {}
   end
 
-  def get(url, etag: nil, last_modified: nil)
+  # binary: true returns the body as raw bytes (e.g. a spreadsheet) instead
+  # of converting it to UTF-8 text.
+  def get(url, etag: nil, last_modified: nil, binary: false)
     redirects = 0
 
     loop do
@@ -50,7 +52,7 @@ class DataQuality::Fetcher
         next
       end
 
-      return classify(url, http)
+      return classify(url, http, binary:)
     end
   rescue *NETWORK_ERRORS => error
     response(url, :error, reason: "Network error: #{error.class}: #{error.message}")
@@ -103,12 +105,13 @@ class DataQuality::Fetcher
       @last_request_at[host] = @clock.call
     end
 
-    def classify(url, http)
+    def classify(url, http, binary: false)
       status = http.code.to_i
 
       case status
       when 200..299
-        response(url, :ok, status:, body: body_of(http), etag: http["ETag"], last_modified: http["Last-Modified"])
+        body = binary ? http.body.to_s.b : body_of(http)
+        response(url, :ok, status:, body:, etag: http["ETag"], last_modified: http["Last-Modified"])
       when 304
         response(url, :not_modified, status:, etag: http["ETag"], last_modified: http["Last-Modified"])
       when 401, 403

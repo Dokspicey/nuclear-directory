@@ -8,18 +8,23 @@ class DataQuality::Snapshot
   # Blocked this many fetches in a row: stop treating it as temporary.
   BLOCKED_STREAK_LIMIT = 3
 
-  def self.take(source, fetcher:)
+  # binary: fetch raw bytes. With a block, the block turns the fetched body
+  # into the text that's stored (e.g. the rows of a spreadsheet that matter),
+  # and the hash is of that text, so unrelated changes to the file don't
+  # count as changes.
+  def self.take(source, fetcher:, binary: false, &to_text)
     # At most one fetch per source per calendar day (in the app's time zone).
     return :skipped_recent if source.fetched_at&.to_date == Date.current
 
-    response = fetcher.get(source.url, etag: source.etag, last_modified: source.last_modified)
+    response = fetcher.get(source.url, etag: source.etag, last_modified: source.last_modified, binary:)
     attempt = { fetched_at: Time.current, http_status: response.status }
 
     case response.kind
     when :ok
-      sha = Digest::SHA256.hexdigest(response.body)
+      text = to_text ? to_text.call(response.body) : response.body
+      sha = Digest::SHA256.hexdigest(text)
       changed = sha != source.content_sha256
-      source.update!(attempt.merge(fresh(source, response)).merge(content_text: response.body, content_sha256: sha))
+      source.update!(attempt.merge(fresh(source, response)).merge(content_text: text, content_sha256: sha))
       changed ? :changed : :unchanged
     when :not_modified
       source.update!(attempt.merge(fresh(source, response)))

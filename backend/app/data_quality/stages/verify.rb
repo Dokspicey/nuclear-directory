@@ -12,6 +12,9 @@ class DataQuality::Stages::Verify < DataQuality::Stage
       stats = { "candidates" => 0, "published" => 0, "needs_review" => 0, "rejected" => 0, "write_errors" => 0 }
 
       candidates.where(status: %w[new matched]).find_each do |candidate|
+        # Enrichment still waiting for its NRC unit: nothing to verify yet.
+        next if candidate.status_new? && directory.enrichment?(candidate)
+
         stats["candidates"] += 1
         verdict = @verifier.call(candidate)
 

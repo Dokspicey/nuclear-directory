@@ -45,7 +45,7 @@ class DataQuality::Stages::Match < DataQuality::Stage
   private
     def perform(run)
       @run = run
-      @stats = { "candidates" => 0, "matched" => 0, "proposed" => 0, "needs_review" => 0, "write_errors" => 0 }
+      @stats = { "candidates" => 0, "matched" => 0, "proposed" => 0, "needs_review" => 0, "waiting" => 0, "write_errors" => 0 }
 
       one_run_at_a_time do
         ORDER.each do |kind|
@@ -75,7 +75,8 @@ class DataQuality::Stages::Match < DataQuality::Stage
       payload = candidate.payload.to_h
 
       case candidate.kind
-      when "organization", "facility" then match_record(candidate, payload)
+      when "facility" then payload.key?("identify") ? match_enrichment(candidate, payload["identify"]) : match_record(candidate, payload)
+      when "organization" then match_record(candidate, payload)
       when *LINK_ENDS.keys then match_link(candidate, payload)
       else review(candidate, "#{candidate.kind} candidates aren't matched automatically yet")
       end
@@ -189,6 +190,43 @@ class DataQuality::Stages::Match < DataQuality::Stage
 
       Review.new("#{name.inspect} looks like a unit of #{site.name}, but that record only covers " \
         "unit #{covered.join(' & ')}. Add it under the site, or as its own record?")
+    end
+
+    # An enrichment source (e.g. EIA) adds values to an NRC unit that already
+    # exists and never creates one. identify: { "name", "state", "unit" }.
+    # The unit is the one NRC unit in that state sharing a distinctive word
+    # with the name and with the same unit number; a plant with a single,
+    # unnumbered NRC unit takes that unit. When nothing fits in the state,
+    # units anywhere are tried by a stricter name rule, because NRC lists
+    # some border plants under a nearby city's state (Salem, NJ under DE).
+    # If no unit fits yet (NRC data not loaded, or the unit's own NRC record
+    # is still in review), the candidate stays new and is retried on the next
+    # run. More than one fit goes to review.
+    def match_enrichment(candidate, identify)
+      name, state, unit = identify.to_h.values_at("name", "state", "unit")
+      number = unit.to_s[/\d+/]&.to_i
+      units, same_number = enrichment_fits(name, state, number)
+      units, same_number = enrichment_fits(name, nil, number) if units.empty?
+      chosen = same_number.first if same_number.one?
+      chosen ||= units.first if same_number.empty? && units.one? && unit_number(units.first.name).nil?
+      label = "#{name} unit #{unit} (#{state})"
+
+      if chosen
+        write(candidate, { id: chosen.id }, existing: true, note: "#{label} is NRC unit #{chosen.name}")
+      elsif same_number.many? || (units.many? && units.none? { |record| unit_number(record.name) })
+        review(candidate, "#{label} could be #{(same_number.presence || units).map(&:name).join(' or ')}")
+      else
+        # Includes a plant whose other units exist but not this one (Vogtle 1
+        # while only Vogtle 3 and 4 are in the directory).
+        @stats["waiting"] += 1
+        candidate.update!(notes: "No NRC unit for #{label} yet; retried on the next match run")
+      end
+    end
+
+    # [units that fit the name, those of them with this unit number]
+    def enrichment_fits(name, state, number)
+      units = directory.facility_units(name: name.to_s, state: state.presence)
+      [ units, units.select { |record| unit_number(record.name) == number } ]
     end
 
     # "Vogtle 3" => 3. A name without a trailing number ("Palisades") is nil.

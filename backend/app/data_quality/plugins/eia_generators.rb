@@ -1,0 +1,70 @@
+# EIA's monthly generator inventory (Form EIA-860M, #61): capacity and
+# coordinates for nuclear units. An enrichment source: it never creates or
+# renames facilities (NRC is the source of truth for which units exist, their
+# names, dockets and operators). It only adds capacity_mw, latitude and
+# longitude to NRC units that already exist.
+#
+# Crawl reads EIA's 860M page to find the newest monthly file, fetches it,
+# and stores just its nuclear rows as CSV (one source per monthly file, so
+# evidence points at the exact file). Extract turns each row into a facility
+# candidate whose payload carries "identify" (how to find the unit) and the
+# values to set. The match stage finds the unit by state, name and unit
+# number; see app/data_quality/README.md.
+class DataQuality::Plugins::EiaGenerators < DataQuality::Plugin
+  INDEX_URL = "https://www.eia.gov/electricity/data/eia860m/"
+  FILE_LINK = %r{(?:\A|/)xls/([a-z]+)_generator(\d{4})\.xlsx\z}i
+
+  def initialize(fetcher: DataQuality::Fetcher.new)
+    @fetcher = fetcher
+  end
+
+  def crawl(_run)
+    index = @fetcher.get(INDEX_URL)
+    raise "EIA 860M page: #{index.reason || index.kind}" unless index.kind == :ok
+
+    url = latest_file_url(index.body) or raise "EIA 860M page: no monthly generator file link found; the page may have changed"
+    source = Source.find_or_create_by!(url: url) do |new_source|
+      new_source.source_kind = source_kind
+      new_source.title = "EIA-860M generator inventory, #{url[FILE_LINK, 1].capitalize} #{url[FILE_LINK, 2]}"
+    end
+
+    result = DataQuality::Snapshot.take(source, fetcher: @fetcher, binary: true) do |bytes|
+      Workbook.to_csv(Workbook.nuclear_generators(bytes))
+    end
+    { "file" => url, "snapshot" => result.to_s, "generators" => [ CSV.parse(source.reload.content_text.to_s).size - 1, 0 ].max }
+  rescue Workbook::Unreadable => error
+    source.update!(crawl_status: "needs_human", status_reason: "Couldn't read the EIA workbook: #{error.message}")
+    { "file" => url, "snapshot" => "needs_human" }
+  end
+
+  def extract(source, _run)
+    CSV.parse(source.content_text.to_s, headers: true).filter_map do |row|
+      next if row["state"].blank? || row["plant_name"].blank?
+
+      {
+        kind: "facility",
+        payload: {
+          "identify" => row.to_h.slice("plant_name", "state", "generator_id", "eia_plant_id")
+            .transform_keys("plant_name" => "name", "generator_id" => "unit"),
+          "capacity_mw" => number(row["net_summer_capacity_mw"], 1),
+          "latitude" => number(row["latitude"], 6),
+          "longitude" => number(row["longitude"], 6)
+        }.compact,
+        quote: row.to_csv.chomp
+      }
+    end
+  end
+
+  private
+    # The newest "<month>_generator<year>.xlsx" linked from the page.
+    def latest_file_url(html)
+      links = Nokogiri::HTML(html).css("a[href]").map { |a| a["href"].strip }.grep(FILE_LINK)
+      newest = links.max_by do |href|
+        month, year = href.match(FILE_LINK).captures
+        [ year.to_i, Date::MONTHNAMES.index(month.capitalize).to_i ]
+      end
+      URI.join(INDEX_URL, newest).to_s if newest
+    end
+
+    def number(value, digits) = value.present? ? value.to_d.round(digits).to_s : nil
+end

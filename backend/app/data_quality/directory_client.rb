@@ -52,6 +52,12 @@ class DataQuality::DirectoryClient
     lookup.similar_facilities(name).map { |ref| record("Facility", ref) }
   end
 
+  # NRC units whose names fit name: in a state, or (state: nil) anywhere,
+  # by a stricter rule. Returns Records.
+  def facility_units(name:, state: nil)
+    lookup.facility_units(name:, state:).map { |ref| record("Facility", ref) }
+  end
+
   # Writes a fact the match stage found or proposed, with the candidate's
   # source as evidence (found_by: crawler). Verification is left alone, so a
   # new fact starts pending and an existing one keeps its status. A fact a
@@ -69,10 +75,12 @@ class DataQuality::DirectoryClient
   # link kinds the ends were resolved by match, so the rest of the payload is
   # sent. A fact a human has verified or rejected is never overwritten: only
   # its blank attributes are filled and its verification stays (FactWriter
-  # protect_human_verified). Returns a WriteResult; never raises on
-  # validation problems.
+  # protect_human_verified). An enrichment candidate (see enrichment?) sets
+  # only its values and leaves the record's verification alone, since it
+  # doesn't vouch for the record itself. Returns a WriteResult; never raises
+  # on validation problems.
   def write_fact(candidate, confidence:, crawl_run:)
-    attributes = candidate.payload.except(*LINK_ENDS).symbolize_keys
+    attributes = candidate.payload.except(*LINK_ENDS, ENRICHMENT_KEY).symbolize_keys
     attributes[:id] = candidate.subject_id if candidate.subject_id
     if candidate.kind == "organization"
       # The name it was found under becomes an alias only once a verdict accepts
@@ -80,6 +88,7 @@ class DataQuality::DirectoryClient
       attributes[:aliases] = [ *attributes[:aliases], attributes[:name] ].compact_blank.uniq
       attributes.delete(:name) if candidate.subject_id
     end
+    verification = { status: "verified", by: "agent:verifier/#{crawl_run.model || 'unknown'}" } unless enrichment?(candidate)
 
     result = fact_writer.write(
       candidate.kind,
@@ -91,7 +100,7 @@ class DataQuality::DirectoryClient
         confidence: confidence,
         crawl_run_id: crawl_run.id
       } ],
-      verification: { status: "verified", by: "agent:verifier/#{crawl_run.model || 'unknown'}" },
+      verification: verification,
       protect_human_verified: true
     )
     write_result(result)
@@ -106,8 +115,14 @@ class DataQuality::DirectoryClient
     write_result(result)
   end
 
+  # Payload key of an enrichment candidate: how to find the existing record
+  # it adds values to. Enrichment never creates records.
+  ENRICHMENT_KEY = "identify"
+
+  def enrichment?(candidate) = candidate.payload.to_h.key?(ENRICHMENT_KEY)
+
   # Site fields a verified unit can fill in when the site has none.
-  SITE_FIELDS_FROM_UNIT = %w[state facility_type status country_code].freeze
+  SITE_FIELDS_FROM_UNIT = %w[state facility_type status country_code latitude longitude].freeze
 
   # After a unit is verified, fills its site's blank fields (state, type,
   # status) from the unit, with the unit's quote as evidence. Never
