@@ -75,6 +75,15 @@ module DirectoryHelper
   end
 
   def company_url_for(organization) = company_path(slug: organization.slug)
+
+  # "Report a correction", prefilled with what it's about and where it was.
+  CORRECTIONS_EMAIL = "hello@nuclear-directory.org".freeze
+  def correction_url_for(subject, page: request.path) = new_correction_path(subject:, page:)
+
+  def correction_mailto(subject, page)
+    "mailto:#{CORRECTIONS_EMAIL}?" + { subject: "Correction: #{subject}", body: "Page: #{request.base_url}#{page}\n\nWhat should change:\n" }
+      .to_query.gsub("+", "%20")
+  end
   def plant_url_for(facility) = plant_path(slug: facility.slug)
 
   def relationship_verb(type) = RELATIONSHIP_VERBS.fetch(type.to_s)
