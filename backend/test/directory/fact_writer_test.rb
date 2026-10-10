@@ -136,12 +136,13 @@ class Directory::FactWriterTest < ActiveSupport::TestCase
     site.update!(state: "NJ", capacity_mw: 1150)
     site.verify!(by: "human:tosin")
 
-    result = write(:facility, { id: site.id, state: "DE", capacity_mw: "1150.0", city: "Waynesboro" },
+    result = write(:facility, { id: site.id, state: "DE", capacity_mw: "1150.0", city: "Waynesboro", country_code: " us " },
       protect_human_verified: true, evidence: [ @evidence ])
 
     assert_not result.ok?
     assert result.conflict?
-    assert_equal({ "state" => [ "NJ", "DE" ] }, result.conflicts, "equal numbers in another form aren't a conflict")
+    assert_equal({ "state" => [ "NJ", "DE" ] }, result.conflicts,
+      "equal numbers in another form, and values equal once normalized, aren't conflicts")
     assert_equal site.id, result.id
     site.reload
     assert_nil site.city, "not even the blanks are filled"
