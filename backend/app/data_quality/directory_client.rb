@@ -98,7 +98,8 @@ class DataQuality::DirectoryClient
   # fact, and records the candidate and run in the audit trail. Without by:,
   # it's the automated writer described above.
   def write_fact(candidate, confidence:, crawl_run:, by: nil, reason: nil)
-    attributes = candidate.payload.except(*LINK_ENDS).symbolize_keys
+    # The record written is the one match attached, never an id in the payload.
+    attributes = candidate.payload.except(*LINK_ENDS, "id").symbolize_keys
     attributes[:id] = candidate.subject_id if candidate.subject_id
     if candidate.kind == "organization"
       # The name it was found under becomes an alias only once a verdict accepts
@@ -113,20 +114,10 @@ class DataQuality::DirectoryClient
       else
         { status: "verified", by: "agent:verifier/#{crawl_run&.model || 'unknown'}" }
       end
+    evidence = [ { source_id: candidate.source_id, quote: candidate.quote, found_by: "crawler", confidence:, crawl_run_id: crawl_run&.id } ]
+    return write_alias(candidate, verification:, evidence:, by:) if candidate.kind == "organization_alias"
 
-    result = fact_writer.write(
-      candidate.kind,
-      attributes,
-      evidence: [ {
-        source_id: candidate.source_id,
-        quote: candidate.quote,
-        found_by: "crawler",
-        confidence: confidence,
-        crawl_run_id: crawl_run&.id
-      } ],
-      verification: verification,
-      protect_human_verified: by.nil?
-    )
+    result = fact_writer.write(candidate.kind, attributes, evidence:, verification:, protect_human_verified: by.nil?)
     write_result(result)
   end
 
@@ -189,6 +180,27 @@ class DataQuality::DirectoryClient
   end
 
   private
+    # "X is also known as Y": the alias goes on its company, which must be
+    # published already (approving an alias doesn't publish a company).
+    def write_alias(candidate, verification:, evidence:, by:)
+      ends = candidate.payload["organization"].to_h
+      company = (organization(name: ends["name"]) if ends["name"].present?) ||
+        (organization(domain: ends["domain"]) if ends["domain"].present?)
+      unless company
+        return WriteResult.new(ref: nil, errors: [ "no company named #{(ends['name'] || ends['domain']).to_s.inspect} to add the alias to" ])
+      end
+      unless company.verification_status == "verified"
+        return WriteResult.new(ref: company.ref, errors: [ "#{company.name} isn't published; approve it first, then this alias" ])
+      end
+      return WriteResult.new(ref: company.ref, errors: [ "only a human adds an alias" ]) unless by
+
+      alias_name = candidate.payload["alias"].to_s.strip
+      return WriteResult.new(ref: company.ref, errors: [ "the alias is blank" ]) if alias_name.empty?
+
+      write_result(fact_writer.write("organization", { id: company.id, aliases: [ alias_name ] }, evidence:,
+        verification:, protect_human_verified: false))
+    end
+
     # Resolved lazily so the module has no load-time dependency on the directory.
     def lookup = @lookup ||= "Directory::Lookup".constantize
     def fact_writer = @fact_writer ||= "Directory::FactWriter".constantize

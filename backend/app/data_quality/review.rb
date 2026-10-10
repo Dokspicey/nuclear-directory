@@ -49,7 +49,7 @@ module DataQuality::Review
   # matching again. Moving a published link isn't an edit either.
   LINK_ENDS = %w[organization facility from_organization to_organization
     organization_id facility_id from_organization_id to_organization_id].freeze
-  NOT_EDITABLE = (LINK_ENDS + %w[slug]).freeze
+  NOT_EDITABLE = (LINK_ENDS + %w[id slug]).freeze
   # A company's role or technology is what that fact is (a plant's
   # technology is an ordinary value).
   IDENTIFYING = { "organization_role" => %w[role], "organization_technology" => %w[technology] }.freeze
@@ -121,8 +121,10 @@ module DataQuality::Review
 
       result = nil
       Candidate.transaction do
+        edited = attributes.any? { |name, value| candidate.payload[name] != value }
         candidate.update!(payload: candidate.payload.merge(attributes))
-        result = approve_one(candidate, by:, reason:, directory:)
+        # The verifier checked the claim as found, not as edited: no confidence carries over.
+        result = approve_one(candidate, by:, reason:, directory:, edited:)
         raise ActiveRecord::Rollback unless result.ok? # keep the original values if publishing failed
       end
       result
@@ -214,14 +216,15 @@ module DataQuality::Review
       # Locked, and in one transaction with the directory write: two people
       # approving at once publish once, and a crash can't leave a published
       # fact still waiting for approval.
-      def approve_one(candidate, by:, reason:, directory:)
+      def approve_one(candidate, by:, reason:, directory:, edited: false)
         Candidate.transaction do
           candidate.lock!
           next Result.new(candidate_id: candidate.id, ref: nil, errors: [ already(candidate) ]) unless open?(candidate)
 
           # The evidence belongs to the run that judged it (verify), else the one that found it.
           run = candidate.verify_run || candidate.crawl_run
-          result = directory.write_fact(candidate, confidence: supporting_confidence(candidate), crawl_run: run, by:, reason:)
+          confidence = edited ? nil : supporting_confidence(candidate)
+          result = directory.write_fact(candidate, confidence:, crawl_run: run, by:, reason:)
           next Result.new(candidate_id: candidate.id, ref: nil, errors: result.errors) unless result.success?
 
           candidate.update!(status: "merged", subject_type: result.ref.type, subject_id: result.ref.id,
