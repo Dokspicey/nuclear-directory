@@ -1,0 +1,14 @@
+<%# The numbered list every source chip on the page points to. Locals:
+    sources: [[number, source], ...] in number order
+    A source without a title shows its URL instead. %>
+<ol class="nd-sources">
+  <% sources.each do |number, source| %>
+    <li id="source-<%= number %>">
+      <span class="nd-num"><%= number %></span>
+      <span>
+        <%= link_to source.title.presence || source.url, source.url, class: "nd-link", rel: "noopener", target: "_blank" %>
+        <small><%= [ source_domain(source), ("published #{data_date(source.published_on)}" if source.published_on) ].compact.join(" · ") %></small>
+      </span>
+    </li>
+  <% end %>
+</ol>

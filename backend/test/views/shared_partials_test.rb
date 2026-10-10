@@ -1,0 +1,129 @@
+require "test_helper"
+
+# Every shared partial with its fields present and with them missing:
+# a missing field is left out, never guessed (DESIGN.md, "Data requirements").
+class SharedPartialsTest < ActionView::TestCase
+  helper DirectoryHelper
+  helper IconHelper
+
+  setup do
+    @source = Source.new(url: "https://kairospower.com/news/a", domain: "kairospower.com",
+      title: "Google and Kairos Power partner", published_on: Date.new(2024, 10, 14))
+    @untitled = Source.new(url: "https://www.energy.gov/node/4845535", domain: "energy.gov")
+  end
+
+  test "company row with every field" do
+    company = Organization.new(name: "Kairos Power", slug: "kairos-power", hq_city: "Alameda", hq_state: "CA",
+      description: "Develops salt-cooled reactors.")
+    render partial: "shared/company_row", locals: { organization: company, connections: 1 }
+
+    assert_select "a.nd-listrow[href='/companies/kairos-power']"
+    assert_select ".nd-mono", "KP"
+    assert_select ".nd-listrow__desc", "Develops salt-cooled reactors."
+    assert_select ".nd-listrow__side", /Alameda, CA/
+    assert_select ".nd-listrow__side .nd-num", "1 connection"
+  end
+
+  test "company row leaves out what isn't known" do
+    render partial: "shared/company_row", locals: { organization: Organization.new(name: "Oklo", slug: "oklo") }
+
+    assert_select ".nd-listrow__name", "Oklo"
+    assert_select ".nd-listrow__desc", count: 0
+    assert_select ".nd-listrow__side", count: 0
+  end
+
+  test "power plant row with and without type, status and place" do
+    render partial: "shared/plant_row", locals: { facility: facilities(:vogtle) }
+    assert_select ".nd-listrow__desc", "Power plant · Operating"
+    assert_select ".nd-listrow__side", /GA/
+
+    render partial: "shared/plant_row", locals: { facility: Facility.new(name: "Hermes 2", slug: "hermes-2") }
+    assert_select "a[href='/power-plants/hermes-2'] .nd-listrow__desc", count: 0
+  end
+
+  test "fact row shows the sentence, detail, quote, sources and confidence" do
+    render partial: "shared/fact_row", locals: { sentence: "Google offtakes from Kairos Power", detail: "500 MW by 2035.",
+      quote: "Kairos Power and Google have signed", citations: [ [ 1, @source ] ], confidence: 0.8 }
+
+    assert_select ".nd-factrow__detail", "500 MW by 2035."
+    assert_select ".nd-quote", "“Kairos Power and Google have signed”"
+    assert_select "a.nd-src[href='#source-1']", /kairospower.com/
+    assert_select ".nd-conf", /Medium/
+  end
+
+  test "fact row without detail, quote or confidence" do
+    render partial: "shared/fact_row", locals: { sentence: "DOE funds Kairos Power", citations: [ [ 2, @untitled ] ] }
+
+    assert_select ".nd-factrow__detail", count: 0
+    assert_select ".nd-quote", count: 0
+    assert_select ".nd-conf", count: 0
+  end
+
+  test "sources list uses the title, or the URL when there is none" do
+    render partial: "shared/sources_list", locals: { sources: [ [ 1, @source ], [ 2, @untitled ] ] }
+
+    assert_select "li#source-1 a", "Google and Kairos Power partner"
+    assert_select "li#source-1 small", "kairospower.com · published 2024-10-14"
+    assert_select "li#source-2 a", "https://www.energy.gov/node/4845535"
+    assert_select "li#source-2 small", "energy.gov"
+  end
+
+  test "overview panel skips rows without a value" do
+    render partial: "shared/overview_panel", locals: { verified_at: Time.zone.parse("2026-10-09"),
+      rows: [ [ "Website", "kairospower.com", nil ], [ "HQ", nil, nil ], [ "Role", "Reactor developer", [ [ 1, @source ] ] ] ] }
+
+    assert_select "dt", count: 2
+    assert_select "dt", text: "HQ", count: 0
+    assert_select "dd a.nd-src sup", "1"
+    assert_select ".nd-badge--verified", /Verified/
+    assert_select ".nd-overview__foot", /checked 2026-10-09/
+  end
+
+  test "profile header with and without description and tags" do
+    render partial: "shared/profile_header", locals: { name: "Kairos Power", kind: :company,
+      description: "Develops salt-cooled reactors.", citations: [ [ 1, @source ] ], tags: [ "Reactor developer" ] }
+    assert_select "h1", "Kairos Power"
+    assert_select ".nd-profile__desc", /Develops salt-cooled reactors./
+    assert_select ".nd-tag", "Reactor developer"
+
+    render partial: "shared/profile_header", locals: { name: "Hermes 2", kind: :plant }
+    assert_select ".nd-ring--lg"
+  end
+
+  test "missing fields box lists gaps, and disappears when there are none" do
+    render partial: "shared/missing_fields", locals: { fields: [ "Location", "Status" ], suggest_url: "/suggest" }
+    assert_select ".nd-gaps li", count: 2
+    assert_select ".nd-gaps a[href='/suggest']", "Suggest a source"
+
+    assert_empty render(partial: "shared/missing_fields", locals: { fields: [] }).strip
+  end
+
+  test "confidence renders nothing when unknown" do
+    assert_empty render(partial: "shared/confidence", locals: { value: nil }).strip
+  end
+
+  test "category pills mark the current one and show counts when given" do
+    render partial: "shared/category_pills", locals: { current: Category.find("fuel"), counts: { "fuel" => 11 } }
+
+    assert_select "a.nd-pill", count: 8
+    assert_select "a.nd-pill[aria-current='page']", /Fuel suppliers/
+    assert_select "a.nd-pill[aria-current='page'] .nd-num", "11"
+    assert_select "a.nd-pill[href=?]", "/companies?category=power-plants", text: /Power plants/
+  end
+
+  test "category boxes show examples when there are any" do
+    render partial: "shared/category_boxes", locals: { examples: { "fuel" => [ "Centrus Energy", "Urenco USA" ] } }
+
+    assert_select "a.nd-cat", count: 8
+    assert_select "a.nd-cat[href=?] span", "/companies?category=fuel", text: "Centrus Energy, Urenco USA"
+    assert_select "a.nd-cat[href=?] span", "/companies?category=fusion", count: 0
+  end
+
+  test "empty state with and without an action" do
+    render partial: "shared/empty_state", locals: { message: "No results.", action_label: "Clear search", action_url: "/companies" }
+    assert_select ".nd-notice a[href='/companies']", "Clear search"
+
+    render partial: "shared/empty_state", locals: { message: "No results." }
+    assert_select ".nd-notice", /No results./
+  end
+end

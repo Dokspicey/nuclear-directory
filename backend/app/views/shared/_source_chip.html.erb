@@ -1,0 +1,8 @@
+<%# A citation that jumps to the numbered source list on the same page. Locals:
+    number:  the source's number on the page
+    source:  a Source
+    compact: true shows the number only (inside the overview panel)
+    checked: a date to show after the domain, e.g. the fact's last check (optional) %>
+<%= link_to "#source-#{number}", class: "nd-src", aria: { label: "Source #{number}: #{source_domain(source)}" } do %>
+  <sup><%= number %></sup><% unless local_assigns[:compact] %><%= source_domain(source) %><% if local_assigns[:checked] %> · checked <%= data_date(checked) %><% end %><% end %>
+<% end %>
