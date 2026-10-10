@@ -62,6 +62,9 @@ class Directory::PendingFactsTest < ActiveSupport::TestCase
     assert_equal [ organizations(:westinghouse).name, @org.name ],
       pending("relationship").sole.attributes.values_at(:from_organization_name, :to_organization_name)
     assert pending("organization").all? { |fact| fact.attributes.key?(:hq_state) }
+    Directory::FactWriter.write(:organization, { name: "Acme Fission, Inc.", aliases: [ "Acme" ] })
+    assert_equal [ "Acme", "Acme Fission, Inc." ],
+      pending("organization").find { |fact| fact.attributes[:name] == "Acme Fission, Inc." }.attributes[:aliases]
   end
 
   test "only fact kinds" do
