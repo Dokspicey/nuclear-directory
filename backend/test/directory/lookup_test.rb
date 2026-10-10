@@ -169,6 +169,22 @@ class Directory::LookupTest < ActiveSupport::TestCase
     assert_not_includes Directory::Lookup.plant_names, "advanced"
   end
 
+  test "a new company is named for its brand, without the operating arm" do
+    Facility.create!(name: "Seabrook Station")
+    Facility.create!(name: "Point Beach")
+
+    assert_equal "NextEra Energy", Directory::Lookup.brand_name("NextEra Energy Nuclear Seabrook, LLC")
+    assert_equal "NextEra Energy", Directory::Lookup.brand_name("NextEra Energy Point Beach, LLC")
+    assert_equal "Acme", Directory::Lookup.brand_name("Acme Operations Seabrook, LLC")
+  end
+
+  test "a brand the directory has takes that company's name" do
+    Facility.create!(name: "Seabrook Station")
+    Organization.create!(name: "NextEra Energy, Inc.").aliases.create!(alias: "NextEra Energy, Inc.")
+
+    assert_equal "NextEra Energy, Inc.", Directory::Lookup.brand_name("NextEra Energy Nuclear Seabrook, LLC")
+  end
+
   test "dotted initials in a brand are kept as written" do
     Facility.create!(name: "Seabrook Station")
     assert_equal "L.L. Bean", Directory::Lookup.brand_name("L.L. Bean Seabrook, LLC")
