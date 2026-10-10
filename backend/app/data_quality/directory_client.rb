@@ -91,13 +91,16 @@ class DataQuality::DirectoryClient
   # status) from the unit, with the unit's quote as evidence. Never
   # overwrites a field the site already has, and leaves the site's
   # verification alone. Returns a WriteResult, or nil when the unit has no site.
+  # The values come from the unit as stored, not from the candidate, since
+  # a curated unit may have kept its own values over the candidate's.
   def fill_site_from_unit(facility_id, candidate, crawl_run:)
-    parent_id = lookup.facility(id: facility_id)&.parent_id or return
+    unit = lookup.facility(id: facility_id)
+    return unless unit&.parent_id
 
-    fields = candidate.payload.slice(*SITE_FIELDS_FROM_UNIT).compact_blank.symbolize_keys
+    fields = unit.to_h.slice(*SITE_FIELDS_FROM_UNIT.map(&:to_sym)).compact_blank
     return if fields.empty?
 
-    result = fact_writer.write("facility", fields.merge(id: parent_id), fill_blank: true,
+    result = fact_writer.write("facility", fields.merge(id: unit.parent_id), fill_blank: true,
       evidence: [ { source_id: candidate.source_id, quote: candidate.quote, found_by: "crawler", crawl_run_id: crawl_run.id } ])
     write_result(result)
   end

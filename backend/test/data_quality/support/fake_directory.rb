@@ -19,7 +19,8 @@ module FakeDirectory
     def facility(id: nil, slug: nil, name: nil, nrc_docket: nil)
       one_of!(id:, slug:, name:, nrc_docket:)
       Directory::FacilityRef.new(id: @facilities[name], slug: nil, name: name, nrc_docket: nil, parent_id: nil,
-        verification_status: "verified") if @facilities.key?(name)
+        verification_status: "verified", facility_type: nil, status: nil, state: nil, country_code: nil,
+        latitude: nil, longitude: nil) if @facilities.key?(name)
     end
 
     # The fake knows nothing similar; match tests that need it use the real directory.

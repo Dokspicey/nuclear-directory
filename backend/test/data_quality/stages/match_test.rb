@@ -295,6 +295,29 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
     assert_equal 1, run.stats["write_errors"]
   end
 
+  test "a company given only by website matches by that website's domain" do
+    c = candidate("organization", { "name" => "TP Nuclear Holdings", "website" => "https://www.terrapower.com/about" })
+
+    run = match!
+
+    assert_equal organizations(:terrapower).id, c.reload.subject_id
+    assert_match "by domain", c.notes
+    assert_equal 1, run.stats["matched"]
+  end
+
+  test "a second match run for the same source refuses to start while one is running" do
+    # A separate Postgres session plays the other run (tests share one pooled connection).
+    config = ActiveRecord::Base.connection_db_config.configuration_hash
+    other = PG.connect(host: config[:host], port: config[:port], user: config[:username], password: config[:password],
+      dbname: config[:database])
+    other.exec("SELECT pg_advisory_lock(#{Zlib.crc32('data_quality:match:dummy')})")
+
+    error = assert_raises(RuntimeError) { match! }
+    assert_match "already in progress", error.message
+  ensure
+    other&.close
+  end
+
   test "rerunning leaves candidates that already moved on alone" do
     candidate("facility", facility_payload("Arkansas Nuclear 1", "05000313"))
     match!

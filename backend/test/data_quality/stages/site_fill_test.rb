@@ -31,6 +31,18 @@ class DataQuality::Stages::SiteFillTest < ActiveSupport::TestCase
     assert_equal [ "crawler" ], @site.evidence.pluck(:found_by)
   end
 
+  test "the site is filled from the unit as stored, not from the candidate" do
+    run_stage("match")
+    unit = Facility.find_by!(nrc_docket: "05200025")
+    unit.update!(state: "GA")
+    unit.verify!(by: "human:tosin") # curated: the candidate's "TX" won't be applied
+    @site.update!(state: nil)
+
+    run_stage("verify", verifier: PublishEverything.new)
+
+    assert_equal "GA", @site.reload.state
+  end
+
   test "nothing is filled until the unit is verified" do
     run_stage("match")
     run_stage("verify") # default verifier sends everything to review

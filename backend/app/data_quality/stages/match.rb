@@ -40,11 +40,27 @@ class DataQuality::Stages::Match < DataQuality::Stage
       @run = run
       @stats = { "candidates" => 0, "matched" => 0, "proposed" => 0, "needs_review" => 0, "write_errors" => 0 }
 
-      ORDER.each do |kind|
-        candidates.status_new.where(kind: kind).find_each { |candidate| match(candidate) }
+      one_run_at_a_time do
+        ORDER.each do |kind|
+          candidates.status_new.where(kind: kind).find_each { |candidate| match(candidate) }
+        end
       end
 
       @stats
+    end
+
+    # Two match runs over the same source kind would race on the same new
+    # candidates (and could both insert a record), so a second one refuses to
+    # start. A Postgres advisory lock, released when the run ends.
+    def one_run_at_a_time
+      connection = Candidate.connection
+      key = Zlib.crc32("data_quality:match:#{plugin.source_kind}")
+      locked = connection.select_value("SELECT pg_try_advisory_lock(#{key})")
+      raise "Another match run for #{plugin.source_kind} is already in progress" unless locked
+
+      yield
+    ensure
+      connection.select_value("SELECT pg_advisory_unlock(#{key})") if locked
     end
 
     def match(candidate)
@@ -69,7 +85,8 @@ class DataQuality::Stages::Match < DataQuality::Stage
         write(candidate, payload.symbolize_keys.merge(parent_id: found.site.id), existing: false,
           note: "New pending unit under the existing site #{found.site.name}")
       else
-        write(candidate, payload.symbolize_keys, existing: false)
+        # FactWriter may still find a record by a key match didn't use; trust its answer.
+        write(candidate, payload.symbolize_keys)
       end
     end
 
@@ -100,7 +117,9 @@ class DataQuality::Stages::Match < DataQuality::Stage
     end
 
     def resolve_organization(payload)
-      name, domain = payload.values_at("name", "domain").map(&:presence)
+      name = payload["name"].presence
+      # FactWriter derives a domain from the website, so match on it too.
+      domain = payload["domain"].presence || payload["website"].presence
       by_name = directory.organization(name:) if name
       by_domain = directory.organization(domain:) if domain
 
