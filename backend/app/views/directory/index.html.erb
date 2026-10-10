@@ -18,7 +18,7 @@
   <%= render "shared/category_pills", current: listing.category, counts: @counts %>
 
   <div class="nd-listhead">
-    <h1 class="nd-listhead__title"><%= heading %> <span class="nd-num"><%= pluralize(total, noun, plural:) %></span></h1>
+    <h1 class="type-title-md nd-listhead__title"><%= heading %> <span class="type-data nd-listhead__count"><%= pluralize(total, noun, plural:) %></span></h1>
 
     <%= form_with url: companies_path, method: :get, class: "nd-filters" do %>
       <%= hidden_field_tag :category, listing.category&.key, id: nil if listing.category %>
@@ -32,7 +32,7 @@
       <label class="nd-select"><b>Sort</b>
         <%= select_tag :sort, options_for_select(DirectoryListing::SORTS.invert, listing.sort) %>
       </label>
-      <button type="submit" class="nd-btn nd-btn--sm">Apply</button>
+      <button type="submit" class="nd-btn nd-btn--sm">Apply filters</button>
     <% end %>
   </div>
 

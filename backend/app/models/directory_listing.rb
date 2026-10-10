@@ -76,29 +76,45 @@ class DirectoryListing
   # Filter choices that actually occur in published data.
   # Technologies used by published companies, plants or units, plus their
   # parents (SMR in use offers Fission); then coolant types, which only
-  # apply to companies and so aren't offered on the plants list.
+  # apply to companies. Only from the kinds of record this listing can show,
+  # so every option can match something.
   def technology_options
     @technology_options ||= begin
-      used = Technology.where(id: OrganizationTechnology.published.select(:technology_id))
-        .or(Technology.where(id: Facility.published.where.not(technology_id: nil).select(:technology_id)))
+      companies = Organization.published.select(:id)
+      used = [
+        (Technology.where(id: OrganizationTechnology.published.where(organization_id: companies).select(:technology_id)) if lists_companies?),
+        (Technology.where(id: public_facilities.where.not(technology_id: nil).select(:technology_id)) if lists_plants?)
+      ].compact.reduce { |all, one| all.or(one) } || Technology.none
       techs = Technology.where(id: used.select(:id)).or(Technology.where(id: used.select(:parent_id)))
         .order(:name).map { |t| [ t.name, t.key ] }
-      coolants = Role.where(parent: Role.find_by(key: "coolant")).where(id: OrganizationRole.published.select(:role_id))
+      coolants = Role.where(parent: Role.find_by(key: "coolant"))
+        .where(id: OrganizationRole.published.where(organization_id: companies).select(:role_id))
         .order(:name).map { |r| [ "#{r.name} coolant", r.key ] }
-      category&.plants ? techs : techs + coolants
+      lists_companies? ? techs + coolants : techs
     end
   end
 
   # States of published companies and of the public sites the filter checks
-  # (not units), so every option can match something.
+  # (not units), from the kinds of record this listing can show.
   def state_options
-    @state_options ||= (Organization.published.distinct.pluck(:hq_state) + public_sites.distinct.pluck(:state))
-      .compact_blank.uniq.sort
+    @state_options ||= [ (Organization.published.distinct.pluck(:hq_state) if lists_companies?),
+                         (public_sites.distinct.pluck(:state) if lists_plants?) ]
+      .compact.flatten.compact_blank.uniq.sort
   end
+
+  # Companies show unless the Plants and sites category is chosen; plants
+  # show in that category and alongside companies in search results.
+  def lists_companies? = !category&.plants
+  def lists_plants? = category ? category.plants : query.present?
 
   # Sites the public can see: verified ones, and pending ones with at least
   # one published unit (#73). A rejected or unpublished site never shows.
   def public_sites = Facility.published.where(parent_id: nil)
+
+  # Public sites and the published units under them.
+  def public_facilities
+    Facility.where(id: public_sites.select(:id)).or(Facility.published.where(parent_id: public_sites.select(:id)))
+  end
 
   private
     def in_category(scope)
@@ -140,13 +156,17 @@ class DirectoryListing
     end
 
     # The site's name, a published unit's name ("Vogtle Unit 3" finds Plant
-    # Vogtle), or a published link to the site or a unit whose description matches.
+    # Vogtle), a technology of the site or a published unit ("SMR"), or a
+    # published link to the site or a unit whose description matches.
     def matching_plants(scope)
       units = Facility.published.where.not(parent_id: nil).where("facilities.name ILIKE ?", like(query)).select(:parent_id)
       linked = Facility.where(id: FacilityRelationship.published.where("facility_relationships.description ILIKE ?", like(query)).select(:facility_id))
       linked_sites = Facility.where(id: linked.select(:id)).or(Facility.where(id: linked.select(:parent_id))).select(:id)
+      techs = Technology.where("technologies.name ILIKE :q OR technologies.key ILIKE :q", q: like(query)).select(:id)
+      tech_units = Facility.published.where.not(parent_id: nil).where(technology_id: techs).select(:parent_id)
 
       scope.where("facilities.name ILIKE ?", like(query)).or(scope.where(id: units)).or(scope.where(id: linked_sites))
+        .or(scope.where(technology_id: techs)).or(scope.where(id: tech_units))
     end
 
     # A technology key (fission, smr) or a coolant sub-role key (molten_salt).
@@ -197,8 +217,34 @@ class DirectoryListing
         "AND u.id IN (#{Facility.published.where.not(parent_id: nil).select(:id).to_sql})"
     end
 
+    # When searching, names (or a company's aliases) that start with the
+    # query come first, then names that contain it, then matches through a
+    # role, technology or deal; the chosen sort orders within each band.
     def ordered(scope, name_column)
+      scope = scope.order(relevance_sql(name_column, aliases: name_column == "organizations.name")) if query
       sort == "connections" ? scope.order(Arel.sql("connections_count DESC"), name_column) : scope.order(name_column)
+    end
+
+    def relevance_sql(name_column, aliases: false)
+      prefix = "#{ActiveRecord::Base.sanitize_sql_like(query)}%"
+      Arel.sql(ActiveRecord::Base.sanitize_sql_array(
+        [ "CASE WHEN #{name_column} ILIKE ? OR #{alias_match_sql(aliases, :prefix)} THEN 0 " \
+          "WHEN #{name_column} ILIKE ? OR #{alias_match_sql(aliases, :contains)} THEN 1 ELSE 2 END",
+          prefix, like(query) ]
+      ))
+    end
+
+    # A company alias that starts with or contains the query, compared
+    # normalized as search does ("Kairos Power, LLC").
+    def alias_match_sql(aliases, position)
+      normalized = OrganizationAlias.normalize(query)
+      return "FALSE" unless aliases && normalized.present?
+
+      escaped = ActiveRecord::Base.sanitize_sql_like(normalized)
+      pattern = position == :prefix ? "#{escaped}%" : "%#{escaped}%"
+      ActiveRecord::Base.sanitize_sql_array([
+        "EXISTS (SELECT 1 FROM organization_aliases oa WHERE oa.organization_id = organizations.id AND oa.normalized_alias LIKE ?)", pattern
+      ])
     end
 
     def like(text) = "%#{ActiveRecord::Base.sanitize_sql_like(text.to_s)}%"
