@@ -6,10 +6,17 @@
 # - supported but less sure, disputed, or not enough in the source: review,
 #   with the model's reason
 # The agent never rejects on its own; v1 leaves rejections to a person.
+#
+# A plug-in can say what its source states as a whole (source_facts), e.g.
+# that every row of NRC's list is an operating US power reactor, so a claim
+# isn't held back because its row doesn't repeat that. "Contradicted" counts
+# only when the model names a different value the source gives; without one
+# (or naming the claim's own value) it's "couldn't confirm".
 class DataQuality::Verifiers::Agent
-  PROMPT_VERSION = "verify-v2"
+  PROMPT_VERSION = "verify-v3"
   BATCH_SIZE = 15
   PUBLISH_AT = 0.8
+  NUMBER = /-?\d+(?:\.\d+)?/
   NOTHING_STORED = DataQuality::Verdict.new(outcome: :review, by_code: true,
     reason: "The source has no stored content, so the claim can't be checked against it")
 
@@ -26,9 +33,11 @@ class DataQuality::Verifiers::Agent
             # No minimum/maximum: not every provider's structured output accepts
             # them. verdict_for sends an out-of-range value to review.
             "confidence" => { "type" => "number", "description" => "0 to 1" },
-            "reason" => { "type" => "string", "description" => "One short sentence, citing the excerpt" }
+            "reason" => { "type" => "string", "description" => "One short sentence, citing the excerpt" },
+            "source_value" => { "type" => "string",
+              "description" => "Only when contradicted: the different value the source gives, copied from the excerpt. Otherwise empty." }
           },
-          "required" => %w[id verdict confidence reason],
+          "required" => %w[id verdict confidence reason source_value],
           "additionalProperties" => false
         }
       }
@@ -42,8 +51,11 @@ class DataQuality::Verifiers::Agent
     Each claim comes with an excerpt from its source. Using ONLY the source and the
     excerpt, decide whether the claim is true:
     - supported: the excerpt states every detail of the claim, or the source plainly implies it
-    - contradicted: the excerpt says something different
+    - contradicted: the excerpt gives a different value for a detail of the claim; copy
+      that value into source_value. If every value matches, it isn't contradicted.
     - not_enough_info: the excerpt doesn't say enough to tell
+    Some sources come with what the source states as a whole (for example, what every
+    row of a list is). Treat those statements as part of every excerpt from that source.
     Don't use outside knowledge, even if you know the answer. Give your confidence from
     0 to 1 and one short reason that points to the excerpt. Answer every claim, by its id.
   TEXT
@@ -71,6 +83,7 @@ class DataQuality::Verifiers::Agent
           "quote" => candidate.quote, "excerpt" => plugin.verification_context(source, candidate.quote) }
       end
 
+      whole = plugin.source_facts(source)
       response = llm.structured(
         role: :verify,
         schema: SCHEMA,
@@ -80,15 +93,16 @@ class DataQuality::Verifiers::Agent
         messages: [
           { role: "system", content: INSTRUCTIONS },
           { role: "user", content: "Source: #{source.title.presence || source.domain} (#{source.url})\n\n" \
+            "#{"What the whole source states: #{whole}\n\n" if whole.present?}" \
             "Claims:\n#{JSON.pretty_generate(claims)}" }
         ]
       )
       answers = response.data.fetch("results").index_by { |answer| answer["id"] }
 
-      batch.map { |candidate| [ candidate.id, verdict_for(answers[candidate.id.to_s]) ] }
+      batch.zip(claims).map { |candidate, claim| [ candidate.id, verdict_for(answers[candidate.id.to_s], claim["claim"]) ] }
     end
 
-    def verdict_for(answer)
+    def verdict_for(answer, claim)
       return DataQuality::Verdict.new(outcome: :review, reason: "The verifier gave no answer for this claim") unless answer
 
       reason = answer["reason"].to_s.squish
@@ -113,10 +127,28 @@ class DataQuality::Verifiers::Agent
             reason: "The verifier thinks the source supports this, but is only #{(raw * 100).floor}% sure: #{reason}")
         end
       when "contradicted"
-        DataQuality::Verdict.new(outcome: :review, confidence:, reason: "The verifier says the source contradicts this: #{reason}")
+        if differs_from_claim?(answer["source_value"], claim)
+          DataQuality::Verdict.new(outcome: :review, confidence:,
+            reason: "The verifier says the source contradicts this (the source gives #{answer['source_value'].squish}): #{reason}")
+        else
+          DataQuality::Verdict.new(outcome: :review, confidence:,
+            reason: "The verifier couldn't confirm this from the source (it named no different value): #{reason}")
+        end
       else
         DataQuality::Verdict.new(outcome: :review, confidence:, reason: "The verifier couldn't confirm this from the source: #{reason}")
       end
+    end
+
+    # A contradiction needs a value the claim doesn't already have. Numbers
+    # compare by value at the claim's precision, so the source's
+    # -76.698599999 is the claim's -76.6986, not a different longitude.
+    def differs_from_claim?(value, claim)
+      value = value.to_s.squish
+      return false if value.empty? || claim.include?(value)
+      return true unless value.match?(/\A#{NUMBER}\z/)
+
+      number = BigDecimal(value)
+      claim.scan(NUMBER).none? { |stated| number.round(stated[/\.(\d+)/, 1].to_s.length) == BigDecimal(stated) }
     end
 
     # Built on first use, so nothing needs an OpenRouter key until verify runs.

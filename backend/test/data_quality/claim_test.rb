@@ -8,6 +8,12 @@ class DataQuality::ClaimTest < ActiveSupport::TestCase
       claim("facility", { "name" => "Vogtle 3", "nrc_docket" => "05200025", "facility_type" => "power_reactor", "status" => "operating" })
   end
 
+  test "an EIA update names the unit it's for, not an empty plant name" do
+    assert_equal "The plant “Surry” unit 1 (VA, EIA plant 3806), with capacity 838.0 MW, state VA, latitude 37.1661, and longitude -76.6986.",
+      claim("facility", { "identify" => { "name" => "Surry", "unit" => "1", "state" => "VA", "eia_plant_id" => "3806" },
+        "capacity_mw" => "838.0", "state" => "VA", "latitude" => "37.1661", "longitude" => "-76.6986" })
+  end
+
   test "roles and technologies are in visitors' words" do
     assert_equal "Kairos Power is a reactor developer.",
       claim("organization_role", { "organization" => { "name" => "Kairos Power" }, "role" => "reactor_vendor" })

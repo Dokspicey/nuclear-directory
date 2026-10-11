@@ -17,8 +17,8 @@ class DataQuality::Verifiers::AgentTest < ActiveSupport::TestCase
 
     def structured(role:, messages:, schema:, schema_name:, crawl_run:, reasoning_effort: nil)
       claims = JSON.parse(messages.last[:content].split("Claims:\n", 2).last)
-      @calls << { role:, reasoning_effort:, claims: }
-      results = claims.filter_map { |claim| (answer = @decide.call(claim)) && answer.merge("id" => claim["id"]) }
+      @calls << { role:, reasoning_effort:, claims:, content: messages.last[:content] }
+      results = claims.filter_map { |claim| (answer = @decide.call(claim)) && { "source_value" => "" }.merge(answer, "id" => claim["id"]) }
       errors = JSONSchemer.schema(schema).validate({ "results" => results }).to_a
       raise "fake answered outside the schema: #{errors.first["error"]}" if errors.any?
 
@@ -42,7 +42,7 @@ class DataQuality::Verifiers::AgentTest < ActiveSupport::TestCase
     verdict = verdicts(model, [ acme ]).fetch(acme.id)
 
     assert_equal [ :publish, 0.95 ], [ verdict.outcome, verdict.confidence ]
-    assert_equal "verify-v2", @run.reload.prompt_version
+    assert_equal "verify-v3", @run.reload.prompt_version
     call = model.calls.sole
     assert_equal [ :verify, "low" ], [ call[:role], call[:reasoning_effort] ]
     assert_equal "There is a company named “Acme Nuclear”.", call[:claims].sole["claim"]
@@ -52,7 +52,8 @@ class DataQuality::Verifiers::AgentTest < ActiveSupport::TestCase
   test "anything short of a confident yes goes to review, with the model's reason" do
     answers = {
       "Unsure Co" => { "verdict" => "supported", "confidence" => 0.6, "reason" => "Only hinted at." },
-      "Wrong Co" => { "verdict" => "contradicted", "confidence" => 0.9, "reason" => "The excerpt names someone else." },
+      "Wrong Co" => { "verdict" => "contradicted", "confidence" => 0.9, "reason" => "The excerpt names someone else.",
+                     "source_value" => "Other Co" },
       "Vague Co" => { "verdict" => "not_enough_info", "confidence" => 0.2, "reason" => "Not mentioned." }
     }
     candidates = answers.keys.map { |name| candidate(name) }
@@ -61,8 +62,39 @@ class DataQuality::Verifiers::AgentTest < ActiveSupport::TestCase
 
     assert results.values.all? { |verdict| verdict.outcome == :review }, "never published, never rejected"
     assert_match "only 60% sure: Only hinted at.", results[candidates[0].id].reason
-    assert_match "contradicts this: The excerpt names someone else.", results[candidates[1].id].reason
+    assert_match "contradicts this (the source gives Other Co): The excerpt names someone else.", results[candidates[1].id].reason
     assert_match "couldn't confirm this from the source: Not mentioned.", results[candidates[2].id].reason
+  end
+
+  test "contradicted counts only when the model names a value the claim doesn't have" do
+    acme = Candidate.create!(source: @source, kind: "facility", quote: "Acme Nuclear",
+      payload: { "name" => "Acme 1", "latitude" => "37.1661", "longitude" => "-76.6986", "capacity_mw" => "838.0" })
+    said = ->(value) do
+      model = FakeModel.new { { "verdict" => "contradicted", "confidence" => 0.9, "reason" => "Looks off.", "source_value" => value } }
+      verdicts(model, [ acme ]).fetch(acme.id)
+    end
+
+    [ "", "  ", "-76.6986", "-76.698599999999999", "838", "Acme 1" ].each do |value|
+      verdict = said.call(value)
+      assert_equal :review, verdict.outcome
+      assert_match "couldn't confirm this from the source (it named no different value): Looks off.", verdict.reason, value.inspect
+    end
+
+    [ "-76.70", "850", "Acme 2" ].each do |value|
+      assert_match "contradicts this (the source gives #{value}): Looks off.", said.call(value).reason, value.inspect
+    end
+  end
+
+  test "what the whole source states is sent with its claims, only when the plug-in says something" do
+    plugin = Class.new(DummyPlugin) { def source_facts(_source) = "Every row is a reactor." }.new
+    model = FakeModel.new
+
+    Agent.new(llm: model).verdicts([ candidate("Acme Nuclear") ], run: @run, plugin: plugin)
+    verdicts(model, [ candidate("NewCo Fission") ])
+
+    with, without = model.calls.map { |call| call[:content] }
+    assert_includes with, "What the whole source states: Every row is a reactor.\n\nClaims:"
+    assert_not_includes without, "What the whole source states"
   end
 
   test "a claim the model doesn't answer goes to review" do

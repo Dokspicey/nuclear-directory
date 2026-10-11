@@ -36,6 +36,15 @@ class DataQuality::Plugins::EiaGeneratorsTest < ActiveSupport::TestCase
       .tap { approve_recommended }
   end
 
+  test "tells the verifier every row is a US nuclear power reactor and names the columns, for the file only" do
+    facts = plugin.source_facts(Source.new(url: FILE, source_kind: "eia_generators"))
+
+    [ "technology is Nuclear", "plant type: power reactor", "country code US", "Entity Name is the utility that operates" ]
+      .each { |said| assert_includes facts, said }
+    assert_includes facts, Plugin::Workbook::COLUMNS.values.join(", "), "in the stored CSV's order"
+    assert_nil plugin.source_facts(Source.new(url: Plugin::INDEX_URL, source_kind: Plugin::INDEX_SOURCE_KIND))
+  end
+
   test "reads only the nuclear rows, keeping EIA's values verbatim" do
     generators = Workbook.nuclear_generators(file_fixture("eia/generators_sample.xlsx").binread)
 

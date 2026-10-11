@@ -38,8 +38,13 @@ module DataQuality::Claim
       "There is a company named “#{payload['name']}”#{details(payload.except('name'))}."
     when "organization_alias"
       "#{name_of(payload['organization'])} is also known as “#{payload['alias']}”."
+    # Enrichment (EIA) names an existing unit in "identify" and sets values on it.
     when "facility"
-      "There is a plant named “#{payload['name']}”#{details(payload.except('name'))}."
+      if (unit = payload["identify"]).is_a?(Hash)
+        "#{unit_name(unit)}#{details(payload.except('identify'))}."
+      else
+        "There is a plant named “#{payload['name']}”#{details(payload.except('name'))}."
+      end
     # Links carry every detail approval would publish (ownership %, dates,
     # description), so nothing is published that the verifier didn't check.
     when "facility_relationship"
@@ -80,7 +85,14 @@ module DataQuality::Claim
     docket ? "#{name_of(ends)} (NRC docket #{docket})" : name_of(ends)
   end
 
+  # "Surry unit 1 (VA, EIA plant 3806)"
+  def self.unit_name(unit)
+    where = [ unit["state"], ("EIA plant #{unit['eia_plant_id']}" if unit["eia_plant_id"].present?) ].compact_blank
+    "The plant “#{unit['name']}”#{" unit #{unit['unit']}" if unit['unit'].present?}" \
+      "#{" (#{where.join(', ')})" if where.any?}"
+  end
+
   def self.verb(type) = RELATIONSHIP_VERBS.fetch(type.to_s, humanize(type))
   def self.humanize(value) = value.to_s.humanize(capitalize: false)
-  private_class_method :details, :value_text, :name_of, :facility_name, :verb, :humanize
+  private_class_method :details, :value_text, :name_of, :facility_name, :unit_name, :verb, :humanize
 end

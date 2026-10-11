@@ -58,6 +58,18 @@ class DataQuality::Plugins::EiaGenerators < DataQuality::Plugin
   # service…) is left blank rather than guessed.
   STATUSES = { "OP" => "operating" }.freeze
 
+  # The stored CSV keeps only nuclear rows of the Operating sheet and drops
+  # the Technology column, so the verifier is told what every row is.
+  def source_facts(source)
+    return unless source.source_kind == source_kind
+
+    "This is the Operating sheet of EIA's monthly generator inventory (Form EIA-860M), kept to " \
+      "generators whose technology is Nuclear. Every row is a nuclear power reactor (plant type: " \
+      "power reactor) at a plant in the US (country code US). Columns, in order: " \
+      "#{Workbook::COLUMNS.values.join(', ')}. Status is EIA's status for the unit, e.g. " \
+      "\"(OP) Operating\". Entity Name is the utility that operates the plant."
+  end
+
   def extract(source, _run)
     rows = CSV.parse(source.content_text.to_s, headers: true).reject { |row| row["state"].blank? || row["plant_name"].blank? }
     rows.map { |row| enrichment(row) } + rows.group_by { |row| row["eia_plant_id"] }.flat_map { |_, plant| plant_candidates(plant) }
