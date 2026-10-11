@@ -102,6 +102,10 @@
   /* Source chip */
   .nd-fact { font-size: 15px; line-height: 24px; }
   .nd-src { font: 400 11px/16px var(--font-mono); display: inline-flex; align-items: center; gap: var(--nd-space-1); padding: 1px 6px; margin-left: var(--nd-space-1); border: var(--nd-hairline) solid var(--nd-rule); border-radius: var(--nd-radius-sm); color: var(--nd-ink-muted); text-decoration: none; vertical-align: 2px; white-space: nowrap; }
+  /* On a narrow screen a long domain wraps inside the chip, never past it;
+     the check date stays in one piece on the next line. */
+  .nd-src:has(.nd-src__checked) { flex-wrap: wrap; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+  .nd-src__checked { white-space: nowrap; }
   .nd-src:hover { border-color: var(--nd-control); color: var(--nd-ink); }
   .nd-src sup { font-size: 10px; color: var(--nd-ink); vertical-align: 0; }
 
