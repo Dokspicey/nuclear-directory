@@ -6,7 +6,10 @@ class CompaniesController < ApplicationController
     @profile = CompanyProfile.find(params[:slug])
     return if @profile
 
-    current = Organization.find_by_former_slug(params[:slug]) or raise ActiveRecord::RecordNotFound
+    # Only to a company the site shows; a hidden one stays "Page not found".
+    current = Organization.find_by_former_slug(params[:slug])
+    raise ActiveRecord::RecordNotFound unless current && CompanyProfile.find(current.slug)
+
     redirect_to company_path(slug: current.slug), status: :moved_permanently
   end
 end

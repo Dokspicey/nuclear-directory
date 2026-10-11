@@ -13,7 +13,10 @@ class PlantsController < ApplicationController
     @profile = PlantProfile.find(params[:slug])
     return if @profile
 
-    current = Facility.find_by_former_slug(params[:slug]) or raise ActiveRecord::RecordNotFound
+    # Only to a plant the site shows; a hidden one stays "Page not found".
+    current = Facility.find_by_former_slug(params[:slug])
+    raise ActiveRecord::RecordNotFound unless current && Facility.published.exists?(id: current.id)
+
     redirect_to plant_path(slug: current.slug), status: :moved_permanently
   end
 end

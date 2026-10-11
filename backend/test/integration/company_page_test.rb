@@ -254,6 +254,20 @@ class CompanyPageTest < ActionDispatch::IntegrationTest
     assert_redirected_to company_path(slug: "kairos")
   end
 
+  test "a hidden company's old address isn't redirected, and merges stay one hop" do
+    hidden = company("Quiet Co", verified: false)
+    hidden.update!(slug: "quiet-co-renamed")
+    get company_path(slug: "quiet-co")
+    assert_response :not_found
+
+    first = company("Kairos One")
+    second = company("Kairos Two")
+    Directory::FactWriter.merge_organization(from_id: first.id, into_id: second.id, by: "human:tosin")
+    Directory::FactWriter.merge_organization(from_id: second.id, into_id: @kairos.id, by: "human:tosin")
+    get company_path(slug: first.slug)
+    assert_redirected_to company_path(slug: @kairos.slug)
+  end
+
   test "an unverified or unknown company is not found" do
     get company_path(slug: "ghost-partner")
     assert_response :not_found

@@ -162,6 +162,15 @@ class PlantPageTest < ActionDispatch::IntegrationTest
     assert_response :moved_permanently
   end
 
+  test "a hidden plant's old address isn't redirected" do
+    hidden = plant("Quiet Site", verified: false)
+    hidden.update!(slug: "quiet-site-renamed")
+
+    get plant_path(slug: "quiet-site")
+
+    assert_response :not_found
+  end
+
   test "an unsourced unit's address isn't redirected to a row that isn't there" do
     plant("Unit 9", parent: @vogtle)
     get plant_path(slug: "unit-9")
