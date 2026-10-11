@@ -1,0 +1,47 @@
+# Seed research for issue #8 - generated 2026-10-09. Quotes copied from pages fetched this session.
+name: Dominion Energy
+aliases:
+- Dominion Energy Virginia
+website: "https://www.dominionenergy.com"
+hq: null
+country_code: US
+status: active
+roles:
+- key: utility
+  source_url: "https://www.world-nuclear-news.org/articles/framatome-to-provide-outage-services-to-dominion-f"
+  quote: "Framatome recently signed a \"multi-million dollar\" contract with US utility Dominion Energy to support the long-term operation of its nuclear power plant fleet."
+  published: '2021-04-07'
+  confidence: 0.8
+- key: operator
+  source_url: "https://www.world-nuclear-news.org/articles/framatome-to-provide-outage-services-to-dominion-f"
+  quote: "Dominion Energy's operating fleet includes two units at North Anna and two units at Surry in Virginia, two units at Millstone in Connecticut, and one unit at VC Summer in South Carolina."
+  published: '2021-04-07'
+  confidence: 0.8
+technologies:
+- key: fission
+  source_url: "https://www.world-nuclear-news.org/articles/framatome-to-provide-outage-services-to-dominion-f"
+  quote: "Dominion Energy's operating fleet includes two units at North Anna and two units at Surry in Virginia, two units at Millstone in Connecticut, and one unit at VC Summer in South Carolina."
+  published: '2021-04-07'
+  confidence: 0.8
+relationships:
+- type: supplies
+  to: Commonwealth Fusion Systems
+  description: "Signed agreement (Dec 2024): non-financial collaboration - development and technical expertise plus leasing rights for the ARC site in Chesterfield County, VA."
+  source_url: "https://cfs.energy/company/commercial-partners/"
+  quote: "The Virginia utility will provide CFS with development and technical expertise that’ll help connect the first ARC fusion power plant to the grid. In addition, Dominion will offer leasing rights for the planned site for the ARC fusion power plant."
+  confidence: 1.0
+facilities:
+- name: North Anna Power Station
+  type: operates
+  source_url: "https://www.world-nuclear-news.org/articles/framatome-to-provide-outage-services-to-dominion-f"
+  quote: "Dominion Energy's operating fleet includes two units at North Anna and two units at Surry in Virginia, two units at Millstone in Connecticut, and one unit at VC Summer in South Carolina."
+  published: '2021-04-07'
+  confidence: 0.8
+- name: ARC fusion power plant (Chesterfield County, VA)
+  type: owns
+  source_url: "https://world-nuclear-news.org/articles/virginia-site-selected-to-host-fusion-power-plant"
+  quote: Dominion Energy Virginia currently owns the proposed site.
+  published: '2024-12-18'
+  confidence: 0.8
+  note: "Dominion owns the site (James River Industrial Park, Chesterfield County, VA) and offers CFS leasing rights to it; CFS will own and operate the plant. Merged with the CFS plant record by Tosin's decision (2026-10-10)."
+notes: "Amazon-Dominion MOU (Oct 2024) to explore an SMR of ~300 MW near North Anna is non-binding and doesn't fit the relationship types; source: WNN 2024-10-16 'A memorandum of understanding has also been signed with utility company Dominion Energy to look into the development of an SMR project near the company's existing North Anna nuclear power station.' HQ not verified."

@@ -34,6 +34,28 @@ module Seed
       @errors = []
     end
 
+    # Dry run: every name, alias or domain in the files that the database
+    # already gives to a different organization, which would fail the load.
+    # A name listed under merges: doesn't count (it's merged first). Writes
+    # nothing.
+    def collisions
+      docs = @files.to_h { |path| [ File.basename(path, ".yml"), read(path) ] }
+      docs.flat_map do |slug, doc|
+        merging = Array(doc["merges"]).map { |name| OrganizationAlias.normalize(name) }
+        names = [ doc["name"], *doc["aliases"] ].compact_blank
+        target = Organization.find_by(slug:) ||
+          names.lazy.filter_map { |name| OrganizationAlias.find_by(normalized_alias: OrganizationAlias.normalize(name))&.organization }.first
+        owners = names.filter_map do |name|
+          owner = OrganizationAlias.find_by(normalized_alias: OrganizationAlias.normalize(name))&.organization
+          [ name, owner ] if owner && owner != target && !merging.include?(OrganizationAlias.normalize(owner.name))
+        end
+        domain = Organization.domain_from(doc["website"])
+        owner = Organization.find_by(domain:) if domain
+        owners << [ "domain #{domain}", owner ] if owner && owner != target && !merging.include?(OrganizationAlias.normalize(owner.name))
+        owners.map { |name, other| "#{slug}: #{name.inspect} already belongs to #{other.name} (#{other.slug})" }
+      end
+    end
+
     def load!
       docs = @files.to_h { |path| [ File.basename(path, ".yml"), read(path) ] }
       facilities = File.exist?(@facilities_file.to_s) ? Array(read(@facilities_file)["facilities"]) : []
@@ -45,6 +67,7 @@ module Seed
         raise Error, "Seed failed, nothing was written:\n  #{@errors.join("\n  ")}" if @errors.any?
         shared = shared_domains(docs)
 
+        docs.each { |slug, doc| merge_former_organizations(slug, doc) }
         facilities.each { |facility| rename_from_former_name(facility) }
         # Organizations first, so relationships can find the other side.
         docs.each { |slug, doc| write_organization(slug, doc, sources, shared) }
@@ -157,6 +180,25 @@ module Seed
           write(slug, :facility_relationship, { organization_id: organization.id, facility_id: facility.id,
             relationship_type: item["type"], description: item["note"], ownership_pct: item["ownership_pct"] },
             evidence(item, sources), pending: item["pending"])
+        end
+      end
+
+      # merges: names of organizations an earlier seed loaded as their own
+      # company that are now part of this one (one company per brand,
+      # decision #23; e.g. Urenco USA into Urenco). The earlier record is
+      # merged into this one, attributed to the seed's human, so its aliases
+      # and facts move here instead of colliding. Nothing to do on a fresh
+      # database, or once merged.
+      def merge_former_organizations(slug, doc)
+        Array(doc["merges"]).each do |name|
+          former = Directory::Lookup.organization(name:) or next
+          target = Directory::Lookup.organization(slug:)
+          next if target && former.id == target.id
+          next @errors << "#{slug}: can't merge #{name.inspect}: #{doc["name"].inspect} isn't loaded yet" unless target
+
+          result = Directory::FactWriter.merge_organization(from_id: former.id, into_id: target.id, by: VERIFICATION[:by],
+            reason: "One company per brand (decision #23): #{name} is part of #{doc["name"]}")
+          @errors << "#{slug}: merging #{name.inspect}: #{result.errors.join("; ")}" unless result.ok?
         end
       end
 

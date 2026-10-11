@@ -1,0 +1,31 @@
+# Seed research for issue #8 - generated 2026-10-09. Quotes copied from pages fetched this session.
+name: Allied Power
+aliases: []
+website: "https://alliedpwr.com"
+hq: null
+country_code: US
+status: active
+roles:
+- key: reactor_services
+  source_url: "https://alliedpwr.com/?p=6158"
+  quote: "Allied Power, a leading provider of maintenance and specialty services to the power generation industry, today announced that it has signed a multi-year contract extension for nuclear maintenance and technical services with Constellation Energy Generation, LLC, the largest owner and operator of nuclear plants in the United States and the largest producer of emissions-free energy."
+  published: '2023-02-09'
+  confidence: 1.0
+technologies: []
+relationships:
+- type: supplies
+  to: Constellation Energy Corporation
+  description: "Signed multi-year contract extension (Feb 2023): maintenance and modification services at 12 Constellation nuclear plants (21 units) plus fleet-wide staff augmentation through mid-August 2028."
+  source_url: "https://alliedpwr.com/?p=6158"
+  quote: "Allied Power will provide maintenance and modification services for twelve (12) Constellation nuclear plants and 21 units in four states as well as fleet wide staff augmentation services through mid-August 2028, with an option for a five-year renewal."
+  published: '2023-02-09'
+  confidence: 1.0
+- type: subsidiary_of
+  to: Bernhard Capital Partners
+  description: "Allied Power was acquired by private equity firm Bernhard Capital Partners in November 2020 (portfolio company)."
+  source_url: "https://alliedpwr.com/?p=6158"
+  quote: "In November 2020, the Company was acquired by Bernhard Capital Partners, a services and infrastructure-focused private equity management firm investing in middle market businesses providing essential services to owners of critical infrastructure."
+  published: '2023-02-09'
+  confidence: 1.0
+facilities: []
+notes: "Owned by private equity firm Bernhard Capital Partners (acquired Nov 2020). Release datelined Baton Rouge, LA; HQ not explicitly stated."

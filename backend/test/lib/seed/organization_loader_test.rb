@@ -188,6 +188,44 @@ class Seed::OrganizationLoaderTest < ActiveSupport::TestCase
     assert_match "Nowhere Plant", error.message
   end
 
+  test "an organization an earlier seed loaded on its own is merged in, not collided with" do
+    # The earlier seed: Acme USA as its own company, with an alias and a plant.
+    write_file("acme", org("Acme", website: "https://acme.com"))
+    write_file("acme-usa", org("Acme USA", website: "https://acme.com/usa", aliases: [ "AUSA" ],
+      facilities: [ item(name: "Acme Plant", type: "operates") ]))
+    Seed::OrganizationLoader.new(@dir).load!
+    old = Organization.find_by!(slug: "acme-usa")
+
+    # The new seed: Acme USA is part of Acme.
+    File.delete(File.join(@dir, "acme-usa.yml"))
+    write_file("acme", org("Acme", website: "https://acme.com", merges: [ "Acme USA" ], aliases: [ "Acme USA", "AUSA" ],
+      facilities: [ item(name: "Acme Plant", type: "operates") ]))
+    assert_empty Seed::OrganizationLoader.new(@dir).collisions, "a merged name isn't a collision"
+    Seed::OrganizationLoader.new(@dir).load!
+
+    acme = Organization.find_by!(slug: "acme")
+    assert old.reload.unpublished?
+    assert_match "Merged into Acme", old.verification_events.order(:id).last.reason
+    assert_equal "human:tosin", old.verified_by
+    assert_equal acme.id, Directory::Lookup.organization(name: "Acme USA").id
+    assert_equal [ "Acme Plant" ], acme.facility_relationships.map { |link| link.facility.name }
+    assert_empty old.aliases
+
+    Seed::OrganizationLoader.new(@dir).load!
+    assert_equal 1, Organization.where(slug: "acme").count, "a second run has nothing to merge"
+  end
+
+  test "the dry run lists a name another organization already has" do
+    write_file("acme", org("Acme", website: "https://acme.com"))
+    write_file("acme-usa", org("Acme USA", website: "https://acme.com/usa"))
+    Seed::OrganizationLoader.new(@dir).load!
+    File.delete(File.join(@dir, "acme-usa.yml"))
+    write_file("acme", org("Acme", website: "https://acme.com", aliases: [ "Acme USA" ]))
+
+    assert_equal [ "acme: \"Acme USA\" already belongs to Acme USA (acme-usa)" ], Seed::OrganizationLoader.new(@dir).collisions
+    assert_raises(Seed::OrganizationLoader::Error) { Seed::OrganizationLoader.new(@dir).load! }
+  end
+
   test "a facilities.yml plant must be in an organization file" do
     write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com"))
     File.write(facilities_file, { "facilities" => [ { "name" => "Nowhere Plant" } ] }.to_yaml)

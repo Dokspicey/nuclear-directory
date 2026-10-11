@@ -1,0 +1,23 @@
+# Seed research for issue #8 - generated 2026-10-09. Quotes copied from pages fetched this session.
+name: Lowercarbon Capital
+aliases: []
+website: "https://lowercarboncapital.com"
+hq: null
+country_code: US
+status: active
+roles:
+- key: venture_capital
+  source_url: "https://lowercarboncapital.com/"
+  quote: "Until new emissions hit zero, temperatures will keep going up. So we are funding technologies that reduce sources of carbon dioxide, methane, and other greenhouse gases."
+  confidence: 1.0
+technologies: []
+relationships:
+- type: invests_in
+  to: Commonwealth Fusion Systems
+  description: "Existing investor that increased its stake in CFS's Series B2 (Aug 2025). Completed."
+  source_url: "https://cfs.energy/news-and-media/commonwealth-fusion-systems-raises-863-million-series-b2-round-to-accelerate-the-commercialization-of-fusion-energy"
+  quote: "They join existing CFS investors who increased their stakes, including Breakthrough Energy Ventures; Emerson Collective; Eni; Future Ventures; Gates Frontier; Google; Hostplus Superannuation Fund; Khosla Ventures; Lowercarbon Capital; Safar Partners; Eric Schmidt, former CEO of Google; Starlight Ventures; Tiger Global; a large state pension fund and others who support CFS’ leadership in this energy transition."
+  published: '2025-08-28'
+  confidence: 1.0
+facilities: []
+notes: HQ not verified.

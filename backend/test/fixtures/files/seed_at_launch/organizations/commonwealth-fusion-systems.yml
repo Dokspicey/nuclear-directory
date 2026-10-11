@@ -1,0 +1,40 @@
+# Seed research for issue #8 - generated 2026-10-09. Quotes copied from pages fetched this session.
+name: Commonwealth Fusion Systems
+aliases:
+- CFS
+website: "https://cfs.energy"
+hq:
+  city: Devens
+  state: MA
+  source_url: "https://cfs.energy/news-and-media/google-and-commonwealth-fusion-systems-sign-strategic-partnership/"
+  quote: "Google, an investor in CFS since 2021, also is increasing its investment stake in the Devens, Massachusetts-based company."
+country_code: US
+status: active
+roles:
+- key: reactor_vendor
+  source_url: "https://cfs.energy/news-and-media/commonwealth-fusion-systems-raises-863-million-series-b2-round-to-accelerate-the-commercialization-of-fusion-energy"
+  quote: "Commonwealth Fusion Systems (CFS), the largest and leading private fusion company, today announced that it raised $863 million in a Series B2 fundraising round as it moves closer to being the first in the world to commercialize fusion power."
+  published: '2025-08-28'
+  confidence: 1.0
+technologies:
+- key: fusion
+  source_url: "https://cfs.energy/news-and-media/commonwealth-fusion-systems-raises-863-million-series-b2-round-to-accelerate-the-commercialization-of-fusion-energy"
+  quote: "CFS will use the funds to complete SPARC, its fusion demonstration machine, and progress on development work on its first ARC power plant in Virginia."
+  published: '2025-08-28'
+  confidence: 1.0
+relationships:
+- type: supplies
+  to: Type One Energy Group
+  description: "License agreement (2025): Type One licensed CFS's HTS cable technology for its stellarator magnets. Completed/signed license."
+  source_url: "https://cfs.energy/company/commercial-partners/"
+  quote: "Type One Energy licensed CFS’ groundbreaking high-temperature superconducting (HTS) cable technology to develop magnets for its fusion machine, a type of device called a stellarator."
+  confidence: 1.0
+facilities:
+- name: ARC fusion power plant (Chesterfield County, VA)
+  type: owns
+  source_url: "https://world-nuclear-news.org/articles/virginia-site-selected-to-host-fusion-power-plant"
+  quote: "US private fusion company Commonwealth Fusion Systems has announced plans to independently finance, construct, own and operate a commercial-scale fusion power plant in Chesterfield County, Virginia."
+  published: '2024-12-18'
+  confidence: 0.8
+  note: "Planned, ~400 MWe, early 2030s; site leased from Dominion Energy Virginia."
+notes: "HQ conflict: DOE's 2023 milestone announcement lists 'Commonwealth Fusion Systems (Cambridge, MA)'; CFS's 2025 releases describe it as 'the Devens, Massachusetts-based company'. Eni (Italy) is also an investor and ARC offtaker (>$1B) per CFS; not added as an org."
