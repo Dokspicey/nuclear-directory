@@ -107,8 +107,11 @@ once nothing reads them.
 
 **First deploy.** In the Render dashboard: New → Blueprint, pick this repo,
 fill in the secrets it asks for, then Apply. Render creates the database and
-the web service and deploys `main`. The app is at
-`https://nuclear-directory.onrender.com` (or the URL Render shows).
+the web service and deploys `main`. The app is at `https://nuclear-directory.org`
+once its DNS points at Render (see Domain below). The
+`nuclear-directory.onrender.com` address is turned off in `render.yaml`; to
+check a fresh setup before DNS is in place, set `renderSubdomainPolicy:
+enabled` until the domain verifies.
 
 **Seed production** after the first deploy succeeds, and again after each
 deploy that changes `backend/db/seeds.rb` or `backend/db/seeds/`. Deploys
