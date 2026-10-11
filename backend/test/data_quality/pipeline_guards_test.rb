@@ -18,6 +18,16 @@ class DataQuality::PipelineGuardsTest < ActiveSupport::TestCase
       user: config[:username], password: config[:password])
   end
 
+  # Releases the session's locks before closing it: close only sends
+  # Terminate, and the server can hold the lock a moment longer, long enough
+  # for the next test to find it taken.
+  def close_session(session)
+    return unless session
+
+    session.exec("SELECT pg_advisory_unlock_all()")
+    session.close
+  end
+
   test "a second run of the same source kind stops while the first holds the lock" do
     key = Zlib.crc32("data_quality:dummy")
     other = other_session
@@ -27,7 +37,7 @@ class DataQuality::PipelineGuardsTest < ActiveSupport::TestCase
     assert_match "dummy pipeline run is already in progress", error.message
     assert_equal 0, CrawlRun.where(source_kind: "dummy").count, "nothing ran"
   ensure
-    other&.close
+    close_session(other)
   end
 
   test "the lock is free for other sessions once a run finishes" do
@@ -36,7 +46,7 @@ class DataQuality::PipelineGuardsTest < ActiveSupport::TestCase
     other = other_session
     assert_equal "t", other.exec("SELECT pg_try_advisory_lock(#{Zlib.crc32('data_quality:dummy')})").getvalue(0, 0)
   ensure
-    other&.close
+    close_session(other)
   end
 
   test "the lock is released after a run, even a failed one" do
@@ -83,6 +93,6 @@ class DataQuality::PipelineGuardsTest < ActiveSupport::TestCase
     end
     assert_equal 0, CrawlRun.where(source_kind: "nrc_reactor_list").count, "nothing ran while the other run held the lock"
   ensure
-    other&.close
+    close_session(other)
   end
 end
