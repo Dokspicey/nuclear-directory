@@ -168,7 +168,21 @@ class DataQuality::DirectoryClient
 
     result = fact_writer.write(candidate.kind, attributes, evidence:, verification:,
       protect_human_verified: by.nil? || enrichment)
+    # One site per plant (#73): an enriched unit without a site goes under
+    # the site for its EIA plant.
+    group_unit(candidate) if result.ok? && enrichment && candidate.kind == "facility"
     write_result(result)
+  end
+
+  # Puts the NRC unit an enrichment candidate enriched under the site for
+  # its EIA plant. Runs when the enrichment is published, and once for
+  # enrichments published before #73. Returns nil when there's nothing to do:
+  # the unit already has a site, or there's no live site for the plant. The
+  # parent is filled only if it's still blank once the unit is locked, so a
+  # site assigned meanwhile is never replaced.
+  def group_unit(candidate)
+    site_id = site_for_unit(candidate) or return
+    write_result(fact_writer.write(:facility, { id: candidate.subject_id, parent_id: site_id }, fill_blank: true))
   end
 
   # Marks a record match proposed as rejected, once its candidate is
@@ -185,6 +199,19 @@ class DataQuality::DirectoryClient
   ENRICHMENT_KEY = "identify"
 
   def enrichment?(candidate) = candidate.payload.to_h.key?(ENRICHMENT_KEY)
+
+  # The site an enriched NRC unit belongs under: the live (not rejected or
+  # unpublished) site with the EIA plant ID the candidate named. nil when the
+  # unit already has a site, which is never changed (a seed site such as Plant
+  # Vogtle keeps its units), or when EIA hasn't proposed that site yet.
+  def site_for_unit(candidate)
+    plant = candidate.payload.to_h.dig(ENRICHMENT_KEY, "eia_plant_id").presence or return
+    unit = candidate.subject_id && lookup.facility(id: candidate.subject_id) or return
+    return if unit.parent_id || unit.nrc_docket.blank?
+
+    site = lookup.facility(eia_plant_id: plant) or return
+    site.id unless site.id == unit.id || %w[rejected unpublished].include?(site.verification_status)
+  end
 
   # Site fields a verified unit can fill in when the site has none.
   SITE_FIELDS_FROM_UNIT = %w[state facility_type status country_code latitude longitude].freeze
