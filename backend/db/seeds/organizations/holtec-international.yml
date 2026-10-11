@@ -37,7 +37,7 @@ facilities:
   quote: The U.S. Nuclear Regulatory Commission (NRC) has officially accepted Holtec’s initial submittal, which includes the Limited Work Authorization (LWA) and a Comprehensive Environmental Report (ER).
   published: 2026-02
   confidence: 0.8
-  note: Planned; construction permit application Part 1 accepted by NRC (Feb 2026). 'owns' inferred from Holtec being the applicant - verify.
+  note: "Planned. NRC accepted Part 1 of the construction permit application in February 2026."
 notes: 'All Holtec facts come from Enercon''s (a contractor''s) page, so confidence capped at 0.8; Holtec''s own homepage fetched but had little text. Operator role (Palisades restart) needs a Holtec or NRC source. HQ not verified. #63: HQ from the privacy/data-controller address on the contact page (not labeled headquarters). Same company page: "The company is spearheading the historic restart of the Palisades nuclear plant".'
 description:
   text: Company that makes spent fuel storage systems, develops small modular reactors and decommissions nuclear plants.

@@ -39,7 +39,7 @@ facilities:
   source_url: https://www.aboutamazon.com/news/sustainability/amazon-smr-nuclear-energy
   quote: Washington state utility Energy Northwest and SMR developer X-energy plan to build up to 12 SMRs, using X-energy’s advanced nuclear reactor design.
   confidence: 1.0
-  note: Planned; ownership inferred from Energy Northwest leading design-build procurement; verify.
+  note: "Planned."
 - name: Columbia Generating Station
   type: owns
   source_url: https://www.bpa.gov/-/media/Aep/about/publications/news-releases/20250522pr1025jointreleaseenergynorthwestandbpaadvanceplantoexpandregionsnuclearpower.pdf

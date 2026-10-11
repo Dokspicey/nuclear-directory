@@ -26,7 +26,7 @@ technologies:
 relationships:
 - type: supplies
   to: Holtec International
-  description: 'Licensing services: ENERCON supported preparation of Holtec''s construction permit application (Part 1: LWA and comprehensive ER) for Palisades Pioneer Units 1 & 2; NRC accepted it Feb 2026. Completed deliverable.'
+  description: "Licensing services: ENERCON helped prepare Part 1 of Holtec's construction permit application (limited work authorization request and environmental report) for Palisades Pioneer Units 1 & 2, which NRC accepted in February 2026."
   source_url: https://www.enercon.com/nrc-accepts-holtec/
   quote: ENERCON is proud to have supported Holtec in preparation of the Construction Permit Application LWA and Comprehensive ER.
   published: 2026-02

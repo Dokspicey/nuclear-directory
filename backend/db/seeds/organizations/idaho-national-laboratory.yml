@@ -26,7 +26,7 @@ facilities:
   source_url: https://www.energy.gov/node/3379090
   quote: The Advanced Test Reactor (ATR) at Idaho National Laboratory is the largest and most powerful research reactor in the world.
   confidence: 1.0
-  note: Research/test reactor, in operation since 1967 (per DOE page). Quote places ATR at INL; INL as operator is inferred (DOE page does not literally say 'operated by INL').
+  note: "Test reactor at INL, in operation since 1967."
 notes: 'Managed by Battelle Energy Alliance for DOE. inl.gov returned 403 (curl and WebFetch); ATR sourced instead from DOE Office of Nuclear Energy''s ''7 Fast Facts'' page. DOME test bed hosts first fueled tests by Westinghouse (eVinci) and Radiant (Kaleidos); DOME is ''operated by DOE’s National Reactor Innovation Center'' per the bulletin, so no INL facility link was recorded. No org-org relationship type fits ''hosts a test''. State ''ID'' inferred from the name - verify. #63: inl.gov returned 403 (blocked), so city (Idaho Falls) not added; seed already has state ID.'
 description:
   text: DOE national laboratory in southeastern Idaho focused on nuclear energy research and development.

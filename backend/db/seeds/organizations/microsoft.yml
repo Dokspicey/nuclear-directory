@@ -31,7 +31,7 @@ technologies:
 relationships:
 - type: offtake_with
   to: Constellation Energy Corporation
-  description: Signed 20-year PPA (Sept 2024) for output of the restarted Crane Clean Energy Center (TMI Unit 1), ~835 MW; deliveries subject to NRC and other approvals.
+  description: "Signed 20-year PPA (Sept 2024) for the output of the restarted Crane Clean Energy Center (TMI Unit 1), about 835 MW; deliveries are subject to NRC and other approvals."
   source_url: https://www.constellationenergy.com/newsroom/2024/Constellation-to-Launch-Crane-Clean-Energy-Center-Restoring-Jobs-and-Carbon-Free-Power-to-The-Grid.html
   quote: 'Constellation (Nasdaq: CEG) announced today the signing of a 20-year power purchase agreement with Microsoft that will pave the way for the launch of the Crane Clean Energy Center (CCEC) and restart of Three Mile Island Unit 1'
   published: '2024-09-20'

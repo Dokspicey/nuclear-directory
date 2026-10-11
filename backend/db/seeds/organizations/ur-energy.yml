@@ -24,7 +24,7 @@ technologies: []
 relationships:
 - type: supplies
   to: U.S. Department of Energy
-  description: Contract awarded (Dec 2022) by DOE's National Nuclear Security Administration to sell 100,000 lb U3O8 to the US strategic uranium reserve at USD 64.47/lb. Signed award; delivery not verified.
+  description: "Contract (Dec 2022) from DOE's National Nuclear Security Administration to sell 100,000 lb of U3O8 to the US strategic uranium reserve at $64.47/lb."
   source_url: https://world-nuclear-news.org/articles/us-uranium-producers-announce-contracts-and-produc
   quote: Ur Energy announced it had been contracted to sell 100,000 pounds U3O8 to the reserve at a sales price of USD64.47.
   published: '2022-12-20'
@@ -39,7 +39,7 @@ facilities:
   source_url: https://www.ur-energy.com/about/overview
   quote: It owns and operates the Lost Creek ISR uranium facility in south-central Wyoming, which has produced more than 3.5 million pounds of U₃O₈ since operations began, and the Shirley Basin ISR operation in central Wyoming, where uranium recovery commenced in April 2026.
   confidence: 1.0
-  note: 'In-situ recovery (ISR) mine with processing plant; operating since 2013. County from Ur-Energy''s Lost Creek page: "Lost Creek ISR Mine, Sweetwater County, Wyoming".'
+  note: "In-situ recovery (ISR) mine with a processing plant, operating since 2013."
 - name: Lost Creek ISR uranium facility
   facility_type: uranium_mine
   state: WY
@@ -56,7 +56,7 @@ facilities:
   source_url: https://www.ur-energy.com/about/overview
   quote: It owns and operates the Lost Creek ISR uranium facility in south-central Wyoming, which has produced more than 3.5 million pounds of U₃O₈ since operations began, and the Shirley Basin ISR operation in central Wyoming, where uranium recovery commenced in April 2026.
   confidence: 1.0
-  note: 'Uranium recovery began April 2026. County from the same page: ''Shirley Basin ISR Uranium Project, Carbon County Wyoming''.'
+  note: "Uranium recovery began in April 2026."
 - name: Shirley Basin ISR operation
   facility_type: uranium_mine
   state: WY
