@@ -24,20 +24,42 @@
   <div class="nd-listhead">
     <h1 class="type-title-md nd-listhead__title"><%= heading %> <span class="type-data nd-listhead__count"><%= pluralize(total, noun, plural:) %></span></h1>
 
-    <%= form_with url: companies_path, method: :get, class: "nd-filters" do %>
-      <%= hidden_field_tag :category, listing.category&.key, id: nil if listing.category %>
-      <%= hidden_field_tag :q, listing.query, id: nil if listing.searching? %>
-      <label class="nd-select"><b>Technology</b>
-        <%= select_tag :technology, options_for_select(listing.technology_options, listing.technology), include_blank: "Any" %>
-      </label>
-      <label class="nd-select"><b>State</b>
-        <%= select_tag :state, options_for_select(listing.state_options, listing.state), include_blank: "Any" %>
-      </label>
-      <label class="nd-select"><b>Sort</b>
-        <%= select_tag :sort, options_for_select(DirectoryListing::SORTS.invert, listing.sort) %>
-      </label>
-      <button type="submit" class="nd-btn nd-btn--sm">Apply filters</button>
-    <% end %>
+    <%# On phones the filters open in a full-screen sheet behind "Filters (N)"
+        (#90). Without JavaScript the sheet is a native popover the button
+        opens and closes on its own; with it, the same contents open in a
+        modal <dialog> (page behind inert) with a live "Show N results". On
+        wide screens, and without popover support, the form shows inline. %>
+    <% active = [ listing.technology, listing.state ].compact.size %>
+    <div class="nd-filterwrap" data-controller="filter-sheet" data-filter-sheet-count-url-value="<%= companies_path(format: :json) %>"
+         data-action="turbo:before-cache@document->filter-sheet#close">
+      <button type="button" class="nd-btn nd-btn--sm nd-filterwrap__open" popovertarget="filter-sheet" popovertargetaction="show" data-action="filter-sheet#open">
+        <%= icon("sliders-horizontal") %>Filters<% if active.positive? %> <span class="type-data">(<%= active %>)</span><% end %>
+      </button>
+      <div id="filter-sheet" class="nd-filtersheet" popover role="group" aria-labelledby="filters-title"
+           data-filter-sheet-target="sheet" data-action="toggle->filter-sheet#toggled">
+        <div class="nd-filtersheet__head">
+          <h2 id="filters-title" class="type-body-strong">Filters</h2>
+          <button type="button" class="nd-btn nd-btn--ghost nd-btn--sm" popovertarget="filter-sheet" popovertargetaction="hide" data-action="filter-sheet#close">Close filters</button>
+        </div>
+        <%= form_with url: companies_path, method: :get, class: "nd-filters", data: { filter_sheet_target: "form", action: "change->filter-sheet#count" } do %>
+          <%= hidden_field_tag :category, listing.category&.key, id: nil if listing.category %>
+          <%= hidden_field_tag :q, listing.query, id: nil if listing.searching? %>
+          <label class="nd-select"><b>Technology</b>
+            <%= select_tag :technology, options_for_select(listing.technology_options, listing.technology), include_blank: "Any", class: "type-input" %>
+          </label>
+          <label class="nd-select"><b>State</b>
+            <%= select_tag :state, options_for_select(listing.state_options, listing.state), include_blank: "Any", class: "type-input" %>
+          </label>
+          <label class="nd-select"><b>Sort</b>
+            <%= select_tag :sort, options_for_select(DirectoryListing::SORTS.invert, listing.sort), class: "type-input" %>
+          </label>
+          <button type="submit" class="nd-btn nd-btn--sm" data-filter-sheet-target="submit">Apply filters</button>
+        <% end %>
+        <p class="sr-only" role="status" data-filter-sheet-target="status"></p>
+      </div>
+      <dialog class="nd-filtersheet nd-filtersheet--modal" aria-labelledby="filters-title" data-filter-sheet-target="dialog"
+              data-action="cancel->filter-sheet#close close->filter-sheet#closed"></dialog>
+    </div>
   </div>
 
   <% if total.zero? %>
