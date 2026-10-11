@@ -17,12 +17,14 @@
     <%= yield :head %>
     <%= render "shared/link_preview" %>
 
-    <%# Enable PWA manifest for installable apps (make sure to enable in config/routes.rb too!) %>
-    <%#= tag.link rel: "manifest", href: pwa_manifest_path(format: :json) %>
-
-    <link rel="icon" href="/icon.png" type="image/png">
+    <%# Site icon: a nucleus with two orbits (script/build_site_icon.py). %>
+    <link rel="icon" href="/favicon.ico" sizes="48x48">
     <link rel="icon" href="/icon.svg" type="image/svg+xml">
-    <link rel="apple-touch-icon" href="/icon.png">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <% ApplicationHelper::THEME_COLORS.each do |scheme, color| %>
+      <meta name="theme-color" media="(prefers-color-scheme: <%= scheme %>)" content="<%= color %>">
+    <% end %>
 
     <%# Fonts: Anton + Roboto Serif (from techequity.us) and Roboto Mono. See DESIGN.md. %>
     <%= render "shared/fonts" %>
