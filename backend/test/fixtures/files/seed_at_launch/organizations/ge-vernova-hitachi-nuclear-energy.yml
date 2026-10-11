@@ -1,0 +1,60 @@
+# Seed research for issue #8 - generated 2026-10-09. Quotes copied from pages fetched this session.
+name: GE Vernova Hitachi Nuclear Energy
+aliases:
+- GVH
+- GE Hitachi Nuclear Energy
+- GEH
+website: "https://www.gevernova.com/nuclear"
+hq: null
+country_code: US
+status: active
+roles:
+- key: reactor_vendor
+  source_url: "https://www.gevernova.com/news/press-releases/nrc-issues-first-us-construction-permit-bwrx-300-small-modular-reactor-tva-clinch-river"
+  quote: "The BWRX-300 is a 300-MW small modular reactor designed to reduce construction complexity by using a simplified configuration and leveraging decades of boiling water reactor operating experience."
+  published: '2026-09-29'
+  confidence: 1.0
+- key: reactor_services
+  source_url: "https://www.gevernova.com/nuclear/services/plant-upgrades/water-chemistry-enhancements"
+  quote: "GE Vernova Hitachi Nuclear Energy is a world-leading provider of advanced reactor technology, fuel and nuclear services."
+  confidence: 1.0
+technologies:
+- key: smr
+  source_url: "https://www.gevernova.com/news/press-releases/nrc-issues-first-us-construction-permit-bwrx-300-small-modular-reactor-tva-clinch-river"
+  quote: "The BWRX-300 is a 300-MW small modular reactor designed to reduce construction complexity by using a simplified configuration and leveraging decades of boiling water reactor operating experience."
+  published: '2026-09-29'
+  confidence: 1.0
+- key: fission
+  source_url: "https://world-nuclear-news.org/articles/nrc-issues-construction-permit-for-first-natrium-plant"
+  quote: "The Natrium reactor is a TerraPower and GE Vernova Hitachi Nuclear Energy technology."
+  published: '2026-03-05'
+  confidence: 0.8
+relationships:
+- type: subsidiary_of
+  to: GE Vernova
+  description: "Joint venture / alliance led by GE Vernova (lead parent) with Hitachi; GVH is GE Vernova's nuclear business operating through its alliance with Hitachi."
+  source_url: "https://www.gevernova.com/news/press-releases/nrc-issues-first-us-construction-permit-bwrx-300-small-modular-reactor-tva-clinch-river"
+  quote: "GE Vernova’s Nuclear energy business, through its global alliance with Hitachi, is a world-leading provider of nuclear fuel bundles, services, and advanced nuclear reactor designs."
+  published: '2026-09-29'
+  confidence: 1.0
+- type: subsidiary_of
+  to: Hitachi, Ltd.
+  description: "Hitachi is the alliance partner in GE Vernova Hitachi Nuclear Energy (formerly GE Hitachi, created 2007 by GE and Hitachi). Ownership split not sourced."
+  source_url: "https://www.terrapower.com/global-nuclear-fuel-and-terrapower-announce-natrium-fuel-facility"
+  quote: "Established in 2007, GEH is a global nuclear alliance created by GE and Hitachi to serve the global nuclear industry."
+  published: '2022-10-21'
+  confidence: 1.0
+facilities:
+- name: Clinch River Nuclear Site Unit 1 (BWRX-300)
+  type: vendor_for
+  source_url: "https://www.gevernova.com/news/press-releases/nrc-issues-first-us-construction-permit-bwrx-300-small-modular-reactor-tva-clinch-river"
+  quote: "The permit is the first issued in the United States for a BWRX-300 and represents a significant milestone for TVA, GVH and the U.S. nuclear industry as the country advances toward a new generation of nuclear power deployment."
+  published: '2026-09-29'
+  confidence: 1.0
+- name: Kemmerer Unit 1 (Natrium)
+  type: vendor_for
+  source_url: "https://world-nuclear-news.org/articles/nrc-issues-construction-permit-for-first-natrium-plant"
+  quote: "The Natrium reactor is a TerraPower and GE Vernova Hitachi Nuclear Energy technology."
+  published: '2026-03-05'
+  confidence: 0.8
+notes: "Coolant/water role removed 2026-10-09 (coordinator-approved edit): GVH's BWR water-chemistry products (zinc injection via GEZIP, NobleChem, hydrogen water chemistry) treat reactor coolant water rather than make a coolant. Global Nuclear Fuel (separate entry) is a GE Vernova-led JV with Hitachi."

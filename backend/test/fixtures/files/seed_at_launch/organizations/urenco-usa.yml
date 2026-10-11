@@ -1,0 +1,42 @@
+# Seed research for issue #8 - generated 2026-10-09. Quotes copied from pages fetched this session.
+name: Urenco USA
+aliases:
+- UUSA
+- Louisiana Energy Services
+website: "https://urenco.com"
+hq:
+  city: Eunice
+  state: NM
+  source_url: "https://urenco.com/news/usa/2024/leu-enrichment-award-u.s-department-of-energy"
+  quote: "Eunice, NM – (December 11, 2024) – Urenco USA has been selected for an Indefinite Delivery/Indefinite Quantity contract for a 10-year period to provide enrichment services for the production of Low-Enriched Uranium (LEU) from new domestic capacity in support of the mission of the Office of Nuclear Energy of the U.S. Department of Energy."
+country_code: US
+status: active
+roles:
+- key: fuel
+  subtype: enrichment
+  source_url: "https://urenco.com/news/usa/2024/leu-enrichment-award-u.s-department-of-energy"
+  quote: "Urenco USA is the only large-scale commercial uranium enrichment facility in the US and has been providing a reliable, domestic supply for more than a decade."
+  published: '2024-12-11'
+  confidence: 1.0
+technologies:
+- key: fission
+  source_url: "https://urenco.com/news/usa/2024/leu-enrichment-award-u.s-department-of-energy"
+  quote: "LEU is uranium enriched up to 5% and supports the operation of the existing fleet of nuclear reactors."
+  published: '2024-12-11'
+  confidence: 1.0
+relationships:
+- type: subsidiary_of
+  to: Urenco
+  description: "Urenco USA is the US enrichment business of the Urenco group (head office London, UK)."
+  source_url: "https://urenco.com/news/usa/2024/leu-enrichment-award-u.s-department-of-energy"
+  quote: "Urenco USA (UUSA) is part of an international company that operates on the cutting-edge of the nuclear energy industry, utilizing the world’s most advanced, energy-efficient, and cost-effective method to enrich uranium."
+  published: '2024-12-11'
+  confidence: 1.0
+facilities:
+- name: Urenco USA enrichment facility (Eunice, NM)
+  type: operates
+  source_url: "https://urenco.com/news/usa/2024/leu-enrichment-award-u.s-department-of-energy"
+  quote: "Urenco USA currently has the capacity to meet approximately one-third of the enrichment needs of U.S. utilities and is expanding to meet additional commercial demand."
+  published: '2024-12-11'
+  confidence: 1.0
+notes: "Subsidiary of Urenco (head office London, UK). DOE LEU IDIQ selection (Dec 2024) is a contract vehicle with no funds stated; not modelled as 'funds'. Urenco USA did not receive a Jan 2026 DOE task order (per secondary coverage). No named US-utility supply contract found; Urenco USA is therefore unconnected in this seed except via DOE notes. HQ taken from dateline/'our Eunice site' - verify."

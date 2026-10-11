@@ -29,6 +29,13 @@ class LinkPreviewTest < ActionDispatch::IntegrationTest
     assert_select "meta[property='og:description'][content^='Who makes the fuel']"
   end
 
+  test "a company with nothing to summarize still says what its page holds" do
+    company("Kairos Power")
+    get company_path(slug: "kairos-power")
+    assert_select "meta[property='og:title'][content=?]", "Kairos Power"
+    assert_select "meta[property='og:description'][content=?]", "Plants and sites, deals and sources."
+  end
+
   test "a category keeps its own preview address; search and filters don't" do
     get companies_path(category: "reactor-developers", state: "CA", q: "x")
     assert_select "meta[property='og:url'][content=?]", "http://www.example.com/companies?category=reactor-developers"
