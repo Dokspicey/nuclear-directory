@@ -5,13 +5,11 @@
   summary = p.description.presence || [ role_tags.first, place(p.hq_city, p.hq_state) ].compact.join(" in ").presence
   record_citations = p.citations_for(p.organization)
   content_for :title, "#{p.name} · Nuclear Directory"
+  content_for :og_title, p.name
+  content_for :og_description, summary || "Deals, plants and sources."
 %>
 <% content_for :head do %>
   <meta name="description" content="<%= sentence_join([ p.name, summary ].compact.join(": "), "Deals, plants and sources.") %>">
-  <meta property="og:type" content="website">
-  <meta property="og:site_name" content="Nuclear Directory">
-  <meta property="og:title" content="<%= p.name %>">
-  <meta property="og:description" content="<%= summary || "Deals, plants and sources." %>">
   <link rel="canonical" href="<%= company_url(slug: p.slug) %>">
 <% end %>
 <%= render "shared/site_header" %>
