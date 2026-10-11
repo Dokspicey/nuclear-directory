@@ -1,0 +1,17 @@
+# Seed research for issue #8 - generated 2026-10-09. Quotes copied from pages fetched this session.
+name: GE Vernova
+aliases:
+- GE Vernova Inc.
+website: "https://www.gevernova.com"
+hq:
+  city: Cambridge
+  state: MA
+  source_url: "https://www.gevernova.com/about"
+  quote: "GE Vernova’s global headquarters in Cambridge, MA reflects our commitment to operating at the center of a vibrant ecosystem defined by talent, innovation, and academic excellence."
+country_code: US
+status: active
+roles: []
+technologies: []
+relationships: []
+facilities: []
+notes: "Lead parent of GE Vernova Hitachi Nuclear Energy and Global Nuclear Fuel (both JVs with Hitachi). Older sources (2022) name 'GE' as the parent; GE Vernova is the successor energy business. Roles left empty (nuclear roles sit with GVH/GNF)."

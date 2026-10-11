@@ -1,0 +1,53 @@
+# Seed research for issue #8 - generated 2026-10-09. Quotes copied from pages fetched this session.
+name: Constellation Energy Corporation
+aliases:
+- Constellation
+- Constellation Energy Generation, LLC
+website: "https://www.constellationenergy.com"
+hq:
+  city: Baltimore
+  state: MD
+  source_url: "https://www.constellationenergy.com/newsroom/2024/Constellation-to-Launch-Crane-Clean-Energy-Center-Restoring-Jobs-and-Carbon-Free-Power-to-The-Grid.html"
+  quote: "Constellation Energy Corporation (Nasdaq: CEG), a Fortune 200 company headquartered in Baltimore, is the largest private-sector power producer in the world and the nation's largest producer of clean and reliable energy."
+country_code: US
+status: active
+roles:
+- key: utility
+  source_url: "https://www.constellationenergy.com/newsroom/2024/Constellation-to-Launch-Crane-Clean-Energy-Center-Restoring-Jobs-and-Carbon-Free-Power-to-The-Grid.html"
+  quote: "We are also the largest nuclear energy company in the U.S. and a leading competitive retail supplier, serving approximately 2.5 million customer accounts nationwide, including 80% of the Fortune 100."
+  published: '2024-09-20'
+  confidence: 1.0
+- key: operator
+  source_url: "https://alliedpwr.com/?p=6158"
+  quote: "Constellation Energy Generation, LLC, the largest owner and operator of nuclear plants in the United States and the largest producer of emissions-free energy."
+  published: '2023-02-09'
+  confidence: 0.8
+technologies:
+- key: fission
+  source_url: "https://www.constellationenergy.com/newsroom/2024/Constellation-to-Launch-Crane-Clean-Energy-Center-Restoring-Jobs-and-Carbon-Free-Power-to-The-Grid.html"
+  quote: "Constellation (Nasdaq: CEG) announced today the signing of a 20-year power purchase agreement with Microsoft that will pave the way for the launch of the Crane Clean Energy Center (CCEC) and restart of Three Mile Island Unit 1"
+  published: '2024-09-20'
+  confidence: 1.0
+relationships:
+- type: supplies
+  to: Helion Energy
+  description: "Power marketer and transmission manager for Helion's first fusion plant serving Microsoft (role named in Helion's 2023 PPA announcement; signed agreement between Helion and Microsoft)."
+  source_url: "https://www.helionenergy.com/newsroom/helion-announces-worlds-first-fusion-ppa-with-microsoft"
+  quote: "Constellation will serve as the power marketer and will manage transmission for the project."
+  published: '2023-05-10'
+  confidence: 1.0
+facilities:
+- name: Crane Clean Energy Center (Three Mile Island Unit 1)
+  type: owns
+  source_url: "https://www.constellationenergy.com/newsroom/2024/Constellation-to-Launch-Crane-Clean-Energy-Center-Restoring-Jobs-and-Carbon-Free-Power-to-The-Grid.html"
+  quote: "Constellation (Nasdaq: CEG) announced today the signing of a 20-year power purchase agreement with Microsoft that will pave the way for the launch of the Crane Clean Energy Center (CCEC) and restart of Three Mile Island Unit 1"
+  published: '2024-09-20'
+  confidence: 1.0
+  note: Restart planned; NRC approval required per source. ~835 MW.
+- name: Clinton Clean Energy Center
+  type: owns
+  source_url: "https://www.constellationenergy.com/newsroom/2025/constellation-meta-sign-20-year-deal-for-clean-reliable-nuclear-energy-in-illinois.html"
+  quote: "the agreement supports the relicensing and continued operations of Constellation’s high-performing Clinton nuclear facility for another two decades"
+  published: '2025-06-03'
+  confidence: 1.0
+notes: "Ownership vs. operation of Crane and Clinton both attributed to Constellation by its own releases ('Constellation's ... Clinton nuclear facility'); 'owns' used. Constellation also announced PPAs with Amazon (Calvert Cliffs, 190 MW) and Google (890 MW, PJM) per related-links on its newsroom; not researched/cited here."

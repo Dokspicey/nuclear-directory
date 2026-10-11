@@ -1,0 +1,24 @@
+# Seed research for issue #8 - generated 2026-10-09. Quotes copied from pages fetched this session.
+name: Lightspeed Venture Partners
+aliases:
+- Lightspeed
+website: "https://lsvp.com"
+hq: null
+country_code: US
+status: active
+roles:
+- key: venture_capital
+  source_url: "https://lsvp.com/"
+  quote: "For over twenty years Lightspeed has been the first investor and an early backer of some of the most innovative companies in the world."
+  confidence: 1.0
+technologies: []
+relationships:
+- type: invests_in
+  to: Helion Energy
+  description: "New investor in Helion's $425M Series F (Jan 2025). Completed."
+  source_url: "https://www.helionenergy.com/newsroom/helion-announces-425m-series-f-investment-to-scale-commercialized-fusion-power"
+  quote: "The oversubscribed and upsized round had participation from new investors, including Lightspeed Venture Partners, SoftBank Vision Fund 2, and a major university endowment, and existing investors including Sam Altman, Mithril Capital, Capricorn Investment Group, Dustin Moskovitz through Good Ventures Foundation, and Nucor."
+  published: '2025-01-28'
+  confidence: 1.0
+facilities: []
+notes: HQ not verified.

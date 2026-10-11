@@ -1,0 +1,38 @@
+# Seed research for issue #8 - generated 2026-10-09. Quotes copied from pages fetched this session.
+name: TRISO-X, LLC
+aliases:
+- TRISO-X
+website: "https://x-energy.com"
+hq: null
+country_code: US
+status: active
+roles:
+- key: fuel
+  subtype: fabrication
+  source_url: "https://x-energy.com/news/triso-x-receives-first-ever-part-70-haleu-fuel-fabrication-license/"
+  quote: "This allows TRISO-X to operate as a commercial fuel supplier, with the authority to maintain continuous HALEU inventories and execute production campaigns sized to meet fleet deployment requirements."
+  published: '2026-02-13'
+  confidence: 1.0
+technologies:
+- key: smr
+  source_url: "https://x-energy.com/news/triso-x-receives-first-ever-part-70-haleu-fuel-fabrication-license/"
+  quote: "TX-2 is currently in the design phase, and would significantly scale TRISO fuel production capacity to support X-energy’s 11 GW commercial pipeline, equivalent to 144 Xe-100 small modular reactors as well as other SMR developers."
+  published: '2026-02-13'
+  confidence: 1.0
+relationships:
+- type: subsidiary_of
+  to: X-Energy, Inc.
+  description: "TRISO-X, LLC is a subsidiary of X-energy Reactor Company, LLC (X-energy's operating company; X-Energy, Inc. is the listed parent as of 2026)."
+  source_url: "https://x-energy.com/news/triso-x-receives-first-ever-part-70-haleu-fuel-fabrication-license/"
+  quote: "TRISO-X, LLC (“TRISO-X” or the “Company”), a subsidiary of X-energy Reactor Company, LLC (“X-energy”) today received a Special Nuclear Material License under 10 CFR Part 70"
+  published: '2026-02-13'
+  confidence: 1.0
+facilities:
+- name: "TRISO-X TX-1 fuel fabrication facility (Oak Ridge Horizon Center, TN)"
+  type: owns
+  source_url: "https://x-energy.com/news/triso-x-receives-first-ever-part-70-haleu-fuel-fabrication-license/"
+  quote: "X-energy and TRISO-X’s first fuel facility, TX-1, is currently under construction at the Oak Ridge Horizon Center, and is part of X-energy’s participation in the U.S. Department of Energy’s Advanced Reactor Demonstration Program."
+  published: '2026-02-13'
+  confidence: 1.0
+  note: NRC Part 70 license Feb 2026; under construction.
+notes: "Subsidiary of X-energy ('a subsidiary of X-energy Reactor Company, LLC'). Operated a pilot line at Oak Ridge National Laboratory since 2016 per X-energy."

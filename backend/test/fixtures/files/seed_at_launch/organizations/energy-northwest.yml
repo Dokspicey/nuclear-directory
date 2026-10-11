@@ -1,0 +1,38 @@
+# Seed research for issue #8 - generated 2026-10-09. Quotes copied from pages fetched this session.
+name: Energy Northwest
+aliases: []
+website: "https://www.energy-northwest.com"
+hq: null
+country_code: US
+status: active
+roles:
+- key: utility
+  source_url: "https://world-nuclear-news.org/articles/joint-venture-selected-to-deliver-cascade-smr-facility"
+  quote: "The public power agency said it is in negotiations with the Cascade Nuclear Partners joint venture to collaboratively complete the planning, design, and construction of the first four out of 12 Xe-100 advanced small modular reactors (SMRs) under a progressive design-build (PDB) model."
+  published: '2025-10-27'
+  confidence: 0.8
+- key: operator
+  source_url: "https://www.energy-northwest.com/generation/columbia-generating-station"
+  quote: "Columbia Generating Station is the northwest’s only commercial nuclear energy facility and is the third largest electricity generator in Washington state, behind the Grand Coulee and Chief Joseph dams."
+  confidence: 1.0
+technologies:
+- key: smr
+  source_url: "https://world-nuclear-news.org/articles/joint-venture-selected-to-deliver-cascade-smr-facility"
+  quote: "Energy Northwest has selected a joint venture of Aecon, Kiewit Nuclear Solutions Co and Black & Veatch to design and build the first phase of the Cascade Advanced Energy Facility near Richland, Washington."
+  published: '2025-10-27'
+  confidence: 0.8
+relationships: []
+facilities:
+- name: Columbia Generating Station
+  type: operates
+  source_url: "https://world-nuclear-news.org/articles/amazon-invests-in-x-energy-unveils-smr-project-plans"
+  quote: "Amazon will fund the initial feasibility phase for the SMR project which is planned for a site near the energy company's Columbia Generating Station nuclear energy facility in Richland."
+  published: '2024-10-16'
+  confidence: 0.8
+- name: Cascade Advanced Energy Facility
+  type: owns
+  source_url: "https://www.aboutamazon.com/news/sustainability/amazon-smr-nuclear-energy"
+  quote: "Washington state utility Energy Northwest and SMR developer X-energy plan to build up to 12 SMRs, using X-energy’s advanced nuclear reactor design."
+  confidence: 1.0
+  note: "Planned; ownership inferred from Energy Northwest leading design-build procurement; verify."
+notes: "Operator quote for Columbia is from Energy Northwest's own page but doesn't literally say 'Energy Northwest operates'; WNN calls it 'the energy company's Columbia Generating Station'. Cascade 'owns' is an inference - verify. HQ not verified."

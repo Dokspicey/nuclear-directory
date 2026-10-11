@@ -88,6 +88,72 @@ module Directory
         nil
       end
     end
+    def self.merge_organization(...) = new.merge_organization(...)
+
+    # Merges one organization into another (one company per brand, decision
+    # #23): a human's decision, so by: must start with "human:". In one
+    # transaction that locks both, everything about from moves to into:
+    # aliases (its name among them, so it still finds into), domain if into
+    # has none, roles, technologies, plant links, company links, evidence and
+    # the candidates attached to it. A fact into already has (or a link that
+    # would point at itself, such as "Urenco USA subsidiary of Urenco") stays
+    # on from and is rejected. Then from is unpublished, and the audit reason
+    # says where it went and what moved. Returns a Result for into.
+    def merge_organization(from_id:, into_id:, by:, reason: nil)
+      raise Invalid, "a merge is a human's decision (by: \"human:…\")" unless by.to_s.start_with?("human:")
+      raise Invalid, "can't merge an organization into itself" if from_id == into_id
+
+      moved = Hash.new(0)
+      ActiveRecord::Base.transaction(requires_new: true) do
+        records = Organization.lock.where(id: [ from_id, into_id ]).order(:id).index_by(&:id)
+        from = records[from_id] or raise Invalid, "no organization with id #{from_id}"
+        into = records[into_id] or raise Invalid, "no organization with id #{into_id}"
+        raise Invalid, "#{into.name} is #{into.verification_status}; merge into a live organization" if into.closed?
+
+        from.aliases.each do |row|
+          if into.aliases.exists?(normalized_alias: row.normalized_alias) then row.destroy!
+          else row.update!(organization: into) && moved["aliases"] += 1
+          end
+        end
+        if (domain = from.domain)
+          from.update_columns(domain: nil)
+          into.update!(domain:) && moved["domain"] += 1 if into.domain.blank?
+        end
+        retired = []
+        { organization_roles: :role_id, organization_technologies: :technology_id,
+          facility_relationships: %i[facility_id relationship_type] }.each do |table, key|
+          from.public_send(table).each do |row|
+            same = into.public_send(table).where(Array(key).index_with { |column| row.public_send(column) })
+            next retired << row if same.exists?
+
+            row.update!(organization: into) && moved[table.to_s] += 1
+          end
+        end
+        Relationship.where(from_organization_id: from.id).or(Relationship.where(to_organization_id: from.id)).each do |row|
+          ends = { from_organization_id: row.from_organization_id, to_organization_id: row.to_organization_id }
+            .transform_values { |id| id == from.id ? into.id : id }
+          duplicate = Relationship.where(**ends, relationship_type: row.relationship_type).where.not(id: row.id).exists?
+          next retired << row if ends.values.uniq.size == 1 || duplicate
+
+          row.update!(ends) && moved["relationships"] += 1
+        end
+        Evidence.where(subject: from).each do |row|
+          duplicate = Evidence.where(subject: into, source_id: row.source_id, quote: row.quote).exists?
+          duplicate ? row.destroy! : row.update!(subject: into) && moved["evidence"] += 1
+        end
+        moved["candidates"] = Candidate.where(subject_type: "Organization", subject_id: from.id).update_all(subject_id: into.id)
+
+        note = "Merged into #{into.name} (##{into.id})"
+        retired.each { |row| row.reject!(by:, reason: "#{note}; #{into.name} already has this, or it would point at itself") unless row.closed? }
+        summary = moved.select { |_, count| count.positive? }.map { |what, count| "#{count} #{what.tr('_', ' ')}" }
+        from.unpublish!(by:, reason: [ reason, "#{note}. Moved: #{summary.join(', ').presence || 'nothing'}" ].compact.join(". "))
+        into.recompute_confidence!
+      end
+      Result.new(kind: :organization, id: into_id, created: false, errors: [])
+    rescue Invalid, ActiveRecord::RecordInvalid => error
+      failure(:organization, error.message)
+    end
+
     def self.fill_site_from_unit(...) = new.fill_site_from_unit(...)
 
     # Fills a site's blank fields (from fields:) with its unit's stored

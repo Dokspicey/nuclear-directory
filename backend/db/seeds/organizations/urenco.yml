@@ -2,6 +2,9 @@
 # 2026-10-10: Urenco USA merged in (one company per brand, Tosin's decision). Its
 # aliases, role, technology and Eunice facility entries moved here unchanged; its
 name: Urenco
+# Loaded as its own company by earlier seeds; merged into this one on a rerun.
+merges:
+- Urenco USA
 aliases:
 - Urenco Group
 - Urenco Limited
