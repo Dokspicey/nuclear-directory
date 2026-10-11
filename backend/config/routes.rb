@@ -13,7 +13,6 @@ Rails.application.routes.draw do
   post "corrections" => "corrections#create", as: :corrections
   get "corrections/sent" => "corrections#sent", as: :correction_sent
 
-  get "about" => "pages#about", as: :about
   get "privacy" => "pages#privacy", as: :privacy
   get "disclaimer" => "pages#disclaimer", as: :disclaimer
   get "bot" => "pages#bot", as: :bot

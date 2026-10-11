@@ -5,7 +5,6 @@
 <% end %>
 <main class="nd-home">
   <h1 class="nd-home__wordmark"><span class="sr-only">Nuclear Directory</span><%= render "shared/wordmark" %></h1>
-  <p class="nd-home__intro type-body">A directory of the companies, power plants and sites in the US nuclear industry, and the deals between them. Each fact links to the public document it came from. <%= link_to "How we check facts", about_path(anchor: "checking"), class: "nd-link" %></p>
 
   <div class="nd-home__search">
     <%= render "shared/search_box", size: :large %>
