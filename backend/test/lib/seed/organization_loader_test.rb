@@ -226,6 +226,14 @@ class Seed::OrganizationLoaderTest < ActiveSupport::TestCase
     assert_raises(Seed::OrganizationLoader::Error) { Seed::OrganizationLoader.new(@dir).load! }
   end
 
+  test "the dry run ignores a website several files share, as the load does" do
+    Organization.create!(name: "Acme Holdings", slug: "acme-holdings", domain: "acme.com")
+    write_file("acme", org("Acme", website: "https://acme.com"))
+    write_file("acme-fuel", org("Acme Fuel", website: "https://acme.com"))
+
+    assert_empty Seed::OrganizationLoader.new(@dir).collisions
+  end
+
   test "a facilities.yml plant must be in an organization file" do
     write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com"))
     File.write(facilities_file, { "facilities" => [ { "name" => "Nowhere Plant" } ] }.to_yaml)

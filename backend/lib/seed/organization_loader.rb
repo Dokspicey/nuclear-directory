@@ -40,6 +40,8 @@ module Seed
     # nothing.
     def collisions
       docs = @files.to_h { |path| [ File.basename(path, ".yml"), read(path) ] }
+      # A website several files share gives no domain when loaded, so it can't collide.
+      shared = shared_domains(docs)
       docs.flat_map do |slug, doc|
         merging = Array(doc["merges"]).map { |name| OrganizationAlias.normalize(name) }
         names = [ doc["name"], *doc["aliases"] ].compact_blank
@@ -50,7 +52,7 @@ module Seed
           [ name, owner ] if owner && owner != target && !merging.include?(OrganizationAlias.normalize(owner.name))
         end
         domain = Organization.domain_from(doc["website"])
-        owner = Organization.find_by(domain:) if domain
+        owner = Organization.find_by(domain:) if domain && !shared.include?(domain)
         owners << [ "domain #{domain}", owner ] if owner && owner != target && !merging.include?(OrganizationAlias.normalize(owner.name))
         owners.map { |name, other| "#{slug}: #{name.inspect} already belongs to #{other.name} (#{other.slug})" }
       end
