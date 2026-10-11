@@ -1,0 +1,26 @@
+# Seed research for issue #8 - generated 2026-10-09. Quotes copied from pages fetched this session.
+name: ENERCON
+aliases:
+- Enercon Services, Inc.
+- ENERCON Services
+website: "https://www.enercon.com"
+hq: null
+country_code: US
+status: active
+roles:
+- key: regulatory_consultant
+  source_url: "https://www.enercon.com/nrc-accepts-holtec/"
+  quote: "ENERCON is proud to have supported Holtec in preparation of the Construction Permit Application LWA and Comprehensive ER."
+  published: 2026-02
+  confidence: 1.0
+technologies: []
+relationships:
+- type: supplies
+  to: Holtec International
+  description: "Licensing services: ENERCON supported preparation of Holtec's construction permit application (Part 1: LWA and comprehensive ER) for Palisades Pioneer Units 1 & 2; NRC accepted it Feb 2026. Completed deliverable."
+  source_url: "https://www.enercon.com/nrc-accepts-holtec/"
+  quote: "ENERCON is proud to have supported Holtec in preparation of the Construction Permit Application LWA and Comprehensive ER."
+  published: 2026-02
+  confidence: 1.0
+facilities: []
+notes: "Also an engineering services firm ('Engineer of Choice contracts at over 90% of nuclear power plants in the United States' per its June 2025 release) - could also qualify as reactor_services. Also prepared the industry's first 80-year subsequent license renewal application. HQ not verified."

@@ -1,0 +1,23 @@
+# Seed research for issue #8 - generated 2026-10-09. Quotes copied from pages fetched this session.
+name: Urenco
+aliases:
+- Urenco Group
+- Urenco Limited
+website: "https://www.urenco.com"
+hq:
+  city: London
+  source_url: "https://urenco.com/news/usa/2024/leu-enrichment-award-u.s-department-of-energy"
+  quote: "With its head office in London, UK, Urenco’s global presence ensures diversity and security of supply for customers through enrichment facilities in Germany, the Netherlands, the UK and the USA."
+country_code: GB
+status: active
+roles:
+- key: fuel
+  subtype: enrichment
+  source_url: "https://urenco.com/news/usa/2024/leu-enrichment-award-u.s-department-of-energy"
+  quote: "Urenco is an international supplier of uranium enrichment services, fuel cycle products and related solutions with sustainability at the core of our business."
+  published: '2024-12-11'
+  confidence: 1.0
+technologies: []
+relationships: []
+facilities: []
+notes: "Non-US parent of Urenco USA; included as counterparty. Legal entity name (e.g. Urenco Limited) not verified."

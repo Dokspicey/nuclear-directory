@@ -1,0 +1,30 @@
+# Seed research for issue #8 - generated 2026-10-09. Quotes copied from pages fetched this session.
+name: Idaho National Laboratory
+aliases:
+- INL
+website: "https://inl.gov"
+hq:
+  state: ID
+country_code: US
+status: active
+roles:
+- key: national_lab
+  source_url: "https://content.govdelivery.com/accounts/USDOEINL/bulletins/3e78907"
+  quote: "INL is the nation’s center for nuclear energy research and development, and also performs research in each of DOE’s strategic goal areas: energy, national security, science and the environment."
+  published: '2025-07-01'
+  confidence: 1.0
+technologies:
+- key: fission
+  source_url: "https://content.govdelivery.com/accounts/USDOEINL/bulletins/3e78907"
+  quote: "DOME will be the first microreactor test bed in the world and leverages existing infrastructure at Idaho National Laboratory to safely house and test fueled reactor experiments that produce up to 20 megawatts of thermal energy."
+  published: '2025-07-01'
+  confidence: 1.0
+relationships: []
+facilities:
+- name: Advanced Test Reactor (ATR)
+  type: operates
+  source_url: "https://www.energy.gov/node/3379090"
+  quote: "The Advanced Test Reactor (ATR) at Idaho National Laboratory is the largest and most powerful research reactor in the world."
+  confidence: 1.0
+  note: "Research/test reactor, in operation since 1967 (per DOE page). Quote places ATR at INL; INL as operator is inferred (DOE page does not literally say 'operated by INL')."
+notes: "Managed by Battelle Energy Alliance for DOE. inl.gov returned 403 (curl and WebFetch); ATR sourced instead from DOE Office of Nuclear Energy's '7 Fast Facts' page. DOME test bed hosts first fueled tests by Westinghouse (eVinci) and Radiant (Kaleidos); DOME is 'operated by DOE’s National Reactor Innovation Center' per the bulletin, so no INL facility link was recorded. No org-org relationship type fits 'hosts a test'. State 'ID' inferred from the name - verify."

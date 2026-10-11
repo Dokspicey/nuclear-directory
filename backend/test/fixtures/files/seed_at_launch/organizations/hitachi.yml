@@ -1,0 +1,17 @@
+# Seed research for issue #8 - generated 2026-10-09. Quotes copied from pages fetched this session.
+name: Hitachi, Ltd.
+aliases:
+- Hitachi
+- Kabushiki Kaisha Hitachi Seisakusho
+website: "https://www.hitachi.com"
+hq:
+  city: Tokyo
+  source_url: "https://www.hitachi.com/en/about/hitachi/"
+  quote: "Headquarters 6-6, Marunouchi 1-chome, Chiyoda-ku, Tokyo, 100-8280 Japan"
+country_code: JP
+status: active
+roles: []
+technologies: []
+relationships: []
+facilities: []
+notes: "Non-US JV partner in GE Vernova Hitachi Nuclear Energy and Global Nuclear Fuel; included as counterparty. Ownership percentages not sourced."

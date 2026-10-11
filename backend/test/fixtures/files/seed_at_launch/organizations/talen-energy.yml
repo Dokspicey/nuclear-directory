@@ -1,0 +1,33 @@
+# Seed research for issue #8 - generated 2026-10-09. Quotes copied from pages fetched this session.
+name: Talen Energy Corporation
+aliases:
+- Talen
+website: "https://talenenergy.com"
+hq:
+  city: Houston
+  state: TX
+  source_url: "https://www.sec.gov/Archives/edgar/data/1622536/000162828025030559/a20250611pressreleasebusin.htm"
+  quote: Talen is headquartered in Houston, Texas.
+country_code: US
+status: active
+roles:
+- key: utility
+  source_url: "https://www.sec.gov/Archives/edgar/data/1622536/000162828025030559/a20250611pressreleasebusin.htm"
+  quote: "Talen Energy Corporation (“Talen,” “we,” or “our”) (NASDAQ: TLN), an independent power producer dedicated to powering the future"
+  published: '2025-06-11'
+  confidence: 1.0
+technologies:
+- key: fission
+  source_url: "https://www.sec.gov/Archives/edgar/data/1622536/000162828025030559/a20250611pressreleasebusin.htm"
+  quote: "to provide carbon-free energy from Talen’s Susquehanna nuclear power plant to Amazon Web Services"
+  published: '2025-06-11'
+  confidence: 1.0
+relationships: []
+facilities:
+- name: Susquehanna Steam Electric Station
+  type: owns
+  source_url: "https://www.sec.gov/Archives/edgar/data/1622536/000162828025030559/a20250611pressreleasebusin.htm"
+  quote: "to provide carbon-free energy from Talen’s Susquehanna nuclear power plant to Amazon Web Services"
+  published: '2025-06-11'
+  confidence: 1.0
+notes: "Talen is an independent power producer (not a regulated utility); tagged utility per role mix, review. All Talen quotes were obtained via WebFetch's summarizer from the SEC 8-K exhibit (curl was blocked by SEC); quotes were returned in fragments and should be re-verified against the raw page. Its operator role is implied but not separately quoted."
