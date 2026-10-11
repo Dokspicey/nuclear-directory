@@ -42,10 +42,12 @@ class AnalyticsTest < ActiveSupport::TestCase
     assert_nil Analytics.capture("search", query: "x")
   end
 
-  test "the browser snippet sends page views only, with query strings stripped" do
+  test "the browser snippet sends page views and page leaves only, with query strings stripped" do
     snippet = Rails.root.join("app/javascript/analytics.js").read
 
     assert_includes snippet, "autocapture: false"
+    assert_includes snippet, "capture_pageleave: true" # bounce rate and time on page
+    refute_match(/capture_performance:\s*true/, snippet, "web vitals load a third-party script")
     assert_includes snippet, "before_send: sanitize"
     assert_includes snippet, 'cookieless_mode: "always"'
   end
