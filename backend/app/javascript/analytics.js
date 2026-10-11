@@ -4,8 +4,9 @@
 //
 // Cookieless and anonymous: nothing is stored in the browser, nobody is
 // identified, no session replay, no surveys, no click autocapture. Only page
-// views are sent, and every URL in them is cut back to its path, so query
-// strings (which can hold an email or a search) never leave the page. The
+// views and page leaves (for bounce rate and time on page) are sent, and
+// every URL in them is cut back to its path, so query strings (which can
+// hold an email or a search) never leave the page. The
 // library loads when the browser is idle, so it never slows a page down.
 const meta = (name) => document.querySelector(`meta[name="${name}"]`)?.content
 
@@ -41,7 +42,7 @@ function start(key, host) {
       persistence: "memory",
       person_profiles: "never",
       capture_pageview: "history_change", // counts Turbo navigations too
-      capture_pageleave: false,
+      capture_pageleave: true, // bounce rate and time on page; same sanitized properties
       autocapture: false, // page views only: no clicks, form events or element text
       disable_session_recording: true,
       disable_surveys: true,
