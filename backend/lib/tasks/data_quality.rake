@@ -1,4 +1,15 @@
 namespace :data_quality do
+  desc "Put NRC units already enriched by EIA under their EIA plant's site (#73, one-off)"
+  task group_units: :environment do
+    directory = DataQuality::DirectoryClient.new
+    grouped = Candidate.status_merged.where(kind: "facility").where("payload ? 'identify'").filter_map do |candidate|
+      result = directory.group_unit(candidate) or next
+      puts "#{candidate.subject_type} #{candidate.subject_id}: #{result.errors.join('; ')}" unless result.success?
+      result if result.success?
+    end
+    puts "Grouped #{grouped.size} units under their sites."
+  end
+
   report = ->(runs) do
     runs.each { |run| puts "#{run.stage.ljust(8)} #{run.status.ljust(10)} #{run.stats.to_json}" }
   end
