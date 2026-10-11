@@ -12,13 +12,11 @@
   details_cited = (p.site_citations + p.units.flat_map { |u| p.citations_for(u) }).uniq(&:first)
   capacity = "#{number_with_precision(p.capacity_mw, precision: 2, strip_insignificant_zeros: true, delimiter: ",")} MWe" if p.capacity_mw
   content_for :title, "#{p.name} · Nuclear Directory"
+  content_for :og_title, p.name
+  content_for :og_description, summary || "Owners, operator, units and sources."
 %>
 <% content_for :head do %>
   <meta name="description" content="<%= [ p.name, summary ].compact.join(": ") %>. Owners, operator, units and sources.">
-  <meta property="og:type" content="website">
-  <meta property="og:site_name" content="Nuclear Directory">
-  <meta property="og:title" content="<%= p.name %>">
-  <meta property="og:description" content="<%= summary || "Owners, operator, units and sources." %>">
   <link rel="canonical" href="<%= plant_url(slug: p.slug) %>">
 <% end %>
 <%= render "shared/site_header" %>
