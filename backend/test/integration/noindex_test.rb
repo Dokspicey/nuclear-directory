@@ -1,8 +1,15 @@
 require "test_helper"
 
-# Preview deploys set NOINDEX=1 (render.yaml); the live site doesn't.
+# NOINDEX is meant for preview deploys only; the live site leaves it unset.
 class NoindexTest < ActionDispatch::IntegrationTest
-  teardown { ENV.delete("NOINDEX") }
+  setup do
+    @saved_noindex = ENV.delete("NOINDEX")
+  end
+
+  teardown do
+    ENV.delete("NOINDEX")
+    ENV["NOINDEX"] = @saved_noindex if @saved_noindex
+  end
 
   test "the live site can be indexed" do
     get root_path

@@ -1,7 +1,6 @@
-# Keeps preview deploys out of search engines. When NOINDEX is set (only on
-# the preview service in render.yaml), every response, assets and /up
-# included, carries X-Robots-Tag and robots.txt disallows everything. The
-# live site never sets it.
+# Keeps preview deploys out of search engines. When NOINDEX is set, every
+# response, assets and /up included, carries X-Robots-Tag and robots.txt
+# disallows everything. Set it on preview deploys only, never on the live site.
 class Noindex
   HEADER = "noindex, nofollow".freeze
 
