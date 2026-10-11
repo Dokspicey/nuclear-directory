@@ -1,4 +1,4 @@
-// Anonymous page views through PostHog (#66). The layout adds the
+// Anonymous page views and page leaves through PostHog (#66). The layout adds the
 // posthog-key / posthog-host meta tags only on public pages, for people (not
 // bots), and only when analytics is configured; see TracksAnalytics.
 //
@@ -43,6 +43,7 @@ function start(key, host) {
       person_profiles: "never",
       capture_pageview: "history_change", // counts Turbo navigations too
       capture_pageleave: true, // bounce rate and time on page; same sanitized properties
+      capture_performance: false, // no web vitals (a third-party script); set here so the dashboard can't turn it on
       autocapture: false, // no clicks, form events or element text
       disable_session_recording: true,
       disable_surveys: true,

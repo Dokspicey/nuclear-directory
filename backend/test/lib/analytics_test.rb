@@ -47,7 +47,7 @@ class AnalyticsTest < ActiveSupport::TestCase
 
     assert_includes snippet, "autocapture: false"
     assert_includes snippet, "capture_pageleave: true" # bounce rate and time on page
-    refute_match(/capture_performance:\s*true/, snippet, "web vitals load a third-party script")
+    assert_includes snippet, "capture_performance: false", "web vitals stay off even if the PostHog dashboard enables them"
     assert_includes snippet, "before_send: sanitize"
     assert_includes snippet, 'cookieless_mode: "always"'
   end
