@@ -7,6 +7,7 @@ class PagesTest < ActionDispatch::IntegrationTest
   test "the privacy page says what analytics records, including how long a page stays open" do
     get privacy_path
 
+    assert_select "h2#counts", "Page views, searches and time on page"
     assert_select "#counts + p", /page views and searches, and how long a page stays open/
     assert_select "#counts ~ p", /each time a page is viewed or closed/
   end
