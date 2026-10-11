@@ -44,6 +44,20 @@ else
   end
 end
 
+# The UI preview must never reach production data or carry production secrets.
+preview = blueprint["services"].find { |service| service["name"] == "nuclear-directory-preview" }
+if preview
+  vars = preview.fetch("envVars", []).to_h { |var| [ var["key"], var ] }
+  database_url = vars["DATABASE_URL"]
+  unless database_url && database_url["sync"] == false && !database_url.key?("fromDatabase") && !database_url.key?("value")
+    problems << "the preview's DATABASE_URL must be sync: false (set by hand to the preview database), never fromDatabase or a value"
+  end
+  forbidden = %w[RAILS_MASTER_KEY OPENROUTER_API_KEY SENTRY_DSN POSTHOG_API_KEY SOLID_QUEUE_IN_PUMA] + vars.keys.grep(/\ABACKUP_/)
+  (forbidden & vars.keys).each { |key| problems << "the preview must not set #{key}" }
+  problems << "the preview must set NOINDEX to \"1\"" unless vars.dig("NOINDEX", "value").to_s == "1"
+  problems << "the preview must not have custom domains" if preview["domains"]
+end
+
 blueprint["databases"].each do |database|
   allow_list = database["ipAllowList"]
   # At most one host: Tosin's Mac for local Metabase (#111), nothing else.
