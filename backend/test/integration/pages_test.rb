@@ -8,6 +8,7 @@ class PagesTest < ActionDispatch::IntegrationTest
     get privacy_path
 
     assert_select "#counts + p", /page views and searches, and how long a page stays open/
+    assert_select "#counts ~ p", /each time a page is viewed or closed/
   end
 
   test "privacy, disclaimer and the crawler page are linked from every page's footer" do

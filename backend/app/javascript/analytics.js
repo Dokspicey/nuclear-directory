@@ -43,7 +43,7 @@ function start(key, host) {
       person_profiles: "never",
       capture_pageview: "history_change", // counts Turbo navigations too
       capture_pageleave: true, // bounce rate and time on page; same sanitized properties
-      autocapture: false, // page views only: no clicks, form events or element text
+      autocapture: false, // no clicks, form events or element text
       disable_session_recording: true,
       disable_surveys: true,
       before_send: sanitize,
