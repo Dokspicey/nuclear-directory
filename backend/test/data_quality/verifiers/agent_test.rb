@@ -68,7 +68,8 @@ class DataQuality::Verifiers::AgentTest < ActiveSupport::TestCase
 
   test "contradicted counts only when the model names a value the claim doesn't have" do
     acme = Candidate.create!(source: @source, kind: "facility", quote: "Acme Nuclear",
-      payload: { "name" => "Acme 1", "latitude" => "37.1661", "longitude" => "-76.6986", "capacity_mw" => "838.0" })
+      payload: { "name" => "Acme 1", "nrc_docket" => "05000424", "latitude" => "37.1661", "longitude" => "-76.6986",
+        "capacity_mw" => "838.0" })
     said = ->(value) do
       model = FakeModel.new { { "verdict" => "contradicted", "confidence" => 0.9, "reason" => "Looks off.", "source_value" => value } }
       verdicts(model, [ acme ]).fetch(acme.id)
@@ -80,7 +81,8 @@ class DataQuality::Verifiers::AgentTest < ActiveSupport::TestCase
       assert_match "couldn't confirm this from the source (it named no different value): Looks off.", verdict.reason, value.inspect
     end
 
-    [ "-76.70", "850", "Acme 2" ].each do |value|
+    # 50 and 66 appear inside the docket and latitude, but as numbers they're new.
+    [ "-76.70", "850", "Acme 2", "50", "66" ].each do |value|
       assert_match "contradicts this (the source gives #{value}): Looks off.", said.call(value).reason, value.inspect
     end
   end

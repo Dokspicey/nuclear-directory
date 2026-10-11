@@ -67,7 +67,7 @@ class DataQuality::Plugins::EiaGenerators < DataQuality::Plugin
       "generators whose technology is Nuclear. Every row is a nuclear power reactor (plant type: " \
       "power reactor) at a plant in the US (country code US). Columns, in order: " \
       "#{Workbook::COLUMNS.values.join(', ')}. Status is EIA's status for the unit, e.g. " \
-      "\"(OP) Operating\". Entity Name is the utility that operates the plant."
+      "\"(OP) Operating\". Entity Name is the entity that reports the generator to EIA."
   end
 
   def extract(source, _run)

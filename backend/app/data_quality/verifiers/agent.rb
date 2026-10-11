@@ -144,8 +144,10 @@ class DataQuality::Verifiers::Agent
     # -76.698599999 is the claim's -76.6986, not a different longitude.
     def differs_from_claim?(value, claim)
       value = value.to_s.squish
-      return false if value.empty? || claim.include?(value)
-      return true unless value.match?(/\A#{NUMBER}\z/)
+      return false if value.empty?
+      # Text by substring; a number only against the claim's numbers, so 50
+      # isn't "already in" docket 05000424.
+      return !claim.include?(value) unless value.match?(/\A#{NUMBER}\z/)
 
       number = BigDecimal(value)
       claim.scan(NUMBER).none? { |stated| number.round(stated[/\.(\d+)/, 1].to_s.length) == BigDecimal(stated) }
