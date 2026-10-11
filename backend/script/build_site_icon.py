@@ -1,7 +1,7 @@
 """Draw the site icon: a nucleus with two crossed orbits, paper on ink. The
 one place an atom is allowed (DESIGN.md, Iconography).
 
-Two steps, from backend/. First the SVGs:
+Three steps, from backend/. First the SVGs:
   python script/build_site_icon.py svg public/icon.svg icon-maskable.svg
 then a 1024px PNG of each (macOS):
   qlmanage -t -s 1024 -o . public/icon.svg icon-maskable.svg
