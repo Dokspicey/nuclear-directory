@@ -18,10 +18,10 @@
     <%= render "shared/link_preview" %>
 
     <%# Site icon: a nucleus with two orbits (script/build_site_icon.py). %>
-    <link rel="icon" href="/favicon.ico" sizes="48x48">
-    <link rel="icon" href="/icon.svg" type="image/svg+xml">
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" href="<%= site_icon_path("favicon.ico") %>" sizes="48x48">
+    <link rel="icon" href="<%= site_icon_path("icon.svg") %>" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="<%= site_icon_path("apple-touch-icon.png") %>">
+    <link rel="manifest" href="<%= site_icon_path("manifest.webmanifest") %>">
     <% ApplicationHelper::THEME_COLORS.each do |scheme, color| %>
       <meta name="theme-color" media="(prefers-color-scheme: <%= scheme %>)" content="<%= color %>">
     <% end %>

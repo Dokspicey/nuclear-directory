@@ -6,15 +6,16 @@ class SiteIconTest < ActionDispatch::IntegrationTest
   test "every page links the full icon set, the manifest and both theme colours" do
     get root_path
 
-    assert_select "link[rel=icon][href='/favicon.ico']", 1
-    assert_select "link[rel=icon][href='/icon.svg'][type='image/svg+xml']", 1
-    assert_select "link[rel=apple-touch-icon][href='/apple-touch-icon.png']", 1
-    assert_select "link[rel=manifest][href='/manifest.webmanifest']", 1
+    version = "?v=#{ApplicationHelper::SITE_ICON_VERSION}"
+    assert_select "link[rel=icon][href=?]", "/favicon.ico#{version}", 1
+    assert_select "link[rel=icon][type='image/svg+xml'][href=?]", "/icon.svg#{version}", 1
+    assert_select "link[rel=apple-touch-icon][href=?]", "/apple-touch-icon.png#{version}", 1
+    assert_select "link[rel=manifest][href=?]", "/manifest.webmanifest#{version}", 1
     assert_select "meta[name=theme-color][media='(prefers-color-scheme: light)'][content=?]", ApplicationHelper::THEME_COLORS[:light]
     assert_select "meta[name=theme-color][media='(prefers-color-scheme: dark)'][content=?]", ApplicationHelper::THEME_COLORS[:dark]
   end
 
-  test "the manifest names the site and lists icons that exist, one of them maskable" do
+  test "the manifest names the site and lists versioned icons that exist, one of them maskable" do
     manifest = JSON.parse(Rails.public_path.join("manifest.webmanifest").read)
 
     assert_equal "Nuclear Directory", manifest["name"]
@@ -22,7 +23,12 @@ class SiteIconTest < ActionDispatch::IntegrationTest
     assert_includes manifest["icons"].map { |icon| icon["sizes"] }, "192x192"
     assert_includes manifest["icons"].map { |icon| icon["sizes"] }, "512x512"
     assert manifest["icons"].any? { |icon| icon["purpose"] == "maskable" }
-    manifest["icons"].each { |icon| assert Rails.public_path.join(icon["src"].delete_prefix("/")).file?, icon["src"] }
+    manifest["icons"].each do |icon|
+      path, version = icon["src"].delete_prefix("/").split("?")
+      assert Rails.public_path.join(path).file?, icon["src"]
+      # Same version as the layout's links, so a new icon reaches installed copies too.
+      assert_equal "v=#{ApplicationHelper::SITE_ICON_VERSION}", version, icon["src"]
+    end
   end
 
   test "the manifest is served as a web app manifest" do
