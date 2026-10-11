@@ -52,7 +52,10 @@ class CompanyPageTest < ActionDispatch::IntegrationTest
       assert_select "a[href='/companies/google']", "Google"
       assert_select ".nd-factrow__detail", "500 MW by 2035."
       assert_select ".nd-quote", "“Kairos Power and Google have signed”"
-      assert_select "a.nd-src[href='#source-1']", /kairospower.com · checked 2026-10-09/
+      assert_select "a.nd-src[href='#source-1']", /kairospower.com · checked 2026-10-09/ do
+        # On a narrow screen the date wraps as one piece (#90).
+        assert_select "span.nd-src__checked", "· checked 2026-10-09"
+      end
       assert_select ".nd-conf", /High/
     end
     assert_select ".nd-factrow", text: /US Department of Energy\s+supplies\s+Kairos Power/

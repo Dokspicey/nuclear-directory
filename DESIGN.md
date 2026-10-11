@@ -34,7 +34,7 @@ The system is **monochrome**. Ink on paper, a gray scale, hairlines and three ty
 
 1. **Sources are first-class UI.** Every fact on a profile carries a `SourceChip`: where it came from and when it was checked. Provenance is part of the layout, never a footnote.
 2. **Dense but calm.** Researchers want a lot on screen. Get density from type hierarchy and hairlines, not from boxes, color or icons.
-3. **Neutral and credible.** No nuclear clichés: no glowing green, no radiation trefoil, no atom icons, no gradients, no hype words.
+3. **Neutral and credible.** No nuclear clichés: no glowing green, no radiation trefoil, no atom icons (the site icon is the one exception, see Iconography), no gradients, no hype words.
 4. **One system.** Every screen is built from these tokens and components, in light and dark.
 
 ## Content fundamentals
@@ -124,7 +124,7 @@ Not on the home page: `coolant` and its sub-roles, `regulatory_consultant`, `gov
 - Icons take `currentColor`: `ink` by default, `ink-muted` beside metadata, `on-inverse` on the banner. Inline the SVG so the colour follows the text.
 - Fixed meanings: `magnifying-glass` search · `sliders-horizontal` filters · `graph` relationship map · `buildings` organization · `factory` facility · `link` source · `arrow-square-out` opens a source · `check` verified · `clock` pending · `x` rejected · `map-pin` location · `coins` investment · `plug` power and offtake · `flag` report a correction · `download-simple` export · `warning-circle` something that didn't go through: an admin action, or a failed pipeline run (always next to words; never for an advisory notice such as the 80% budget line). Don't reuse one for another meaning.
 - Icons support a word; they never replace one. Status and relationship types are always written out.
-- Never use atom, radiation or lightning icons.
+- Never use atom, radiation or lightning icons. The one exception is the site icon (favicon and home-screen icon): a nucleus with two crossed orbits, paper on ink, drawn by `backend/script/build_site_icon.py`.
 
 ## Logos
 

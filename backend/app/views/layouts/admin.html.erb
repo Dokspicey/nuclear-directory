@@ -7,7 +7,7 @@
     <meta name="robots" content="noindex, nofollow">
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
-    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <link rel="icon" href="<%= site_icon_path("icon.svg") %>" type="image/svg+xml">
     <%= render "shared/fonts" %>
     <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
     <%= javascript_importmap_tags %>

@@ -1,3 +1,1 @@
-<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="256" cy="256" r="256" fill="red"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" fill="#121212"/><g fill="none" stroke="#f7f7f5" stroke-width="40"><ellipse cx="256" cy="256" rx="200" ry="84" transform="rotate(45 256 256)"/><ellipse cx="256" cy="256" rx="200" ry="84" transform="rotate(-45 256 256)"/></g><circle cx="256" cy="256" r="56" fill="#f7f7f5"/></svg>
