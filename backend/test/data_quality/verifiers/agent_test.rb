@@ -75,14 +75,15 @@ class DataQuality::Verifiers::AgentTest < ActiveSupport::TestCase
       verdicts(model, [ acme ]).fetch(acme.id)
     end
 
-    [ "", "  ", "-76.6986", "-76.698599999999999", "838", "Acme 1" ].each do |value|
+    [ "", "  ", "-76.6986", "-76.698599999999999", "838", "Acme 1", "acme  1" ].each do |value|
       verdict = said.call(value)
       assert_equal :review, verdict.outcome
       assert_match "couldn't confirm this from the source (it named no different value): Looks off.", verdict.reason, value.inspect
     end
 
-    # 50 and 66 appear inside the docket and latitude, but as numbers they're new.
-    [ "-76.70", "850", "Acme 2", "50", "66" ].each do |value|
+    # "Acm" is only part of a word, and 50 and 66 appear inside the docket and
+    # latitude: none of them is a value the claim has.
+    [ "-76.70", "850", "Acme 2", "Acm", "50", "66" ].each do |value|
       assert_match "contradicts this (the source gives #{value}): Looks off.", said.call(value).reason, value.inspect
     end
   end

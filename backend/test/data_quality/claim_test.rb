@@ -9,7 +9,7 @@ class DataQuality::ClaimTest < ActiveSupport::TestCase
   end
 
   test "an EIA update names the unit it's for, not an empty plant name" do
-    assert_equal "The plant “Surry” unit 1 (VA, EIA plant 3806), with capacity 838.0 MW, state VA, latitude 37.1661, and longitude -76.6986.",
+    assert_equal "The plant “Surry” unit 1 (VA, EIA plant 3806) has capacity 838.0 MW, state VA, latitude 37.1661, and longitude -76.6986.",
       claim("facility", { "identify" => { "name" => "Surry", "unit" => "1", "state" => "VA", "eia_plant_id" => "3806" },
         "capacity_mw" => "838.0", "state" => "VA", "latitude" => "37.1661", "longitude" => "-76.6986" })
   end

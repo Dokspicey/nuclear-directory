@@ -41,7 +41,8 @@ module DataQuality::Claim
     # Enrichment (EIA) names an existing unit in "identify" and sets values on it.
     when "facility"
       if (unit = payload["identify"]).is_a?(Hash)
-        "#{unit_name(unit)}#{details(payload.except('identify'))}."
+        values = details(payload.except("identify")).delete_prefix(", with ")
+        values.empty? ? "#{unit_name(unit)} is listed." : "#{unit_name(unit)} has #{values}."
       else
         "There is a plant named “#{payload['name']}”#{details(payload.except('name'))}."
       end

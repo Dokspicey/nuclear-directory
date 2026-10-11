@@ -145,9 +145,13 @@ class DataQuality::Verifiers::Agent
     def differs_from_claim?(value, claim)
       value = value.to_s.squish
       return false if value.empty?
-      # Text by substring; a number only against the claim's numbers, so 50
-      # isn't "already in" docket 05000424.
-      return !claim.include?(value) unless value.match?(/\A#{NUMBER}\z/)
+      # Text as whole words, ignoring case and spacing ("Acme 1" isn't in
+      # "Acme 10"); a number only against the claim's numbers, so 50 isn't
+      # "already in" docket 05000424.
+      unless value.match?(/\A#{NUMBER}\z/)
+        words = value.split.map { |word| Regexp.escape(word) }.join('\s+')
+        return !claim.match?(/(?<![[:alnum:]])#{words}(?![[:alnum:]])/i)
+      end
 
       number = BigDecimal(value)
       claim.scan(NUMBER).none? { |stated| number.round(stated[/\.(\d+)/, 1].to_s.length) == BigDecimal(stated) }
