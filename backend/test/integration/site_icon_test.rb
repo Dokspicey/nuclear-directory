@@ -31,6 +31,12 @@ class SiteIconTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "no layout links an icon without the version, the admin's included" do
+    Rails.root.glob("app/views/layouts/*.html.erb").each do |layout|
+      assert_no_match %r{href="/(favicon|icon|apple-touch-icon|manifest)}, layout.read, layout.basename.to_s
+    end
+  end
+
   test "the manifest is served as a web app manifest" do
     get "/manifest.webmanifest"
 
