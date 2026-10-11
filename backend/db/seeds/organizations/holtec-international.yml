@@ -38,6 +38,8 @@ facilities:
   published: 2026-02
   confidence: 0.8
   note: "Planned. NRC has accepted Holtec's initial submittal, with the limited work authorization request and environmental report."
+  pending: true
+  pending_reason: "The source shows Holtec is the construction permit applicant; needs a quote that Holtec owns Palisades Pioneer Units 1 & 2."
 notes: 'All Holtec facts come from Enercon''s (a contractor''s) page, so confidence capped at 0.8; Holtec''s own homepage fetched but had little text. Operator role (Palisades restart) needs a Holtec or NRC source. HQ not verified. #63: HQ from the privacy/data-controller address on the contact page (not labeled headquarters). Same company page: "The company is spearheading the historic restart of the Palisades nuclear plant".'
 description:
   text: Company that makes spent fuel storage systems, develops small modular reactors and decommissions nuclear plants.

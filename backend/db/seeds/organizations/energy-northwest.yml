@@ -40,6 +40,8 @@ facilities:
   quote: Washington state utility Energy Northwest and SMR developer X-energy plan to build up to 12 SMRs, using X-energy’s advanced nuclear reactor design.
   confidence: 1.0
   note: "Planned: Energy Northwest and X-energy plan to build up to 12 SMRs."
+  pending: true
+  pending_reason: "The source says Energy Northwest and X-energy plan to build the SMRs; needs a quote that Energy Northwest will own the Cascade facility."
 - name: Columbia Generating Station
   type: owns
   source_url: https://www.bpa.gov/-/media/Aep/about/publications/news-releases/20250522pr1025jointreleaseenergynorthwestandbpaadvanceplantoexpandregionsnuclearpower.pdf
