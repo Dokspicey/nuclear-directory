@@ -26,6 +26,10 @@ services:
     # also adds www.nuclear-directory.org, which redirects to it.
     domains:
       - nuclear-directory.org
+    # Serve only at the custom domain, so nuclear-directory.onrender.com
+    # isn't a second, indexable copy of the site (canonical tags and the
+    # sitemap use the requesting host).
+    renderSubdomainPolicy: disabled
     # Deploy a commit on main only after its GitHub checks (CI) pass.
     autoDeployTrigger: checksPass
     # Only app changes trigger a build; README-only merges don't redeploy.
