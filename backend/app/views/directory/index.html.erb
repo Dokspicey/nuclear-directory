@@ -15,6 +15,8 @@
 <% content_for :head do %>
   <meta name="description" content="<%= listing.searching? ? "Companies and plants matching “#{listing.query}”" : "#{heading} in the US nuclear industry" %>, with the source for every fact.">
   <% if listing.searching? || listing.filtered? %><meta name="robots" content="noindex"><% end %>
+  <%# Search and filters point back to the plain list or category. %>
+  <link rel="canonical" href="<%= listing.category ? companies_url(category: listing.category.to_param) : companies_url %>">
 <% end %>
 <%= render "shared/site_header", query: listing.query %>
 

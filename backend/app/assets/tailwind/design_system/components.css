@@ -266,6 +266,7 @@
   .nd-home__wordmark { margin: 0; display: flex; justify-content: center; color: var(--nd-ink); }
   /* 55px tall matches 64px Anton; 34px (40px Anton) on phones. */
   .nd-home__wordmark .nd-wordmark__svg { height: 55px; max-width: 100%; }
+  .nd-home__intro { margin: 0; max-width: 560px; text-align: center; color: var(--nd-ink-muted); text-wrap: balance; }
   .nd-home__search { width: 100%; max-width: 720px; display: flex; flex-direction: column; gap: var(--nd-space-4); }
   .nd-home__cats { width: 100%; max-width: 880px; margin-top: var(--nd-space-6); }
 

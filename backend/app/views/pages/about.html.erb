@@ -1,0 +1,41 @@
+<% content_for :title, "About · Nuclear Directory" %>
+<% content_for :head do %>
+  <meta name="description" content="How Nuclear Directory works: what it covers, where its facts come from and how each one is checked before it's published.">
+  <link rel="canonical" href="<%= about_url %>">
+<% end %>
+<%= render "shared/site_header" %>
+
+<main class="nd-page nd-page--narrow nd-prose">
+  <h1 class="type-title-md">About</h1>
+  <p class="type-body">Nuclear Directory lists the companies, power plants and sites in the US nuclear industry, and the deals between them. It's free to use, with no account or sign-in.</p>
+
+  <section aria-labelledby="covers">
+    <h2 id="covers" class="type-body-strong">What it covers</h2>
+    <p class="type-body">Fuel suppliers, reactor developers, utilities and operators, repair and services companies, power buyers and investors, in both fission and fusion. Plants and sites include power reactors, test reactors, fuel plants and uranium mines. It covers the United States.</p>
+  </section>
+
+  <section aria-labelledby="checking">
+    <h2 id="checking" class="type-body-strong">How we check facts</h2>
+    <p class="type-body">Every fact comes from a public source: a regulator filing, a company announcement or a news report. Each one links to its source, quotes the line it's based on and shows when we last checked it.</p>
+    <p class="type-body">Software, including AI models, reads public pages and suggests new facts. Nothing is published until a person has checked it against the source. If the source doesn't state something directly, it stays off the site.</p>
+  </section>
+
+  <section aria-labelledby="corrections">
+    <h2 id="corrections" class="type-body-strong">Corrections</h2>
+    <p class="type-body">If something is wrong or missing, use “Report a correction” next to the fact, or email <%= mail_to DirectoryHelper::CORRECTIONS_EMAIL, nil, class: "nd-link" %>. We check every correction against its source.</p>
+  </section>
+
+  <section aria-labelledby="limits">
+    <h2 id="limits" class="type-body-strong">Limits</h2>
+    <p class="type-body">Companies change names, deals end and plans move, so check a fact's source and date before you rely on it. Nothing here is advice, and a listing isn't an endorsement. Read the <%= link_to "disclaimer", disclaimer_path, class: "nd-link" %>.</p>
+  </section>
+
+  <section aria-labelledby="privacy">
+    <h2 id="privacy" class="type-body-strong">Privacy</h2>
+    <p class="type-body">There are no accounts and no advertising trackers. We count page views, searches and roughly how long a page stays open, without knowing who made them. Read the <%= link_to "privacy policy", privacy_path, class: "nd-link" %>.</p>
+  </section>
+
+  <p class="type-data-sm text-ink-muted">
+    <%= number_with_delimiter(@companies_count) %> companies · <%= number_with_delimiter(@plants_count) %> plants and sites<% if @updated_on %> · updated <%= data_date(@updated_on) %><% end %>
+  </p>
+</main>

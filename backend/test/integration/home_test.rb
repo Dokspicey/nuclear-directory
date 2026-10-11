@@ -26,6 +26,14 @@ class HomeTest < ActionDispatch::IntegrationTest
     assert_select "label.sr-only", "Search a company, plant or site"
   end
 
+  test "two plain sentences say what the site is, with a link to how facts are checked" do
+    get root_path
+
+    assert_select "h1 + p.nd-home__intro", /\AA directory of the companies, power plants and sites in the US nuclear industry/
+    assert_select "p.nd-home__intro a[href='/about#checking']", "How we check facts"
+    assert_select "link[rel=canonical][href='http://www.example.com/']"
+  end
+
   test "four suggested searches that lead to results" do
     get root_path
 
