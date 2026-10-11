@@ -1,0 +1,42 @@
+# Seed research for issue #8 - generated 2026-10-09. Quotes copied from pages fetched this session.
+name: Westinghouse Electric Company LLC
+aliases:
+- Westinghouse
+website: "https://westinghousenuclear.com"
+hq: null
+country_code: US
+status: active
+roles:
+- key: reactor_vendor
+  source_url: "https://info.westinghousenuclear.com/news/westinghouse-celebrates-milestone-achievement-as-ap1000-technology-powers-plant-vogtle-unit-4-into-commercial-operation"
+  quote: "Vogtle Units 3 and 4 were built using the most technologically advanced nuclear reactor technology available today – the AP1000 reactor."
+  published: '2024-04-29'
+  confidence: 1.0
+- key: reactor_services
+  source_url: "https://westinghousenuclear.com/"
+  quote: "Westinghouse technology powers 57% of the world's nuclear power plants, maintains nearly two-thirds of the world's nuclear fleet and fuels 40% of that fleet."
+  confidence: 1.0
+- key: fuel
+  source_url: "https://westinghousenuclear.com/"
+  quote: "Westinghouse technology powers 57% of the world's nuclear power plants, maintains nearly two-thirds of the world's nuclear fleet and fuels 40% of that fleet."
+  confidence: 1.0
+technologies:
+- key: fission
+  source_url: "https://info.westinghousenuclear.com/news/westinghouse-celebrates-milestone-achievement-as-ap1000-technology-powers-plant-vogtle-unit-4-into-commercial-operation"
+  quote: "Today, the second U.S.-based Gen III+ advanced nuclear Westinghouse AP1000® reactor entered commercial operation at Plant Vogtle, near Waynesboro, Georgia."
+  published: '2024-04-29'
+  confidence: 1.0
+- key: smr
+  source_url: "https://content.govdelivery.com/accounts/USDOEINL/bulletins/3e78907"
+  quote: "Westinghouse (Etna, Pennsylvania) will test the eVinci Nuclear Test Reactor to inform the development of its commercial transportable microreactor that uses advanced heat pipe technology to passively cool the reactor."
+  published: '2025-07-01'
+  confidence: 1.0
+relationships: []
+facilities:
+- name: Plant Vogtle Units 3 & 4
+  type: vendor_for
+  source_url: "https://info.westinghousenuclear.com/news/westinghouse-celebrates-milestone-achievement-as-ap1000-technology-powers-plant-vogtle-unit-4-into-commercial-operation"
+  quote: "The AP1000 units at Vogtle are the first new nuclear build projects in the U.S. in more than 30 years and are operated by Southern Nuclear."
+  published: '2024-04-29'
+  confidence: 1.0
+notes: "HQ conflict: DOE/INL bulletin (2025) lists 'Westinghouse (Etna, Pennsylvania)'; Westinghouse's 2024 Vogtle release is datelined Cranberry Township, PA. Fuel sub-type (fabrication) not separately sourced. eVinci is a microreactor; 'smr' tag is approximate. DOE selected Westinghouse eVinci for first DOME tests at INL (see INL notes)."

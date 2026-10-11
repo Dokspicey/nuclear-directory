@@ -8,6 +8,24 @@ class SeedsTest < ActiveSupport::TestCase
     silence_warnings { load Rails.root.join("db/seeds.rb") }
   end
 
+  # Production was first seeded from these files (main at #100, 2026-10-09);
+  # every later seed must load on top of them, as a re-seed does.
+  test "the current seed loads on top of the seed production started with" do
+    load_seeds
+    Organization.destroy_all
+    Facility.destroy_all
+    Seed::OrganizationLoader.new(file_fixture("seed_at_launch/organizations").to_s, facilities: nil).load!
+    assert Organization.exists?(slug: "urenco-usa"), "the old seed had Urenco USA as its own company"
+
+    assert_empty Seed::OrganizationLoader.new(Rails.root.join("db/seeds/organizations")).collisions
+    load_seeds
+
+    urenco = Organization.find_by!(slug: "urenco")
+    assert Organization.find_by!(slug: "urenco-usa").unpublished?, "merged into Urenco"
+    assert_equal urenco.id, Directory::Lookup.organization(name: "Urenco USA").id
+    assert_equal [ "Meta" ], Organization.find_by!(slug: "meta-platforms").aliases.pluck(:alias)
+  end
+
   test "seeds roles and technologies" do
     load_seeds
 
