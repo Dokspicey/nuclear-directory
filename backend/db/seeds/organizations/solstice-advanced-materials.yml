@@ -31,7 +31,6 @@ facilities:
   source_url: https://www.converdyn.com/
   quote: Located in Metropolis, Illinois, this cutting-edge plant, owned and operated by Solstice Advanced Materials’ Specialty Materials division, produces a variety of fluorine products, including uranium hexafluoride (UF6) for nuclear fuel.
   confidence: 0.8
-  note: "The only US uranium conversion (U3O8 to UF6) plant, under NRC license SUB-526. Restarted in July 2023 after a 2017 suspension."
 - name: Metropolis Works Uranium Conversion Facility
   facility_type: fuel_facility
   state: IL

@@ -41,7 +41,7 @@ facilities:
   quote: The Company also owns the White Mesa Mill in Utah, which is the only fully licensed and operating conventional uranium processing facility in the United States.
   published: '2025-07-01'
   confidence: 1.0
-  note: "The only operating uranium mill in the United States, in San Juan County, Utah."
+  note: "The only fully licensed and operating conventional uranium processing facility in the United States."
 - name: White Mesa Mill
   facility_type: mill
   state: UT
