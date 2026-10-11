@@ -15,6 +15,7 @@
   --nd-paper-sunken: #efefec;
   --nd-rule: #e2e2df;
   --nd-control: #848486;
+  --nd-scrim: rgb(20 20 22 / 0.45);
   --nd-ink: #121212;
   --nd-ink-muted: #57575a;
   --nd-inverse: var(--nd-ink);
@@ -54,6 +55,7 @@
     --nd-paper-sunken: #1d1d1f;
     --nd-rule: #2a2a2c;
     --nd-control: #6c6c70;
+    --nd-scrim: rgb(0 0 0 / 0.6);
     --nd-ink: #ececea;
     --nd-ink-muted: #a3a3a6;
     --nd-critical: #ff8f80;
@@ -67,6 +69,7 @@
   --nd-paper-sunken: #1d1d1f;
   --nd-rule: #2a2a2c;
   --nd-control: #6c6c70;
+  --nd-scrim: rgb(0 0 0 / 0.6);
   --nd-ink: #ececea;
   --nd-ink-muted: #a3a3a6;
   --nd-critical: #ff8f80;
