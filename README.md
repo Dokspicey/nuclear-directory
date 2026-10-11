@@ -107,8 +107,11 @@ once nothing reads them.
 
 **First deploy.** In the Render dashboard: New → Blueprint, pick this repo,
 fill in the secrets it asks for, then Apply. Render creates the database and
-the web service and deploys `main`. The app is at
-`https://nuclear-directory.onrender.com` (or the URL Render shows).
+the web service and deploys `main`. The app is at `https://nuclear-directory.org`
+once its DNS points at Render (see Domain below). The
+`nuclear-directory.onrender.com` address is turned off in `render.yaml`; to
+check a fresh setup before DNS is in place, set `renderSubdomainPolicy:
+enabled` until the domain verifies.
 
 **Seed production** after the first deploy succeeds, and again after each
 deploy that changes `backend/db/seeds.rb` or `backend/db/seeds/`. Deploys
@@ -133,7 +136,9 @@ to `render.yaml` with `sync: false` and then setting its value in the
 dashboard.
 
 **Domain.** `nuclear-directory.org` is the web service's custom domain
-(`domains` in `render.yaml`; Render adds `www`, which redirects to it). DNS is
+(`domains` in `render.yaml`; Render adds `www`, which redirects to it). The
+`nuclear-directory.onrender.com` address is turned off
+(`renderSubdomainPolicy: disabled`), so the site has one public address. DNS is
 at Namecheap: the bare domain is an ALIAS to `nuclear-directory.onrender.com`
 (or an A record to `216.24.57.1`) and `www` is a CNAME to
 `nuclear-directory.onrender.com`. The iCloud
