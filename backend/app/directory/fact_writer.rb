@@ -147,6 +147,8 @@ module Directory
         retired.each { |row| row.reject!(by:, reason: "#{note}; #{into.name} already has this, or it would point at itself") unless row.closed? }
         summary = moved.select { |_, count| count.positive? }.map { |what, count| "#{count} #{what.tr('_', ' ')}" }
         from.unpublish!(by:, reason: [ reason, "#{note}. Moved: #{summary.join(', ').presence || 'nothing'}" ].compact.join(". "))
+        # Its address now leads to into's page (#143).
+        into.remember_slug(from.slug)
         into.recompute_confidence!
       end
       Result.new(kind: :organization, id: into_id, created: false, errors: [])

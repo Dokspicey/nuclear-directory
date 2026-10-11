@@ -242,6 +242,18 @@ class CompanyPageTest < ActionDispatch::IntegrationTest
     assert_select "link[rel=canonical][href=?]", "http://www.example.com/companies/kairos-power"
   end
 
+  test "a renamed or merged company's old address moves to its page" do
+    @kairos.update!(slug: "kairos")
+    get company_path(slug: "kairos-power")
+    assert_redirected_to company_path(slug: "kairos")
+    assert_response :moved_permanently
+
+    merged = company("Kairos Power USA")
+    Directory::FactWriter.merge_organization(from_id: merged.id, into_id: @kairos.id, by: "human:tosin")
+    get company_path(slug: merged.slug)
+    assert_redirected_to company_path(slug: "kairos")
+  end
+
   test "an unverified or unknown company is not found" do
     get company_path(slug: "ghost-partner")
     assert_response :not_found
