@@ -3,6 +3,9 @@
 class DirectoryController < ApplicationController
   def index
     @listing = DirectoryListing.new(**params.permit(:category, :q, :technology, :state, :sort).to_h.symbolize_keys)
+    # The filter sheet's "Show N results" (#90) asks for the count only; it isn't a search.
+    return render(json: { count: @listing.company_scope.count + @listing.plant_scope.count }) if request.format.json?
+
     @companies = @listing.companies.to_a
     @plants = @listing.plants.to_a
     @counts = DirectoryListing.category_counts
