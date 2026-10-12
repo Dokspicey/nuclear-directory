@@ -9,7 +9,12 @@ class RelayTest < ActionDispatch::IntegrationTest
   VISITOR = "81.2.69.142"
   BROWSER = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"
 
-  setup { RelayController::RATE_LIMIT_STORE.clear }
+  # Both are process-wide; another test may have used up the sign-in limit
+  # (one test here signs in to the admin).
+  setup do
+    RelayController::RATE_LIMIT_STORE.clear
+    SessionsController::RATE_LIMIT_STORE.clear
+  end
 
   def send_events(body, path: "/relay/e/?ip=0&ver=1.438.7", ip: VISITOR, headers: {})
     post path, params: body.is_a?(String) ? body : body.to_json,
