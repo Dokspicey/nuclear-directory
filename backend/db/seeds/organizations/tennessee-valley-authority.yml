@@ -38,7 +38,7 @@ facilities:
   quote: GE Vernova Hitachi Nuclear Energy (GVH) today welcomed the U.S. Nuclear Regulatory Commission’s (NRC) issuance of a construction permit to the Tennessee Valley Authority (TVA) for a BWRX-300 small modular reactor at its Clinch River site in Oak Ridge, Tennessee.
   published: '2026-09-29'
   confidence: 1.0
-  note: NRC construction permit issued Sept 2026; status under_construction/planned.
+  note: "NRC construction permit issued in September 2026."
 - name: Hermes 2
   type: offtakes_from
   source_url: https://world-nuclear-news.org/articles/google-kairos-power-tva-announce-collaboration
@@ -51,7 +51,7 @@ facilities:
   quote: The Tennessee Valley Authority (TVA) and Type One Energy announced Friday that TVA has issued a Letter of Intent (LOI) to Type One Energy regarding the utility’s interest in the potential deployment of Type One Energy’s fusion power plant technology at its former Bull Run Fossil site once it is commercially ready.
   published: '2025-09-19'
   confidence: 1.0
-  note: TVA owns the site; the plant itself is only a non-binding LOI. Final decisions subject to TVA Board approval.
+  note: "TVA owns the site. The plant is covered only by a non-binding letter of intent, and final decisions need TVA Board approval."
 notes: 'TVA is a federal corporation (''a corporate agency of the United States'' per its boilerplate on Type One''s page) but tagged utility, not government_agency. TVA role quote is TVA boilerplate hosted on Type One Energy''s site (0.8). HQ not verified in this session. TVA-Type One LOI is non-binding; recorded only as a facility link, not an org-org relationship. #63: tva.com and tva.gov return 403 (blocked). Source is the 2002-03 U.S. Government Manual on govinfo.gov (dated; facts used are stable). Wholesale wording from same page: "The Authority is the wholesale power supplier for 158 local municipal and cooperative electric systems". Worth re-sourcing from tva.com when reachable.'
 description:
   text: Federally owned corporation, created in 1933, that supplies wholesale electric power in the Tennessee Valley region.

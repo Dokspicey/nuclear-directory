@@ -34,7 +34,7 @@ facilities:
   quote: Helion began building in Malaga, Washington, on land it is leasing from the Chelan County Public Utilities District (PUD).
   published: '2025-07-30'
   confidence: 1.0
-  note: Under construction; land leased from Chelan County PUD, so 'owns' refers to the plant, not the land. Target online 2028, 50 MW+.
+  note: "Under construction on land leased from Chelan County PUD. Targeted to come online in 2028, at 50 MW or more."
 notes: 'Press releases are datelined Everett, WA, but HQ city not explicitly stated in fetched text. Later Series G ($465M, led by Thrive Capital) appears on Helion''s site but was not researched. #63: Seed had state WA only; this adds the city. Description quote is the homepage meta description.'
 description:
   text: Fusion company building a fusion power plant to supply electricity to the grid.

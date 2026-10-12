@@ -27,7 +27,7 @@ relationships:
   confidence: 1.0
 - type: subsidiary_of
   to: Bernhard Capital Partners
-  description: Allied Power was acquired by private equity firm Bernhard Capital Partners in November 2020 (portfolio company).
+  description: "Allied Power was acquired by private equity firm Bernhard Capital Partners in November 2020."
   source_url: https://alliedpwr.com/?p=6158
   quote: In November 2020, the Company was acquired by Bernhard Capital Partners, a services and infrastructure-focused private equity management firm investing in middle market businesses providing essential services to owners of critical infrastructure.
   published: '2023-02-09'
