@@ -4,7 +4,10 @@
 class CompaniesController < ApplicationController
   def show
     @profile = CompanyProfile.find(params[:slug])
-    return if @profile
+    if @profile
+      track_company_viewed(@profile.slug)
+      return
+    end
 
     # Only to a company the site shows; a hidden one stays "Page not found".
     current = Organization.find_by_former_slug(params[:slug])

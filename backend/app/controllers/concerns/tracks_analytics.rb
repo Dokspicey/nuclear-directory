@@ -7,8 +7,11 @@
 module TracksAnalytics
   extend ActiveSupport::Concern
 
-  BOT_USER_AGENT = /bot|crawl|spider|slurp|scrap|fetch|preview|monitor|uptime|headless|lighthouse|
-    curl|wget|python|ruby|java|go-http|okhttp|axios|node-fetch|httpclient|libwww|facebookexternalhit/ix
+  # "Claude/" is the Claude app's built-in browser: our own agent sessions
+  # browse the live site in a hidden pane, which sent page leaves without
+  # page views (PostHog waits for a visible tab) and skewed the counts (#68).
+  BOT_USER_AGENT = %r{bot|crawl|spider|slurp|scrap|fetch|preview|monitor|uptime|headless|lighthouse|
+    curl|wget|python|ruby|java|go-http|okhttp|axios|node-fetch|httpclient|libwww|facebookexternalhit|claude/}ix
   # Not public pages: the admin, the design reference, the health check, Rails internals.
   UNTRACKED_PATHS = %r{\A/(admin|design|up|rails|assets|cable)(/|\z)}
 
