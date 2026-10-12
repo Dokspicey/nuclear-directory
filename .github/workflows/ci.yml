@@ -34,6 +34,9 @@ jobs:
       - name: Check render.yaml
         run: ruby .github/scripts/check_blueprint.rb
 
+      - name: Test the render.yaml check
+        run: ruby .github/scripts/check_blueprint_test.rb
+
   test:
     runs-on: ubuntu-latest
 
