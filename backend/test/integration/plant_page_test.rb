@@ -64,6 +64,22 @@ class PlantPageTest < ActionDispatch::IntegrationTest
     assert_select ".nd-factrow", text: /Byron Generating Station, Byron 1/, count: 0
   end
 
+  test "a quote that is an NRC table row reads as fields, with the exact row one tap away" do
+    list = Source.create!(url: "https://www.nrc.gov/test/reactor-list", source_kind: "nrc_reactor_list")
+    row = "Byron 1 | 05000454 | NPF-37 | PWR | 17 miles SW of Rockford, IL | Constellation Energy Generation, LLC | 3"
+    byron = plant("Byron Generating Station", facility_type: "power_reactor", status: "operating")
+    unit = cite!(plant("Byron 1", parent: byron, status: "operating"), source: list)
+    link(company("Constellation"), "operates", unit).evidence.create!(source: list, quote: row, found_by: "human", confidence: 1)
+
+    get plant_path(slug: byron.slug)
+
+    assert_select ".nd-factrow .nd-quote--data" do
+      assert_select "p", "Byron 1 · Docket 05000454 · License NPF-37 · PWR · 17 miles SW of Rockford, IL · Constellation Energy Generation, LLC · NRC region 3"
+      assert_select "details.nd-quote__row summary", "Show source row"
+      assert_select "details.nd-quote__row code", row
+    end
+  end
+
   test "unverified companies and links never appear" do
     get plant_path(slug: "plant-vogtle")
 

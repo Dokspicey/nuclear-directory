@@ -13,5 +13,5 @@
       sentence: safe_join([ link_to(link.organization.name, company_url_for(link.organization), class: "nd-link type-body-strong"),
                             " #{facility_relationship_verb(link.relationship_type)} ", plant ]),
       detail: [ share, link.description, since ].compact_blank.join(" · ").presence,
-      quote: link.evidence.max_by { |e| e.confidence || 0 }&.quote,
+      evidence: link.evidence.max_by { |e| e.confidence || 0 },
       citations: profile.citations_for(link), confidence: link.confidence, checked: link.verified_at, correctable: true %>

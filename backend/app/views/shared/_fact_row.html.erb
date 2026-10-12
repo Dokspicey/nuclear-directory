@@ -2,6 +2,9 @@
     sentence:   the fact, as HTML (build it with safe_join so names can be links)
     detail:     a plain line under it (optional)
     quote:      the passage from the source that supports it (optional)
+    evidence:   instead of quote, the Evidence whose quote to show; a dataset
+                row (NRC, EIA) shows as labelled fields with the exact row
+                behind "Show source row" (optional)
     citations:  [[number, source], ...]
     confidence: 0–1 (optional)
     checked:    when the fact was last checked, shown on its first source chip (optional)
@@ -10,7 +13,19 @@
   <div class="nd-factrow__main">
     <span><%= sentence %></span>
     <% if local_assigns[:detail].present? %><span class="nd-factrow__detail"><%= detail %></span><% end %>
-    <% if local_assigns[:quote].present? %><p class="nd-quote" data-source-number="<%= citations.first&.first %>">“<%= quote %>”</p><% end %>
+    <% evidence = local_assigns[:evidence] %>
+    <% quote = local_assigns[:quote].presence || evidence&.quote %>
+    <% if (fields = data_quote_fields(evidence)) %>
+      <div class="nd-quote nd-quote--data" data-source-number="<%= citations.first&.first %>">
+        <p><%= fields.join(" · ") %></p>
+        <details class="nd-quote__row">
+          <summary class="nd-link nd-link--muted">Show source row</summary>
+          <code><%= quote %></code>
+        </details>
+      </div>
+    <% elsif quote.present? %>
+      <p class="nd-quote" data-source-number="<%= citations.first&.first %>">“<%= quote %>”</p>
+    <% end %>
   </div>
   <div class="nd-factrow__side">
     <% citations.each_with_index do |(number, source), index| %>
