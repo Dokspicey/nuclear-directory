@@ -116,6 +116,12 @@ databases:
     user: nuclear_directory
     # Storage is billed per GB; it can grow later but never shrink.
     diskSizeGB: 1
-    # No connections from the public internet; the web service reaches the
-    # database over Render's private network.
-    ipAllowList: []
+    # The web service reaches the database over Render's private network.
+    # From the internet, only Tosin's Mac, for local Metabase (#111), signing
+    # in as the read-only metabase_ro role over SSL. One single-host /32 with
+    # a description; never remove this key (Render would open the database to
+    # everyone). When his IP changes, replace the /32 (README, "Metabase");
+    # to close it again, set `ipAllowList: []`.
+    ipAllowList:
+      - source: 99.110.208.39/32
+        description: Tosin home (Metabase), 2026-10-11
