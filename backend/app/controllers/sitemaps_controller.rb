@@ -9,6 +9,8 @@ class SitemapsController < ApplicationController
 
   def robots
     expires_in 1.day, public: true
+    return render plain: "User-agent: *\nDisallow: /\n" if Noindex.enabled?
+
     render plain: <<~TXT
       User-agent: *
       Disallow: /admin
