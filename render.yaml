@@ -80,6 +80,10 @@ services:
         sync: false
       - key: POSTHOG_HOST
         sync: false
+      # Addresses or ranges whose visits are marked internal (#205), e.g.
+      # Tosin's home IP. Set in the dashboard only, so it isn't in the repo.
+      - key: INTERNAL_IPS
+        sync: false
       # Error reporting; leave blank to turn it off. See
       # config/initializers/sentry.rb.
       - key: SENTRY_DSN

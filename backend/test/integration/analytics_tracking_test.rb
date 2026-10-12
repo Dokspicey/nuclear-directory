@@ -1,10 +1,12 @@
 require "test_helper"
 require_relative "../support/fake_posthog"
+require_relative "../support/fake_geo_reader"
 
 # The request-level rules (TracksAnalytics): bots and non-public paths are
 # never tracked, and the browser snippet only appears on public pages.
 class AnalyticsTrackingTest < ActionDispatch::IntegrationTest
   include AnalyticsTestHelper
+  include GeoCountryTestHelper
 
   class PagesController < ApplicationController
     def show = render(inline: "<p>page</p>", layout: "application")
@@ -70,12 +72,28 @@ class AnalyticsTrackingTest < ActionDispatch::IntegrationTest
     assert_equal %w[$geoip_disable $ip $process_person_profile subject_type], posthog.events.last[:properties].keys.sort
   end
 
+  test "server-side events carry the visitor's country and internal flag, never the IP (#205)" do
+    internal_ips!("81.2.69.142")
+    with_pages do
+      get "/search?q=x&n=1", headers: { "User-Agent" => BROWSER }, env: { "REMOTE_ADDR" => "81.2.69.142" }
+      get "/seen/terrapower", headers: { "User-Agent" => BROWSER }, env: { "REMOTE_ADDR" => "81.2.69.142" }
+    end
+
+    posthog.events.each do |event|
+      props = event[:properties]
+      assert_equal [ "GB", true, true ], props.values_at("$geoip_country_code", "internal", "$geoip_disable"), event[:event]
+      assert_nil props["$ip"]
+      assert_not props.values.include?("81.2.69.142")
+    end
+    assert_equal 2, posthog.events.size
+  end
+
   test "public pages get the cookieless snippet's settings" do
     with_pages do
       visit "/companies/terrapower"
 
       assert_select 'meta[name="posthog-key"][content="phc_test_key"]'
-      assert_select 'meta[name="posthog-host"][content="https://us.i.posthog.com"]'
+      assert_select 'meta[name="posthog-host"][content="/relay"]', 1, "through our relay (#205)"
       assert_empty response.headers["Set-Cookie"].to_s
     end
   end

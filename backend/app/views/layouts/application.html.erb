@@ -15,7 +15,8 @@
     <% if analytics_snippet? %>
       <%# Anonymous page views and page leaves (PostHog, cookieless). Public project key, safe in page source. %>
       <meta name="posthog-key" content="<%= Analytics.public_key %>">
-      <meta name="posthog-host" content="<%= Analytics.host %>">
+      <%# Through our own /relay (#205), which adds the visitor's country. %>
+      <meta name="posthog-host" content="/relay">
     <% end %>
 
     <%= yield :head %>

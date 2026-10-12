@@ -168,6 +168,7 @@ GEM
       net-smtp
     marcel (1.2.1)
     matrix (0.4.3)
+    maxmind-db (1.5.0)
     mini_magick (5.4.0)
       logger
     mini_mime (1.1.5)
@@ -408,6 +409,7 @@ DEPENDENCIES
   importmap-rails
   jbuilder
   json_schemer (~> 2.4)
+  maxmind-db (~> 1.2)
   pg (~> 1.1)
   posthog-ruby (~> 3.0)
   propshaft

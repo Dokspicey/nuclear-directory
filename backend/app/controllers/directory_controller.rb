@@ -12,12 +12,4 @@ class DirectoryController < ApplicationController
 
     track_search(@listing.query, results: @companies.size + @plants.size) if @listing.searching?
   end
-
-  private
-    # Anonymous search counts (#66, PostHog, built by Database). Database keeps
-    # this interface and will name the final module; until it lands this is a
-    # no-op, so only the line below changes then.
-    def track_search(query, results:)
-      Analytics.track_search(query, results:) if defined?(Analytics)
-    end
 end

@@ -21,7 +21,7 @@ module TracksAnalytics
 
   private
     def track_search(query, results:)
-      Analytics.track_search(query, results:) if trackable_request?
+      Analytics.track_search(query, results:, visitor: visitor_properties) if trackable_request?
     end
 
     def track_company_viewed(slug) = track("company_viewed", slug:)
@@ -33,8 +33,12 @@ module TracksAnalytics
     end
 
     def track(event, properties)
-      Analytics.capture(event, properties.compact) if trackable_request?
+      Analytics.capture(event, properties.compact.merge(visitor_properties)) if trackable_request?
     end
+
+    # The visitor's country and whether they're internal (#205), from the
+    # request's IP; the IP itself is never sent.
+    def visitor_properties = GeoCountry.properties(request.remote_ip)
 
     # Whether to load the browser snippet (page views) on this page.
     def analytics_snippet?
