@@ -60,12 +60,12 @@ Say what the page is and what it covers. No tagline above the title, no promise 
 
 Pages of running text (privacy, the crawler page, the disclaimer) are read in pieces, so every block puts its point first. Tosin's words: "the main thing, the text, the subtext, the reasons."
 
-1. **The main thing.** The point, stated as a plain sentence. In a short section the heading can carry it ("It isn't advice"). In a longer one, the heading names the topic ("Analytics") and a bold first line states the point ("We count how the site is used, without cookies").
+1. **The main thing.** The point, stated as a plain sentence, as the section's heading: "It isn't advice", "We count how the site is used, without cookies". The page's intro, which sits under the page title, starts with a bold first line instead.
 2. **The text.** One or two short sentences that explain it.
 3. **The subtext.** Details, only if needed, as a short list in smaller type.
 4. **The reasons.** Why, last and brief. Leave it out if the reason is obvious.
 
-One point per block. If a paragraph covers two things (what we record and where the script loads from), split it into two blocks, each with its own lead line.
+One point per block. If a paragraph covers two things (what we record and where the script loads from), split it into two blocks, each with its own heading.
 
 | Don't | Do |
 |---|---|
