@@ -86,12 +86,12 @@ class DataQuality::Plugins::NrcReactorList::ExtractTest < ActiveSupport::TestCas
   test "matches a hand-checked sample, in the shape match expects" do
     extract
 
-    HAND_CHECKED.each do |docket, (name, type, state, operator)|
+    HAND_CHECKED.each do |docket, (name, type, _state, operator)|
       facility = candidates_for(docket).find(&:kind_facility?)
       link = candidates_for(docket).find(&:kind_facility_relationship?)
 
       assert_equal({ "name" => name, "nrc_docket" => docket, "facility_type" => "power_reactor", "status" => "operating",
-        "reactor_type" => type, "state" => state, "country_code" => "US" }, facility.payload, name)
+        "reactor_type" => type, "country_code" => "US" }, facility.payload, name)
       assert_equal({ "organization" => { "name" => operator }, "facility" => { "name" => name, "nrc_docket" => docket },
         "relationship_type" => "operates" }, link.payload, name)
       assert_match(/\A#{Regexp.escape(name)} \| #{docket} \|/, facility.quote)
@@ -120,6 +120,22 @@ class DataQuality::Plugins::NrcReactorList::ExtractTest < ActiveSupport::TestCas
     assert_match 'name: model said "DC Cook 1", table says "D.C. Cook 1"', candidates_for("05000315").first.notes
     assert_match "operator: model said", candidates_for("05000259").first.notes
     assert_match 'quote: model said "Vogtle 4 |  05200026', candidates_for("05200026").first.notes
+  end
+
+  # NRC's Location is measured from a nearby city, which near a border is in
+  # another state: these units are in NJ, NJ, NJ, SC, SC and MI (EIA-860M).
+  BORDER_UNITS = { "05000272" => "DE", "05000311" => "DE", "05000354" => "DE",
+    "05000413" => "NC", "05000414" => "NC", "05000341" => "OH" }.freeze
+
+  test "a unit carries no state, since NRC's is its reference city's (#197)" do
+    extract
+
+    BORDER_UNITS.each do |docket, city_state|
+      facility = candidates_for(docket).find(&:kind_facility?)
+      assert_not facility.payload.key?("state"), "#{facility.payload['name']} would have said #{city_state}"
+      assert_includes facility.quote, ", #{city_state} |", "the row still says it; only the claim leaves it out"
+    end
+    assert @source.candidates.none? { |c| c.payload.key?("state") }
   end
 
   test "an operator is only confirmed through a row the model agreed on" do
