@@ -6,7 +6,7 @@ pin "@hotwired/stimulus", to: "stimulus.min.js"
 pin "@hotwired/stimulus-loading", to: "stimulus-loading.js"
 pin_all_from "app/javascript/controllers", under: "controllers"
 
-# Anonymous page views (#66): loaded lazily by app/javascript/analytics.js.
+# Anonymous page views and page leaves (#66): loaded lazily by app/javascript/analytics.js.
 pin "analytics"
 # posthog-js 1.438.7 (dist/module.mjs, Apache-2.0, licence beside it) is served
 # from vendor/javascript, so no third-party code network sees visitors (#56).
