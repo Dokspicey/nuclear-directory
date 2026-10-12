@@ -53,7 +53,7 @@ COPY . .
 # and events carry no country (lib/geo_country.rb).
 RUN mkdir -p vendor/geo && cd vendor/geo && \
     { curl -fsSL -o country.mmdb.gz "https://download.db-ip.com/free/dbip-country-lite-$(date -u +%Y-%m).mmdb.gz" || \
-      curl -fsSL -o country.mmdb.gz "https://download.db-ip.com/free/dbip-country-lite-$(date -u -d 'last month' +%Y-%m).mmdb.gz"; } && \
+      curl -fsSL -o country.mmdb.gz "https://download.db-ip.com/free/dbip-country-lite-$(date -u -d "$(date -u +%Y-%m-01) -1 month" +%Y-%m).mmdb.gz"; } && \
     gunzip -c country.mmdb.gz > dbip-country-lite.mmdb && rm country.mmdb.gz || \
     { rm -f country.mmdb.gz dbip-country-lite.mmdb; echo "No IP-to-country data; analytics events will carry no country"; }
 
