@@ -178,11 +178,12 @@ against the exact parse of the table, by docket. Candidates always carry the tab
 the model got wrong, misquoted or skipped goes to review with both values in `notes`, and units it
 invents are dropped. The tally is in the extract run's `stats["ai_check"]`, so the model's accuracy
 is measured on a source we can check before it's trusted on messier ones. Per unit: the unit
-(`facility`), its operator (`organization`, one per name) and an `operates` link. The unit's `state` is
-evidence, not the final word: NRC's Location measures from a nearby city, which near a border is in
-another state (Salem and Hope Creek are in NJ, listed from "Wilmington, DE"; Catawba SC; Fermi 2 MI).
-EIA's plant state will win for that field (Tosin's decision). That's planned in the EIA plug-in (#72,
-not merged yet); until then NRC's state is stored as is.
+(`facility`), its operator (`organization`, one per name) and an `operates` link. A unit carries no
+`state` (#197): NRC's Location measures from a nearby city, which near a border is in another state
+(Salem and Hope Creek are in NJ, listed from "Wilmington, DE"; Catawba SC, from Charlotte NC; Fermi 2 MI,
+from Toledo OH). The state comes from EIA's plant state (Tosin, 2026-10-10). A unit already approved
+with NRC's state is corrected, as a recorded decision with its reason, by
+`BY=human:<handle> bin/rails "data_quality:correct_unit_state[<docket>,<STATE>]"`.
 
 ## Talking to the directory
 
