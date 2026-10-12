@@ -471,7 +471,8 @@
 @layer components {
   .nd-prose { gap: var(--nd-space-6); }
   .nd-prose h1, .nd-prose h2, .nd-prose p { margin: 0; }
-  .nd-prose section { display: flex; flex-direction: column; gap: var(--nd-space-2); }
+  /* A section, or the intro under the h1: point, text and details sit close together. */
+  .nd-prose section, .nd-prose__intro { display: flex; flex-direction: column; gap: var(--nd-space-2); }
   .nd-prose ul { margin: 0; padding-left: var(--nd-space-6); display: flex; flex-direction: column; gap: var(--nd-space-1); }
   .nd-code { margin: 0; padding: var(--nd-space-3) var(--nd-space-4); background: var(--nd-paper-sunken); border: var(--nd-hairline) solid var(--nd-rule); border-radius: var(--nd-radius-sm); white-space: pre-wrap; overflow-wrap: anywhere; }
   .nd-footer { max-width: var(--nd-content-max); margin: 0 auto; padding: var(--nd-space-8) clamp(16px, 4vw, 32px) var(--nd-space-12); border-top: var(--nd-hairline) solid var(--nd-rule); display: flex; flex-direction: column; gap: var(--nd-space-2); }

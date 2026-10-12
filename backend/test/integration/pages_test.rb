@@ -25,7 +25,7 @@ class PagesTest < ActionDispatch::IntegrationTest
   test "every privacy section leads with its point, then details in smaller type (#215)" do
     get privacy_path
 
-    assert_select "h1 + p.type-body-strong", "Nuclear Directory doesn't ask who you are."
+    assert_select "h1 + .nd-prose__intro > p.type-body-strong:first-child", "Nuclear Directory doesn't ask who you are."
     assert_select "section h2", 8
     assert_select "section[aria-labelledby=counts] ul.type-small li", 4
     assert_select "section[aria-labelledby=corrections] p.type-small", /scrambled form of your IP address/
@@ -51,13 +51,13 @@ class PagesTest < ActionDispatch::IntegrationTest
 
   test "the crawler page and the disclaimer put the main point first in every block (#215)" do
     get bot_path
-    assert_select "h1 + p.type-body-strong", "NuclearDirectoryBot is the crawler that keeps Nuclear Directory up to date."
+    assert_select "h1 + .nd-prose__intro > p.type-body-strong:first-child", "NuclearDirectoryBot is the crawler that keeps Nuclear Directory up to date."
     assert_select "h2#behaviour", "It follows robots.txt and stops when blocked"
     assert_select "section[aria-labelledby=behaviour] ul.type-small li", 3
     assert_select "h2#blocking", "Block it with robots.txt"
 
     get disclaimer_path
-    assert_select "h1 + p.type-body-strong", "Nuclear Directory is a reference built from public sources."
+    assert_select "h1 + .nd-prose__intro > p.type-body-strong:first-child", "Nuclear Directory is a reference built from public sources."
     assert_select "h2#mistakes", "Report mistakes and we'll check them"
     assert_select "section[aria-labelledby=mistakes] p.type-small", "We check every correction against its source."
   end
