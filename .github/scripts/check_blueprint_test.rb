@@ -72,6 +72,23 @@ class CheckBlueprintTest < Minitest::Test
     assert_includes output, "the preview must not set SOME_NEW_SETTING"
   end
 
+  def test_the_preview_admin_password_is_set_by_hand
+    ok, output = check_preview do |vars|
+      vars.find { |var| var["key"] == "PREVIEW_ADMIN_PASSWORD" }.replace("key" => "PREVIEW_ADMIN_PASSWORD", "value" => "in-the-repo")
+    end
+    refute ok
+    assert_includes output, "PREVIEW_ADMIN_PASSWORD must be sync: false"
+  end
+
+  def test_the_preview_admin_password_never_reaches_production
+    ok, output = check_blueprint do |blueprint|
+      web = blueprint["services"].find { |service| service["name"] == "nuclear-directory" }
+      web["envVars"] << { "key" => "PREVIEW_ADMIN_PASSWORD", "sync" => false }
+    end
+    refute ok
+    assert_includes output, "nuclear-directory must not set PREVIEW_ADMIN_PASSWORD"
+  end
+
   def test_the_real_render_yaml_passes
     output, status = Open3.capture2e("ruby", SCRIPT)
     assert status.success?, output

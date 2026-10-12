@@ -216,9 +216,20 @@ reloads schema and seed. It refuses any database but
 - **Not indexed.** `NOINDEX=1` adds `X-Robots-Tag: noindex, nofollow` to
   every response, and `robots.txt` disallows everything.
 
+**Admin on the preview.** Each start also makes an admin login,
+`preview@nuclear-directory.org`, from `PREVIEW_ADMIN_PASSWORD`
+(`bin/rails preview:admin`), so admin screens can be tried there. That task
+refuses to run unless `NOINDEX=1` and the database is
+`nuclear_directory_preview`. If the variable isn't set, the preview starts
+without an admin. To set it: generate a password in the password manager as
+"Nuclear Directory preview admin", then Render → `nuclear-directory-preview` →
+Environment → `PREVIEW_ADMIN_PASSWORD`. Never reuse the live admin's
+password.
+
 CI (`.github/scripts/check_blueprint.rb`) fails if the preview's
 `DATABASE_URL` stops being a hand-set value, if it gains a production secret,
-or if `NOINDEX` goes missing.
+if `NOINDEX` goes missing, or if `PREVIEW_ADMIN_PASSWORD` appears on any other
+service.
 
 UI PRs also include phone (390px) and desktop screenshots of the changed pages
 in the description, so most changes can be reviewed without the preview.

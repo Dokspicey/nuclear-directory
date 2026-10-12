@@ -52,7 +52,7 @@ if preview
   # hand. No fromDatabase, fromService or fromGroup anywhere: any of them could
   # hand production's connection string or secrets to preview code, under
   # whatever name.
-  allowed = %w[DATABASE_URL NOINDEX DISABLE_DATABASE_ENVIRONMENT_CHECK SECRET_KEY_BASE RAILS_MAX_THREADS]
+  allowed = %w[DATABASE_URL NOINDEX DISABLE_DATABASE_ENVIRONMENT_CHECK SECRET_KEY_BASE RAILS_MAX_THREADS PREVIEW_ADMIN_PASSWORD]
   references = %w[fromDatabase fromService fromGroup]
   entries.each do |var|
     if !var.is_a?(Hash) || var["key"].to_s.empty? || references.any? { |ref| var.key?(ref) }
@@ -63,12 +63,25 @@ if preview
     end
   end
   vars = entries.select { |var| var.is_a?(Hash) && var["key"] }.to_h { |var| [ var["key"], var ] }
+  admin_password = vars["PREVIEW_ADMIN_PASSWORD"]
+  if admin_password && !(admin_password["sync"] == false && admin_password.keys.sort == %w[key sync])
+    problems << "the preview's PREVIEW_ADMIN_PASSWORD must be sync: false (set by hand), never a value"
+  end
   database_url = vars["DATABASE_URL"]
   unless database_url && database_url["sync"] == false && !database_url.key?("value")
     problems << "the preview's DATABASE_URL must be sync: false (set by hand to the preview database), never fromDatabase or a value"
   end
   problems << "the preview must set NOINDEX to \"1\"" unless vars.dig("NOINDEX", "value").to_s == "1"
   problems << "the preview must not have custom domains" if preview["domains"]
+end
+
+# The preview's admin login must never exist anywhere else.
+blueprint["services"].each do |service|
+  next if service["name"] == "nuclear-directory-preview"
+
+  if service.fetch("envVars", []).any? { |var| var.is_a?(Hash) && var["key"] == "PREVIEW_ADMIN_PASSWORD" }
+    problems << "#{service["name"]} must not set PREVIEW_ADMIN_PASSWORD (preview only)"
+  end
 end
 
 blueprint["databases"].each do |database|
