@@ -44,10 +44,6 @@ class RelayController < ActionController::API
     body = request.body&.tap(&:rewind)&.read(MAX_BODY + 1).to_s
     return head(:content_too_large) if body.bytesize > MAX_BODY
 
-    # TEMPORARY (#211 preview check, Infra): which address Rails sees behind
-    # Cloudflare and Render. Removed before merge.
-    Rails.logger.info("[relay-ip] remote_ip=#{request.remote_ip} xff=#{request.headers['X-Forwarded-For']} " \
-      "cf=#{request.headers['CF-Connecting-IP']} tci=#{request.headers['True-Client-IP']}")
     body = with_country(body) if request.post? && path.match?(EVENT_PATHS)
     upstream = send_upstream(path, body)
     PASSED_BACK.each { |name| response.headers[name] = upstream[name] if upstream[name] }
