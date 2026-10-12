@@ -87,6 +87,20 @@ commit real keys.
 `backend/config/master.key` decrypts `backend/config/credentials.yml.enc`. It
 is gitignored; keep a copy in a password manager.
 
+## Analytics relay and country
+
+The browser's PostHog traffic goes through `/relay/*` on this site (#205,
+`RelayController`), so blockers don't drop it. On the way, each event gets the
+visitor's country, looked up on our server from the request's IP with DB-IP's
+"IP to Country Lite" (CC BY 4.0, credited on /privacy). PostHog's own lookup
+can't do this in cookieless mode, since PostHog drops the IP first (PostHog
+#48660). The IP is never put into an event. It's passed to PostHog only in
+`X-Forwarded-For`, because cookieless mode counts unique visitors from a
+daily hash of IP and browser. The country file is downloaded when the image is
+built (`backend/Dockerfile`, into `vendor/geo`), so each deploy has the newest
+one. Visits from `INTERNAL_IPS` are marked `internal: true`; set PostHog's
+"Filter out internal and test users" to exclude `internal = true`.
+
 ## Public JSON snapshot
 
 `GET /api/snapshot.json` (#193) is a small public summary for other sites:

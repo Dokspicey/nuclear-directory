@@ -47,6 +47,16 @@ RUN bundle install && \
 # Copy application code
 COPY . .
 
+# IP-to-country data for analytics (#205): DB-IP's "IP to Country Lite", CC BY
+# 4.0, credited on /privacy. This month's file, or last month's early in a
+# month; each deploy picks up the newest. Without it the build still succeeds
+# and events carry no country (lib/geo_country.rb).
+RUN mkdir -p vendor/geo && cd vendor/geo && \
+    { curl -fsSL -o country.mmdb.gz "https://download.db-ip.com/free/dbip-country-lite-$(date -u +%Y-%m).mmdb.gz" || \
+      curl -fsSL -o country.mmdb.gz "https://download.db-ip.com/free/dbip-country-lite-$(date -u -d 'last month' +%Y-%m).mmdb.gz"; } && \
+    gunzip -c country.mmdb.gz > dbip-country-lite.mmdb && rm country.mmdb.gz || \
+    { rm -f country.mmdb.gz dbip-country-lite.mmdb; echo "No IP-to-country data; analytics events will carry no country"; }
+
 # Precompile bootsnap code for faster boot times.
 # -j 1 disable parallel compilation to avoid a QEMU bug: https://github.com/rails/bootsnap/issues/495
 RUN bundle exec bootsnap precompile -j 1 app/ lib/

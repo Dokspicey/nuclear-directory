@@ -33,12 +33,14 @@ class RelayController < ActionController::API
     with: -> { head :too_many_requests }
 
   def forward
-    path = params[:path].to_s
-    return head(:not_found) unless path.match?(PATHS)
-    return head(:payload_too_large) if request.content_length.to_i > MAX_BODY
+    # As the browser sent it: the router drops the trailing slash PostHog's
+    # endpoints use ("/e/") from params[:path] and request.path.
+    path = request.original_fullpath.split("?", 2).first.delete_prefix("/relay/")
+    return head(:not_found) unless path.match?(PATHS) && !path.include?("..")
+    return head(:content_too_large) if request.content_length.to_i > MAX_BODY
 
     body = request.raw_post.to_s
-    return head(:payload_too_large) if body.bytesize > MAX_BODY
+    return head(:content_too_large) if body.bytesize > MAX_BODY
 
     body = with_country(body) if request.post? && path.match?(EVENT_PATHS)
     upstream = send_upstream(path, body)

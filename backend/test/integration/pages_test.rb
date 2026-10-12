@@ -7,13 +7,15 @@ class PagesTest < ActionDispatch::IntegrationTest
   test "the privacy page says what analytics records, and that PostHog doesn't store IP addresses (#203)" do
     get privacy_path
 
-    assert_select "meta[name=description][content*=?]", "time on page and dead clicks"
+    assert_select "meta[name=description][content*=?]", "dead clicks, the country you're visiting from"
     assert_select "h2#counts", "Analytics"
     assert_select "#counts + p", /page views, searches .*how long a page stays open, and dead clicks/m
     assert_select "#counts ~ p", /cookieless mode.*no session recordings/m
-    # Cookieless mode strips the IP before PostHog stores anything (PostHog #48660), and some scripts load from PostHog.
-    assert_select "#counts ~ p", /In cookieless mode it doesn't store the IP address/
-    assert_select "#counts ~ p", /load from PostHog's servers/
+    # #205: we look up the country and send only that; PostHog uses the IP to count visitors and drops it.
+    assert_select "#counts ~ p", /country you're in from your IP address, on this site's server, and send PostHog only the country/
+    assert_select "#counts ~ p", /uses only to count unique visitors, and it doesn't store the IP address/
+    assert_select "#counts ~ p a[href='https://db-ip.com']", "IP Geolocation by DB-IP"
+    assert_select "#counts ~ p", /go through this site rather than straight to PostHog/
     assert_select "p", /Last updated\s+2026-10-12/
     assert_no_match(/set to discard IP addresses/, response.body)
   end
