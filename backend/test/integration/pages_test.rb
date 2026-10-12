@@ -53,7 +53,8 @@ class PagesTest < ActionDispatch::IntegrationTest
     get bot_path
     assert_select "h1 + .nd-prose__intro > p.type-body-strong:first-child", "NuclearDirectoryBot is the crawler that keeps Nuclear Directory up to date."
     assert_select "h2#behaviour", "It follows robots.txt and stops when blocked"
-    assert_select "section[aria-labelledby=behaviour] ul.type-small li", 3
+    assert_select "section[aria-labelledby=behaviour] ul.type-small li", 2
+    assert_select "h2#pace", "It visits each page at most once a day"
     assert_select "h2#blocking", "Block it with robots.txt"
 
     get disclaimer_path

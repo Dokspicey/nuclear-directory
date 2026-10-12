@@ -19,12 +19,17 @@
 
   <section aria-labelledby="behaviour">
     <h2 id="behaviour" class="type-body-strong">It follows robots.txt and stops when blocked</h2>
-    <p class="type-body">It fetches each page at most once a day and waits <%= DataQuality::Fetcher::HOST_INTERVAL %> seconds between requests to the same site.</p>
+    <p class="type-body">It checks every page against the site's robots.txt, including pages it's redirected to.</p>
     <ul class="type-small text-ink-muted">
-      <li>It checks every page against the site's robots.txt, including pages it's redirected to. It reads a site's robots.txt once per visit, not once per page.</li>
-      <li>It asks only for changes (ETag and Last-Modified), so an unchanged page costs a short reply.</li>
+      <li>It reads a site's robots.txt once per visit, not once per page.</li>
       <li>When a site blocks it, it doesn't retry, work around the block or pretend to be a browser.</li>
     </ul>
+  </section>
+
+  <section aria-labelledby="pace">
+    <h2 id="pace" class="type-body-strong">It visits each page at most once a day</h2>
+    <p class="type-body">It waits <%= DataQuality::Fetcher::HOST_INTERVAL %> seconds between requests to the same site.</p>
+    <p class="type-small text-ink-muted">It asks only for changes (ETag and Last-Modified), so an unchanged page costs a short reply.</p>
   </section>
 
   <section aria-labelledby="blocking">
