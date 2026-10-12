@@ -3,8 +3,10 @@
 # Privacy rules, all enforced here:
 # - nobody is ever identified: every event uses one shared distinct id, never
 #   identify(), and no person profiles are created
-# - no personal data in properties; no IP or GeoIP (PostHog's project also
-#   discards client IPs and runs cookieless)
+# - no personal data in properties, and no IP or GeoIP on these server-side
+#   events: sent from the server, the IP would be ours, not the visitor's.
+#   (Browser events do carry the visitor's IP, which PostHog keeps to
+#   estimate location since #203; the privacy page says so.)
 # - nothing runs without POSTHOG_API_KEY, and nothing is sent in tests
 #
 # Server-side events (controllers call these through TracksAnalytics, which

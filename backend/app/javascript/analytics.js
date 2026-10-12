@@ -2,11 +2,14 @@
 // posthog-key / posthog-host meta tags only on public pages, for people (not
 // bots), and only when analytics is configured; see TracksAnalytics.
 //
-// Cookieless and anonymous: nothing is stored in the browser, nobody is
-// identified, no session replay, no surveys, no click autocapture. Only page
-// views and page leaves (for bounce rate and time on page) are sent, and
-// every URL in them is cut back to its path, so query strings (which can
-// hold an email or a search) never leave the page. The
+// Cookieless: nothing is stored in the browser, nobody is identified, no
+// session replay, no surveys, no click autocapture. Page views and page
+// leaves (for bounce rate and time on page) are sent, plus dead clicks when
+// they're on in the PostHog project (Tosin's choice), and every URL in them
+// is cut back to its path, so query strings (which can hold an email or a
+// search) never leave the page. PostHog keeps the visitor's IP address and
+// estimates location from it (#203; "Discard client IP data" is off), which
+// the privacy page says. The
 // library loads when the browser is idle, so it never slows a page down.
 const meta = (name) => document.querySelector(`meta[name="${name}"]`)?.content
 
