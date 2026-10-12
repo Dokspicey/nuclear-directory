@@ -54,6 +54,19 @@ class Metabase::ReadonlyRoleTest < ActiveSupport::TestCase
     assert_match "permission denied", refused("CREATE TABLE metabase_probe (id int)").message
   end
 
+  test "only a SCRAM verifier reaches Postgres, never the password" do
+    sql = []
+    ActiveSupport::Notifications.subscribed(->(*, payload) { sql << payload[:sql] }, "sql.active_record") do
+      Metabase::ReadonlyRole.apply!(name: @name, password: PASSWORD)
+    end
+
+    assert sql.any? { |statement| statement.match?(/ALTER ROLE .* PASSWORD 'SCRAM-SHA-256\$/) }, "the verifier was sent"
+    assert sql.none? { |statement| statement.include?(PASSWORD) }, "the plaintext password was sent"
+    stored = ActiveRecord::Base.connection.select_value("SELECT rolpassword FROM pg_authid WHERE rolname = #{ActiveRecord::Base.connection.quote(@name)}")
+    assert stored.start_with?("SCRAM-SHA-256$"), "stored as a SCRAM verifier"
+    assert_equal "1", session.exec("SELECT 1").getvalue(0, 0), "and the role still signs in with the password"
+  end
+
   test "a table added later is readable, and rerunning updates the role" do
     ActiveRecord::Base.connection.execute("CREATE TABLE metabase_later_table (id int)")
     assert_equal "0", session.exec("SELECT count(*) FROM metabase_later_table").getvalue(0, 0)

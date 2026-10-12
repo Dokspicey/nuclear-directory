@@ -12,7 +12,9 @@
 module Metabase
   module ReadonlyRole
     NAME = "metabase_ro"
-    # Tables holding sign-in data, never readable through Metabase.
+    # Tables holding sign-in data, never readable through Metabase. Any
+    # table added later is readable (default privileges), so a new table
+    # with sign-in or personal data goes here in the same PR.
     PRIVATE_TABLES = %w[users sessions].freeze
 
     module_function
@@ -30,10 +32,12 @@ module Metabase
         unless connection.select_value("SELECT 1 FROM pg_roles WHERE rolname = #{connection.quote(name)}")
           connection.execute("CREATE ROLE #{role} LOGIN")
         end
-        # The password never goes to the log.
+        # Only a SCRAM-SHA-256 verifier, computed here, is sent: the password
+        # itself never reaches Postgres, so no server log can hold it.
+        verifier = connection.raw_connection.encrypt_password(password, name, "scram-sha-256")
         ActiveRecord::Base.logger.silence do
           connection.execute("ALTER ROLE #{role} WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION " \
-            "CONNECTION LIMIT 5 PASSWORD #{connection.quote(password)}")
+            "CONNECTION LIMIT 5 PASSWORD #{connection.quote(verifier)}")
         end
         connection.execute("ALTER ROLE #{role} SET default_transaction_read_only = on")
         connection.execute("ALTER ROLE #{role} SET statement_timeout = '60s'")

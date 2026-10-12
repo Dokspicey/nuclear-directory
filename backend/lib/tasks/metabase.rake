@@ -7,13 +7,11 @@ namespace :metabase do
       abort "This database user can't create roles. Run this as the database owner (Render shell on the web service)."
     end
 
-    password = ENV["METABASE_RO_PASSWORD"].presence || begin
-      console = IO.console or abort "No terminal to type the password in; set METABASE_RO_PASSWORD instead."
-      first = console.getpass("Password for #{Metabase::ReadonlyRole::NAME} (paste from your password manager): ")
-      second = console.getpass("Same password again: ")
-      abort "The two passwords don't match; nothing was changed." unless first == second
-      first
-    end
+    # Typed at a prompt only, never on the command line, so it isn't in the
+    # shell's history.
+    console = IO.console or abort "Run this in a terminal (Render: web service → Shell), so it can ask for the password."
+    password = console.getpass("Password for #{Metabase::ReadonlyRole::NAME} (paste from your password manager): ")
+    abort "The two passwords don't match; nothing was changed." unless console.getpass("Same password again: ") == password
 
     Metabase::ReadonlyRole.apply!(password:)
     database = ActiveRecord::Base.connection.current_database

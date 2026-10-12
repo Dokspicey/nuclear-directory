@@ -254,7 +254,9 @@ run it only after the deploy that added it has finished:
    bin/rails metabase:create_readonly_role
    ```
 
-   Paste the password twice when asked; nothing is shown as you paste. It
+   Paste the password twice when asked; nothing is shown as you paste. Use
+   the prompt, never the password on the command line, so it stays out of
+   the shell's history; only a SCRAM hash of it is sent to Postgres. It
    creates `metabase_ro`, which can read the directory's tables but not
    `users` or `sessions`, and every transaction it starts is read-only.
    Running it again updates the password and the grants.
