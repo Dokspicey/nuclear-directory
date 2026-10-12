@@ -4,6 +4,15 @@ require_relative "../support/directory_builders"
 class PagesTest < ActionDispatch::IntegrationTest
   include DirectoryBuilders
 
+  test "the privacy page says what analytics records, including how long a page stays open" do
+    get privacy_path
+
+    assert_select "meta[name=description][content*=?]", "how long a page stays open"
+    assert_select "h2#counts", "Page views, searches and time on page"
+    assert_select "#counts + p", /page views and searches, and how long a page stays open/
+    assert_select "#counts ~ p", /each time a page is viewed or closed/
+  end
+
   test "privacy, disclaimer and the crawler page are linked from every page's footer" do
     get root_path
     assert_select "footer.nd-footer nav[aria-label='About this site']" do
