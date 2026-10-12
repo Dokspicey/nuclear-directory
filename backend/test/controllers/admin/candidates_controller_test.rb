@@ -109,7 +109,10 @@ class Admin::CandidatesControllerTest < ActionDispatch::IntegrationTest
       assert_select "p", /On all pages: 3 recommended claims/
       assert_select "form[action=?] button", approve_all_admin_candidates_path(queue: "recommended"), "Approve all 3"
 
-      perform_enqueued_jobs { post approve_all_admin_candidates_path(queue: "recommended") }
+      shown = css_select("form[action='#{approve_all_admin_candidates_path(queue: 'recommended')}'] input[name=shown]").first["value"]
+      assert_match "all 3 recommended claims?", css_select("form[data-turbo-confirm]").first["data-turbo-confirm"]
+
+      perform_enqueued_jobs { post approve_all_admin_candidates_path(queue: "recommended"), params: { shown: } }
 
       assert_redirected_to admin_candidates_path(queue: "recommended")
       assert_match "Approving 3 recommended claims", flash[:notice]
@@ -119,6 +122,23 @@ class Admin::CandidatesControllerTest < ActionDispatch::IntegrationTest
       end
       assert unsure.reload.status_needs_review?, "a claim needing review is never approved in bulk"
     end
+  end
+
+  test "approve all approves only what was shown: if the queue changed, nothing is approved" do
+    candidate("organization", { "name" => "Alpha Fission Co" })
+    match_and_verify
+    sign_in_as users(:admin)
+    get admin_candidates_path(queue: "recommended")
+    shown = css_select("input[name=shown]").first["value"]
+
+    late = candidate("organization", { "name" => "Late Fission Co" }) # recommended after the page loaded
+    match_and_verify
+
+    assert_no_enqueued_jobs only: DataQuality::ApproveAllJob do
+      post approve_all_admin_candidates_path(queue: "recommended"), params: { shown: }
+    end
+    assert_match "The queue changed since you opened it", flash[:alert]
+    assert_not late.reload.status_merged?
   end
 
   test "approve all keeps to the queue's filters, and says when nothing matches" do

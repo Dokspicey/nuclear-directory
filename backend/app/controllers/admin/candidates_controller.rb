@@ -11,7 +11,11 @@ class Admin::CandidatesController < Admin::BaseController
       after_id: params[:after].presence&.to_i, limit: PAGE)
     @counts = DataQuality::Review.counts
     @reasons = DataQuality::Review.reasons(queue: @queue, run_id: @run_id)
-    @matching = DataQuality::Review.candidate_ids(queue: :recommended, reason: @reason, run_id: @run_id).size if @queue == "recommended"
+    if @queue == "recommended"
+      ids = DataQuality::Review.candidate_ids(queue: :recommended, reason: @reason, run_id: @run_id)
+      @matching = ids.size
+      @shown = self.class.fingerprint(ids)
+    end
   end
 
   # One claim (candidate_id), or the selected ones (candidate_ids[]): bulk
@@ -35,6 +39,10 @@ class Admin::CandidatesController < Admin::BaseController
       run_id: params[:run_id].presence&.to_i)
     if ids.empty?
       flash[:alert] = "Nothing to approve: no recommended claims match these filters."
+    elsif params[:shown] != self.class.fingerprint(ids)
+      # Only what the person saw and confirmed: if claims were recommended,
+      # decided or dropped since the page loaded, nothing is approved.
+      flash[:alert] = "The queue changed since you opened it, so nothing was approved. Check the count and try again."
     else
       DataQuality::ApproveAllJob.perform_later(ids, by: actor)
       flash[:notice] = "Approving #{helpers.pluralize(ids.size, 'recommended claim')}. Refresh in a minute to see the queue " \
@@ -42,6 +50,10 @@ class Admin::CandidatesController < Admin::BaseController
     end
     redirect_to admin_candidates_path(filters.merge(queue: "recommended"))
   end
+
+  # Which claims "Approve all" covered when the page was shown, compared on
+  # the click so exactly those are approved.
+  def self.fingerprint(ids) = Digest::SHA256.hexdigest(ids.join(","))
 
   def reject
     id = params.require(:candidate_id).to_i
