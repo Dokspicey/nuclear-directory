@@ -49,10 +49,10 @@ module Metabase
       end
     end
 
-    # Creates the role if it's new, then sets its password and limits. Only
-    # attributes a role-creating owner may set (Postgres 16 refuses a
-    # non-superuser NOSUPERUSER, NOCREATEDB...): a new role starts without
-    # them, and an existing one that has any is refused, not reused. Only a
+    # Creates the role if it's new, then sets its password and limits. It
+    # names no privileged attributes at all: a new role starts without them,
+    # and an existing one that has any is refused, not reused (Render's
+    # owner, not a superuser, couldn't take them away). Only a
     # SCRAM-SHA-256 verifier, computed here, is sent: the password itself
     # never reaches Postgres, so no server log can hold it.
     def account_statements(name:, password:, connection:)
