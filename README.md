@@ -94,6 +94,16 @@ Production runs on [Render](https://render.com), described in `render.yaml`
 one Postgres 16 database, both in Oregon. Solid Queue runs inside Puma
 (`SOLID_QUEUE_IN_PUMA=true`), so there is no separate worker.
 
+**Memory.** The web service is a 512 MB instance running the site and the
+background jobs (Solid Queue inside Puma). To fit, Puma runs in single mode,
+Solid Queue in async mode (its dispatcher, worker and scheduler are threads in
+the same process, not forks; `config/puma.rb`, `SOLID_QUEUE_MODE=fork` undoes
+it) and jemalloc returns freed memory quickly (`MALLOC_CONF`). Because Puma and
+the job threads share one database pool in async mode, `DB_POOL=12` sizes it so
+a long crawl never leaves web requests waiting for a connection. Idle it uses
+about 130 MB instead of 280 MB. To check: Render → web service → Metrics →
+Memory, and Events, which shows "ran out of memory" if it ever restarts.
+
 **Every deploy** builds the image, runs `bin/rails db:migrate`, then starts
 the new version and switches traffic once `/up` returns 200. If the build,
 the migration or the health check fails, the old version keeps serving.
