@@ -55,7 +55,21 @@ class CheckBlueprintTest < Minitest::Test
   def test_the_preview_takes_no_environment_groups
     ok, output = check_preview { |vars| vars << { "fromGroup" => "production-secrets" } }
     refute ok
-    assert_includes output, "never an environment group"
+    assert_includes output, "may not take values from other services, databases or environment groups"
+  end
+
+  def test_the_preview_gets_no_production_database_under_another_name
+    ok, output = check_preview do |vars|
+      vars << { "key" => "PRODUCTION_DATA", "fromDatabase" => { "name" => "nuclear-directory-db", "property" => "connectionString" } }
+    end
+    refute ok
+    assert_includes output, "may not take values from other services, databases or environment groups"
+  end
+
+  def test_the_preview_sets_only_known_keys
+    ok, output = check_preview { |vars| vars << { "key" => "SOME_NEW_SETTING", "value" => "x" } }
+    refute ok
+    assert_includes output, "the preview must not set SOME_NEW_SETTING"
   end
 
   def test_the_real_render_yaml_passes
