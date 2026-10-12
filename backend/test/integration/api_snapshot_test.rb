@@ -22,6 +22,14 @@ class ApiSnapshotTest < ActionDispatch::IntegrationTest
     cite!(@kairos, @nuscale, @duke)
   end
 
+  # Every fact table reports no rows, as on an empty database.
+  def with_no_facts
+    DirectorySnapshot::FACT_MODELS.each { |model| model.define_singleton_method(:maximum) { |*| nil } }
+    yield
+  ensure
+    DirectorySnapshot::FACT_MODELS.each { |model| model.singleton_class.send(:remove_method, :maximum) }
+  end
+
   def snapshot
     get "/api/snapshot.json"
     response.parsed_body
@@ -134,6 +142,21 @@ class ApiSnapshotTest < ActionDispatch::IntegrationTest
     travel 2.minutes do
       @kairos.unpublish!(by: "human:tosin", reason: "test")
       assert_operator Time.iso8601(snapshot["updatedAt"]), :>, before + 1.minute
+    end
+  end
+
+  test "updatedAt is always a time, and a deleted fact's last change still counts" do
+    newest = company("Newest Co")
+    travel 5.minutes do
+      newest.destroy!
+      # Nothing left in the tables is this new: the recorded change time is.
+      assert_operator Time.iso8601(snapshot["updatedAt"]), :>=, Time.current.change(usec: 0) - 1.second
+    end
+
+    # An empty directory with nothing recorded still gives a time.
+    DirectorySnapshot::CHANGES.clear
+    with_no_facts do
+      assert_kind_of Time, DirectorySnapshot.new(base_url: "https://example.com").send(:updated_at)
     end
   end
 

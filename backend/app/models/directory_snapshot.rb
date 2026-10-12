@@ -39,10 +39,19 @@ class DirectorySnapshot
 
   def self.generation = @lock.synchronize { @generation }
 
-  def self.expire!
+  # Called after any fact is saved or deleted (Verifiable). Also records the
+  # time durably (the app's database-backed cache), so updatedAt moves
+  # forward for a deletion and survives a restart.
+  def self.expire!(changed_at: Time.current)
     @lock.synchronize { @generation += 1 }
     CACHE.clear
+    CHANGES.write(CHANGED_AT, changed_at.to_f)
   end
+
+  # The app's cache in production; tests use their own, since the test
+  # cache keeps nothing.
+  CHANGES = Rails.env.test? ? ActiveSupport::Cache::MemoryStore.new : Rails.cache
+  CHANGED_AT = "directory_snapshot/changed_at"
 
   def initialize(base_url:)
     @urls = Rails.application.routes.url_helpers
@@ -51,7 +60,7 @@ class DirectorySnapshot
 
   def as_json(*)
     {
-      updatedAt: updated_at&.utc&.iso8601,
+      updatedAt: updated_at.utc.iso8601,
       totalEntries: companies.count + sites.count,
       categories: Category.all.map { |category| category_json(category) },
       recentlyAdded: recently_added
@@ -109,8 +118,15 @@ class DirectorySnapshot
     end
 
     # The last change to any fact that feeds the snapshot, published or not,
-    # so taking something down moves it forward too.
-    FACT_MODELS = [ Organization, Facility, OrganizationRole, OrganizationTechnology, Relationship, FacilityRelationship ].freeze
+    # so taking something down moves it forward too. The audit log is
+    # append-only, so a deleted fact's last change still counts. Always a
+    # time: an empty directory reports when the snapshot was built.
+    FACT_MODELS = [ Organization, Facility, OrganizationRole, OrganizationTechnology, Relationship, FacilityRelationship,
+      VerificationEvent ].freeze
 
-    def updated_at = FACT_MODELS.filter_map { |model| model.maximum(:updated_at) }.max
+    def updated_at
+      recorded = CHANGES.read(CHANGED_AT)&.then { |seconds| Time.zone.at(seconds) }
+      times = FACT_MODELS.filter_map { |model| model.maximum(model == VerificationEvent ? :created_at : :updated_at) }
+      [ *times, recorded ].compact.max || Time.current
+    end
 end
