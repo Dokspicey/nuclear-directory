@@ -8,16 +8,27 @@ class PagesTest < ActionDispatch::IntegrationTest
     get privacy_path
 
     assert_select "meta[name=description][content*=?]", "dead clicks, the country you're visiting from"
-    assert_select "h2#counts", "Analytics"
-    assert_select "#counts + p", /page views, searches .*how long a page stays open, and dead clicks/m
-    assert_select "#counts ~ p", /cookieless mode.*no session recordings/m
+    assert_select "h2#counts", "We count how the site is used, without cookies"
+    assert_select "#counts + p", /page views, searches, how long a page stays open and dead clicks/
+    assert_select "section[aria-labelledby=counts]", /Nothing is stored in your browser.*no session recordings/m
     # #205: we look up the country and send only that; PostHog uses the IP to count visitors and drops it.
-    assert_select "#counts ~ p", /country you're in from your IP address, on this site's server, and add only the country to the analytics data/
-    assert_select "#counts ~ p", /To count unique visitors without cookies, PostHog also receives your IP address .*doesn't store the IP address/m
-    assert_select "#counts ~ p a[href='https://db-ip.com']", "IP Geolocation by DB-IP"
-    assert_select "#counts ~ p", /go through this site rather than straight to PostHog/
+    assert_select "h2#ip", "We keep your country, not your IP address"
+    assert_select "#ip ~ p", /country you're in from your IP address, on this site's server, and add only the country to the analytics data/
+    assert_select "#ip ~ p", /PostHog also receives your IP address and browser with each request, to count unique visitors without cookies, and doesn't store the IP address/
+    assert_select "#ip ~ p a[href='https://db-ip.com']", "IP Geolocation by DB-IP"
+    assert_select "#ip ~ p a[href='https://creativecommons.org/licenses/by/4.0/']", "CC BY 4.0"
+    assert_select "#relay ~ p", /go through this site rather than straight to PostHog/
     assert_select "p", /Last updated\s+2026-10-12/
     assert_no_match(/set to discard IP addresses/, response.body)
+  end
+
+  test "every privacy section leads with its point, then details in smaller type (#215)" do
+    get privacy_path
+
+    assert_select "h1 + p.type-body-strong", "Nuclear Directory doesn't ask who you are."
+    assert_select "section h2", 8
+    assert_select "section[aria-labelledby=counts] ul.type-small li", 4
+    assert_select "section[aria-labelledby=corrections] p.type-small", /scrambled form of your IP address/
   end
 
   test "privacy, disclaimer and the crawler page are linked from every page's footer" do

@@ -6,34 +6,54 @@
 
 <main class="nd-page nd-page--narrow nd-prose">
   <h1 class="type-title-md">Privacy</h1>
-  <p class="type-body">Nuclear Directory doesn't ask who you are. There are no accounts and no advertising trackers.</p>
+  <p class="type-body-strong">Nuclear Directory doesn't ask who you are.</p>
+  <p class="type-body">There are no accounts and no advertising trackers.</p>
 
   <section aria-labelledby="cookie">
-    <h2 id="cookie" class="type-body-strong">One cookie</h2>
-    <p class="type-body">The site sets a single session cookie that protects its forms against forged submissions. It holds no information about you, isn't used to count or follow visits, and ends when you close your browser.</p>
+    <h2 id="cookie" class="type-body-strong">One cookie, for form security</h2>
+    <p class="type-body">It protects the site's forms against forged submissions and ends when you close your browser.</p>
+    <p class="type-small text-ink-muted">It holds no information about you and isn't used to count or follow visits.</p>
   </section>
 
   <section aria-labelledby="counts">
-    <h2 id="counts" class="type-body-strong">Analytics</h2>
-    <p class="type-body">We use PostHog to see how the site is used. It records page views, searches (their words and how many results they found), how long a page stays open, and dead clicks: clicks on something that doesn't respond, such as text that looks like a link, with the text of what was clicked. Page addresses are recorded without their query strings.</p>
-    <p class="type-body">PostHog runs in cookieless mode: nothing is stored in your browser, and one visit isn't linked to the next. There are no session recordings and no visitor accounts.</p>
-    <p class="type-body">We look up which country you're in from your IP address, on this site's server, and add only the country to the analytics data. To count unique visitors without cookies, PostHog also receives your IP address and browser with each request, and in cookieless mode it doesn't store the IP address. The country data is <a class="nd-link" href="https://db-ip.com">IP Geolocation by DB-IP</a>, used under the <a class="nd-link" href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a> license.</p>
+    <h2 id="counts" class="type-body-strong">We count how the site is used, without cookies</h2>
+    <p class="type-body">We use PostHog to count page views, searches, how long a page stays open and dead clicks. Nothing is stored in your browser, and one visit isn't linked to the next.</p>
+    <ul class="type-small text-ink-muted">
+      <li>Searches are recorded with their words and how many results they found.</li>
+      <li>A dead click is a click on something that doesn't respond, such as text that looks like a link. It's recorded with the text of what was clicked.</li>
+      <li>Page addresses are recorded without their query strings.</li>
+      <li>There are no session recordings and no visitor accounts.</li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="ip">
+    <h2 id="ip" class="type-body-strong">We keep your country, not your IP address</h2>
+    <p class="type-body">We look up which country you're in from your IP address, on this site's server, and add only the country to the analytics data.</p>
+    <p class="type-body">PostHog also receives your IP address and browser with each request, to count unique visitors without cookies, and doesn't store the IP address.</p>
+    <p class="type-small text-ink-muted">The country data is <a class="nd-link" href="https://db-ip.com">IP Geolocation by DB-IP</a>, used under the <a class="nd-link" href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a> license.</p>
+  </section>
+
+  <section aria-labelledby="relay">
+    <h2 id="relay" class="type-body-strong">Analytics go through this site</h2>
     <p class="type-body">PostHog's scripts, and the data they send, go through this site rather than straight to PostHog.</p>
   </section>
 
   <section aria-labelledby="corrections">
-    <h2 id="corrections" class="type-body-strong">Corrections</h2>
-    <p class="type-body">When you report a correction, we keep what you type (your message and, if you add one, your email address) and the page it's about. We use your email only to reply about that correction. We don't store your IP address with it. To stop floods of reports, a scrambled form of your IP address is kept in the site's cache for ten minutes and then deleted.</p>
+    <h2 id="corrections" class="type-body-strong">A correction keeps what you type, to reply to you</h2>
+    <p class="type-body">We keep your message, the page it's about and, if you add one, your email address. We use your email only to reply about that correction.</p>
+    <p class="type-small text-ink-muted">We don't store your IP address with it. To stop floods of reports, a scrambled form of your IP address is kept in the site's cache for ten minutes and then deleted.</p>
   </section>
 
   <section aria-labelledby="errors">
-    <h2 id="errors" class="type-body-strong">Error reports</h2>
-    <p class="type-body">When a page fails, an error report goes to Sentry with the page address and the error. It leaves out cookies, form contents, query strings and anything that identifies you.</p>
+    <h2 id="errors" class="type-body-strong">Error reports leave you out</h2>
+    <p class="type-body">When a page fails, an error report goes to Sentry with the page address and the error.</p>
+    <p class="type-small text-ink-muted">It leaves out cookies, form contents, query strings and anything that identifies you.</p>
   </section>
 
   <section aria-labelledby="hosting">
-    <h2 id="hosting" class="type-body-strong">Hosting</h2>
-    <p class="type-body">The site runs on Render. Like any web host, Render keeps standard server logs, which include IP addresses, for a limited time to run and secure the service. Fonts and scripts are served from this site, not from a third party.</p>
+    <h2 id="hosting" class="type-body-strong">Hosting on Render</h2>
+    <p class="type-body">Fonts and scripts are served from this site, not from a third party.</p>
+    <p class="type-small text-ink-muted">Like any web host, Render keeps standard server logs, which include IP addresses, for a limited time to run and secure the service.</p>
   </section>
 
   <section aria-labelledby="contact">
