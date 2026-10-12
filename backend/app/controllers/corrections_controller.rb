@@ -22,6 +22,7 @@ class CorrectionsController < ApplicationController
 
     @report = CorrectionReport.new(report_params)
     if @report.save
+      track_correction_submitted(subject_type: page_kind(@report.page_path))
       redirect_to correction_sent_path(page: @report.page_path)
     else
       render :new, status: :unprocessable_entity
@@ -44,6 +45,15 @@ class CorrectionsController < ApplicationController
     # read a leading "//" or "/\" as another host, so neither may start it,
     # and no backslash or whitespace is allowed anywhere.
     def safe_path(path) = CorrectionReport.local_path?(path) ? path.to_s : "/"
+
+    # What kind of page a correction is about, for analytics: never which one.
+    def page_kind(path)
+      case path.to_s
+      when %r{\A/companies/} then "company"
+      when %r{\A/plants/} then "plant"
+      else "other"
+      end
+    end
 
     def too_many
       @report = CorrectionReport.new(report_params)
