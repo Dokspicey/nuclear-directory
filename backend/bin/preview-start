@@ -23,7 +23,24 @@ psql_setup() { PGOPTIONS="$timeouts" psql "$DATABASE_URL" -X -q -v ON_ERROR_STOP
 # instance (still running during a deploy) keeps serving from public. Only
 # when schema and seed have loaded is it swapped in, in one transaction, so a
 # failed start leaves the old preview working (#206).
-psql_setup -c "DROP SCHEMA IF EXISTS preview_next CASCADE; CREATE SCHEMA preview_next;" > /dev/null
+# Before touching the schemas, end this role's other sessions: the old
+# instance's (it reconnects) and any left by an earlier start whose container
+# Render killed mid-build, which can sit idle in a transaction holding locks on
+# preview_next for a long time (the 23:21 deadlocks and lock timeouts).
+# preview_app may end its own sessions. Retried, in case one reconnects.
+end_others="SELECT count(pg_terminate_backend(pid)) FROM pg_stat_activity
+  WHERE datname = current_database() AND pid <> pg_backend_pid() AND usename = current_user;"
+with_retries() {
+  local what=$1 sql=$2 attempt
+  for attempt in 1 2 3 4 5; do
+    psql_setup -c "$end_others" -c "$sql" > /dev/null && return 0
+    [[ $attempt == 5 ]] && { echo "preview-start: couldn't ${what} after 5 tries." >&2; return 1; }
+    echo "preview-start: ${what} failed (attempt ${attempt}); retrying in $((attempt * 3))s." >&2
+    sleep $((attempt * 3))
+  done
+}
+
+with_retries "prepare preview_next" "DROP SCHEMA IF EXISTS preview_next CASCADE; CREATE SCHEMA preview_next;"
 PGOPTIONS="$timeouts -c search_path=preview_next" bin/rails db:schema:load db:seed
 
 # The preview's admin login, from PREVIEW_ADMIN_PASSWORD. A problem here (unset
@@ -32,12 +49,9 @@ if ! PGOPTIONS="$timeouts -c search_path=preview_next" bin/rails preview:admin; 
   echo "preview-start: no admin login on this preview (see the line above); starting without it." >&2
 fi
 
-# The swap. The old instance's sessions hold locks on public, which deadlocked
-# a plain DROP SCHEMA (#206): end them first (preview_app may end its own
-# sessions), and retry in case it reconnects in between.
-swap_sql="
-  SELECT count(pg_terminate_backend(pid)) FROM pg_stat_activity
-  WHERE datname = current_database() AND pid <> pg_backend_pid() AND usename = current_user;
+# The swap, in one transaction, again after ending the old instance's
+# sessions (they hold locks on public). A failure here leaves the old data.
+with_retries "swap in the new preview data (the old data is still in place)" "
   DROP SCHEMA IF EXISTS preview_old CASCADE;
   DO \$\$ BEGIN
     IF EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'public') THEN
@@ -45,17 +59,6 @@ swap_sql="
     END IF;
   END \$\$;
   ALTER SCHEMA preview_next RENAME TO public;
-  DROP SCHEMA IF EXISTS preview_old CASCADE;"
-for attempt in 1 2 3 4 5; do
-  if psql_setup -c "$swap_sql" > /dev/null; then
-    break
-  fi
-  if [[ $attempt == 5 ]]; then
-    echo "preview-start: couldn't swap in the new preview data after 5 tries; the old data is still in place." >&2
-    exit 1
-  fi
-  echo "preview-start: swap attempt ${attempt} failed; retrying in $((attempt * 3))s." >&2
-  sleep $((attempt * 3))
-done
+  DROP SCHEMA IF EXISTS preview_old CASCADE;" || exit 1
 
 exec ./bin/rails server
