@@ -1,11 +1,12 @@
-// Anonymous page views through PostHog (#66). The layout adds the
+// Anonymous page views and page leaves through PostHog (#66). The layout adds the
 // posthog-key / posthog-host meta tags only on public pages, for people (not
 // bots), and only when analytics is configured; see TracksAnalytics.
 //
 // Cookieless and anonymous: nothing is stored in the browser, nobody is
 // identified, no session replay, no surveys, no click autocapture. Only page
-// views are sent, and every URL in them is cut back to its path, so query
-// strings (which can hold an email or a search) never leave the page. The
+// views and page leaves (for bounce rate and time on page) are sent, and
+// every URL in them is cut back to its path, so query strings (which can
+// hold an email or a search) never leave the page. The
 // library loads when the browser is idle, so it never slows a page down.
 const meta = (name) => document.querySelector(`meta[name="${name}"]`)?.content
 
@@ -41,8 +42,10 @@ function start(key, host) {
       persistence: "memory",
       person_profiles: "never",
       capture_pageview: "history_change", // counts Turbo navigations too
-      capture_pageleave: false,
-      autocapture: false, // page views only: no clicks, form events or element text
+      capture_pageleave: true, // bounce rate and time on page; same sanitized properties
+      disable_scroll_properties: true, // no scroll depth: page leaves carry time on page only
+      capture_performance: false, // no web vitals (a third-party script); set here so the dashboard can't turn it on
+      autocapture: false, // no clicks, form events or element text
       disable_session_recording: true,
       disable_surveys: true,
       before_send: sanitize,
