@@ -68,10 +68,24 @@ class RelayController < ActionController::API
         write_timeout: TIMEOUT) { |http| http.request(upstream) }
     end
 
-    # The events, with the country added and any IP removed. A body that
-    # isn't JSON (an older client compressing it) is passed on unchanged.
+    # The events, with the country added and any IP removed, in the format
+    # they came in: plain JSON, or the "data=<base64 JSON>" form posthog-js
+    # uses for sendBeacon (page leaves), whatever its compression setting.
+    # Anything else (gzip from a client that ignores disable_compression) is
+    # passed on unchanged.
     def with_country(body)
-      payload = JSON.parse(body)
+      if body.start_with?("data=")
+        json = Base64.decode64(URI.decode_www_form_component(body.delete_prefix("data="))).force_encoding(Encoding::UTF_8)
+        "data=#{URI.encode_www_form_component(Base64.strict_encode64(add_country(json)))}"
+      else
+        add_country(body)
+      end
+    rescue JSON::ParserError, ArgumentError
+      body
+    end
+
+    def add_country(json)
+      payload = JSON.parse(json)
       events = payload.is_a?(Hash) && payload["batch"].is_a?(Array) ? payload["batch"] : Array.wrap(payload)
       added = GeoCountry.properties(request.remote_ip)
       events.each do |event|
@@ -84,7 +98,5 @@ class RelayController < ActionController::API
         properties.merge!(added)
       end
       payload.to_json
-    rescue JSON::ParserError
-      body
     end
 end

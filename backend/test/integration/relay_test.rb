@@ -84,6 +84,23 @@ class RelayTest < ActionDispatch::IntegrationTest
     assert_not_requested :any, /posthog\.com/
   end
 
+  test "a page leave sent as a beacon (base64 form) gets the country and internal tag too" do
+    internal_ips!(VISITOR)
+    forwarded = nil
+    stub_request(:post, "https://us.i.posthog.com/e/?compression=base64").with { |request| forwarded = request }
+      .to_return(status: 200, body: "{}")
+    event = { event: "$pageleave", properties: { "$current_url" => "https://nuclear-directory.org/" } }
+    beacon = "data=#{URI.encode_www_form_component(Base64.strict_encode64(event.to_json))}"
+
+    send_events(beacon, path: "/relay/e/?compression=base64", headers: { "Content-Type" => "application/x-www-form-urlencoded" })
+
+    assert_response :success
+    assert forwarded.body.start_with?("data="), "sent on in the same format"
+    sent = JSON.parse(Base64.decode64(URI.decode_www_form_component(forwarded.body.delete_prefix("data="))))
+    assert_equal [ "GB", true ], sent["properties"].values_at("$geoip_country_code", "internal")
+    assert_equal "application/x-www-form-urlencoded", forwarded.headers["Content-Type"]
+  end
+
   test "a chunked upload with no length is still capped at 1 MB" do
     post "/relay/e/", params: "x" * (RelayController::MAX_BODY + 10),
       headers: { "Content-Type" => "text/plain", "Transfer-Encoding" => "chunked" }, env: { "CONTENT_LENGTH" => nil }

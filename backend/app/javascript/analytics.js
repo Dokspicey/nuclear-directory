@@ -42,7 +42,7 @@ function start(key, host) {
     posthog.init(key, {
       api_host: host, // our /relay (#205): the page views get a country, and blockers don't drop them
       ui_host: "https://us.posthog.com",
-      disable_compression: true, // plain JSON, so the relay can add the country
+      disable_compression: true, // plain JSON (beacons are base64 anyway), so the relay can add the country
       cookieless_mode: "always",
       persistence: "memory",
       person_profiles: "never",
