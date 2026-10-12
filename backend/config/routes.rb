@@ -34,6 +34,7 @@ Rails.application.routes.draw do
     resources :candidates, only: %i[index edit update] do
       collection do
         post :approve
+        post :approve_all, path: "approve-all"
         post :reject
       end
     end
