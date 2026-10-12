@@ -197,6 +197,25 @@ class DataQuality::Plugins::EiaGeneratorsTest < ActiveSupport::TestCase
     end
   end
 
+  test "a part that claims or reaches more than the limit is refused, not inflated" do
+    path = file_fixture("eia/real_trimmed.xlsx").to_s
+
+    Zip::File.open(path) do |zip|
+      File.open(path, "rb") do |file|
+        sheet = zip.entries.max_by(&:size)
+        claims_too_much = SimpleDelegator.new(sheet)
+        def claims_too_much.size = Workbook::Inflating::MAX_SIZE + 1
+        assert_match "too large", assert_raises(Workbook::Unreadable) { Workbook::Inflating.new(file, claims_too_much) }.message
+
+        claims_little = SimpleDelegator.new(sheet) # a crafted file can understate its size
+        def claims_little.size = 1
+        stub_const(Workbook::Inflating, :MAX_SIZE, sheet.size / 2) do
+          assert_match "expands past", assert_raises(Workbook::Unreadable) { Workbook::Inflating.new(file, claims_little).read }.message
+        end
+      end
+    end
+  end
+
   test "a large workbook with shared strings reads every row, like EIA's real file" do
     generators = Workbook.nuclear_generators(shared_strings_workbook(rows: 3000))
 

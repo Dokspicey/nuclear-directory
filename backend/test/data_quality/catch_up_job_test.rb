@@ -1,24 +1,36 @@
 require "test_helper"
 
 # The hourly catch-up (#188): a run cut off by a restart is marked failed,
-# and today's daily crawl is queued again once, from that source on.
+# and today's daily crawl is queued again once, from the first source the
+# daily job started but never finished.
 class DataQuality::CatchUpJobTest < ActiveSupport::TestCase
   include ActiveJob::TestHelper
 
   Job = DataQuality::CatchUpJob
   NOW = Time.find_zone("America/New_York").local(2026, 10, 12, 6, 30)
-  TODAY_3AM = NOW.change(hour: 3)
+  AT_3AM = NOW.change(hour: 3, min: 1)
 
   setup { Job::CACHE.clear }
 
   def catch_up(at: NOW) = Job.new.perform(now: at)
-  def make_run(kind, stage, status, at: TODAY_3AM + 1.minute, error: nil)
-    CrawlRun.create!(source_kind: kind, stage:, status:, started_at: at, error:)
+  def started(kind) = Job.daily_started!(kind, now: AT_3AM)
+  def finished(kind) = Job.daily_finished!(kind, now: AT_3AM)
+
+  # Runs the daily job with Pipeline.run stubbed to raise `error` for `kind`.
+  def daily(error_for = {})
+    pipeline = DataQuality::Pipeline.singleton_class
+    original = pipeline.instance_method(:run)
+    pipeline.define_method(:run) { |kind, **| error_for[kind] ? raise(error_for[kind]) : [] }
+    DataQuality::DailyCrawlJob.new.perform
+  rescue StandardError
+    nil # the job re-raises the first failure; the marks are what's checked
+  ensure
+    pipeline.define_method(:run, original)
   end
 
-  test "an NRC run cut off by a restart is failed, and the crawl is queued again for NRC then EIA, once" do
-    make_run("nrc_reactor_list", "crawl", "succeeded")
-    cut_off = make_run("nrc_reactor_list", "extract", "running", at: TODAY_3AM + 2.minutes)
+  test "a run cut off by a restart is failed, and the crawl is queued again from that source, once" do
+    started("nrc_reactor_list")
+    cut_off = CrawlRun.create!(source_kind: "nrc_reactor_list", stage: "extract", status: "running", started_at: AT_3AM)
 
     catch_up
 
@@ -31,20 +43,10 @@ class DataQuality::CatchUpJobTest < ActiveSupport::TestCase
     assert_no_enqueued_jobs only: DataQuality::DailyCrawlJob
   end
 
-  test "only EIA is queued again when NRC finished" do
-    make_run("nrc_reactor_list", "verify", "succeeded")
-    make_run("eia_generators", "crawl", "running", at: TODAY_3AM + 5.minutes)
-
-    catch_up
-
-    assert_enqueued_with job: DataQuality::DailyCrawlJob, args: [ %w[eia_generators] ]
-  end
-
   test "the night of 12 Oct: NRC fetched, then failed on the key; EIA cut off. Only EIA is queued again" do
-    make_run("nrc_reactor_list", "crawl", "succeeded")
-    make_run("nrc_reactor_list", "extract", "failed", at: TODAY_3AM + 2.minutes,
-      error: "OpenRouter rejected the API key: check OPENROUTER_API_KEY (OpenRouter 401: User not found.)")
-    make_run("eia_generators", "crawl", "running", at: TODAY_3AM + 3.minutes)
+    started("nrc_reactor_list")
+    finished("nrc_reactor_list") # failed on the key: an ordinary failure, it finished
+    started("eia_generators")
 
     catch_up
 
@@ -54,12 +56,55 @@ class DataQuality::CatchUpJobTest < ActiveSupport::TestCase
   end
 
   test "a restart between stages, with no run left running, is caught up too" do
-    make_run("nrc_reactor_list", "verify", "succeeded")
-    make_run("eia_generators", "crawl", "succeeded", at: TODAY_3AM + 3.minutes) # extract never started
+    finished("nrc_reactor_list")
+    started("eia_generators") # its crawl succeeded, and extract never started
+    CrawlRun.create!(source_kind: "eia_generators", stage: "crawl", status: "succeeded", started_at: AT_3AM)
 
     catch_up
 
     assert_enqueued_with job: DataQuality::DailyCrawlJob, args: [ %w[eia_generators] ]
+  end
+
+  test "a run started by hand is never taken for a cut-off daily crawl" do
+    finished("nrc_reactor_list")
+    finished("eia_generators")
+    CrawlRun.create!(source_kind: "eia_generators", stage: "crawl", status: "succeeded", started_at: NOW - 1.hour)
+
+    catch_up
+
+    assert_no_enqueued_jobs only: DataQuality::DailyCrawlJob
+  end
+
+  test "the daily job marks each source started and finished, failures included" do
+    travel_to(AT_3AM) { daily("nrc_reactor_list" => RuntimeError.new("OpenRouter rejected the API key")) }
+
+    %w[nrc_reactor_list eia_generators].each do |kind|
+      assert Job.marked?(:started, kind, AT_3AM.to_date), kind
+      assert Job.marked?(:finished, kind, AT_3AM.to_date), "#{kind}: an ordinary failure counts as finished"
+    end
+  end
+
+  test "a source the daily job found busy isn't marked started, since it requeues itself" do
+    travel_to(AT_3AM) { daily("nrc_reactor_list" => DataQuality::Pipeline::AlreadyRunning.new) }
+
+    assert_not Job.marked?(:started, "nrc_reactor_list", AT_3AM.to_date)
+  end
+
+  test "waits while a daily source is really mid-run, so EIA never starts alongside NRC" do
+    started("nrc_reactor_list")
+    nrc = CrawlRun.create!(source_kind: "nrc_reactor_list", stage: "extract", status: "running", started_at: AT_3AM)
+    config = ActiveRecord::Base.connection_db_config
+    other = PG.connect(host: config.configuration_hash[:host], port: config.configuration_hash[:port],
+      dbname: config.database, user: config.configuration_hash[:username], password: config.configuration_hash[:password])
+    other.exec("SELECT pg_advisory_lock(#{Zlib.crc32('data_quality:nrc_reactor_list')})")
+
+    catch_up
+
+    assert nrc.reload.running?, "its lock is held, so it's working"
+    assert_no_enqueued_jobs only: DataQuality::DailyCrawlJob
+  ensure
+    other&.exec("SELECT pg_advisory_unlock_all()")
+    other&.close
   end
 
   test "if queueing fails, nothing is remembered, so the next hour tries again" do
@@ -76,22 +121,6 @@ class DataQuality::CatchUpJobTest < ActiveSupport::TestCase
     failing.define_method(:perform_later, original)
   end
 
-  test "waits while a daily source is really mid-run, so EIA never starts alongside NRC" do
-    nrc = make_run("nrc_reactor_list", "extract", "running")
-    other = PG.connect(**ActiveRecord::Base.connection_db_config.configuration_hash
-      .slice(:host, :port, :password).merge(dbname: ActiveRecord::Base.connection_db_config.database,
-        user: ActiveRecord::Base.connection_db_config.configuration_hash[:username]))
-    other.exec("SELECT pg_advisory_lock(#{Zlib.crc32('data_quality:nrc_reactor_list')})")
-
-    catch_up
-
-    assert nrc.reload.running?, "its lock is held, so it's working"
-    assert_no_enqueued_jobs only: DataQuality::DailyCrawlJob
-  ensure
-    other&.exec("SELECT pg_advisory_unlock_all()")
-    other&.close
-  end
-
   test "a daily crawl that never started is queued after 4am" do
     catch_up(at: NOW.change(hour: 3, min: 30))
     assert_no_enqueued_jobs only: DataQuality::DailyCrawlJob
@@ -100,18 +129,9 @@ class DataQuality::CatchUpJobTest < ActiveSupport::TestCase
     assert_enqueued_with job: DataQuality::DailyCrawlJob, args: [ %w[nrc_reactor_list eia_generators] ]
   end
 
-  test "an ordinary failure, like a refused key, waits for a person" do
-    make_run("nrc_reactor_list", "extract", "failed", error: "OpenRouter rejected the API key: check OPENROUTER_API_KEY")
-    make_run("eia_generators", "verify", "succeeded")
-
-    catch_up
-
-    assert_no_enqueued_jobs only: DataQuality::DailyCrawlJob
-  end
-
-  test "yesterday's runs don't count for today" do
-    make_run("nrc_reactor_list", "verify", "succeeded", at: TODAY_3AM - 1.day)
-    make_run("eia_generators", "verify", "succeeded", at: TODAY_3AM - 1.day)
+  test "yesterday's marks don't count for today" do
+    Job.daily_finished!("nrc_reactor_list", now: AT_3AM - 1.day)
+    Job.daily_finished!("eia_generators", now: AT_3AM - 1.day)
 
     catch_up
 

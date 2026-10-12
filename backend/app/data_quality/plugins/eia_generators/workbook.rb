@@ -37,6 +37,8 @@ class DataQuality::Plugins::EiaGenerators::Workbook
   # What identifies a generator. A nuclear row without one of these can't be
   # matched to its unit, so it means the data changed: reported, not skipped.
   IDENTITY = %w[eia_plant_id plant_name state generator_id].freeze
+  # workbook.xml and its relationships are a few KB; they're read whole.
+  SMALL_PART = 5.megabytes
 
   # Returns an array of hashes keyed by COLUMNS' names. Raises Unreadable
   # when the file isn't a workbook, the sheet or a column is missing, a
@@ -212,10 +214,18 @@ class DataQuality::Plugins::EiaGenerators::Workbook
     # sheet (about 60 MB for the 860M's Operating sheet), which is what this
     # avoids.
     class Inflating
-      CHUNK = 64 * 1024
+      # Compressed bytes fed to Zlib per step: deflate expands at most about
+      # 1,000 to 1, so one step yields at most about 16 MB.
+      CHUNK = 16 * 1024
       LOCAL_HEADER = 30
+      # The most one part may expand to. The 860M's Operating sheet is about
+      # 56 MB; a part claiming or reaching more is refused, so a crafted file
+      # can't fill the 512 MB instance before the checksum is checked.
+      MAX_SIZE = 200.megabytes
 
       def initialize(file, entry)
+        raise Unreadable, "#{entry.name} is too large to read (#{entry.size} bytes)" if entry.size > MAX_SIZE
+
         @file = file
         @entry = entry
         @left = entry.compressed_size
@@ -259,6 +269,8 @@ class DataQuality::Plugins::EiaGenerators::Workbook
         def emit(data)
           @crc = Zlib.crc32(data, @crc)
           @size += data.bytesize
+          raise Unreadable, "#{@entry.name} expands past #{MAX_SIZE / 1.megabyte} MB" if @size > MAX_SIZE
+
           @pending << data
         end
 
@@ -272,8 +284,12 @@ class DataQuality::Plugins::EiaGenerators::Workbook
 
     def xml(path) = Nokogiri::XML(read(path)).remove_namespaces!
 
+    # The workbook's small parts (workbook.xml and its relationships), read
+    # whole through the same bounded inflater.
     def read(path)
       entry = @zip.find_entry(path) or raise Unreadable, "Missing #{path}"
-      entry.get_input_stream.read
+      raise Unreadable, "#{path} is too large for a workbook index (#{entry.size} bytes)" if entry.size > SMALL_PART
+
+      File.open(@path, "rb") { |file| Inflating.new(file, entry).read }
     end
 end
