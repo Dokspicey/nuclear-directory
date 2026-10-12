@@ -65,7 +65,7 @@ if preview
   vars = entries.select { |var| var.is_a?(Hash) && var["key"] }.to_h { |var| [ var["key"], var ] }
   # Every entry with the key, so a duplicate can't hide a checked-in value.
   admin_passwords = entries.select { |var| var.is_a?(Hash) && var["key"] == "PREVIEW_ADMIN_PASSWORD" }
-  unless admin_passwords.all? { |var| var["sync"] == false && var.keys.sort == %w[key sync] } && admin_passwords.size <= 1
+  unless admin_passwords.size == 1 && admin_passwords.all? { |var| var["sync"] == false && var.keys.sort == %w[key sync] }
     problems << "the preview's PREVIEW_ADMIN_PASSWORD must be listed once, as sync: false (set by hand), never a value"
   end
   database_url = vars["DATABASE_URL"]

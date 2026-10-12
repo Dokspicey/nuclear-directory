@@ -89,6 +89,12 @@ class CheckBlueprintTest < Minitest::Test
     assert_includes output, "PREVIEW_ADMIN_PASSWORD must be listed once"
   end
 
+  def test_the_preview_admin_password_must_be_declared
+    ok, output = check_preview { |vars| vars.reject! { |var| var["key"] == "PREVIEW_ADMIN_PASSWORD" } }
+    refute ok
+    assert_includes output, "PREVIEW_ADMIN_PASSWORD must be listed once"
+  end
+
   def test_the_preview_admin_password_never_reaches_production
     ok, output = check_blueprint do |blueprint|
       web = blueprint["services"].find { |service| service["name"] == "nuclear-directory" }
