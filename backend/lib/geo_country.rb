@@ -29,15 +29,17 @@ module GeoCountry
     end
 
     # PostHog event properties for this IP: the country (when known), and
-    # $geoip_disable so PostHog's own lookup doesn't blank it.
-    def properties(ip)
+    # $geoip_disable so PostHog's own lookup doesn't blank it. internal: true
+    # for an INTERNAL_IPS address, or when the caller knows it's us (admin:,
+    # a browser signed in to the admin; AdminVisitor).
+    def properties(ip, admin: false)
       props = { "$geoip_disable" => true }
       if (record = lookup(ip))
         props["$geoip_country_code"] = record.dig("country", "iso_code")
         props["$geoip_country_name"] = record.dig("country", "names", "en")
         props["$geoip_continent_code"] = record.dig("continent", "code")
       end
-      props["internal"] = true if internal?(ip)
+      props["internal"] = true if admin || internal?(ip)
       props.compact
     end
 

@@ -88,6 +88,15 @@ class AnalyticsTrackingTest < ActionDispatch::IntegrationTest
     assert_equal 2, posthog.events.size
   end
 
+  test "a browser signed in to the admin is internal on server-side events too" do
+    with_pages do
+      sign_in_as users(:admin)
+      visit "/seen/terrapower"
+    end
+
+    assert_equal true, posthog.events.sole[:properties]["internal"]
+  end
+
   test "public pages get the cookieless snippet's settings" do
     with_pages do
       visit "/companies/terrapower"

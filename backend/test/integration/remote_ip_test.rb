@@ -1,13 +1,13 @@
 require "test_helper"
 
-# request.remote_ip behind Cloudflare and Render. The addresses are the ones
-# the preview logged (#211): the visitor, a Cloudflare edge, Render's proxy.
+# request.remote_ip behind Cloudflare and Render. The edge and proxy addresses
+# are the kind the preview logged (#211): visitor, Cloudflare edge, Render's proxy.
 class RemoteIpTest < ActionDispatch::IntegrationTest
   class EchoController < ActionController::Base
     def show = render(plain: request.remote_ip)
   end
 
-  VISITOR = "99.110.208.39"
+  VISITOR = "203.0.113.7" # a documentation address (RFC 5737)
   RENDER_PROXY = "10.24.135.5"
 
   def remote_ip(forwarded_for)
