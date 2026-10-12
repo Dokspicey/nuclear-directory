@@ -24,11 +24,23 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
     assert cookies[:session_id]
   end
 
+  test "signing in marks the browser internal for analytics, and signing out keeps the mark (#211)" do
+    post session_path, params: { email_address: @user.email_address, password: PASSWORD }
+    assert cookies[:nd_internal].present?
+    assert_match(/nd_internal=.*; httponly; samesite=lax/i, response.headers["Set-Cookie"].to_s)
+
+    delete session_path
+
+    assert_empty cookies[:session_id]
+    assert cookies[:nd_internal].present?, "kept after signing out"
+  end
+
   test "a wrong password doesn't sign in" do
     post session_path, params: { email_address: @user.email_address, password: "wrong" }
 
     assert_redirected_to new_session_path
     assert_nil cookies[:session_id]
+    assert_nil cookies[:nd_internal], "only a successful sign-in marks the browser"
     follow_redirect!
     assert_select ".nd-flash[role=alert]", /don't match/
   end

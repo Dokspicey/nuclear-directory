@@ -49,6 +49,8 @@ module Authentication
       user.sessions.create!(user_agent: request.user_agent, ip_address: request.remote_ip).tap do |session|
         Current.session = session
         cookies.signed[:session_id] = { value: session.id, httponly: true, same_site: :lax, expires: 30.days }
+        # Marks this browser as ours in analytics; signing out leaves it (#211).
+        AdminVisitor.mark!(cookies, secure: request.ssl?)
       end
     end
 

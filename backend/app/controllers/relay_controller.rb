@@ -15,6 +15,11 @@ require "net/http"
 #   stores or logs it. Cookies aren't passed either way.
 # - 1 MB per request, a 3-second timeout, 120 requests a minute per visitor.
 class RelayController < ActionController::API
+  # Read only, to tell whether this browser is signed in to the admin
+  # (AdminVisitor); cookies are never passed on to PostHog or set here.
+  include ActionController::Cookies
+  include AdminVisitor
+
   INGEST = URI("https://us.i.posthog.com")
   ASSETS = URI("https://us-assets.i.posthog.com")
   # What posthog-js calls: events, flags/config, and its own scripts.
@@ -44,8 +49,12 @@ class RelayController < ActionController::API
     body = request.body&.tap(&:rewind)&.read(MAX_BODY + 1).to_s
     return head(:content_too_large) if body.bytesize > MAX_BODY
 
-    body = with_country(body) if request.post? && path.match?(EVENT_PATHS)
-    upstream = send_upstream(path, body)
+    if (events = request.post? && path.match?(EVENT_PATHS))
+      body = with_country(body)
+      # Adding the country to many tiny events can grow a body past the cap.
+      return head(:content_too_large) if body.bytesize > MAX_BODY
+    end
+    upstream = send_upstream(path, body, events:)
     PASSED_BACK.each { |name| response.headers[name] = upstream[name] if upstream[name] }
     render body: upstream.body, status: upstream.code.to_i
   rescue Net::OpenTimeout, Net::ReadTimeout, Net::WriteTimeout, SocketError, SystemCallError, OpenSSL::SSL::SSLError, EOFError
@@ -53,7 +62,7 @@ class RelayController < ActionController::API
   end
 
   private
-    def send_upstream(path, body)
+    def send_upstream(path, body, events:)
       host = path.start_with?("static/", "array/") ? ASSETS : INGEST
       uri = URI.join(host, "/#{path}")
       uri.query = request.query_string.presence
@@ -61,7 +70,8 @@ class RelayController < ActionController::API
       upstream = request.post? ? Net::HTTP::Post.new(uri) : Net::HTTP::Get.new(uri)
       upstream["Content-Type"] = request.content_type if request.content_type
       upstream["User-Agent"] = request.user_agent.to_s
-      upstream["X-Forwarded-For"] = request.remote_ip
+      # Only events need it: cookieless mode hashes it for the visitor count.
+      upstream["X-Forwarded-For"] = request.remote_ip if events
       upstream.body = body if request.post?
 
       Net::HTTP.start(uri.host, uri.port, use_ssl: true, open_timeout: TIMEOUT, read_timeout: TIMEOUT,
@@ -87,7 +97,7 @@ class RelayController < ActionController::API
     def add_country(json)
       payload = JSON.parse(json)
       events = payload.is_a?(Hash) && payload["batch"].is_a?(Array) ? payload["batch"] : Array.wrap(payload)
-      added = GeoCountry.properties(request.remote_ip)
+      added = GeoCountry.properties(request.remote_ip, admin: admin_visitor?)
       events.each do |event|
         next unless event.is_a?(Hash)
 

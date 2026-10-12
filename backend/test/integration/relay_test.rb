@@ -13,7 +13,7 @@ class RelayTest < ActionDispatch::IntegrationTest
 
   def send_events(body, path: "/relay/e/?ip=0&ver=1.438.7", ip: VISITOR, headers: {})
     post path, params: body.is_a?(String) ? body : body.to_json,
-      headers: { "Content-Type" => "text/plain", "User-Agent" => BROWSER, "Cookie" => "_session=abc" }.merge(headers),
+      headers: { "Content-Type" => "text/plain", "User-Agent" => BROWSER }.merge(headers),
       env: { "REMOTE_ADDR" => ip }
   end
 
@@ -56,6 +56,53 @@ class RelayTest < ActionDispatch::IntegrationTest
     send_events({ event: "$pageview", properties: {} })
 
     assert_equal true, forwarded_events(forwarded).sole["properties"]["internal"]
+  end
+
+  def internal_flags(sent) = sent.map { |request| forwarded_events(request).sole["properties"]["internal"] }
+
+  test "a browser that signed in to the admin stays internal after signing out, whatever its IP" do
+    sent = []
+    stub_request(:post, %r{\Ahttps://us\.i\.posthog\.com/e/}).with { |request| sent << request }.to_return(status: 200, body: "{}")
+
+    send_events({ event: "$pageview", properties: {} })
+    post session_path, params: { email_address: users(:admin).email_address, password: "correct horse battery staple" }
+    send_events({ event: "$pageview", properties: {} }, ip: "8.8.8.8")
+    delete session_path
+    send_events({ event: "$pageview", properties: {} }, ip: "203.0.113.9")
+
+    assert_equal [ nil, true, true ], internal_flags(sent)
+    assert sent.none? { |request| request.headers["Cookie"] }, "the admin's cookies never go to PostHog"
+  end
+
+  test "a session from before the internal cookie still counts; a made-up cookie doesn't" do
+    sent = []
+    stub_request(:post, %r{\Ahttps://us\.i\.posthog\.com/e/}).with { |request| sent << request }.to_return(status: 200, body: "{}")
+
+    cookies["nd_internal"] = "1" # unsigned: forged
+    cookies["session_id"] = "made-up"
+    send_events({ event: "$pageview", properties: {} })
+    cookies.delete("nd_internal")
+    sign_in_as users(:admin)
+    send_events({ event: "$pageview", properties: {} })
+
+    assert_equal [ nil, true ], internal_flags(sent)
+  end
+
+  test "the visitor's IP goes only with events, not script downloads" do
+    stub_request(:get, "https://us-assets.i.posthog.com/static/array.js").to_return(status: 200, body: "")
+
+    get "/relay/static/array.js", env: { "REMOTE_ADDR" => VISITOR }
+
+    assert_requested(:get, "https://us-assets.i.posthog.com/static/array.js") { |request| request.headers["X-Forwarded-For"].nil? }
+  end
+
+  test "a body the country pushes past the cap is refused" do
+    stub_const(RelayController, :MAX_BODY, 2_000) do
+      send_events({ batch: Array.new(100) { {} } }, path: "/relay/batch/")
+    end
+
+    assert_response :content_too_large
+    assert_not_requested :any, /posthog\.com/
   end
 
   test "scripts come from PostHog's asset host" do

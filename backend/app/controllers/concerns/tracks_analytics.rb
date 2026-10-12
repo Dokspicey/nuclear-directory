@@ -6,6 +6,7 @@
 #   track_company_viewed(@company.slug)
 module TracksAnalytics
   extend ActiveSupport::Concern
+  include AdminVisitor
 
   # "Claude/" is the Claude app's built-in browser: our own agent sessions
   # browse the live site in a hidden pane, which sent page leaves without
@@ -38,7 +39,7 @@ module TracksAnalytics
 
     # The visitor's country and whether they're internal (#205), from the
     # request's IP; the IP itself is never sent.
-    def visitor_properties = GeoCountry.properties(request.remote_ip)
+    def visitor_properties = GeoCountry.properties(request.remote_ip, admin: admin_visitor?)
 
     # Whether to load the browser snippet (page views) on this page.
     def analytics_snippet?
