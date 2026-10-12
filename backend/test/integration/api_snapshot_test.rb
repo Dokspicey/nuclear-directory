@@ -48,13 +48,35 @@ class ApiSnapshotTest < ActionDispatch::IntegrationTest
     body["categories"].each do |category|
       assert_equal %w[count examples name slug url], category.keys.sort
       assert_kind_of Integer, category["count"]
+      %w[slug name url].each { |field| assert_kind_of String, category[field], "#{category['slug']}.#{field}" }
+      assert_kind_of Array, category["examples"]
       assert category["examples"].all?(String) && category["examples"].size <= 2, category["slug"]
     end
 
     body["recentlyAdded"].each do |entry|
       assert_equal %w[addedAt category name url], entry.keys.sort
+      %w[name category url].each { |field| assert_kind_of String, entry[field], field }
       assert_match(/\A\d{4}-\d{2}-\d{2}\z/, entry["addedAt"])
     end
+  end
+
+  test "at most five recent additions, however many there are" do
+    6.times { |i| company("Recent #{i}", verified_at: i.minutes.ago) }
+    DirectorySnapshot.expire!
+
+    recent = snapshot["recentlyAdded"]
+
+    assert_equal 5, recent.size
+    assert_equal (0..4).map { |i| "Recent #{i}" }, recent.map { |e| e["name"] }
+  end
+
+  test "in production, links use the live site's address, never the request's Host" do
+    env = Rails.env
+    env.define_singleton_method(:production?) { true }
+
+    assert_equal "https://nuclear-directory.org", Api::SnapshotsController.new.send(:origin), "no request needed, so no Host to trust"
+  ensure
+    env.singleton_class.send(:remove_method, :production?)
   end
 
   test "counts follow the documented rule: entries once in the total, categories may overlap" do
