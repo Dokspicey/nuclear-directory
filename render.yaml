@@ -123,6 +123,10 @@ services:
       # Its own key, so no master key is needed here.
       - key: SECRET_KEY_BASE
         generateValue: true
+      # The preview's admin login (preview@nuclear-directory.org), made on
+      # every start by bin/preview-start. Set by hand; only on the preview.
+      - key: PREVIEW_ADMIN_PASSWORD
+        sync: false
 
   # Weekly encrypted off-site backup (#54); see "Backups" in README.md.
   # Runs inside Render's private network, so the database stays closed to

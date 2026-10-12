@@ -14,4 +14,6 @@ esac
 
 psql "$DATABASE_URL" -X -q -v ON_ERROR_STOP=1 -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
 bin/rails db:schema:load db:seed
+# The preview's admin login, from PREVIEW_ADMIN_PASSWORD (skipped if unset).
+bin/rails preview:admin
 exec ./bin/rails server
