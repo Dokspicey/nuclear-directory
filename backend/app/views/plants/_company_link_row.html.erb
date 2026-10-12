@@ -1,6 +1,12 @@
-<%# One company linked to the plant or one of its units ("Georgia Power owns
-    Plant Vogtle, Unit 3"). Locals: link, profile. The plant isn't a link. %>
-<% plant = link.facility == profile.site ? profile.name : "#{profile.name}, #{link.facility.name}" %>
+<%# One company linked to the plant or one of its units ("Constellation
+    operates Byron 1"). Locals: link, profile. The plant isn't a link. Unit
+    names usually carry the plant's ("Byron 1", "Ginna"); only a bare "Unit 3"
+    gets the plant's name in front. %>
+<% unit = link.facility.name %>
+<% plant = if link.facility == profile.site then profile.name
+           elsif unit.match?(/\AUnit\b/i) then "#{profile.name}, #{unit}"
+           else unit
+           end %>
 <% share = "#{number_with_precision(link.ownership_pct, precision: 2, strip_insignificant_zeros: true)}% share" if link.ownership_pct %>
 <% since = "#{link.started_on.future? ? "Starts" : "Since"} #{prose_month(link.started_on)}" if link.started_on %>
 <%= render "shared/fact_row",

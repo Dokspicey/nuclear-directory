@@ -53,6 +53,17 @@ class PlantPageTest < ActionDispatch::IntegrationTest
     assert_select ".nd-factrow", text: /Westinghouse Nuclear\s+is the reactor developer for\s+Plant Vogtle/
   end
 
+  test "a unit that carries the plant's name isn't named twice" do
+    byron = plant("Byron Generating Station", facility_type: "power_reactor", status: "operating")
+    unit = cite!(plant("Byron 1", parent: byron, status: "operating"), source: @nrc)
+    cite!(link(company("Constellation"), "operates", unit), source: @nrc)
+
+    get plant_path(slug: byron.slug)
+
+    assert_select ".nd-factrow", text: /Constellation\s+operates\s+Byron 1\b/
+    assert_select ".nd-factrow", text: /Byron Generating Station, Byron 1/, count: 0
+  end
+
   test "unverified companies and links never appear" do
     get plant_path(slug: "plant-vogtle")
 
@@ -139,7 +150,7 @@ class PlantPageTest < ActionDispatch::IntegrationTest
     get plant_path(slug: "clinch-river")
 
     assert_select "body", text: /Site Owner/, count: 0
-    assert_select ".nd-factrow", text: /Unit Owner\s+owns\s+Clinch River, Clinch River Unit 1/
+    assert_select ".nd-factrow", text: /Unit Owner\s+owns\s+Clinch River Unit 1\b/
   end
 
   test "facts without a source aren't shown" do

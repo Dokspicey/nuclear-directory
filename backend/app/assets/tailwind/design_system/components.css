@@ -107,7 +107,9 @@
   .nd-src:has(.nd-src__checked) { flex-wrap: wrap; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
   .nd-src__checked { white-space: nowrap; }
   .nd-src:hover { border-color: var(--nd-control); color: var(--nd-ink); }
-  .nd-src sup { font-size: 10px; color: var(--nd-ink); vertical-align: 0; }
+  /* Undo the browser's raised superscript (line-height 0, top -0.5em), which
+     collapsed a number-only chip to a 4px sliver under a floating number. */
+  .nd-src sup { position: static; font-size: 10px; line-height: inherit; color: var(--nd-ink); vertical-align: 0; }
 
   /* Profile header */
   .nd-banner { background: var(--nd-inverse); color: var(--nd-on-inverse); padding: var(--nd-space-12) var(--nd-space-8) var(--nd-space-8); display: flex; flex-direction: column; gap: var(--nd-space-4); }
@@ -230,7 +232,7 @@
   .nd-factrow__detail { font-size: 14px; line-height: 20px; color: var(--nd-ink-muted); }
   .nd-factrow__side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
   .nd-factrow__side .nd-src { margin: 0; }
-  .nd-quote { margin: 0; padding-left: var(--nd-space-3); border-left: var(--nd-hairline) solid var(--nd-control); font-size: 13px; line-height: 19px; color: var(--nd-ink-muted); }
+  .nd-quote { margin: 0; padding-left: var(--nd-space-3); border-left: var(--nd-hairline) solid var(--nd-control); font-size: 13px; line-height: 19px; color: var(--nd-ink-muted); overflow-wrap: anywhere; }
 
   .nd-gaps { padding: var(--nd-space-4); border: var(--nd-hairline) dashed var(--nd-control); border-radius: var(--nd-radius-sm); display: flex; flex-direction: column; gap: 10px; }
   .nd-gaps h2 { margin: 0; font: 600 16px/22px var(--font-text); }
@@ -395,6 +397,13 @@
   .nd-table--cards tbody th { text-align: left; font: 600 14px/20px var(--font-text); letter-spacing: normal; text-transform: none; color: var(--nd-ink); white-space: normal; padding: var(--nd-space-3) var(--nd-space-4); border-bottom: var(--nd-hairline) solid var(--nd-rule); background: var(--nd-paper-raised); }
   .nd-table--cards tbody tr:last-child th { border-bottom: 0; }
   .nd-table--cards tr:target th, .nd-table--cards tr:target td { background: var(--nd-paper-sunken); }
+  /* Six columns in the plant page's main column: headers may take two lines
+     ("Reactor / type") and cells sit a little closer, so the table fits
+     without scrolling sideways on desktop. */
+  @media (min-width: 561px) {
+    .nd-table--cards thead th { white-space: normal; }
+    .nd-table--cards thead th, .nd-table--cards tbody th, .nd-table--cards td { padding-left: var(--nd-space-3); padding-right: var(--nd-space-3); }
+  }
 
   /* Phones: each unit is a card, labels before values (#90). */
   @media (max-width: 560px) {
