@@ -24,6 +24,15 @@ class DataQuality::Plugins::NrcReactorListTest < ActiveSupport::TestCase
     assert_instance_of Plugin, DataQuality::Plugin.for("nrc_reactor_list")
   end
 
+  test "tells the verifier every row of the list is an operating US power reactor, and only for the list" do
+    list = Source.new(url: Plugin::LIST_URL, source_kind: "nrc_reactor_list")
+    status = Source.new(url: Plugin::STATUS_URL, source_kind: Plugin::STATUS_SOURCE_KIND)
+
+    facts = plugin.source_facts(list)
+    [ "power reactor", "country code US", "status is operating", "Owner/Operator" ].each { |said| assert_includes facts, said }
+    assert_nil plugin.source_facts(status)
+  end
+
   test "snapshots both files and cross-checks the 95 units" do
     run = crawl
 
