@@ -65,11 +65,15 @@ module DataQuality::Review
     # verify run, and by reason (the start of the note, e.g. "human-verified").
     def candidates(queue: :recommended, run_id: nil, reason: nil, after_id: nil, limit: 50,
       directory: DataQuality::DirectoryClient.new)
-      scope = QUEUES.fetch(queue.to_sym).call.includes(:source, :crawl_run).order(:id).limit(limit)
-      scope = scope.where(verify_run_id: run_id) if run_id
-      scope = filter_by_reason(scope, reason) if reason.present?
+      scope = queue_scope(queue, run_id:, reason:).includes(:source, :crawl_run).order(:id).limit(limit)
       scope = scope.where("candidates.id > ?", after_id) if after_id
       scope.map { |candidate| item(candidate, directory) }
+    end
+
+    # Every candidate id in a queue with the same filters as candidates(),
+    # oldest first: what "Approve all" approves (#188).
+    def candidate_ids(queue: :recommended, run_id: nil, reason: nil)
+      queue_scope(queue, run_id:, reason:).order(:id).pluck(:id)
     end
 
     # One candidate as the admin shows it, whatever its status, or nil.
@@ -322,6 +326,13 @@ module DataQuality::Review
       end
 
       # A reason from reasons(), back to its candidates; NO_REASON means no notes.
+      def queue_scope(queue, run_id:, reason:)
+        scope = QUEUES.fetch(queue.to_sym).call
+        scope = scope.where(verify_run_id: run_id) if run_id
+        scope = filter_by_reason(scope, reason) if reason.present?
+        scope
+      end
+
       def filter_by_reason(scope, reason)
         return scope.where(notes: [ nil, "" ]) if reason == NO_REASON
 
