@@ -96,6 +96,42 @@ class Admin::CandidatesControllerTest < ActionDispatch::IntegrationTest
     assert unsure.reload.status_merged?, "on its own, it can be approved"
   end
 
+  test "approve all: every recommended claim on every page, in the background, as the signed-in person (#188)" do
+    stub_const(Admin::CandidatesController, :PAGE, 2) do
+      claims = %w[Alpha Beta Gamma].map { |name| candidate("organization", { "name" => "#{name} Fission Co" }) }
+      unsure = candidate("organization", { "name" => "Quoted Co" }, quote: "not in the source")
+      @source.update!(content_text: "Alpha Fission Co Beta Fission Co Gamma Fission Co a quote")
+      match_and_verify
+      sign_in_as users(:admin)
+
+      get admin_candidates_path(queue: "recommended")
+      assert_select ".nd-items > li", 2, "one page"
+      assert_select "p", /On all pages: 3 recommended claims/
+      assert_select "form[action=?] button", approve_all_admin_candidates_path(queue: "recommended"), "Approve all 3"
+
+      perform_enqueued_jobs { post approve_all_admin_candidates_path(queue: "recommended") }
+
+      assert_redirected_to admin_candidates_path(queue: "recommended")
+      assert_match "Approving 3 recommended claims", flash[:notice]
+      claims.each do |claim|
+        assert claim.reload.status_merged?, claim.payload["name"]
+        assert_equal "human:tosin", Organization.find(claim.subject_id).verified_by
+      end
+      assert unsure.reload.status_needs_review?, "a claim needing review is never approved in bulk"
+    end
+  end
+
+  test "approve all keeps to the queue's filters, and says when nothing matches" do
+    candidate("organization", { "name" => "Alpha Fission Co" })
+    match_and_verify
+    sign_in_as users(:admin)
+
+    assert_no_enqueued_jobs only: DataQuality::ApproveAllJob do
+      post approve_all_admin_candidates_path(queue: "recommended", reason: "no such reason")
+    end
+    assert_equal "Nothing to approve: no recommended claims match these filters.", flash[:alert]
+  end
+
   test "rejecting a claim with a reason" do
     c = candidate("organization", { "name" => "Imaginary Fission Co" })
     match_and_verify

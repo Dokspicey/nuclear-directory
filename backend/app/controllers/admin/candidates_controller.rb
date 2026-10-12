@@ -11,6 +11,7 @@ class Admin::CandidatesController < Admin::BaseController
       after_id: params[:after].presence&.to_i, limit: PAGE)
     @counts = DataQuality::Review.counts
     @reasons = DataQuality::Review.reasons(queue: @queue, run_id: @run_id)
+    @matching = DataQuality::Review.candidate_ids(queue: :recommended, reason: @reason, run_id: @run_id).size if @queue == "recommended"
   end
 
   # One claim (candidate_id), or the selected ones (candidate_ids[]): bulk
@@ -24,6 +25,22 @@ class Admin::CandidatesController < Admin::BaseController
       flash_results(DataQuality::Review.approve(ids.map(&:to_i), by: actor, only_recommended: !single), "Approved")
     end
     redirect_to queue_path
+  end
+
+  # Every recommended claim matching the queue's filters, in the background
+  # (DataQuality::ApproveAllJob). Only the recommended queue: claims that
+  # need review each get a look on their own.
+  def approve_all
+    ids = DataQuality::Review.candidate_ids(queue: :recommended, reason: params[:reason].presence,
+      run_id: params[:run_id].presence&.to_i)
+    if ids.empty?
+      flash[:alert] = "Nothing to approve: no recommended claims match these filters."
+    else
+      DataQuality::ApproveAllJob.perform_later(ids, by: actor)
+      flash[:notice] = "Approving #{helpers.pluralize(ids.size, 'recommended claim')}. Refresh in a minute to see the queue " \
+        "clear. Any claim that's changed since it was recommended stays here."
+    end
+    redirect_to admin_candidates_path(filters.merge(queue: "recommended"))
   end
 
   def reject

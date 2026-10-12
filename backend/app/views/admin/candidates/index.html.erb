@@ -39,6 +39,13 @@
 <% else %>
   <%# Bulk approval is for recommended claims only; each one needing review gets a look on its own. %>
   <% bulk = @queue == "recommended" %>
+  <% if bulk %>
+    <div class="nd-bulk">
+      <p class="type-ui m-0">On all pages<%= ", with these filters" if @reason || @run_id %>: <%= pluralize(@matching, "recommended claim") %></p>
+      <%= button_to "Approve all #{@matching}", approve_all_admin_candidates_path(filters), class: "nd-btn nd-btn--primary nd-btn--sm",
+        form: { data: { turbo_confirm: "Approve and publish all #{@matching} recommended claims? Each is checked again as it's approved." } } %>
+    </div>
+  <% end %>
   <%= form_with url: approve_admin_candidates_path(filters), data: { controller: ("select-all" if bulk) } do %>
     <%# Enter in a reason field submits with the form's first button; a disabled
         one makes Enter do nothing, so every decision takes a deliberate click. %>
