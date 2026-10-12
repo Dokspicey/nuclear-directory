@@ -36,6 +36,19 @@ class PagesTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "the crawler page and the disclaimer put the main point first in every block (#215)" do
+    get bot_path
+    assert_select "h1 + p.type-body-strong", "NuclearDirectoryBot is the crawler that keeps Nuclear Directory up to date."
+    assert_select "h2#behaviour", "It follows robots.txt and stops when blocked"
+    assert_select "section[aria-labelledby=behaviour] ul.type-small li", 3
+    assert_select "h2#blocking", "Block it with robots.txt"
+
+    get disclaimer_path
+    assert_select "h1 + p.type-body-strong", "Nuclear Directory is a reference built from public sources."
+    assert_select "h2#mistakes", "Report mistakes and we'll check them"
+    assert_select "section[aria-labelledby=mistakes] p.type-small", "We check every correction against its source."
+  end
+
   test "the crawler page shows the user agent the crawler actually sends" do
     get bot_path
 

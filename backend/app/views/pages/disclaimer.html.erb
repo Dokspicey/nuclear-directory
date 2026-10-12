@@ -6,11 +6,13 @@
 
 <main class="nd-page nd-page--narrow nd-prose">
   <h1 class="type-title-md">Disclaimer</h1>
-  <p class="type-body">Nuclear Directory is a reference built from public sources: company announcements, regulator filings and news reports. Each fact links to the source it came from and shows when we last checked it.</p>
+  <p class="type-body-strong">Nuclear Directory is a reference built from public sources.</p>
+  <p class="type-body">Its sources are company announcements, regulator filings and news reports. Each fact links to the source it came from and shows when we last checked it.</p>
 
   <section aria-labelledby="currency">
     <h2 id="currency" class="type-body-strong">It may be incomplete or out of date</h2>
-    <p class="type-body">Companies change names, deals end and plans move. Check the source and its date before you rely on a fact.</p>
+    <p class="type-body">Check the source and its date before you rely on a fact.</p>
+    <p class="type-small text-ink-muted">Companies change names, deals end and plans move.</p>
   </section>
 
   <section aria-labelledby="advice">
@@ -24,7 +26,8 @@
   </section>
 
   <section aria-labelledby="mistakes">
-    <h2 id="mistakes" class="type-body-strong">Spotted a mistake?</h2>
-    <p class="type-body">Use "Report a correction" next to any fact, or email <%= mail_to DirectoryHelper::CORRECTIONS_EMAIL, nil, class: "nd-link" %>. We check every correction against its source.</p>
+    <h2 id="mistakes" class="type-body-strong">Report mistakes and we'll check them</h2>
+    <p class="type-body">Use "Report a correction" next to any fact, or email <%= mail_to DirectoryHelper::CORRECTIONS_EMAIL, nil, class: "nd-link" %>.</p>
+    <p class="type-small text-ink-muted">We check every correction against its source.</p>
   </section>
 </main>
