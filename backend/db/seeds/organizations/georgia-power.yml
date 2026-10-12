@@ -30,7 +30,7 @@ facilities:
   source_url: https://www.georgiapower.com/news-hub/company-news/special-announcement-plant-vogtle-unit-4-has-officially-entered-commercial-operation.html
   quote: As we mark the completion of the expansion, we’re grateful for the leadership and foresight of the Georgia Public Service Commission, as well as the steadfast dedication from all the project’s co-owners (Oglethorpe Power, MEAG Power and Dalton Utilities) along the way.
   confidence: 1.0
-  note: Co-owned with Georgia Power, Oglethorpe Power, MEAG Power and Dalton Utilities; the ownership shares are for Units 3 and 4.
+  note: "Plant Vogtle is co-owned by Georgia Power, Oglethorpe Power, MEAG Power and Dalton Utilities; the ownership shares are for Units 3 and 4."
 - name: Plant Vogtle
   type: owns
   ownership_pct: 45.7
@@ -38,7 +38,7 @@ facilities:
   quote: Vogtle units 3 and 4, AP1000 units scheduled to enter service in November 2021 and November 2022 respectively, are co-owned by Georgia Power (45.7%), Oglethorpe Power (30%), MEAG Power (22.7%) and Dalton city (1.6%).
   published: '2018-09-25'
   confidence: 0.9
-  note: Co-owned with Georgia Power, Oglethorpe Power, MEAG Power and Dalton Utilities; the ownership shares are for Units 3 and 4.
+  note: "Plant Vogtle is co-owned by Georgia Power, Oglethorpe Power, MEAG Power and Dalton Utilities; the ownership shares are for Units 3 and 4."
 notes: 'Subsidiary of Southern Company (subsidiary_of edge; Southern Company describes Georgia Power as one of ''our retail operating companies''). Operator is Southern Nuclear, not separately added. HQ not verified. #63: Vogtle clause from same page: "Plant Vogtle units 3 and 4 will be the first new nuclear units built in the United States in the last three decades". HQ (Atlanta) not added: only SEC filings (blocked, 403) and third-party pages state it.'
 description:
   text: Electric utility serving about 2.8 million customers in Georgia; Plant Vogtle units 3 and 4 are its newest nuclear units.

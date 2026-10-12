@@ -142,8 +142,11 @@ class Seed::OrganizationLoaderTest < ActiveSupport::TestCase
     assert_equal 1, link.evidence.count
     assert Facility.find_by!(name: "Acme Plant").verified?, "only the link waits, not the plant"
 
-    link.verify!(by: "human:tosin")
-    Seed::OrganizationLoader.new(@dir).load!
+    # Tosin approves it in the admin later on.
+    travel 1.hour do
+      link.verify!(by: "human:tosin")
+      Seed::OrganizationLoader.new(@dir).load!
+    end
     assert link.reload.verified?
 
     link.reject!(by: "human:tosin")
@@ -232,6 +235,25 @@ class Seed::OrganizationLoaderTest < ActiveSupport::TestCase
     write_file("acme-fuel", org("Acme Fuel", website: "https://acme.com"))
 
     assert_empty Seed::OrganizationLoader.new(@dir).collisions
+  end
+
+  test "a link an earlier seed published goes back to pending once when marked pending" do
+    write_file("acme", org("Acme", website: "https://acme.com", facilities: [ item(name: "Acme Plant", type: "owns") ]))
+    Seed::OrganizationLoader.new(@dir).load!
+    link = FacilityRelationship.sole
+    assert link.verified?
+
+    write_file("acme", org("Acme", website: "https://acme.com",
+      facilities: [ item(name: "Acme Plant", type: "owns", pending: true, pending_reason: "Needs a quote that Acme owns it.") ]))
+    Seed::OrganizationLoader.new(@dir).load!
+    assert link.reload.pending?
+    assert_equal [ "human:tosin", "Needs a quote that Acme owns it." ], link.verification_events.order(:id).last.slice(:by, :reason).values
+
+    travel 1.hour do
+      link.verify!(by: "human:tosin", reason: "Direct quote found")
+      Seed::OrganizationLoader.new(@dir).load!
+    end
+    assert link.reload.verified?, "a human's later decision isn't undone by a rerun"
   end
 
   test "a facilities.yml plant must be in an organization file" do

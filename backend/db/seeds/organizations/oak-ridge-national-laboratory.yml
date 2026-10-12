@@ -25,7 +25,7 @@ facilities:
   source_url: https://neutrons.ornl.gov/hfir
   quote: Oak Ridge National Laboratory is managed by UT-Battelle LLC for the US Department of Energy
   confidence: 1.0
-  note: Research reactor, 85 MW thermal. Quote supports ORNL management; HFIR page is on ORNL's site.
+  note: "Research reactor, 85 MW thermal."
 notes: 'X-energy/TRISO-X operated a pilot TRISO fuel facility at ORNL since 2016 (per X-energy''s Feb 2026 release) - no relationship type fits. Flibe was first used in ORNL''s 1960s Molten Salt Reactor Experiment (per Kairos). City ''Oak Ridge'' inferred from the name - verify. #63: HQ already in seed.'
 description:
   text: DOE national laboratory in Oak Ridge, Tennessee; the largest science and energy lab in the DOE system.

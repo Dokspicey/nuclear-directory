@@ -181,7 +181,7 @@ module Seed
 
           write(slug, :facility_relationship, { organization_id: organization.id, facility_id: facility.id,
             relationship_type: item["type"], description: item["note"], ownership_pct: item["ownership_pct"] },
-            evidence(item, sources), pending: item["pending"])
+            evidence(item, sources), pending: item["pending"], hold: hold_reason(organization.id, facility.id, item))
         end
       end
 
@@ -259,13 +259,33 @@ module Seed
           confidence: item["confidence"] }
       end
 
+      # A link an earlier seed published that this one marks pending goes back
+      # to pending once, with its pending_reason as the reason (by the seed's
+      # human), until a direct quote is found. A link that has ever been
+      # pending (held back by a seed, or created pending and then decided by
+      # Tosin in the admin) is left as it is, so a rerun never undoes a human's
+      # later decision.
+      def hold_reason(organization_id, facility_id, item)
+        return unless item["pending"]
+
+        link = FacilityRelationship.find_by(organization_id:, facility_id:, relationship_type: item["type"])
+        return unless link&.verified?
+        # A seed-verified link is decided in the write that creates it; a
+        # decision from pending made later is a human's (e.g. in the admin).
+        events = link.verification_events
+        decided_later = events.where(from_status: "pending").where("verification_events.created_at > ?", link.created_at + 1.minute)
+        return if events.where(to_status: "pending").or(decided_later).exists?
+
+        item["pending_reason"]
+      end
+
       def closed_link?(organization_id, facility_id, type)
         FacilityRelationship.find_by(organization_id:, facility_id:, relationship_type: type)&.closed?
       end
 
-      def write(slug, kind, attributes, evidence, pending: false, remove_aliases: [])
-        result = Directory::FactWriter.write(kind, attributes, evidence: Array.wrap(evidence),
-          verification: (VERIFICATION unless pending), remove_aliases:)
+      def write(slug, kind, attributes, evidence, pending: false, hold: nil, remove_aliases: [])
+        verification = hold ? { status: "pending", by: VERIFICATION[:by], reason: hold } : (VERIFICATION unless pending)
+        result = Directory::FactWriter.write(kind, attributes, evidence: Array.wrap(evidence), verification:, remove_aliases:)
         if result.ok?
           @results[kind][result.created ? :created : :updated] += 1
         else

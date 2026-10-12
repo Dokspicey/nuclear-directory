@@ -36,7 +36,7 @@ relationships:
   confidence: 1.0
 - type: funds
   to: Kairos Power
-  description: Hermes is supported by DOE's Advanced Reactor Demonstration Program (award amount not stated on fetched page).
+  description: "Hermes is supported by DOE's Advanced Reactor Demonstration Program."
   source_url: https://www.energy.gov/node/4845535
   quote: Hermes is one of several projects supported by the U.S. Department of Energy’s (DOE) Advanced Reactor Demonstration Program.
   published: '2024-10-03'

@@ -32,14 +32,14 @@ technologies:
 relationships:
 - type: subsidiary_of
   to: GE Vernova
-  description: Joint venture / alliance led by GE Vernova (lead parent) with Hitachi; GVH is GE Vernova's nuclear business operating through its alliance with Hitachi.
+  description: "GE Vernova's nuclear business, run through its alliance with Hitachi."
   source_url: https://www.gevernova.com/news/press-releases/nrc-issues-first-us-construction-permit-bwrx-300-small-modular-reactor-tva-clinch-river
   quote: GE Vernova’s Nuclear energy business, through its global alliance with Hitachi, is a world-leading provider of nuclear fuel bundles, services, and advanced nuclear reactor designs.
   published: '2026-09-29'
   confidence: 1.0
 - type: subsidiary_of
   to: Hitachi, Ltd.
-  description: Hitachi is the alliance partner in GE Vernova Hitachi Nuclear Energy (formerly GE Hitachi, created 2007 by GE and Hitachi). Ownership split not sourced.
+  description: "Hitachi is the alliance partner in GE Vernova Hitachi Nuclear Energy (formerly GE Hitachi, created by GE and Hitachi in 2007)."
   source_url: https://www.terrapower.com/global-nuclear-fuel-and-terrapower-announce-natrium-fuel-facility
   quote: Established in 2007, GEH is a global nuclear alliance created by GE and Hitachi to serve the global nuclear industry.
   published: '2022-10-21'
