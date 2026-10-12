@@ -40,7 +40,8 @@
   <%# Bulk approval is for recommended claims only; each one needing review gets a look on its own. %>
   <% bulk = @queue == "recommended" %>
   <% if bulk %>
-    <div class="nd-bulk">
+    <%# Not .nd-bulk, which phones hide (it holds desktop checkboxes): this works anywhere. %>
+    <div class="nd-row">
       <p class="type-ui m-0">On all pages<%= ", with these filters" if @reason || @run_id %>: <%= pluralize(@matching, "recommended claim") %></p>
       <%= button_to "Approve all #{@matching}", approve_all_admin_candidates_path(filters), params: { shown: @shown },
         class: "nd-btn nd-btn--primary nd-btn--sm",
