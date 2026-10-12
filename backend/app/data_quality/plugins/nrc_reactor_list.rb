@@ -110,6 +110,16 @@ class DataQuality::Plugins::NrcReactorList < DataQuality::Plugin
     [ table_lines(source).first, quote ].compact.join("\n")
   end
 
+  # The page is NRC's list of operating power reactor units, so its rows
+  # don't repeat that each is an operating US power reactor.
+  def source_facts(source)
+    return unless source.source_kind == source_kind
+
+    "This is the NRC's list of operating power reactor units in the United States. Every row is a " \
+      "nuclear power reactor (plant type: power reactor) in the US (country code US) whose status is " \
+      "operating. The Owner/Operator column names the company that operates the unit."
+  end
+
   private
     # Cached per snapshot: verify asks for every candidate.
     def table_lines(source)

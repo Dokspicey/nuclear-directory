@@ -19,14 +19,14 @@ technologies:
 relationships:
 - type: invests_in
   to: Commonwealth Fusion Systems
-  description: Existing investor that increased its stake in CFS's $863M Series B2 (Aug 2025). Completed.
+  description: "Increased its stake in CFS's $863M Series B2 (Aug 2025), as an existing investor."
   source_url: https://cfs.energy/news-and-media/commonwealth-fusion-systems-raises-863-million-series-b2-round-to-accelerate-the-commercialization-of-fusion-energy
   quote: They join existing CFS investors who increased their stakes, including Breakthrough Energy Ventures; Emerson Collective; Eni; Future Ventures; Gates Frontier; Google; Hostplus Superannuation Fund; Khosla Ventures; Lowercarbon Capital; Safar Partners; Eric Schmidt, former CEO of Google; Starlight Ventures; Tiger Global; a large state pension fund and others who support CFS’ leadership in this energy transition.
   published: '2025-08-28'
   confidence: 1.0
 - type: invests_in
   to: Type One Energy Group
-  description: Co-led Type One Energy's financing round (Mar 2023) with TDK Ventures and Doral Energy-Tech Ventures. Completed.
+  description: "Co-led Type One Energy's financing round (Mar 2023) with TDK Ventures and Doral Energy-Tech Ventures."
   source_url: https://tdk-ventures.com/news/announcements/tdk-ventures-co-leads-next-round-of-financing-in-fusion-innovator-type-one-energy/
   quote: Joining them as co-leads are Breakthrough Energy Ventures and Doral Energy-Tech Ventures.
   published: '2023-03-28'

@@ -29,7 +29,7 @@ relationships:
   confidence: 1.0
 - type: offtake_with
   to: TerraPower, LLC
-  description: 'Agreement (Jan 2026): Meta funding for early development of two Natrium units (up to 690 MW, as early as 2032) plus rights to energy from up to six more units (2.1 GW by 2035). Reported via WNN; primary Meta/TerraPower release not fetched.'
+  description: "Agreement (Jan 2026): Meta funds early development of two Natrium units (up to 690 MW, as early as 2032) and has rights to energy from up to six more units (2.1 GW by 2035)."
   source_url: https://world-nuclear-news.org/articles/meta-announces-landmark-agreements-for-new-nuclear
   quote: 'TerraPower: funding to support the development of up to eight Natrium sodium fast reactors - two new units capable of generating up to 690 MW of firm power with delivery as early as 2032, plus the rights for energy from up to six other Natrium units capable of producing 2.1 GW and targeted for delivery by 2035.'
   published: '2026-01-09'

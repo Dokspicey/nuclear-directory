@@ -24,7 +24,7 @@ technologies:
 relationships:
 - type: subsidiary_of
   to: X-Energy, Inc.
-  description: TRISO-X, LLC is a subsidiary of X-energy Reactor Company, LLC (X-energy's operating company; X-Energy, Inc. is the listed parent as of 2026).
+  description: "TRISO-X, LLC is a subsidiary of X-energy Reactor Company, LLC, X-energy's operating company."
   source_url: https://x-energy.com/news/triso-x-receives-first-ever-part-70-haleu-fuel-fabrication-license/
   quote: TRISO-X, LLC (“TRISO-X” or the “Company”), a subsidiary of X-energy Reactor Company, LLC (“X-energy”) today received a Special Nuclear Material License under 10 CFR Part 70
   published: '2026-02-13'

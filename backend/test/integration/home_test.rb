@@ -26,6 +26,12 @@ class HomeTest < ActionDispatch::IntegrationTest
     assert_select "label.sr-only", "Search a company, plant or site"
   end
 
+  test "home names its canonical address" do
+    get root_path
+
+    assert_select "link[rel=canonical][href='http://www.example.com/']", 1
+  end
+
   test "four suggested searches that lead to results" do
     get root_path
 

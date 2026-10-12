@@ -127,9 +127,14 @@ For each `new` or `matched` candidate:
      says DE"; names aren't compared)
    - its quote isn't in the source as stored. Each plug-in defines that: `quote_in_source?`, by default
      the page's visible text, and for NRC a whole table row
-2. **The verifier agent** (`Verifiers::Agent`, `OPENROUTER_VERIFY_MODEL`, prompt `verify-v2`) reads the
+2. **The verifier agent** (`Verifiers::Agent`, `OPENROUTER_VERIFY_MODEL`, prompt `verify-v3`) reads the
    claim (`Claim.describe`) against an excerpt (`verification_context`; for NRC the header and the row),
-   15 claims per call. All model calls happen before anything is written.
+   15 claims per call. All model calls happen before anything is written. A plug-in can also say what its
+   source states as a whole (`source_facts`). For example, every row of NRC's list is an operating US power
+   reactor, and EIA's file is only nuclear units. The model treats that as part of every excerpt, so a claim
+   isn't held back because its row doesn't repeat it.
+   - "contradicted" needs the different value the source gives (`source_value`); without one, or naming
+     the claim's own value (numbers compared at the claim's precision), it's "couldn't confirm"
    - supported and at least 80% sure: **`ai_recommendation: "recommend_publish"`**; the candidate stays
      `new`/`matched` and the fact stays pending
    - anything else: `needs_review`, with the model's reason

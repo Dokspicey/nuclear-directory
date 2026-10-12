@@ -25,14 +25,14 @@ technologies:
 relationships:
 - type: supplies
   to: U.S. Department of Energy
-  description: 'Award made (early 2023) by DOE''s National Nuclear Security Administration: ~USD 14M for conversion services (U3O8 to UF6) supporting the domestic uranium reserve. Signed award; performance status not verified.'
+  description: "Award (early 2023) from DOE's National Nuclear Security Administration: about $14M for conversion services (U3O8 to UF6) for the domestic uranium reserve."
   source_url: https://www.energy.gov/sites/default/files/2024-02/HALEU%20DEIS%20Volume%201_March%202024.pdf
   quote: In early 2023, DOE awarded ConverDyn (the marketing arm for the Metropolis Works Plant) a $14 million award for conversion services supporting the domestic uranium reserve.
   published: 2024-03
   confidence: 1.0
 - type: subsidiary_of
   to: Solstice Advanced Materials
-  description: ConverDyn is a partnership of General Atomics and Solstice Advanced Materials (JV-style link, like the GVH/GNF edges in the seed). General Atomics is not an org in the seed; ownership split not sourced.
+  description: "ConverDyn is a partnership of General Atomics and Solstice Advanced Materials."
   source_url: https://www.converdyn.com/
   quote: Our company, through a strategic partnership between industry giants General Atomics and Solstice Advanced Materials, operates at the forefront of the nuclear fuel cycle, ensuring the highest quality UF6.
   confidence: 1.0

@@ -15,7 +15,7 @@ technologies: []
 relationships:
 - type: invests_in
   to: Helion Energy
-  description: New investor in Helion's $425M Series F (Jan 2025). Completed.
+  description: "Invested in Helion's $425M Series F (Jan 2025), as a new investor."
   source_url: https://www.helionenergy.com/newsroom/helion-announces-425m-series-f-investment-to-scale-commercialized-fusion-power
   quote: The oversubscribed and upsized round had participation from new investors, including Lightspeed Venture Partners, SoftBank Vision Fund 2, and a major university endowment, and existing investors including Sam Altman, Mithril Capital, Capricorn Investment Group, Dustin Moskovitz through Good Ventures Foundation, and Nucor.
   published: '2025-01-28'
