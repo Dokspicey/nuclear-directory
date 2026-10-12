@@ -11,7 +11,10 @@ class PlantsController < ApplicationController
     end
 
     @profile = PlantProfile.find(params[:slug])
-    return if @profile
+    if @profile
+      track_power_plant_viewed(@profile.slug)
+      return
+    end
 
     # Only to a plant the site shows; a hidden one stays "Page not found".
     current = Facility.find_by_former_slug(params[:slug])

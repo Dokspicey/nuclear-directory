@@ -8,6 +8,10 @@
     <meta name="mobile-web-app-capable" content="yes">
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
+    <%# No hover prefetch: each page opened from a link or address reaches the
+        server once and counts as one view (Back and Forward restore Turbo's copy
+        and aren't counted), and the 512 MB instance skips speculative requests (#68). %>
+    <meta name="turbo-prefetch" content="false">
     <% if analytics_snippet? %>
       <%# Anonymous page views and page leaves (PostHog, cookieless). Public project key, safe in page source. %>
       <meta name="posthog-key" content="<%= Analytics.public_key %>">

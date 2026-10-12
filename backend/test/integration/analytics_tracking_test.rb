@@ -80,6 +80,20 @@ class AnalyticsTrackingTest < ActionDispatch::IntegrationTest
     end
   end
 
+  CLAUDE_BROWSER = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) " \
+    "Claude/2.31226.1 Chrome/152.0.7977.130 Safari/537.36"
+
+  test "our own agent sessions in the Claude app's browser aren't counted (#68)" do
+    with_pages do
+      visit "/companies/terrapower", user_agent: CLAUDE_BROWSER
+      assert_select 'meta[name="posthog-key"]', count: 0
+
+      visit "/seen/terrapower", user_agent: CLAUDE_BROWSER
+    end
+
+    assert_empty posthog.events
+  end
+
   test "no snippet for bots, on /design, or when analytics is off" do
     with_pages do
       visit "/companies/terrapower", user_agent: "Mozilla/5.0 (compatible; bingbot/2.0)"
