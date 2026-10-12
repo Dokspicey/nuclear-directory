@@ -32,8 +32,11 @@ jobs:
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            git diff --name-only "$BASE...$HEAD" | ruby .github/scripts/ci_scope.rb
+          # The classifier comes from the base commit (main), not the PR, so a
+          # PR can't change the rules for itself. No copy there: run all.
+          if [ "${{ github.event_name }}" = "pull_request" ] &&
+             git show "$BASE:.github/scripts/ci_scope.rb" > "$RUNNER_TEMP/ci_scope.rb" 2>/dev/null; then
+            git diff --name-only "$BASE...$HEAD" | ruby "$RUNNER_TEMP/ci_scope.rb"
           else
             printf 'test=true\nlighthouse=true\n' >> "$GITHUB_OUTPUT"
           fi

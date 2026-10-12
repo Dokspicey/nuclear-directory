@@ -24,6 +24,8 @@ class CiScopeTest < Minitest::Test
 
   def test_a_change_to_ci_itself_runs_everything
     assert_equal({ test: true, lighthouse: true }, scope(".github/workflows/ci.yml"))
+    assert_equal({ test: true, lighthouse: true }, scope(".github/scripts/ci_scope.rb"))
+    assert_equal({ test: true, lighthouse: true }, scope(".github/scripts/ci_scope_test.rb"))
   end
 
   def test_app_changes_run_everything
