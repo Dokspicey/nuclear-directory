@@ -24,6 +24,17 @@ class DirectoryTest < ActionDispatch::IntegrationTest
     assert_select "body", text: /Nowhere|Planned/, count: 0
   end
 
+  test "the list, a category, and searches or filters within them each name their canonical address" do
+    get companies_path
+    assert_select "link[rel=canonical][href='http://www.example.com/companies']", 1
+
+    get companies_path(category: "reactor-developers", state: "CA")
+    assert_select "link[rel=canonical][href=?]", "http://www.example.com/companies?category=reactor-developers", 1
+
+    get companies_path(q: "kairos")
+    assert_select "link[rel=canonical][href='http://www.example.com/companies']", 1
+  end
+
   test "a category lists its verified companies" do
     get companies_path(category: "reactor-developers")
 
