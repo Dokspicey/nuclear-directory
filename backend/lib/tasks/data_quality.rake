@@ -28,6 +28,27 @@ namespace :data_quality do
     report.call DataQuality::Pipeline.run(args[:source_kind], only: args[:stage])
   end
 
+  # Queued for the background worker rather than run here: on Render a second
+  # Rails process doing the work would share the instance's 512 MB (#188).
+  desc "Re-run extract, match and verify from the stored snapshot, no fetch: bin/rails data_quality:rerun[nrc_reactor_list]"
+  task :rerun, [ :source_kind ] => :environment do |_task, args|
+    abort "Usage: bin/rails data_quality:rerun[source_kind]" if args[:source_kind].blank?
+
+    DataQuality::Plugin.for(args[:source_kind]) # an unknown kind fails here, not in the job
+    DataQuality::RunJob.perform_later(args[:source_kind], only: DataQuality::Pipeline::FROM_SNAPSHOT)
+    puts "Queued #{DataQuality::Pipeline::FROM_SNAPSHOT.join(', ')} for #{args[:source_kind]} " \
+      "from its stored snapshot. Follow it with: bin/rails data_quality:status"
+  end
+
+  desc "Check the OpenRouter key works, without a model call: bin/rails data_quality:check_key"
+  task check_key: :environment do
+    key = DataQuality::OpenRouter::Client.new.check_key
+    limit = key[:limit] ? format("$%.2f", key[:limit]) : "no limit"
+    puts "OpenRouter key OK (#{key[:label] || 'unlabelled'}): used #{format('$%.2f', key[:usage].to_f)} of #{limit}"
+  rescue DataQuality::OpenRouter::Client::Error, DataQuality::Config::ConfigurationError => error
+    abort "OpenRouter key check failed: #{error.message}"
+  end
+
   desc "How the pipeline is doing: blocked sources, last runs, review queue, model spend"
   task status: :environment do
     puts DataQuality::StatusReport.call

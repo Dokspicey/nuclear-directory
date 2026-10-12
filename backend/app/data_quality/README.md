@@ -70,8 +70,17 @@ docker compose run --rm web bin/rails data_quality:status
 **Guards (#81):**
 - **One run per source kind at a time.** `Pipeline.run` holds a Postgres advisory lock, and a second
   run stops with `Pipeline::AlreadyRunning`. `RunJob` also limits concurrency per source kind in Solid Queue.
-- **No stuck runs.** Each run first marks runs of its source kind left "running" for over 2 hours as
-  failed ("Abandoned…").
+- **No stuck runs (#188).** Every run is made inside its source kind's lock, so a run of that kind still
+  "running" while the lock is held belongs to a process that died (a restart, or running out of memory).
+  Each run first marks those as failed ("Abandoned…"). In production the hourly `CatchUpJob` does the same
+  for every kind not mid-run, and queues today's daily crawl again, once a day per source, from the first
+  source whose run was cut off (or that hasn't run by 4am Eastern).
+- **Re-run without fetching.** `bin/rails "data_quality:rerun[nrc_reactor_list]"` queues extract, match and
+  verify from the stored snapshot for the background worker (not in the shell's own process, which on
+  Render would share the instance's memory).
+- **Key check.** `bin/rails data_quality:check_key` asks OpenRouter whether the key works, with no model
+  call and no cost, and prints its usage and limit. A refused key fails runs with "OpenRouter rejected the
+  API key: check OPENROUTER_API_KEY".
 - **Spend guard.** Before every model call, this month's model cost (from `crawl_runs.stats`) is checked
   against `DATA_QUALITY_MONTHLY_BUDGET` (default $5; a non-number or negative value is a configuration
   error). Once it's used up, calls are refused with `Budget::Exceeded` and the run fails with that

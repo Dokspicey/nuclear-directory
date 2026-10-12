@@ -60,18 +60,33 @@ class DataQuality::PipelineGuardsTest < ActiveSupport::TestCase
     assert run_crawl.sole.succeeded?, "a run after the failure still gets the lock"
   end
 
-  test "runs left running for over 2 hours are marked failed when the next run starts" do
+  test "runs a dead process left running are marked failed when the next run starts, however recent" do
     stuck = CrawlRun.create!(stage: "extract", source_kind: "dummy", started_at: 3.hours.ago)
-    recent = CrawlRun.create!(stage: "extract", source_kind: "dummy", started_at: 10.minutes.ago)
+    recent = CrawlRun.create!(stage: "crawl", source_kind: "dummy", started_at: 1.minute.ago)
     other_kind = CrawlRun.create!(stage: "extract", source_kind: "nrc_reactor_list", started_at: 3.hours.ago)
 
     run_crawl
 
-    assert stuck.reload.failed?
-    assert_match "Abandoned: still running after 2 hours", stuck.error
-    assert stuck.finished_at
-    assert recent.reload.running?, "may still be working"
+    [ stuck, recent ].each do |run|
+      assert run.reload.failed?, "nothing else can be running while this run holds the lock"
+      assert_equal DataQuality::Pipeline::ABANDONED, run.error
+      assert run.finished_at
+    end
     assert other_kind.reload.running?, "another source kind is swept by its own runs"
+  end
+
+  test "the sweep for every kind leaves alone a kind that's mid-run" do
+    dead = CrawlRun.create!(stage: "crawl", source_kind: "dummy", started_at: 1.minute.ago)
+    working = CrawlRun.create!(stage: "crawl", source_kind: "nrc_reactor_list", started_at: 1.minute.ago)
+    other = other_session
+    other.exec("SELECT pg_advisory_lock(#{Zlib.crc32('data_quality:nrc_reactor_list')})")
+
+    assert_equal 1, DataQuality::Pipeline.sweep_all_abandoned
+
+    assert dead.reload.failed?
+    assert working.reload.running?, "its lock is held, so it's really running"
+  ensure
+    close_session(other)
   end
 
   test "the background job allows one run per source kind" do
@@ -80,7 +95,7 @@ class DataQuality::PipelineGuardsTest < ActiveSupport::TestCase
     assert_equal 1, DataQuality::RunJob.concurrency_limit
     assert_includes job.concurrency_key, "nrc_reactor_list"
     assert_not_equal job.concurrency_key, DataQuality::RunJob.new("dummy").concurrency_key
-    assert_operator DataQuality::RunJob.concurrency_duration, :>, DataQuality::Pipeline::ABANDONED_AFTER,
+    assert_operator DataQuality::RunJob.concurrency_duration, :>, 1.hour,
       "the hold outlasts any real run"
   end
 

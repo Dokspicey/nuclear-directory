@@ -113,6 +113,27 @@ class DataQuality::OpenRouter::ClientTest < ActiveSupport::TestCase
     assert_empty @sleeps
   end
 
+  test "a refused key or an empty account says what to fix (#188)" do
+    stub_request(:post, ENDPOINT).to_return(status: 401, body: { error: { message: "User not found." } }.to_json)
+    assert_equal "OpenRouter rejected the API key: check OPENROUTER_API_KEY (OpenRouter 401: User not found.)",
+      assert_raises(DataQuality::OpenRouter::Client::RequestError) { ask }.message
+
+    stub_request(:post, ENDPOINT).to_return(status: 402, body: { error: { message: "Insufficient credits" } }.to_json)
+    assert_match "out of credit", assert_raises(DataQuality::OpenRouter::Client::RequestError) { ask }.message
+  end
+
+  test "checks the key without a model call" do
+    key = stub_request(:get, "https://openrouter.ai/api/v1/key").with(headers: { "Authorization" => "Bearer test-key" })
+      .to_return(status: 200, body: { data: { label: "nd-prod", usage: 0.07, limit: 10 } }.to_json)
+
+    assert_equal({ label: "nd-prod", usage: 0.07, limit: 10 }, @client.check_key)
+    assert_requested key
+    assert_not_requested :post, ENDPOINT
+
+    stub_request(:get, "https://openrouter.ai/api/v1/key").to_return(status: 401, body: { error: { message: "User not found." } }.to_json)
+    assert_match "rejected the API key", assert_raises(DataQuality::OpenRouter::Client::RequestError) { @client.check_key }.message
+  end
+
   test "treats an upstream error inside a 200 response as retryable" do
     stub_request(:post, ENDPOINT)
       .to_return(status: 200, body: { error: { code: 502, message: "provider down" } }.to_json)

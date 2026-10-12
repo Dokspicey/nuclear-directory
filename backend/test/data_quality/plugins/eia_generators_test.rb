@@ -165,6 +165,23 @@ class DataQuality::Plugins::EiaGeneratorsTest < ActiveSupport::TestCase
     assert_equal [ "GA" ], vogtle.map { |g| g["state"] }.uniq
   end
 
+  test "the chunked inflater reads every part of a workbook exactly as rubyzip does (#188)" do
+    path = file_fixture("eia/real_trimmed.xlsx").to_s
+
+    Zip::File.open(path) do |zip|
+      File.open(path, "rb") do |file|
+        zip.entries.reject(&:directory?).each do |entry|
+          inflating = Workbook::Inflating.new(file, entry)
+          streamed = +"".b
+          while (chunk = inflating.read(1000)) # small reads, like the XML reader's
+            streamed << chunk
+          end
+          assert_equal entry.get_input_stream.read.b, streamed, entry.name
+        end
+      end
+    end
+  end
+
   test "a large workbook with shared strings reads every row, like EIA's real file" do
     generators = Workbook.nuclear_generators(shared_strings_workbook(rows: 3000))
 
