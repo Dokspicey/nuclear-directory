@@ -46,7 +46,14 @@ module TracksAnalytics
     end
 
     def trackable_request?
-      !bot? && !request.path.match?(UNTRACKED_PATHS)
+      !bot? && !prefetch? && !request.path.match?(UNTRACKED_PATHS)
+    end
+
+    # Turbo's hover prefetch (X-Sec-Purpose) and the browser's own
+    # (Sec-Purpose): a page fetched in case it's opened, not a view.
+    def prefetch?
+      [ request.headers["X-Sec-Purpose"], request.headers["Sec-Purpose"], request.headers["Purpose"] ]
+        .any? { |value| value.to_s.include?("prefetch") }
     end
 
     def bot?
