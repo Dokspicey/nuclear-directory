@@ -55,6 +55,12 @@ services:
         value: "0"
       - key: MALLOC_CONF
         value: dirty_decay_ms:1000,narenas:2,background_thread:true
+      # In async mode Puma (3 threads) and Solid Queue (worker: 3 job threads
+      # plus polling and heartbeat; dispatcher; scheduler; supervisor) share
+      # one connection pool, about 11 at most. A ceiling, not opened up front;
+      # two instances during a deploy still fit Postgres's 103 easily.
+      - key: DB_POOL
+        value: "12"
       # Non-secret settings, kept here so changes are reviewed in a PR.
       # Same values as .env.example; they must stay two different models.
       - key: OPENROUTER_EXTRACT_MODEL

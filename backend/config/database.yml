@@ -8,7 +8,9 @@
 default: &default
   adapter: postgresql
   encoding: unicode
-  max_connections: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+  # DB_POOL when set (production: Puma and Solid Queue's threads share this
+  # pool in async mode, see config/puma.rb); otherwise one per Puma thread.
+  max_connections: <%= ENV.fetch("DB_POOL") { ENV.fetch("RAILS_MAX_THREADS") { 5 } } %>
   url: <%= ENV["DATABASE_URL"] %>
 
 development:
