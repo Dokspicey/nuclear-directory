@@ -2,9 +2,9 @@
 # Start command for the free UI preview service (render.yaml,
 # nuclear-directory-preview). Never used by the live site.
 #
-# Every start empties the preview database (its own, owned by preview_app;
-# never production) and reloads schema and seed, so nothing from an earlier
-# preview, including tables from another PR's migrations, survives.
+# Every start replaces the preview database's contents (its own, owned by
+# preview_app; never production) with a fresh schema and seed, so nothing from
+# an earlier preview, including tables from another PR's migrations, survives.
 set -euo pipefail
 
 case "${DATABASE_URL:-}" in
@@ -12,8 +12,50 @@ case "${DATABASE_URL:-}" in
   *) echo "preview-start: DATABASE_URL must point at nuclear_directory_preview; refusing to reset it." >&2; exit 1 ;;
 esac
 
-psql "$DATABASE_URL" -X -q -v ON_ERROR_STOP=1 -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
-bin/rails db:schema:load db:seed
-# The preview's admin login, from PREVIEW_ADMIN_PASSWORD (skipped if unset).
-bin/rails preview:admin
+# preview_app's 5-second statement_timeout protects the shared database from
+# the running preview; the setup below can take longer on the free instance,
+# so these commands (only) get 2 minutes. The server started at the end
+# doesn't inherit it.
+timeouts="-c statement_timeout=120s -c lock_timeout=20s"
+psql_setup() { PGOPTIONS="$timeouts" psql "$DATABASE_URL" -X -q -v ON_ERROR_STOP=1 "$@"; }
+
+# Build the new data in a separate schema, preview_next, while the old preview
+# instance (still running during a deploy) keeps serving from public. Only
+# when schema and seed have loaded is it swapped in, in one transaction, so a
+# failed start leaves the old preview working (#206).
+psql_setup -c "DROP SCHEMA IF EXISTS preview_next CASCADE; CREATE SCHEMA preview_next;" > /dev/null
+PGOPTIONS="$timeouts -c search_path=preview_next" bin/rails db:schema:load db:seed
+
+# The preview's admin login, from PREVIEW_ADMIN_PASSWORD. A problem here (unset
+# or rejected password) is logged and never stops the preview.
+if ! PGOPTIONS="$timeouts -c search_path=preview_next" bin/rails preview:admin; then
+  echo "preview-start: no admin login on this preview (see the line above); starting without it." >&2
+fi
+
+# The swap. The old instance's sessions hold locks on public, which deadlocked
+# a plain DROP SCHEMA (#206): end them first (preview_app may end its own
+# sessions), and retry in case it reconnects in between.
+swap_sql="
+  SELECT count(pg_terminate_backend(pid)) FROM pg_stat_activity
+  WHERE datname = current_database() AND pid <> pg_backend_pid() AND usename = current_user;
+  DROP SCHEMA IF EXISTS preview_old CASCADE;
+  DO \$\$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'public') THEN
+      ALTER SCHEMA public RENAME TO preview_old;
+    END IF;
+  END \$\$;
+  ALTER SCHEMA preview_next RENAME TO public;
+  DROP SCHEMA IF EXISTS preview_old CASCADE;"
+for attempt in 1 2 3 4 5; do
+  if psql_setup -c "$swap_sql" > /dev/null; then
+    break
+  fi
+  if [[ $attempt == 5 ]]; then
+    echo "preview-start: couldn't swap in the new preview data after 5 tries; the old data is still in place." >&2
+    exit 1
+  fi
+  echo "preview-start: swap attempt ${attempt} failed; retrying in $((attempt * 3))s." >&2
+  sleep $((attempt * 3))
+done
+
 exec ./bin/rails server
