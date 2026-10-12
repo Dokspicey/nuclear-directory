@@ -77,3 +77,5 @@ end
 
 gem "sentry-ruby", "~> 7.1"
 gem "sentry-rails", "~> 7.1"
+
+gem "maxmind-db", "~> 1.2"
