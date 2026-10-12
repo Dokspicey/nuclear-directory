@@ -40,6 +40,19 @@ class DataQuality::CatchUpJobTest < ActiveSupport::TestCase
     assert_enqueued_with job: DataQuality::DailyCrawlJob, args: [ %w[eia_generators] ]
   end
 
+  test "the night of 12 Oct: NRC fetched, then failed on the key; EIA cut off. Only EIA is queued again" do
+    make_run("nrc_reactor_list", "crawl", "succeeded")
+    make_run("nrc_reactor_list", "extract", "failed", at: TODAY_3AM + 2.minutes,
+      error: "OpenRouter rejected the API key: check OPENROUTER_API_KEY (OpenRouter 401: User not found.)")
+    make_run("eia_generators", "crawl", "running", at: TODAY_3AM + 3.minutes)
+
+    catch_up
+
+    # NRC isn't fetched again today: it goes through data_quality:rerun, from its snapshot.
+    assert_enqueued_jobs 1, only: DataQuality::DailyCrawlJob
+    assert_enqueued_with job: DataQuality::DailyCrawlJob, args: [ %w[eia_generators] ]
+  end
+
   test "a daily crawl that never started is queued after 4am" do
     catch_up(at: NOW.change(hour: 3, min: 30))
     assert_no_enqueued_jobs only: DataQuality::DailyCrawlJob
