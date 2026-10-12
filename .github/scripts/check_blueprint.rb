@@ -20,7 +20,17 @@ def bech32_valid?(string)
   checksum == 1
 end
 
-blueprint = YAML.load_file(File.expand_path("../../render.yaml", __dir__))
+# A database may allow single IPv4 hosts (/32) that say whose they are, e.g.
+# Tosin's home IP for local Metabase (#111). Anything wider stays blocked.
+def allowed_ip_entry?(entry)
+  return false unless entry.is_a?(Hash) && entry["description"].to_s.strip != ""
+
+  octets = entry["source"].to_s.match(/\A(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\/32\z/)&.captures&.map(&:to_i)
+  !octets.nil? && octets.all? { |octet| octet <= 255 } && octets != [ 0, 0, 0, 0 ]
+end
+
+# RENDER_YAML lets the test point this at sample blueprints.
+blueprint = YAML.load_file(ENV.fetch("RENDER_YAML", File.expand_path("../../render.yaml", __dir__)))
 problems = []
 
 backup = blueprint["services"].find { |service| service["name"] == "nuclear-directory-backup" }
@@ -35,8 +45,11 @@ else
 end
 
 blueprint["databases"].each do |database|
-  unless database["ipAllowList"] == []
-    problems << "database #{database["name"]} must keep ipAllowList: [] (no access from the internet)"
+  allow_list = database["ipAllowList"]
+  # At most one host: Tosin's Mac for local Metabase (#111), nothing else.
+  unless allow_list.is_a?(Array) && allow_list.size <= 1 && allow_list.all? { |entry| allowed_ip_entry?(entry) }
+    problems << "database #{database["name"]} may only allow one IPv4 host (x.x.x.x/32) with a description; " \
+      "use ipAllowList: [] for no access from the internet"
   end
 end
 
