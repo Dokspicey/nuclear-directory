@@ -36,16 +36,25 @@ class DataQuality::CatchUpJob < ApplicationJob
     return unless first
 
     behind = kinds.drop(first)
-    behind.each { |kind| caught_up!(kind, local.to_date) }
+    # Queued first, then remembered: if queueing fails, the next hour tries again.
     DataQuality::DailyCrawlJob.perform_later(behind)
+    behind.each { |kind| caught_up!(kind, local.to_date) }
   end
 
   private
+    # Today's crawl for a source is done when its last run is a finished
+    # verify, or stopped on an ordinary failure (a refused key, a blocked
+    # page), which waits for a person. Anything else was cut off: a run left
+    # "running" (now failed as abandoned), or a stage that succeeded with the
+    # next one never started, because the restart came in between.
     def needs_catching_up?(kind, since)
       return false if caught_up?(kind, since.to_date)
 
-      last = CrawlRun.where(source_kind: kind, started_at: since..).order(:started_at).last
-      last.nil? || (last.failed? && last.error == DataQuality::Pipeline::ABANDONED)
+      last = CrawlRun.where(source_kind: kind, started_at: since..).order(:started_at, :id).last
+      return true if last.nil?
+      return last.error == DataQuality::Pipeline::ABANDONED if last.failed?
+
+      last.succeeded? && last.stage != "verify"
     end
 
     def caught_up?(kind, date) = CACHE.exist?(marker(kind, date))

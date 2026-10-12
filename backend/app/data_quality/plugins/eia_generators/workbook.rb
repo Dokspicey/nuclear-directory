@@ -217,7 +217,12 @@ class DataQuality::Plugins::EiaGenerators::Workbook
 
       def initialize(file, entry)
         @file = file
+        @entry = entry
         @left = entry.compressed_size
+        # Checked against the entry at the end, as rubyzip does, so a damaged
+        # file is reported rather than read as different rows.
+        @crc = Zlib.crc32
+        @size = 0
         @inflater = entry.compression_method == Zip::Entry::DEFLATED ? Zlib::Inflate.new(-Zlib::MAX_WBITS) : nil
         @pending = +"".b
         # The data starts after the entry's local header, whose name and
@@ -242,11 +247,24 @@ class DataQuality::Plugins::EiaGenerators::Workbook
       private
         def fill(length)
           while (length.nil? || @pending.bytesize < length) && @left.positive?
-            chunk = @file.read([ @left, CHUNK ].min) or break
+            chunk = @file.read([ @left, CHUNK ].min) or raise Unreadable, "#{@entry.name}: the file ends early"
             @left -= chunk.bytesize
-            @pending << (@inflater ? @inflater.inflate(chunk) : chunk)
+            emit(@inflater ? @inflater.inflate(chunk) : chunk)
+            finish if @left.zero?
           end
-          @pending << @inflater.finish if @inflater && @left.zero? && !@inflater.finished?
+        end
+
+        def emit(data)
+          @crc = Zlib.crc32(data, @crc)
+          @size += data.bytesize
+          @pending << data
+        end
+
+        def finish
+          emit(@inflater.finish) if @inflater && !@inflater.finished?
+          return if @crc == @entry.crc && @size == @entry.size
+
+          raise Unreadable, "#{@entry.name} is damaged: its checksum or size doesn't match the zip's record"
         end
     end
 

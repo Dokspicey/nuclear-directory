@@ -53,6 +53,29 @@ class DataQuality::CatchUpJobTest < ActiveSupport::TestCase
     assert_enqueued_with job: DataQuality::DailyCrawlJob, args: [ %w[eia_generators] ]
   end
 
+  test "a restart between stages, with no run left running, is caught up too" do
+    make_run("nrc_reactor_list", "verify", "succeeded")
+    make_run("eia_generators", "crawl", "succeeded", at: TODAY_3AM + 3.minutes) # extract never started
+
+    catch_up
+
+    assert_enqueued_with job: DataQuality::DailyCrawlJob, args: [ %w[eia_generators] ]
+  end
+
+  test "if queueing fails, nothing is remembered, so the next hour tries again" do
+    failing = DataQuality::DailyCrawlJob.singleton_class
+    original = failing.instance_method(:perform_later)
+    failing.define_method(:perform_later) { |*| raise ActiveJob::EnqueueError, "queue unavailable" }
+    assert_raises(ActiveJob::EnqueueError) { catch_up }
+    failing.define_method(:perform_later, original)
+
+    catch_up(at: NOW + 1.hour)
+
+    assert_enqueued_with job: DataQuality::DailyCrawlJob, args: [ %w[nrc_reactor_list eia_generators] ]
+  ensure
+    failing.define_method(:perform_later, original)
+  end
+
   test "a daily crawl that never started is queued after 4am" do
     catch_up(at: NOW.change(hour: 3, min: 30))
     assert_no_enqueued_jobs only: DataQuality::DailyCrawlJob

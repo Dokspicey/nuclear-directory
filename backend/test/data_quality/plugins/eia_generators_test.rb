@@ -182,6 +182,21 @@ class DataQuality::Plugins::EiaGeneratorsTest < ActiveSupport::TestCase
     end
   end
 
+  test "the chunked inflater reports a damaged part instead of reading it" do
+    path = file_fixture("eia/real_trimmed.xlsx").to_s
+
+    Zip::File.open(path) do |zip|
+      File.open(path, "rb") do |file|
+        sheet = zip.entries.max_by(&:size)
+        wrong_crc = SimpleDelegator.new(sheet)
+        def wrong_crc.crc = __getobj__.crc ^ 1
+
+        error = assert_raises(Workbook::Unreadable) { Workbook::Inflating.new(file, wrong_crc).read(sheet.size + 1) }
+        assert_match "damaged", error.message
+      end
+    end
+  end
+
   test "a large workbook with shared strings reads every row, like EIA's real file" do
     generators = Workbook.nuclear_generators(shared_strings_workbook(rows: 3000))
 
