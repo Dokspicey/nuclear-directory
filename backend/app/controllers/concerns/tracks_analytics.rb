@@ -6,9 +6,13 @@
 #   track_company_viewed(@company.slug)
 module TracksAnalytics
   extend ActiveSupport::Concern
+  include AdminVisitor
 
-  BOT_USER_AGENT = /bot|crawl|spider|slurp|scrap|fetch|preview|monitor|uptime|headless|lighthouse|
-    curl|wget|python|ruby|java|go-http|okhttp|axios|node-fetch|httpclient|libwww|facebookexternalhit/ix
+  # "Claude/" is the Claude app's built-in browser: our own agent sessions
+  # browse the live site in a hidden pane, which sent page leaves without
+  # page views (PostHog waits for a visible tab) and skewed the counts (#68).
+  BOT_USER_AGENT = %r{bot|crawl|spider|slurp|scrap|fetch|preview|monitor|uptime|headless|lighthouse|
+    curl|wget|python|ruby|java|go-http|okhttp|axios|node-fetch|httpclient|libwww|facebookexternalhit|claude/}ix
   # Not public pages: the admin, the design reference, the health check, Rails internals.
   UNTRACKED_PATHS = %r{\A/(admin|design|up|rails|assets|cable)(/|\z)}
 
@@ -18,7 +22,7 @@ module TracksAnalytics
 
   private
     def track_search(query, results:)
-      Analytics.track_search(query, results:) if trackable_request?
+      Analytics.track_search(query, results:, visitor: visitor_properties) if trackable_request?
     end
 
     def track_company_viewed(slug) = track("company_viewed", slug:)
@@ -30,8 +34,12 @@ module TracksAnalytics
     end
 
     def track(event, properties)
-      Analytics.capture(event, properties.compact) if trackable_request?
+      Analytics.capture(event, properties.compact.merge(visitor_properties)) if trackable_request?
     end
+
+    # The visitor's country and whether they're internal (#205), from the
+    # request's IP; the IP itself is never sent.
+    def visitor_properties = GeoCountry.properties(request.remote_ip, admin: admin_visitor?)
 
     # Whether to load the browser snippet (page views) on this page.
     def analytics_snippet?
@@ -39,7 +47,14 @@ module TracksAnalytics
     end
 
     def trackable_request?
-      !bot? && !request.path.match?(UNTRACKED_PATHS)
+      !bot? && !prefetch? && !request.path.match?(UNTRACKED_PATHS)
+    end
+
+    # Turbo's hover prefetch (X-Sec-Purpose) and the browser's own
+    # (Sec-Purpose): a page fetched in case it's opened, not a view.
+    def prefetch?
+      [ request.headers["X-Sec-Purpose"], request.headers["Sec-Purpose"], request.headers["Purpose"] ]
+        .any? { |value| value.to_s.include?("prefetch") }
     end
 
     def bot?

@@ -3,10 +3,11 @@
 # Privacy rules, all enforced here:
 # - nobody is ever identified: every event uses one shared distinct id, never
 #   identify(), and no person profiles are created
-# - no personal data in properties, and no IP or GeoIP on these server-side
-#   events: sent from the server, the IP would be ours, not the visitor's.
-#   (PostHog's cookieless mode strips the IP from browser events too, before
-#   anything is stored: PostHog #48660.)
+# - no personal data in properties, and never an IP: sent from the server,
+#   PostHog would see ours. TracksAnalytics adds the visitor's country and
+#   internal flag instead (GeoCountry, #205), and $geoip_disable keeps
+#   PostHog's own lookup from replacing them. (PostHog's cookieless mode
+#   strips the IP from browser events before anything is stored: #48660.)
 # - nothing runs without POSTHOG_API_KEY, and nothing is sent in tests
 #
 # Server-side events (controllers call these through TracksAnalytics, which
@@ -36,7 +37,8 @@ module Analytics
 
     def enabled? = !client.nil?
 
-    # The browser snippet's project key and host, or nil when analytics is off.
+    # The project key (for the browser snippet) and the server client's host;
+    # the browser goes through /relay instead (#205).
     def public_key = (api_key if enabled?)
     def host = ENV["POSTHOG_HOST"].presence || DEFAULT_HOST
 
@@ -58,10 +60,11 @@ module Analytics
     # The search interface Design calls (same as #62's). Queries are
     # normalized so "TerraPower " and "terrapower" count together, and
     # zero-result searches are flagged so they're easy to find.
-    def track_search(query, results:)
+    # visitor: the country and internal flag (TracksAnalytics#visitor_properties).
+    def track_search(query, results:, visitor: {})
       normalized = normalize_query(query) or return
 
-      capture("search", query: normalized, results: results.to_i, zero_results: results.to_i.zero?)
+      capture("search", { query: normalized, results: results.to_i, zero_results: results.to_i.zero? }.merge(visitor))
     end
 
     def normalize_query(query)

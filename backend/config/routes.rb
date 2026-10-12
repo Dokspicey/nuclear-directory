@@ -20,6 +20,8 @@ Rails.application.routes.draw do
   get "robots.txt" => "sitemaps#robots", as: :robots, format: false
   # A public JSON summary for other sites (#193). GET only.
   get "api/snapshot.json" => "api/snapshots#show", as: :api_snapshot, format: false, defaults: { format: :json }
+  # The browser's PostHog traffic, through our site with the visitor's country (#205).
+  match "relay/*path" => "relay#forward", via: %i[get post], format: false
 
   # The home page and its instant search (#41). /search returns a Turbo Frame
   # of grouped results for the home and header search fields.

@@ -19,3 +19,6 @@
 /coverage
 .env
 .env.*
+
+# IP-to-country data, downloaded at build (Dockerfile, #205)
+/vendor/geo/

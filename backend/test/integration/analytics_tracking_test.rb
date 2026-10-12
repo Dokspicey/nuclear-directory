@@ -1,10 +1,12 @@
 require "test_helper"
 require_relative "../support/fake_posthog"
+require_relative "../support/fake_geo_reader"
 
 # The request-level rules (TracksAnalytics): bots and non-public paths are
 # never tracked, and the browser snippet only appears on public pages.
 class AnalyticsTrackingTest < ActionDispatch::IntegrationTest
   include AnalyticsTestHelper
+  include GeoCountryTestHelper
 
   class PagesController < ApplicationController
     def show = render(inline: "<p>page</p>", layout: "application")
@@ -70,14 +72,53 @@ class AnalyticsTrackingTest < ActionDispatch::IntegrationTest
     assert_equal %w[$geoip_disable $ip $process_person_profile subject_type], posthog.events.last[:properties].keys.sort
   end
 
+  test "server-side events carry the visitor's country and internal flag, never the IP (#205)" do
+    internal_ips!("81.2.69.142")
+    with_pages do
+      get "/search?q=x&n=1", headers: { "User-Agent" => BROWSER }, env: { "REMOTE_ADDR" => "81.2.69.142" }
+      get "/seen/terrapower", headers: { "User-Agent" => BROWSER }, env: { "REMOTE_ADDR" => "81.2.69.142" }
+    end
+
+    posthog.events.each do |event|
+      props = event[:properties]
+      assert_equal [ "GB", true, true ], props.values_at("$geoip_country_code", "internal", "$geoip_disable"), event[:event]
+      assert_nil props["$ip"]
+      assert_not props.values.include?("81.2.69.142")
+    end
+    assert_equal 2, posthog.events.size
+  end
+
+  test "a browser signed in to the admin is internal on server-side events too" do
+    with_pages do
+      sign_in_as users(:admin)
+      visit "/seen/terrapower"
+    end
+
+    assert_equal true, posthog.events.sole[:properties]["internal"]
+  end
+
   test "public pages get the cookieless snippet's settings" do
     with_pages do
       visit "/companies/terrapower"
 
       assert_select 'meta[name="posthog-key"][content="phc_test_key"]'
-      assert_select 'meta[name="posthog-host"][content="https://us.i.posthog.com"]'
+      assert_select 'meta[name="posthog-host"][content="/relay"]', 1, "through our relay (#205)"
       assert_empty response.headers["Set-Cookie"].to_s
     end
+  end
+
+  CLAUDE_BROWSER = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) " \
+    "Claude/2.31226.1 Chrome/152.0.7977.130 Safari/537.36"
+
+  test "our own agent sessions in the Claude app's browser aren't counted (#68)" do
+    with_pages do
+      visit "/companies/terrapower", user_agent: CLAUDE_BROWSER
+      assert_select 'meta[name="posthog-key"]', count: 0
+
+      visit "/seen/terrapower", user_agent: CLAUDE_BROWSER
+    end
+
+    assert_empty posthog.events
   end
 
   test "no snippet for bots, on /design, or when analytics is off" do
