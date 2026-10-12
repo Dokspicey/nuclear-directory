@@ -2,6 +2,7 @@
 #   ruby .github/scripts/ci_scope_test.rb
 require "minitest/autorun"
 require "open3"
+require "tmpdir"
 require_relative "ci_scope"
 
 class CiScopeTest < Minitest::Test
@@ -47,10 +48,13 @@ class CiScopeTest < Minitest::Test
   end
 
   def test_the_command_line_writes_github_outputs
-    output, status = Open3.capture2e({ "GITHUB_OUTPUT" => nil }, "ruby", File.expand_path("ci_scope.rb", __dir__),
-      stdin_data: "README.md\nrender.yaml\n")
-    assert status.success?, output
-    assert_includes output, "test=true"
-    assert_includes output, "lighthouse=false"
+    Dir.mktmpdir do |dir|
+      output_file = File.join(dir, "github_output")
+      stdout, stderr, status = Open3.capture3({ "GITHUB_OUTPUT" => output_file }, "ruby",
+        File.expand_path("ci_scope.rb", __dir__), stdin_data: "README.md\nrender.yaml\n")
+      assert status.success?, stderr
+      assert_equal "test=true\nlighthouse=false\n", File.read(output_file)
+      assert_empty stdout
+    end
   end
 end
