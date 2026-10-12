@@ -43,9 +43,10 @@ class DirectorySnapshot
   # time durably (the app's database-backed cache), so updatedAt moves
   # forward for a deletion and survives a restart.
   def self.expire!(changed_at: Time.current)
+    # The time first: a build under the new generation must already see it.
+    CHANGES.write(CHANGED_AT, changed_at.to_f)
     @lock.synchronize { @generation += 1 }
     CACHE.clear
-    CHANGES.write(CHANGED_AT, changed_at.to_f)
   end
 
   # The app's cache in production; tests use their own, since the test
