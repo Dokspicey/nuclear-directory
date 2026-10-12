@@ -14,9 +14,10 @@
 module Metabase
   module ReadonlyRole
     NAME = "metabase_ro"
-    # Never readable through Metabase. Any table added later is readable
-    # (default privileges), so a new table with sign-in or personal data
-    # goes here in the same PR.
+    # Never readable through Metabase. Tables are granted when this runs, not
+    # by default privileges, so a table added later stays unreadable until
+    # it's rerun; a new table with sign-in or personal data goes here before
+    # that.
     PRIVATE_TABLES = %w[users sessions correction_reports].freeze
     # Rails' own Solid Queue, Cache and Cable tables (job arguments can hold
     # an email address).
@@ -40,12 +41,19 @@ module Metabase
 
       connection.transaction do
         ActiveRecord::Base.logger.silence { account_statements(name:, password:, connection:).each { |sql| connection.execute(sql) } }
+        # A rerun starts from nothing, so a right granted by hand in between
+        # (INSERT on a table, CREATE on the schema) doesn't survive it.
+        connection.execute("REVOKE ALL ON ALL TABLES IN SCHEMA public FROM #{role}")
+        connection.execute("REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM #{role}")
+        connection.execute("REVOKE ALL ON ALL FUNCTIONS IN SCHEMA public FROM #{role}")
+        connection.execute("REVOKE ALL ON SCHEMA public FROM #{role}")
+        connection.execute("REVOKE ALL ON DATABASE #{database} FROM #{role}")
+        connection.execute("ALTER DEFAULT PRIVILEGES FOR ROLE #{owner} IN SCHEMA public REVOKE ALL ON TABLES FROM #{role}")
+
         connection.execute("GRANT CONNECT ON DATABASE #{database} TO #{role}")
         connection.execute("GRANT USAGE ON SCHEMA public TO #{role}")
-        connection.execute("GRANT SELECT ON ALL TABLES IN SCHEMA public TO #{role}")
-        connection.execute("ALTER DEFAULT PRIVILEGES FOR ROLE #{owner} IN SCHEMA public GRANT SELECT ON TABLES TO #{role}")
-        hidden = private_tables(connection)
-        connection.execute("REVOKE ALL ON #{hidden.map { |t| connection.quote_table_name(t) }.join(', ')} FROM #{role}") if hidden.any?
+        readable = connection.tables - private_tables(connection)
+        connection.execute("GRANT SELECT ON #{readable.map { |t| connection.quote_table_name(t) }.join(', ')} TO #{role}") if readable.any?
       end
     end
 
@@ -60,6 +68,10 @@ module Metabase
       existing = connection.select_one("SELECT #{UNSAFE_ATTRIBUTES.join(', ')} FROM pg_roles WHERE rolname = #{connection.quote(name)}")
       unsafe = existing.to_h.select { |_, value| value }.keys
       raise Unsafe, "#{name} already exists with #{unsafe.join(', ')}; drop it as a superuser and run this again" if unsafe.any?
+      # A member of another role (the app's owner, say) inherits its rights.
+      member_of = connection.select_values("SELECT r.rolname FROM pg_auth_members m JOIN pg_roles r ON r.oid = m.roleid " \
+        "JOIN pg_roles u ON u.oid = m.member WHERE u.rolname = #{connection.quote(name)}")
+      raise Unsafe, "#{name} is a member of #{member_of.join(', ')}; drop the role and run this again" if member_of.any?
 
       verifier = connection.raw_connection.encrypt_password(password, name, "scram-sha-256")
       [

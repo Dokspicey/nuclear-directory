@@ -261,8 +261,11 @@ run it only after the deploy that added it has finished:
    `users`, `sessions`, `correction_reports` or Rails' `solid_*` job and
    cache tables. Its transactions are read-only by default, and it has no
    write permissions at all, so it can't change anything even with that
-   default turned off. Running it again updates the password and the
-   grants.
+   default turned off. Running it again updates the password and resets
+   the grants from scratch, so a right granted by hand in between doesn't
+   survive. Tables are granted when it runs, so after a migration adds a
+   table you want in Metabase, run it again (check first that the new table
+   holds nothing private; if it does, add it to `PRIVATE_TABLES`).
 
 **2. Allow your IP address.** `render.yaml` lists one address under the
 database's `ipAllowList`. When your home IP changes, Metabase times out
@@ -271,10 +274,20 @@ connecting. Get the new one with `curl -4 ifconfig.me`, replace the `/32` in
 To close access again, set `ipAllowList: []`. Never delete the key: Render
 would then open the database to everyone.
 
-**3. Start Metabase:**
+**3. Start Metabase.** The first time, make its encryption key. Metabase
+uses it to encrypt the database password it saves, so the password isn't
+readable in its files. From the repo root:
 
 ```bash
-docker compose -f docker-compose.metabase.yml up -d
+printf 'MB_ENCRYPTION_SECRET_KEY=%s\n' "$(openssl rand -base64 32)" > .env.metabase
+```
+
+Copy the line from `.env.metabase` into the password manager entry too:
+without the key, a restored copy of Metabase can't read its saved settings.
+`.env.metabase` is gitignored. Then, and every time after:
+
+```bash
+docker compose -f docker-compose.metabase.yml --env-file .env.metabase up -d
 ```
 
 Open <http://localhost:3030> and create the local admin account (it exists
@@ -312,8 +325,9 @@ Metabase user, so no key is stored, and the setting lives in your own
 `~/.claude.json`, not in this repo. Use this server for this data, not the
 Metabase connector on your claude.ai account.
 
-**Stop it** with `docker compose -f docker-compose.metabase.yml down`; your
-questions stay in the `metabase-data` volume (`down -v` deletes them).
+**Stop it** with `docker compose -f docker-compose.metabase.yml --env-file
+.env.metabase down`; your questions stay in the `metabase-data` volume
+(`down -v` deletes them).
 
 ## Starting over
 

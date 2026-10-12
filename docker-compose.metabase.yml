@@ -2,8 +2,12 @@
 # the app: it never runs on Render, and the app's docker-compose.yml doesn't
 # start it. See "Metabase (local, read-only on production)" in README.md.
 #
-#   docker compose -f docker-compose.metabase.yml up -d     # http://localhost:3030
-#   docker compose -f docker-compose.metabase.yml down      # stop (keeps questions)
+#   docker compose -f docker-compose.metabase.yml --env-file .env.metabase up -d   # http://localhost:3030
+#   docker compose -f docker-compose.metabase.yml --env-file .env.metabase down    # stop (keeps questions)
+#
+# .env.metabase (gitignored, like every .env.*) holds MB_ENCRYPTION_SECRET_KEY,
+# with a copy in the password manager: Metabase encrypts the saved database
+# password with it. Without it, Metabase won't start.
 name: nuclear-directory-metabase
 
 services:
@@ -16,6 +20,7 @@ services:
       # Metabase's own settings and saved questions, in a local file on the
       # volume below. Production data is only ever read over the network.
       MB_DB_FILE: /metabase-data/metabase.db
+      MB_ENCRYPTION_SECRET_KEY: ${MB_ENCRYPTION_SECRET_KEY:?Set MB_ENCRYPTION_SECRET_KEY in .env.metabase (see README)}
       MB_SITE_URL: http://localhost:3030
       MB_ANON_TRACKING_ENABLED: "false"
       MB_CHECK_FOR_UPDATES: "false"

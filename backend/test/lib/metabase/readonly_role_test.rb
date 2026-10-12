@@ -97,11 +97,39 @@ class Metabase::ReadonlyRoleTest < ActiveSupport::TestCase
     assert_equal "1", session.exec("SELECT 1").getvalue(0, 0), "and the role still signs in with the password"
   end
 
-  test "a table added later is readable, and rerunning updates the role" do
+  test "a table added later stays hidden until the task is rerun" do
     ActiveRecord::Base.connection.execute("CREATE TABLE metabase_later_table (id int)")
-    assert_equal "0", session.exec("SELECT count(*) FROM metabase_later_table").getvalue(0, 0)
+    assert_match "permission denied", refused("SELECT count(*) FROM metabase_later_table").message
 
-    assert_nothing_raised { Metabase::ReadonlyRole.apply!(name: @name, password: PASSWORD) }
+    Metabase::ReadonlyRole.apply!(name: @name, password: PASSWORD)
+    assert_equal "0", session.exec("SELECT count(*) FROM metabase_later_table").getvalue(0, 0)
     assert_raises(ArgumentError) { Metabase::ReadonlyRole.apply!(name: @name, password: "short") }
+  end
+
+  test "a rerun takes away rights granted by hand in between" do
+    connection = ActiveRecord::Base.connection
+    role = connection.quote_column_name(@name)
+    connection.execute("GRANT INSERT ON organizations TO #{role}")
+    connection.execute("GRANT CREATE ON SCHEMA public TO #{role}")
+
+    Metabase::ReadonlyRole.apply!(name: @name, password: PASSWORD)
+    session.exec("SET default_transaction_read_only = off")
+
+    assert_match "permission denied", refused("INSERT INTO organizations (name, slug, country_code, created_at, updated_at) " \
+      "VALUES ('X', 'x', 'US', now(), now())").message
+    assert_match "permission denied", refused("CREATE TABLE metabase_probe (id int)").message
+  end
+
+  test "a role that's a member of another role is refused" do
+    other = "metabase_parent_test_#{Process.pid}"
+    connection = ActiveRecord::Base.connection
+    connection.execute("CREATE ROLE #{other}")
+    connection.execute("GRANT #{other} TO #{connection.quote_column_name(@name)}")
+
+    error = assert_raises(Metabase::ReadonlyRole::Unsafe) { Metabase::ReadonlyRole.apply!(name: @name, password: PASSWORD) }
+    assert_match "is a member of #{other}", error.message
+  ensure
+    connection.execute("REVOKE #{other} FROM #{connection.quote_column_name(@name)}")
+    connection.execute("DROP ROLE IF EXISTS #{other}")
   end
 end
