@@ -258,8 +258,11 @@ run it only after the deploy that added it has finished:
    the prompt, never the password on the command line, so it stays out of
    the shell's history; only a SCRAM hash of it is sent to Postgres. It
    creates `metabase_ro`, which can read the directory's tables but not
-   `users` or `sessions`, and every transaction it starts is read-only.
-   Running it again updates the password and the grants.
+   `users`, `sessions`, `correction_reports` or Rails' `solid_*` job and
+   cache tables. Its transactions are read-only by default, and it has no
+   write permissions at all, so it can't change anything even with that
+   default turned off. Running it again updates the password and the
+   grants.
 
 **2. Allow your IP address.** `render.yaml` lists one address under the
 database's `ipAllowList`. When your home IP changes, Metabase times out
@@ -291,8 +294,9 @@ Add only this database: not `nuclear_directory_preview`, and never with the
 main `nuclear_directory` user.
 
 **4. Starter questions.** `ops/metabase/questions/` has SQL for companies
-and plants by status, pending facts by reason, candidates by AI
-recommendation, facts per source, crawl runs and AI spend per month. In
+by status, sites and units by status, pending facts by reason, candidates
+per run and AI recommendation, facts per source, crawl runs, AI spend per
+month and power reactor units missing capacity. In
 Metabase: New → SQL query, paste a file, save.
 
 **5. Claude Code (MCP).** Metabase has its own MCP server. Turn it on under

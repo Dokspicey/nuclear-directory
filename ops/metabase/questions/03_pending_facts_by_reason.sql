@@ -1,6 +1,7 @@
 -- Pending facts by reason
 -- Facts waiting for a human, by kind and the reason on their latest audit
--- event (held-back seed links carry their pending_reason).
+-- event. Links a seed held back carry their pending_reason; a fact created
+-- pending has no audit event yet, so it shows as "(no reason recorded)".
 SELECT fact, COALESCE(reason, '(no reason recorded)') AS reason, count(*) AS facts
 FROM (
   SELECT 'company' AS fact, t.id,

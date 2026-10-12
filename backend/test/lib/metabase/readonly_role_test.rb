@@ -42,8 +42,38 @@ class Metabase::ReadonlyRoleTest < ActiveSupport::TestCase
     assert_match "read-only transaction", refused("UPDATE organizations SET name = 'X'").message
     assert_match "read-only transaction", refused("DELETE FROM organizations").message
     assert_match "read-only transaction", refused("CREATE TABLE metabase_probe (id int)").message
-    assert_match "permission denied", refused("SELECT * FROM users").message
-    assert_match "permission denied", refused("SELECT * FROM sessions").message
+    %w[users sessions correction_reports solid_queue_jobs solid_cache_entries].each do |table|
+      assert_match "permission denied", refused("SELECT * FROM #{table}").message, table
+    end
+  end
+
+  test "Render's owner, which can create roles but isn't a superuser, can set the role up" do
+    owner = "metabase_owner_test_#{Process.pid}"
+    connection = ActiveRecord::Base.connection
+    drop = ->(name) { connection.execute("DROP OWNED BY #{name}") if connection.select_value("SELECT 1 FROM pg_roles WHERE rolname = '#{name}'"); connection.execute("DROP ROLE IF EXISTS #{name}") }
+    drop.(@name)
+    connection.execute("CREATE ROLE #{owner} LOGIN CREATEROLE PASSWORD #{connection.quote(PASSWORD)}")
+    config = ActiveRecord::Base.connection_db_config.configuration_hash
+    as_owner = PG.connect(host: config[:host] || "localhost", port: config[:port], dbname: connection.current_database,
+      user: owner, password: PASSWORD)
+
+    Metabase::ReadonlyRole.account_statements(name: @name, password: PASSWORD, connection:).each { |sql| as_owner.exec(sql) }
+
+    assert_equal "1", session.exec("SELECT 1").getvalue(0, 0), "the role signs in"
+  ensure
+    as_owner&.close
+    @session&.close
+    @session = nil
+    drop.(@name)
+    drop.(owner)
+    Metabase::ReadonlyRole.apply!(name: @name, password: PASSWORD)
+  end
+
+  test "an existing role with unsafe attributes is refused, not reused" do
+    ActiveRecord::Base.connection.execute("ALTER ROLE #{ActiveRecord::Base.connection.quote_column_name(@name)} CREATEDB")
+
+    error = assert_raises(Metabase::ReadonlyRole::Unsafe) { Metabase::ReadonlyRole.apply!(name: @name, password: PASSWORD) }
+    assert_match "rolcreatedb", error.message
   end
 
   test "writes stay refused even if a session turns read-only off" do

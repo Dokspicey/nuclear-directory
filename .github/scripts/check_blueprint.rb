@@ -46,8 +46,9 @@ end
 
 blueprint["databases"].each do |database|
   allow_list = database["ipAllowList"]
-  unless allow_list.is_a?(Array) && allow_list.all? { |entry| allowed_ip_entry?(entry) }
-    problems << "database #{database["name"]} may only allow single IPv4 hosts (x.x.x.x/32) with a description; " \
+  # At most one host: Tosin's Mac for local Metabase (#111), nothing else.
+  unless allow_list.is_a?(Array) && allow_list.size <= 1 && allow_list.all? { |entry| allowed_ip_entry?(entry) }
+    problems << "database #{database["name"]} may only allow one IPv4 host (x.x.x.x/32) with a description; " \
       "use ipAllowList: [] for no access from the internet"
   end
 end

@@ -40,7 +40,7 @@ class CheckBlueprintTest < Minitest::Test
   def test_open_to_the_world_fails
     ok, output = check([ host("0.0.0.0/0") ])
     refute ok
-    assert_includes output, "may only allow single IPv4 hosts"
+    assert_includes output, "may only allow one IPv4 host"
   end
 
   def test_wider_ranges_fail
@@ -59,5 +59,9 @@ class CheckBlueprintTest < Minitest::Test
 
   def test_one_bad_entry_among_good_ones_fails
     refute check([ host("99.110.208.39/32"), host("0.0.0.0/0") ]).first
+  end
+
+  def test_a_second_host_fails
+    refute check([ host("99.110.208.39/32"), host("99.110.208.40/32", "Someone else") ]).first
   end
 end

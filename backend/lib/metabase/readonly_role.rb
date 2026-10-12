@@ -3,19 +3,29 @@
 # metabase:create_readonly_role` (see README.md); the password is typed
 # there and kept only in his password manager.
 #
-# Writes fail twice over: every transaction is read-only, and the role has
-# no INSERT, UPDATE, DELETE or DDL grants anyway. It can't read users or
-# sessions (password digests, sign-in data), and it's granted nothing on any
-# other database (e.g. the preview's). Safe to rerun: it updates the password
+# Writes fail twice over: its transactions are read-only by default, and the
+# role has no INSERT, UPDATE, DELETE or DDL grants anyway (so turning
+# read-only off doesn't help). It can't read private tables (PRIVATE_TABLES:
+# sign-in data, visitors' correction messages and contacts, and the job,
+# cache and cable tables, whose rows can carry those), and it's granted
+# nothing on any other database (e.g. the preview's). Safe to rerun: it updates the password
 # and reapplies the grants. A restore from backup (pg_dump --no-owner
 # --no-acl) doesn't carry roles or grants, so rerun it after one.
 module Metabase
   module ReadonlyRole
     NAME = "metabase_ro"
-    # Tables holding sign-in data, never readable through Metabase. Any
-    # table added later is readable (default privileges), so a new table
-    # with sign-in or personal data goes here in the same PR.
-    PRIVATE_TABLES = %w[users sessions].freeze
+    # Never readable through Metabase. Any table added later is readable
+    # (default privileges), so a new table with sign-in or personal data
+    # goes here in the same PR.
+    PRIVATE_TABLES = %w[users sessions correction_reports].freeze
+    # Rails' own Solid Queue, Cache and Cable tables (job arguments can hold
+    # an email address).
+    PRIVATE_PREFIXES = %w[solid_].freeze
+    # Attributes the role must never have; checked on an existing role, since
+    # Render's owner (not a superuser) may not set them, and so can't clear them.
+    UNSAFE_ATTRIBUTES = %w[rolsuper rolcreaterole rolcreatedb rolreplication rolbypassrls].freeze
+
+    class Unsafe < StandardError; end
 
     module_function
 
@@ -29,25 +39,39 @@ module Metabase
       owner = connection.quote_column_name(connection.select_value("SELECT current_user"))
 
       connection.transaction do
-        unless connection.select_value("SELECT 1 FROM pg_roles WHERE rolname = #{connection.quote(name)}")
-          connection.execute("CREATE ROLE #{role} LOGIN")
-        end
-        # Only a SCRAM-SHA-256 verifier, computed here, is sent: the password
-        # itself never reaches Postgres, so no server log can hold it.
-        verifier = connection.raw_connection.encrypt_password(password, name, "scram-sha-256")
-        ActiveRecord::Base.logger.silence do
-          connection.execute("ALTER ROLE #{role} WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION " \
-            "CONNECTION LIMIT 5 PASSWORD #{connection.quote(verifier)}")
-        end
-        connection.execute("ALTER ROLE #{role} SET default_transaction_read_only = on")
-        connection.execute("ALTER ROLE #{role} SET statement_timeout = '60s'")
+        ActiveRecord::Base.logger.silence { account_statements(name:, password:, connection:).each { |sql| connection.execute(sql) } }
         connection.execute("GRANT CONNECT ON DATABASE #{database} TO #{role}")
         connection.execute("GRANT USAGE ON SCHEMA public TO #{role}")
         connection.execute("GRANT SELECT ON ALL TABLES IN SCHEMA public TO #{role}")
         connection.execute("ALTER DEFAULT PRIVILEGES FOR ROLE #{owner} IN SCHEMA public GRANT SELECT ON TABLES TO #{role}")
-        private_tables = PRIVATE_TABLES.select { |table| connection.table_exists?(table) }
-        connection.execute("REVOKE ALL ON #{private_tables.map { |t| connection.quote_table_name(t) }.join(', ')} FROM #{role}") if private_tables.any?
+        hidden = private_tables(connection)
+        connection.execute("REVOKE ALL ON #{hidden.map { |t| connection.quote_table_name(t) }.join(', ')} FROM #{role}") if hidden.any?
       end
+    end
+
+    # Creates the role if it's new, then sets its password and limits. Only
+    # attributes a role-creating owner may set (Postgres 16 refuses a
+    # non-superuser NOSUPERUSER, NOCREATEDB...): a new role starts without
+    # them, and an existing one that has any is refused, not reused. Only a
+    # SCRAM-SHA-256 verifier, computed here, is sent: the password itself
+    # never reaches Postgres, so no server log can hold it.
+    def account_statements(name:, password:, connection:)
+      role = connection.quote_column_name(name)
+      existing = connection.select_one("SELECT #{UNSAFE_ATTRIBUTES.join(', ')} FROM pg_roles WHERE rolname = #{connection.quote(name)}")
+      unsafe = existing.to_h.select { |_, value| value }.keys
+      raise Unsafe, "#{name} already exists with #{unsafe.join(', ')}; drop it as a superuser and run this again" if unsafe.any?
+
+      verifier = connection.raw_connection.encrypt_password(password, name, "scram-sha-256")
+      [
+        ("CREATE ROLE #{role} LOGIN" unless existing),
+        "ALTER ROLE #{role} WITH LOGIN CONNECTION LIMIT 5 PASSWORD #{connection.quote(verifier)}",
+        "ALTER ROLE #{role} SET default_transaction_read_only = on",
+        "ALTER ROLE #{role} SET statement_timeout = '60s'"
+      ].compact
+    end
+
+    def private_tables(connection)
+      connection.tables.select { |table| PRIVATE_TABLES.include?(table) || table.start_with?(*PRIVATE_PREFIXES) }
     end
 
     # Whether the current user may create roles (Render's database owner
