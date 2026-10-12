@@ -88,9 +88,10 @@ services:
     dockerContext: ./backend
     autoDeployTrigger: commit
     healthCheckPath: /up
-    # Free instances have no pre-deploy step, so every start wipes and reloads
-    # the preview database: one PR's data never leaks into the next.
-    dockerCommand: bash -c "bin/rails db:schema:load db:seed && exec ./bin/rails server"
+    # Free instances have no pre-deploy step, so every start empties and
+    # reloads the preview database (bin/preview-start, which refuses any
+    # database but nuclear_directory_preview).
+    dockerCommand: ./bin/preview-start
     envVars:
       # postgres://preview_app:<password>@<internal host>/nuclear_directory_preview
       - key: DATABASE_URL

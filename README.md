@@ -175,13 +175,16 @@ labelled.
 
 The preview is a free Render instance (`nuclear-directory-preview` in
 `render.yaml`), so it costs nothing, sleeps after 15 minutes idle and takes
-about a minute to wake. It's kept apart from the live site:
+about a minute to wake. Every start runs `backend/bin/preview-start`, which
+empties the preview database (dropping and recreating its `public` schema) and
+reloads schema and seed. It refuses any database but
+`nuclear_directory_preview`. It's kept apart from the live site:
 
 - **Its own database.** `nuclear_directory_preview` on the same Postgres
   server, owned by the `preview_app` role. That role can't connect to the
   production database (`CONNECT` is revoked from `PUBLIC` there), has a
   connection limit of 3 and a 5-second statement timeout, so it can't hog
-  the server. Every start wipes and reloads it from the seed.
+  the server.
 - **No production secrets.** It has its own `SECRET_KEY_BASE` and no master
   key, OpenRouter, Sentry or PostHog keys. No background jobs run (no
   `SOLID_QUEUE_IN_PUMA`), so no crawler.
