@@ -1,6 +1,6 @@
 <% content_for :title, "Privacy · Nuclear Directory" %>
 <% content_for :head do %>
-  <meta name="description" content="What Nuclear Directory records: anonymous page and search counts, how long a page stays open, and what you type into a correction. No accounts, no advertising trackers, one security cookie.">
+  <meta name="description" content="What Nuclear Directory records: page views, searches, time on page and dead clicks, and what you type into a correction. No accounts, no advertising trackers, one security cookie.">
 <% end %>
 <%= render "shared/site_header" %>
 
@@ -14,9 +14,11 @@
   </section>
 
   <section aria-labelledby="counts">
-    <h2 id="counts" class="type-body-strong">Page views, searches and time on page</h2>
-    <p class="type-body">We count page views and searches, and how long a page stays open, without knowing who made them. We use PostHog in cookieless mode: nothing is stored in your browser, one visit isn't linked to the next, and page addresses are recorded without their query strings. Searches are counted by their words and how many results they found, so we can see what people look for and don't find.</p>
-    <p class="type-body">PostHog's script is served from this site. Like any web service, PostHog receives standard request details each time a page is viewed or closed, such as your IP address and browser. It's set to discard IP addresses, so it doesn't store them.</p>
+    <h2 id="counts" class="type-body-strong">Analytics</h2>
+    <p class="type-body">We use PostHog to see how the site is used. It records page views, searches (their words and how many results they found), how long a page stays open, and dead clicks: clicks on something that doesn't respond, such as text that looks like a link, with the text of what was clicked. Page addresses are recorded without their query strings.</p>
+    <p class="type-body">PostHog runs in cookieless mode: nothing is stored in your browser, and one visit isn't linked to the next. There are no session recordings and no visitor accounts.</p>
+    <p class="type-body">Each time a page is viewed or closed, PostHog receives standard request details, such as your IP address and browser. In cookieless mode it doesn't store the IP address.</p>
+    <p class="type-body">PostHog's main script is served from this site. Some of its parts, such as the one that records dead clicks, load from PostHog's servers, and the data goes to PostHog directly.</p>
   </section>
 
   <section aria-labelledby="corrections">
@@ -31,7 +33,7 @@
 
   <section aria-labelledby="hosting">
     <h2 id="hosting" class="type-body-strong">Hosting</h2>
-    <p class="type-body">The site runs on Render. Like any web host, Render keeps standard server logs, which include IP addresses, for a limited time to run and secure the service. Fonts and scripts are served from this site, not from a third party.</p>
+    <p class="type-body">The site runs on Render. Like any web host, Render keeps standard server logs, which include IP addresses, for a limited time to run and secure the service. Fonts and scripts are served from this site, apart from the PostHog parts described under Analytics.</p>
   </section>
 
   <section aria-labelledby="contact">
@@ -39,5 +41,5 @@
     <p class="type-body">Email <%= mail_to DirectoryHelper::CORRECTIONS_EMAIL, nil, class: "nd-link" %>.</p>
   </section>
 
-  <p class="type-small text-ink-muted">Last updated <span class="type-data-sm">2026-10-11</span></p>
+  <p class="type-small text-ink-muted">Last updated <span class="type-data-sm">2026-10-12</span></p>
 </main>
