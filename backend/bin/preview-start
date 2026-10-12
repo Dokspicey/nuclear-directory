@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Start command for the free UI preview service (render.yaml,
+# nuclear-directory-preview). Never used by the live site.
+#
+# Every start empties the preview database (its own, owned by preview_app;
+# never production) and reloads schema and seed, so nothing from an earlier
+# preview, including tables from another PR's migrations, survives.
+set -euo pipefail
+
+case "${DATABASE_URL:-}" in
+  */nuclear_directory_preview|*/nuclear_directory_preview\?*) ;;
+  *) echo "preview-start: DATABASE_URL must point at nuclear_directory_preview; refusing to reset it." >&2; exit 1 ;;
+esac
+
+psql "$DATABASE_URL" -X -q -v ON_ERROR_STOP=1 -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+bin/rails db:schema:load db:seed
+exec ./bin/rails server

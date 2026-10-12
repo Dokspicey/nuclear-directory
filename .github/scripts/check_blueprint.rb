@@ -44,6 +44,33 @@ else
   end
 end
 
+# The UI preview must never reach production data or carry production secrets.
+preview = blueprint["services"].find { |service| service["name"] == "nuclear-directory-preview" }
+if preview
+  entries = preview.fetch("envVars", [])
+  # Only these keys, each a plain value, generated, or (DATABASE_URL) set by
+  # hand. No fromDatabase, fromService or fromGroup anywhere: any of them could
+  # hand production's connection string or secrets to preview code, under
+  # whatever name.
+  allowed = %w[DATABASE_URL NOINDEX DISABLE_DATABASE_ENVIRONMENT_CHECK SECRET_KEY_BASE RAILS_MAX_THREADS]
+  references = %w[fromDatabase fromService fromGroup]
+  entries.each do |var|
+    if !var.is_a?(Hash) || var["key"].to_s.empty? || references.any? { |ref| var.key?(ref) }
+      problems << "the preview may not take values from other services, databases or environment groups " \
+        "(fromDatabase, fromService, fromGroup): #{var.inspect}"
+    elsif !allowed.include?(var["key"])
+      problems << "the preview must not set #{var["key"]} (allowed: #{allowed.join(", ")})"
+    end
+  end
+  vars = entries.select { |var| var.is_a?(Hash) && var["key"] }.to_h { |var| [ var["key"], var ] }
+  database_url = vars["DATABASE_URL"]
+  unless database_url && database_url["sync"] == false && !database_url.key?("value")
+    problems << "the preview's DATABASE_URL must be sync: false (set by hand to the preview database), never fromDatabase or a value"
+  end
+  problems << "the preview must set NOINDEX to \"1\"" unless vars.dig("NOINDEX", "value").to_s == "1"
+  problems << "the preview must not have custom domains" if preview["domains"]
+end
+
 blueprint["databases"].each do |database|
   allow_list = database["ipAllowList"]
   # At most one host: Tosin's Mac for local Metabase (#111), nothing else.

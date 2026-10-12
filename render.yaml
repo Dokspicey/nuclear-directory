@@ -71,6 +71,45 @@ services:
       - key: SENTRY_DSN
         sync: false
 
+  # UI previews: a free instance that runs whichever PR was last labelled
+  # "preview" (.github/workflows/preview.yml pushes it to the preview branch).
+  # It uses its own database, nuclear_directory_preview, owned by the
+  # preview_app role, which can't connect to production. Its DATABASE_URL is
+  # set by hand in the dashboard, never fromDatabase (that would be
+  # production). No production secrets, no jobs, no Sentry or PostHog, and
+  # NOINDEX keeps it out of search engines. See "UI previews" in README.md.
+  - type: web
+    name: nuclear-directory-preview
+    runtime: docker
+    plan: free
+    region: oregon
+    branch: preview
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    autoDeployTrigger: commit
+    healthCheckPath: /up
+    # Free instances have no pre-deploy step, so every start empties and
+    # reloads the preview database (bin/preview-start, which refuses any
+    # database but nuclear_directory_preview).
+    dockerCommand: ./bin/preview-start
+    envVars:
+      # postgres://preview_app:<password>@<internal host>/nuclear_directory_preview
+      - key: DATABASE_URL
+        sync: false
+      - key: NOINDEX
+        value: "1"
+      # One Puma thread and one database connection, so an old instance still
+      # running during a deploy plus the new one's reset fit preview_app's
+      # CONNECTION LIMIT 3.
+      - key: RAILS_MAX_THREADS
+        value: "1"
+      # Lets db:schema:load reset this (non-production) database.
+      - key: DISABLE_DATABASE_ENVIRONMENT_CHECK
+        value: "1"
+      # Its own key, so no master key is needed here.
+      - key: SECRET_KEY_BASE
+        generateValue: true
+
   # Weekly encrypted off-site backup (#54); see "Backups" in README.md.
   # Runs inside Render's private network, so the database stays closed to
   # the internet.
