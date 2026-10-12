@@ -18,6 +18,8 @@ Rails.application.routes.draw do
   get "bot" => "pages#bot", as: :bot
   get "sitemap.xml" => "sitemaps#show", as: :sitemap, format: false, defaults: { format: :xml }
   get "robots.txt" => "sitemaps#robots", as: :robots, format: false
+  # A public JSON summary for other sites (#193). GET only.
+  get "api/snapshot.json" => "api/snapshots#show", as: :api_snapshot, format: false, defaults: { format: :json }
 
   # The home page and its instant search (#41). /search returns a Turbo Frame
   # of grouped results for the home and header search fields.
