@@ -47,6 +47,14 @@ services:
       # Run the Solid Queue supervisor inside Puma (no separate worker).
       - key: SOLID_QUEUE_IN_PUMA
         value: "true"
+      # Memory on the 512 MB instance (#53 crash, 12 Oct). Solid Queue runs in
+      # async mode (threads, not forks; config/puma.rb), Puma in single mode,
+      # and jemalloc hands freed memory back to the system quickly after a
+      # spike. Idle: about 130 MB, down from 280 MB.
+      - key: WEB_CONCURRENCY
+        value: "0"
+      - key: MALLOC_CONF
+        value: dirty_decay_ms:1000,narenas:2,background_thread:true
       # Non-secret settings, kept here so changes are reviewed in a PR.
       # Same values as .env.example; they must stay two different models.
       - key: OPENROUTER_EXTRACT_MODEL
