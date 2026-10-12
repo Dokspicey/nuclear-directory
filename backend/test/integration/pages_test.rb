@@ -12,8 +12,8 @@ class PagesTest < ActionDispatch::IntegrationTest
     assert_select "#counts + p", /page views, searches .*how long a page stays open, and dead clicks/m
     assert_select "#counts ~ p", /cookieless mode.*no session recordings/m
     # #205: we look up the country and send only that; PostHog uses the IP to count visitors and drops it.
-    assert_select "#counts ~ p", /country you're in from your IP address, on this site's server, and send PostHog only the country/
-    assert_select "#counts ~ p", /uses only to count unique visitors, and it doesn't store the IP address/
+    assert_select "#counts ~ p", /country you're in from your IP address, on this site's server, and add only the country to the analytics data/
+    assert_select "#counts ~ p", /To count unique visitors without cookies, PostHog also receives your IP address .*doesn't store the IP address/m
     assert_select "#counts ~ p a[href='https://db-ip.com']", "IP Geolocation by DB-IP"
     assert_select "#counts ~ p", /go through this site rather than straight to PostHog/
     assert_select "p", /Last updated\s+2026-10-12/

@@ -84,6 +84,32 @@ class RelayTest < ActionDispatch::IntegrationTest
     assert_not_requested :any, /posthog\.com/
   end
 
+  test "a chunked upload with no length is still capped at 1 MB" do
+    post "/relay/e/", params: "x" * (RelayController::MAX_BODY + 10),
+      headers: { "Content-Type" => "text/plain", "Transfer-Encoding" => "chunked" }, env: { "CONTENT_LENGTH" => nil }
+
+    assert_response :content_too_large
+    assert_not_requested :any, /posthog\.com/
+  end
+
+  test "properties that aren't an object are replaced, not a 500" do
+    forwarded = nil
+    stub_request(:post, %r{\Ahttps://us\.i\.posthog\.com/e/}).with { |request| forwarded = request }.to_return(status: 200, body: "{}")
+
+    send_events({ event: "x", properties: "bad" })
+
+    assert_response :success
+    assert_equal "GB", forwarded_events(forwarded).sole["properties"]["$geoip_country_code"]
+  end
+
+  test "a stalled upload to PostHog is a 502 too" do
+    stub_request(:post, %r{\Ahttps://us\.i\.posthog\.com/e/}).to_raise(Net::WriteTimeout)
+
+    send_events({ event: "$pageview" })
+
+    assert_response :bad_gateway
+  end
+
   test "a body that isn't JSON is passed on as it is" do
     stub_request(:post, %r{\Ahttps://us\.i\.posthog\.com/e/}).with(body: "data=abc").to_return(status: 200, body: "{}")
 

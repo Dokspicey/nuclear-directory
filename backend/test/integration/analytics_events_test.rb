@@ -1,6 +1,7 @@
 require "test_helper"
 require_relative "../support/directory_builders"
 require_relative "../support/fake_posthog"
+require_relative "../support/fake_geo_reader"
 
 # The server-side events the real pages send (#68): a company or plant page
 # viewed, and a correction sent. They were defined but never called.
@@ -73,6 +74,17 @@ class AnalyticsEventsTest < ActionDispatch::IntegrationTest
     assert_equal [ "correction_submitted", "plant" ], [ event[:event], event[:properties]["subject_type"] ]
     assert_not event[:properties].values.any? { |value| value.to_s.include?("Unit 4") || value.to_s.include?("a@example.com") },
       "never the message or contact"
+  end
+
+  test "a directory search goes through the shared tracking: country added, bots skipped (#205)" do
+    GeoCountry.reader, previous = FakeGeoReader.new, GeoCountry.reader
+    get companies_path(q: "kairos"), headers: { "User-Agent" => BROWSER }, env: { "REMOTE_ADDR" => "81.2.69.142" }
+    get companies_path(q: "kairos"), headers: { "User-Agent" => "Mozilla/5.0 (compatible; Googlebot/2.1)" }
+
+    search = posthog.events.sole
+    assert_equal [ "search", "kairos", "GB" ], [ search[:event], search[:properties]["query"], search[:properties]["$geoip_country_code"] ]
+  ensure
+    GeoCountry.reader = previous
   end
 
   test "a correction that doesn't save sends nothing" do

@@ -39,14 +39,16 @@ class RelayController < ActionController::API
     return head(:not_found) unless path.match?(PATHS) && !path.include?("..")
     return head(:content_too_large) if request.content_length.to_i > MAX_BODY
 
-    body = request.raw_post.to_s
+    # At most one byte past the cap, so a chunked upload with no length can't
+    # make us hold more than that.
+    body = request.body&.tap(&:rewind)&.read(MAX_BODY + 1).to_s
     return head(:content_too_large) if body.bytesize > MAX_BODY
 
     body = with_country(body) if request.post? && path.match?(EVENT_PATHS)
     upstream = send_upstream(path, body)
     PASSED_BACK.each { |name| response.headers[name] = upstream[name] if upstream[name] }
     render body: upstream.body, status: upstream.code.to_i
-  rescue Net::OpenTimeout, Net::ReadTimeout, SocketError, SystemCallError, OpenSSL::SSL::SSLError, EOFError
+  rescue Net::OpenTimeout, Net::ReadTimeout, Net::WriteTimeout, SocketError, SystemCallError, OpenSSL::SSL::SSLError, EOFError
     head :bad_gateway
   end
 
@@ -75,7 +77,9 @@ class RelayController < ActionController::API
       events.each do |event|
         next unless event.is_a?(Hash)
 
-        properties = (event["properties"] ||= {})
+        # A client's properties that aren't an object are replaced, not trusted.
+        event["properties"] = {} unless event["properties"].is_a?(Hash)
+        properties = event["properties"]
         properties.delete("$ip")
         properties.merge!(added)
       end
