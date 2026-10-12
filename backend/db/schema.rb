@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_11_030000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_11_040000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -162,6 +162,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_030000) do
     t.check_constraint "ownership_pct IS NULL OR ownership_pct >= 0::numeric AND ownership_pct <= 100::numeric", name: "facility_relationships_ownership_pct_check"
     t.check_constraint "relationship_type::text = ANY (ARRAY['owns'::character varying::text, 'operates'::character varying::text, 'vendor_for'::character varying::text, 'offtakes_from'::character varying::text])", name: "facility_relationships_relationship_type_check"
     t.check_constraint "verification_status::text = ANY (ARRAY['pending'::character varying::text, 'verified'::character varying::text, 'rejected'::character varying::text, 'unpublished'::character varying::text])", name: "facility_relationships_verification_status_check"
+  end
+
+  create_table "former_slugs", force: :cascade do |t|
+    t.string "sluggable_type", null: false
+    t.bigint "sluggable_id", null: false
+    t.string "slug", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["sluggable_type", "slug"], name: "index_former_slugs_on_sluggable_type_and_slug", unique: true
+    t.index ["sluggable_type", "sluggable_id"], name: "index_former_slugs_on_sluggable"
   end
 
   create_table "organization_aliases", force: :cascade do |t|
