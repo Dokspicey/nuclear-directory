@@ -45,6 +45,12 @@ class DataQuality::Plugin
     text[[ at - 1_500, 0 ].max, 3_000 + quote.to_s.length]
   end
 
+  # What the source states as a whole, true of every row in it, which a
+  # single row doesn't repeat (e.g. "every row is an operating US power
+  # reactor"). The verifier treats it as part of every excerpt. Only facts
+  # the source itself plainly states, never outside knowledge. Default: none.
+  def source_facts(_source) = nil
+
   private
     # The source's text as a reader sees it: tags dropped for HTML (and
     # script, style, template and noscript contents, which nobody reads), with a

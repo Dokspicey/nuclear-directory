@@ -42,10 +42,13 @@ class AnalyticsTest < ActiveSupport::TestCase
     assert_nil Analytics.capture("search", query: "x")
   end
 
-  test "the browser snippet sends page views only, with query strings stripped" do
+  test "the browser snippet sends page views and page leaves only, with query strings stripped" do
     snippet = Rails.root.join("app/javascript/analytics.js").read
 
     assert_includes snippet, "autocapture: false"
+    assert_includes snippet, "capture_pageleave: true" # bounce rate and time on page
+    assert_includes snippet, "disable_scroll_properties: true", "no scroll depth, which the privacy page doesn't mention"
+    assert_includes snippet, "capture_performance: false", "web vitals stay off even if the PostHog dashboard enables them"
     assert_includes snippet, "before_send: sanitize"
     assert_includes snippet, 'cookieless_mode: "always"'
   end
