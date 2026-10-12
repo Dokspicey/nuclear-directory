@@ -25,7 +25,7 @@ technologies:
 relationships:
 - type: supplies
   to: Type One Energy Group
-  description: 'License agreement (2025): Type One licensed CFS''s HTS cable technology for its stellarator magnets. Completed/signed license.'
+  description: "License agreement (2025): Type One licensed CFS's HTS cable technology for its stellarator magnets."
   source_url: https://cfs.energy/company/commercial-partners/
   quote: Type One Energy licensed CFS’ groundbreaking high-temperature superconducting (HTS) cable technology to develop magnets for its fusion machine, a type of device called a stellarator.
   confidence: 1.0
@@ -36,7 +36,7 @@ facilities:
   quote: US private fusion company Commonwealth Fusion Systems has announced plans to independently finance, construct, own and operate a commercial-scale fusion power plant in Chesterfield County, Virginia.
   published: '2024-12-18'
   confidence: 0.8
-  note: Planned, ~400 MWe, early 2030s; site leased from Dominion Energy Virginia.
+  note: Planned, about 400 MWe, early 2030s; site leased from Dominion Energy Virginia.
 notes: 'HQ conflict: DOE''s 2023 milestone announcement lists ''Commonwealth Fusion Systems (Cambridge, MA)''; CFS''s 2025 releases describe it as ''the Devens, Massachusetts-based company''. Eni (Italy) is also an investor and ARC offtaker (>$1B) per CFS; not added as an org. #63: HQ already sourced in seed (Devens, MA).'
 description:
   text: Fusion company building the SPARC tokamak and planning the ARC fusion power plant.

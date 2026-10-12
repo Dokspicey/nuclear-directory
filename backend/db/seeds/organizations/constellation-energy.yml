@@ -33,7 +33,7 @@ technologies:
 relationships:
 - type: supplies
   to: Helion Energy
-  description: Power marketer and transmission manager for Helion's first fusion plant serving Microsoft (role named in Helion's 2023 PPA announcement; signed agreement between Helion and Microsoft).
+  description: "Power marketer and transmission manager for Helion's first fusion plant, which is to supply Microsoft under a 2023 power purchase agreement."
   source_url: https://www.helionenergy.com/newsroom/helion-announces-worlds-first-fusion-ppa-with-microsoft
   quote: Constellation will serve as the power marketer and will manage transmission for the project.
   published: '2023-05-10'
@@ -45,7 +45,7 @@ facilities:
   quote: 'Constellation (Nasdaq: CEG) announced today the signing of a 20-year power purchase agreement with Microsoft that will pave the way for the launch of the Crane Clean Energy Center (CCEC) and restart of Three Mile Island Unit 1'
   published: '2024-09-20'
   confidence: 1.0
-  note: Restart planned; NRC approval required per source. ~835 MW.
+  note: "Restart planned, subject to NRC approval. About 835 MW."
 - name: Clinton Clean Energy Center
   type: owns
   source_url: https://www.constellationenergy.com/newsroom/2025/constellation-meta-sign-20-year-deal-for-clean-reliable-nuclear-energy-in-illinois.html

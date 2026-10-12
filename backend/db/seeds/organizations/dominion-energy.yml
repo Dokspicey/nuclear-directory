@@ -31,7 +31,7 @@ technologies:
 relationships:
 - type: supplies
   to: Commonwealth Fusion Systems
-  description: 'Signed agreement (Dec 2024): non-financial collaboration - development and technical expertise plus leasing rights for the ARC site in Chesterfield County, VA.'
+  description: "Signed agreement (Dec 2024): a non-financial collaboration covering development and technical expertise, plus leasing rights for the ARC site in Chesterfield County, VA."
   source_url: https://cfs.energy/company/commercial-partners/
   quote: The Virginia utility will provide CFS with development and technical expertise that’ll help connect the first ARC fusion power plant to the grid. In addition, Dominion will offer leasing rights for the planned site for the ARC fusion power plant.
   confidence: 1.0
@@ -48,7 +48,9 @@ facilities:
   quote: Dominion Energy Virginia currently owns the proposed site.
   published: '2024-12-18'
   confidence: 0.8
-  note: Dominion owns the site (James River Industrial Park, Chesterfield County, VA) and offers CFS leasing rights to it; CFS will own and operate the plant. Merged with the CFS plant record by Tosin's decision (2026-10-10).
+  note: "Dominion owns the site (James River Industrial Park, Chesterfield County, VA) and offers CFS leasing rights to it; CFS will own and operate the plant."
+  pending: true
+  pending_reason: "The source says Dominion owns the site and CFS will own and operate the plant; needs a quote that Dominion owns the plant, or the link should go."
 - name: North Anna Power Station
   type: owns
   ownership_pct: 88.4

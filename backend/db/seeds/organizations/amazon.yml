@@ -32,7 +32,7 @@ relationships:
   confidence: 1.0
 - type: invests_in
   to: X-Energy, Inc.
-  description: 'Completed: Amazon''s Climate Pledge Fund anchored X-energy''s ~$500M Series C-1 (Oct 2024) alongside Ken Griffin, Ares, NGP and the University of Michigan.'
+  description: "Amazon's Climate Pledge Fund anchored X-energy's Series C-1 of about $500M (Oct 2024), alongside Ken Griffin, Ares, NGP and the University of Michigan."
   source_url: https://x-energy.com/media/news-releases/amazon-invests-in-x-energy-to-support-advanced-small-modular-nuclear-reactors-and-expand-carbon-free-power
   quote: X-Energy Reactor Company, LLC (“X-energy”), a leader in advanced nuclear reactor and fuel technology, today announced a Series C-1 financing round of approximately $500 million, anchored by Amazon.com, Inc. (“Amazon”).
   published: '2024-10-16'
