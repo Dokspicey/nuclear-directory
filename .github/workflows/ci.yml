@@ -34,9 +34,11 @@ jobs:
         run: |
           # The classifier comes from the base commit (main), not the PR, so a
           # PR can't change the rules for itself. No copy there: run all.
+          # --no-renames lists a moved file's old path too, so moving app code
+          # into a docs path still counts as an app change.
           if [ "${{ github.event_name }}" = "pull_request" ] &&
              git show "$BASE:.github/scripts/ci_scope.rb" > "$RUNNER_TEMP/ci_scope.rb" 2>/dev/null; then
-            git diff --name-only "$BASE...$HEAD" | ruby "$RUNNER_TEMP/ci_scope.rb"
+            git diff --name-only --no-renames "$BASE...$HEAD" | ruby "$RUNNER_TEMP/ci_scope.rb"
           else
             printf 'test=true\nlighthouse=true\n' >> "$GITHUB_OUTPUT"
           fi
