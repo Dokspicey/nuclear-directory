@@ -95,6 +95,48 @@ class ApiSnapshotTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "a snapshot built while a fact changed is never served after the change" do
+    built = 0
+    original = DirectorySnapshot.method(:new)
+    DirectorySnapshot.define_singleton_method(:new) do |**args|
+      built += 1
+      snapshot = original.call(**args)
+      # The first build sees a fact commit halfway through.
+      snapshot.define_singleton_method(:as_json) { |*| DirectorySnapshot.expire!; { "stale" => true } } if built == 1
+      snapshot
+    end
+
+    assert_equal({ "stale" => true }, DirectorySnapshot.current(base_url: "https://example.com"))
+    assert_equal 4, DirectorySnapshot.current(base_url: "https://example.com")[:totalEntries], "rebuilt, not the stale copy"
+  ensure
+    DirectorySnapshot.singleton_class.remove_method(:new)
+  end
+
+  test "a site dates from its first published unit, even if the site itself was verified later" do
+    site = plant("Palisades", verified: false)
+    plant("Palisades 1", parent: site, verified_at: 10.days.ago, facility_type: "power_reactor")
+    site.verify!(by: "human:test") # today, after its unit
+    DirectorySnapshot.expire!
+
+    palisades = DirectorySnapshot.new(base_url: "https://example.com").send(:recently_added).find { |e| e[:name] == "Palisades" }
+    assert_equal 10.days.ago.to_date.iso8601, palisades[:addedAt]
+  end
+
+  test "updatedAt moves forward with any change that feeds the snapshot, removals included" do
+    before = Time.iso8601(snapshot["updatedAt"])
+
+    travel 1.minute do
+      OrganizationRole.create!(organization: @duke, role: role("data_center_offtaker"), **verification(true))
+      after_publish = Time.iso8601(snapshot["updatedAt"])
+      assert_operator after_publish, :>, before
+    end
+
+    travel 2.minutes do
+      @kairos.unpublish!(by: "human:tosin", reason: "test")
+      assert_operator Time.iso8601(snapshot["updatedAt"]), :>, before + 1.minute
+    end
+  end
+
   test "publishing or unpublishing a fact shows in the next snapshot" do
     assert_equal 4, snapshot["totalEntries"]
 

@@ -27,11 +27,22 @@ class DirectorySnapshot
   CACHE = ActiveSupport::Cache::MemoryStore.new(size: 1.megabyte)
   KEY = "directory_snapshot/v1"
 
+  # The generation is read before building and is part of the key, so a
+  # snapshot built while a fact changed is stored under the old generation
+  # and never served after the change.
+  @generation = 0
+  @lock = Mutex.new
+
   def self.current(base_url:)
-    CACHE.fetch([ KEY, base_url ], expires_in: TTL) { new(base_url:).as_json }
+    CACHE.fetch([ KEY, generation, base_url ], expires_in: TTL) { new(base_url:).as_json }
   end
 
-  def self.expire! = CACHE.clear
+  def self.generation = @lock.synchronize { @generation }
+
+  def self.expire!
+    @lock.synchronize { @generation += 1 }
+    CACHE.clear
+  end
 
   def initialize(base_url:)
     @urls = Rails.application.routes.url_helpers
@@ -76,9 +87,10 @@ class DirectorySnapshot
         .map { |at, name, category, url| { name:, category:, url:, addedAt: at.to_date.iso8601 } }
     end
 
-    # Sites here are public, so their verified units are published.
+    # Sites here are public, so their verified units are published. The
+    # earlier of the site's own date and its first unit's (LEAST skips nulls).
     def site_published_sql
-      "COALESCE(facilities.verified_at, (SELECT MIN(units.verified_at) FROM facilities units " \
+      "LEAST(facilities.verified_at, (SELECT MIN(units.verified_at) FROM facilities units " \
         "WHERE units.parent_id = facilities.id AND units.verification_status = 'verified'))"
     end
 
@@ -96,7 +108,9 @@ class DirectorySnapshot
       (@category_ids ||= {})[category.key] ||= DirectoryListing.new(category: category.key).company_scope.pluck(:id).to_set
     end
 
-    def updated_at
-      [ Organization.published.maximum(:updated_at), Facility.published.maximum(:updated_at) ].compact.max
-    end
+    # The last change to any fact that feeds the snapshot, published or not,
+    # so taking something down moves it forward too.
+    FACT_MODELS = [ Organization, Facility, OrganizationRole, OrganizationTechnology, Relationship, FacilityRelationship ].freeze
+
+    def updated_at = FACT_MODELS.filter_map { |model| model.maximum(:updated_at) }.max
 end
