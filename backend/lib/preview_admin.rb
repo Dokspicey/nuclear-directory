@@ -17,9 +17,15 @@ module PreviewAdmin
   # password.
   def ensure!(env: ENV, connection: ActiveRecord::Base.connection)
     unless env["NOINDEX"] == "1" && connection.current_database == DATABASE
-      raise NotPreview, "preview:admin only runs on the preview (NOINDEX=1, database #{DATABASE}); " \
+      raise NotPreview, "only runs on the preview (NOINDEX=1, database #{DATABASE}); " \
         "this is #{connection.current_database.inspect}. Nothing changed."
     end
+
+    # Every reset rebuilds the tables, so session ids would start at 1 again,
+    # while the preview's SECRET_KEY_BASE (and so its signed cookies) stays the
+    # same. Start them at a random point instead, so a cookie from before the
+    # reset can't match a new session.
+    connection.execute("ALTER SEQUENCE sessions_id_seq RESTART WITH #{SecureRandom.random_number(2**40) + 2**32}")
 
     password = env["PREVIEW_ADMIN_PASSWORD"].to_s
     return "preview:admin: PREVIEW_ADMIN_PASSWORD isn't set, so the preview has no admin login." if password.empty?

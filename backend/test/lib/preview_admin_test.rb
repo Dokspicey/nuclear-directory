@@ -50,6 +50,13 @@ class PreviewAdminTest < ActiveSupport::TestCase
     assert_nil User.find_by(email_address: PreviewAdmin::EMAIL)
   end
 
+  test "after a reset, session ids start somewhere an old cookie can't match" do
+    PreviewAdmin.ensure!(env: preview_env, connection: preview_connection)
+    user = User.find_by!(email_address: PreviewAdmin::EMAIL)
+
+    assert_operator user.sessions.create!.id, :>, 2**32
+  end
+
   test "a password the model rejects fails loudly" do
     assert_raises(ActiveRecord::RecordInvalid) do
       PreviewAdmin.ensure!(env: preview_env("PREVIEW_ADMIN_PASSWORD" => "short"), connection: preview_connection)

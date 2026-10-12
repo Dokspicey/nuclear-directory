@@ -77,7 +77,16 @@ class CheckBlueprintTest < Minitest::Test
       vars.find { |var| var["key"] == "PREVIEW_ADMIN_PASSWORD" }.replace("key" => "PREVIEW_ADMIN_PASSWORD", "value" => "in-the-repo")
     end
     refute ok
-    assert_includes output, "PREVIEW_ADMIN_PASSWORD must be sync: false"
+    assert_includes output, "PREVIEW_ADMIN_PASSWORD must be listed once, as sync: false"
+  end
+
+  def test_a_duplicate_preview_admin_password_cant_hide_a_value
+    ok, output = check_preview do |vars|
+      index = vars.index { |var| var["key"] == "PREVIEW_ADMIN_PASSWORD" }
+      vars.insert(index, { "key" => "PREVIEW_ADMIN_PASSWORD", "value" => "in-the-repo" })
+    end
+    refute ok
+    assert_includes output, "PREVIEW_ADMIN_PASSWORD must be listed once"
   end
 
   def test_the_preview_admin_password_never_reaches_production
