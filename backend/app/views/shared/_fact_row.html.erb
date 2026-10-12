@@ -19,8 +19,8 @@
       <div class="nd-quote nd-quote--data" data-source-number="<%= citations.first&.first %>">
         <p><%= fields.join(" · ") %></p>
         <details class="nd-quote__row">
-          <summary class="nd-link nd-link--muted">Show source row</summary>
-          <code><%= quote %></code>
+          <summary class="nd-link nd-link--muted type-small">Show source row</summary>
+          <code class="type-data-sm"><%= quote %></code>
         </details>
       </div>
     <% elsif quote.present? %>

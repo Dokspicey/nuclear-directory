@@ -235,8 +235,8 @@
   .nd-quote { margin: 0; padding-left: var(--nd-space-3); border-left: var(--nd-hairline) solid var(--nd-control); font-size: 13px; line-height: 19px; color: var(--nd-ink-muted); overflow-wrap: anywhere; }
   /* A dataset row (NRC, EIA) as labelled fields; the exact row is one tap away. */
   .nd-quote--data p { margin: 0; }
-  .nd-quote__row summary { width: fit-content; margin-top: var(--nd-space-1); font-size: 12px; cursor: pointer; }
-  .nd-quote__row code { display: block; margin-top: var(--nd-space-1); font: 400 11px/16px var(--font-mono); color: var(--nd-ink-muted); overflow-wrap: anywhere; }
+  .nd-quote__row summary { width: fit-content; margin-top: var(--nd-space-1); cursor: pointer; }
+  .nd-quote__row code { display: block; margin-top: var(--nd-space-1); color: var(--nd-ink-muted); overflow-wrap: anywhere; }
   @media (any-pointer: coarse) {
     .nd-quote__row summary { display: flex; align-items: center; min-height: 44px; margin-top: 0; }
   }
