@@ -52,6 +52,12 @@ class CheckBlueprintTest < Minitest::Test
     assert_includes output, "the preview must set NOINDEX"
   end
 
+  def test_the_preview_takes_no_environment_groups
+    ok, output = check_preview { |vars| vars << { "fromGroup" => "production-secrets" } }
+    refute ok
+    assert_includes output, "never an environment group"
+  end
+
   def test_the_real_render_yaml_passes
     output, status = Open3.capture2e("ruby", SCRIPT)
     assert status.success?, output

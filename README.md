@@ -168,8 +168,10 @@ To see a pull request's UI before it merges, add the **preview** label to the
 PR. A workflow (`.github/workflows/preview.yml`) points the `preview` branch
 at the PR's latest commit and comments the link,
 https://nuclear-directory-preview.onrender.com. New pushes to a labelled PR
-update the preview. There's one preview at a time: labelling another PR
-replaces it. Remove the label when you're done.
+update the preview. It shows the PR merged with the current `main`. There's
+one preview at a time: labelling another PR replaces it. Removing the label
+only stops further updates; the preview stays live until another PR is
+labelled.
 
 The preview is a free Render instance (`nuclear-directory-preview` in
 `render.yaml`), so it costs nothing, sleeps after 15 minutes idle and takes

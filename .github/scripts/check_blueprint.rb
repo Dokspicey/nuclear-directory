@@ -47,7 +47,13 @@ end
 # The UI preview must never reach production data or carry production secrets.
 preview = blueprint["services"].find { |service| service["name"] == "nuclear-directory-preview" }
 if preview
-  vars = preview.fetch("envVars", []).to_h { |var| [ var["key"], var ] }
+  entries = preview.fetch("envVars", [])
+  # An environment group (fromGroup) could bring production secrets in
+  # without any key showing here, so the preview may only list single keys.
+  if entries.any? { |var| !var.is_a?(Hash) || var["key"].to_s.empty? || var.key?("fromGroup") }
+    problems << "the preview may only list single env var keys, never an environment group (fromGroup)"
+  end
+  vars = entries.select { |var| var.is_a?(Hash) && var["key"] }.to_h { |var| [ var["key"], var ] }
   database_url = vars["DATABASE_URL"]
   unless database_url && database_url["sync"] == false && !database_url.key?("fromDatabase") && !database_url.key?("value")
     problems << "the preview's DATABASE_URL must be sync: false (set by hand to the preview database), never fromDatabase or a value"

@@ -97,6 +97,11 @@ services:
         sync: false
       - key: NOINDEX
         value: "1"
+      # One Puma thread and one database connection, so an old instance still
+      # running during a deploy plus the new one's reset fit preview_app's
+      # CONNECTION LIMIT 3.
+      - key: RAILS_MAX_THREADS
+        value: "1"
       # Lets db:schema:load reset this (non-production) database.
       - key: DISABLE_DATABASE_ENVIRONMENT_CHECK
         value: "1"

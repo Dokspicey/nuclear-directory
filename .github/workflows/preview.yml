@@ -30,14 +30,15 @@ jobs:
       (github.event.action != 'labeled' || github.event.label.name == 'preview')
     runs-on: ubuntu-latest
     steps:
+      # github.sha is the PR merged into the current main (refs/pull/N/merge),
+      # so a stale PR still gets main's fixes, NOINDEX included.
       - uses: actions/checkout@v5
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
-      - name: Point the preview branch at this PR
+      - name: Point the preview branch at this PR merged with main
         env:
-          SHA: ${{ github.event.pull_request.head.sha }}
+          SHA: ${{ github.sha }}
         run: git push --force origin "${SHA}:refs/heads/preview"
 
       - name: Comment the link
@@ -46,6 +47,6 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
           SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body "Preview of ${SHA:0:7} is deploying: ${PREVIEW_URL}
+          gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body "Preview of ${SHA:0:7}, merged with main, is deploying: ${PREVIEW_URL}
 
           Ready in about 5 minutes. The first visit after a quiet spell takes about a minute to wake it up. It runs on a copy of the seed data, not the live database, and search engines are told to ignore it. Labelling another PR replaces this preview."
