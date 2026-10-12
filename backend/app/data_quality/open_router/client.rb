@@ -17,6 +17,14 @@ class DataQuality::OpenRouter::Client
   NETWORK_ERRORS = [ Net::OpenTimeout, Net::ReadTimeout, Errno::ECONNRESET, Errno::ECONNREFUSED,
     Errno::EHOSTUNREACH, SocketError, EOFError, OpenSSL::SSL::SSLError ].freeze
   MAX_RETRY_AFTER = 60
+  KEY_ENDPOINT = URI("https://openrouter.ai/api/v1/key")
+  # Failures a person fixes on the account, said plainly in the run's error
+  # and in data_quality:status (#188: a bad key read "401: User not found").
+  ACCOUNT_PROBLEMS = {
+    401 => "OpenRouter rejected the API key: check OPENROUTER_API_KEY",
+    402 => "OpenRouter says the account is out of credit: add credit or raise the key's limit",
+    403 => "OpenRouter refused the request for this key: check its limits and allowed models"
+  }.freeze
 
   class Error < StandardError; end
   # Bad request, bad key, unknown model: retrying won't help.
@@ -39,6 +47,22 @@ class DataQuality::OpenRouter::Client
   def initialize(config: DataQuality::Config.from_env, sleeper: ->(seconds) { sleep seconds })
     @config = config.validate!
     @sleeper = sleeper
+  end
+
+  # A free check that the key works: OpenRouter's key endpoint, no model
+  # call. Returns the key's label, usage and limit (dollars); raises
+  # RequestError with ACCOUNT_PROBLEMS' wording when it's refused.
+  def check_key
+    request = Net::HTTP::Get.new(KEY_ENDPOINT)
+    request["Authorization"] = "Bearer #{@config.api_key}"
+    response = Net::HTTP.start(KEY_ENDPOINT.host, KEY_ENDPOINT.port, use_ssl: true,
+      open_timeout: @config.open_timeout, read_timeout: @config.read_timeout) { |http| http.request(request) }
+    data = handle(response).fetch("data", {})
+    { label: data["label"], usage: data["usage"], limit: data["limit"] }
+  rescue *NETWORK_ERRORS => error
+    raise RequestError, "Couldn't reach OpenRouter: #{error.class}: #{error.message}"
+  rescue Retryable => error
+    raise RequestError, error.message
   end
 
   # temperature and reasoning_effort ("low", "medium", "high") are only sent
@@ -123,6 +147,7 @@ class DataQuality::OpenRouter::Client
       if RETRYABLE_STATUSES.include?(status)
         raise Retryable.new("OpenRouter #{status}: #{message}", retry_after: retry_after(response))
       end
+      raise RequestError, "#{ACCOUNT_PROBLEMS[status]} (OpenRouter #{status}: #{message})" if ACCOUNT_PROBLEMS.key?(status)
       raise RequestError, "OpenRouter #{status}: #{message}" unless status.between?(200, 299)
 
       # OpenRouter can return 200 with an error from the upstream provider.

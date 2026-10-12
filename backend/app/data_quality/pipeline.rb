@@ -6,7 +6,8 @@
 # Only one run per source kind at a time: a Postgres advisory lock is held
 # for the whole run, so a second run (a manual one during the scheduled
 # one, say) stops with AlreadyRunning instead of racing the first. Each run
-# starts by marking runs left "running" for too long as failed.
+# starts by marking runs of its kind left "running" by a process that died as
+# failed (see sweep_abandoned).
 class DataQuality::Pipeline
   STAGES = {
     "crawl" => DataQuality::Stages::Crawl,
@@ -15,9 +16,10 @@ class DataQuality::Pipeline
     "verify" => DataQuality::Stages::Verify
   }.freeze
 
-  # A run still "running" after this long was cut off (a stopped worker,
-  # a crash) and will never finish.
-  ABANDONED_AFTER = 2.hours
+  # The stages that work from the stored snapshot, without fetching anything.
+  FROM_SNAPSHOT = %w[extract match verify].freeze
+  ABANDONED = "Abandoned: the process running it stopped (a restart, or running out of memory), " \
+    "so it never finished. Rerun it."
 
   class AlreadyRunning < StandardError; end
 
@@ -40,23 +42,40 @@ class DataQuality::Pipeline
     end
   end
 
-  # Marks this source kind's runs that have been "running" longer than
-  # ABANDONED_AFTER as failed. Returns how many.
+  # Every run is made inside its source kind's lock, so while the lock is
+  # held, any run of that kind still "running" belongs to a process that
+  # died (#188: Render restarted the instance mid-crawl). Marks them failed;
+  # returns how many. Call it holding the lock.
   def self.sweep_abandoned(source_kind)
-    stale = CrawlRun.running.where(source_kind: source_kind).where(started_at: ...ABANDONED_AFTER.ago).to_a
-    stale.each do |run|
-      run.fail!("Abandoned: still running after #{(ABANDONED_AFTER / 1.hour).round} hours, so the worker " \
-        "probably stopped. Rerun the stage.")
-    end
+    stale = CrawlRun.running.where(source_kind: source_kind).to_a
+    stale.each { |run| run.fail!(ABANDONED) }
     stale.size
   end
 
+  # The same for every source kind not being run right now, without waiting
+  # for its next run: from the hourly catch-up (CatchUpJob). A kind whose
+  # lock is held is mid-run, so it's left alone.
+  def self.sweep_all_abandoned
+    CrawlRun.running.distinct.pluck(:source_kind).sum do |source_kind|
+      try_lock(source_kind) { sweep_abandoned(source_kind) } || 0
+    end
+  end
+
   def self.with_lock(source_kind)
+    held = false
+    result = try_lock(source_kind) { held = true; yield }
+    raise AlreadyRunning, "A #{source_kind} pipeline run is already in progress; try again when it finishes" unless held
+
+    result
+  end
+  private_class_method :with_lock
+
+  # Yields holding the source kind's lock and returns the block's value, or
+  # returns false without yielding when another session holds it.
+  def self.try_lock(source_kind)
     key = Zlib.crc32("data_quality:#{source_kind}")
     connection = CrawlRun.connection
-    unless connection.select_value("SELECT pg_try_advisory_lock(#{key})")
-      raise AlreadyRunning, "A #{source_kind} pipeline run is already in progress; try again when it finishes"
-    end
+    return false unless connection.select_value("SELECT pg_try_advisory_lock(#{key})")
 
     begin
       yield
@@ -64,5 +83,5 @@ class DataQuality::Pipeline
       connection.select_value("SELECT pg_advisory_unlock(#{key})")
     end
   end
-  private_class_method :with_lock
+  private_class_method :try_lock
 end

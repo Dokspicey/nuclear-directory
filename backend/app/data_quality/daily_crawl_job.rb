@@ -19,8 +19,13 @@ class DataQuality::DailyCrawlJob < ApplicationJob
   def perform(source_kinds = SOURCE_KINDS, attempt: 1)
     errors = []
     source_kinds.each_with_index do |source_kind, index|
+      # Marked so the hourly CatchUpJob can tell a source cut off by a
+      # restart (started, never finished) from one that ran.
+      DataQuality::CatchUpJob.daily_started!(source_kind)
       DataQuality::Pipeline.run(source_kind)
+      DataQuality::CatchUpJob.daily_finished!(source_kind)
     rescue DataQuality::Pipeline::AlreadyRunning
+      DataQuality::CatchUpJob.daily_not_started!(source_kind)
       # `attempt` counts tries at the first source in the list; a source
       # reached later in this run has had only this one.
       tries = index.zero? ? attempt : 1
@@ -28,6 +33,8 @@ class DataQuality::DailyCrawlJob < ApplicationJob
       self.class.set(wait: RETRY_WAIT).perform_later(source_kinds.drop(index), attempt: tries + 1)
       break
     rescue StandardError => error
+      # Finished, though failed: an ordinary failure waits for a person.
+      DataQuality::CatchUpJob.daily_finished!(source_kind)
       errors << error
     end
     raise errors.first if errors.any?

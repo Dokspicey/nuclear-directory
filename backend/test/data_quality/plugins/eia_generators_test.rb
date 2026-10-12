@@ -165,6 +165,57 @@ class DataQuality::Plugins::EiaGeneratorsTest < ActiveSupport::TestCase
     assert_equal [ "GA" ], vogtle.map { |g| g["state"] }.uniq
   end
 
+  test "the chunked inflater reads every part of a workbook exactly as rubyzip does (#188)" do
+    path = file_fixture("eia/real_trimmed.xlsx").to_s
+
+    Zip::File.open(path) do |zip|
+      File.open(path, "rb") do |file|
+        zip.entries.reject(&:directory?).each do |entry|
+          inflating = Workbook::Inflating.new(file, entry)
+          streamed = +"".b
+          while (chunk = inflating.read(1000)) # small reads, like the XML reader's
+            streamed << chunk
+          end
+          assert_equal entry.get_input_stream.read.b, streamed, entry.name
+        end
+      end
+    end
+  end
+
+  test "the chunked inflater reports a damaged part instead of reading it" do
+    path = file_fixture("eia/real_trimmed.xlsx").to_s
+
+    Zip::File.open(path) do |zip|
+      File.open(path, "rb") do |file|
+        sheet = zip.entries.max_by(&:size)
+        wrong_crc = SimpleDelegator.new(sheet)
+        def wrong_crc.crc = __getobj__.crc ^ 1
+
+        error = assert_raises(Workbook::Unreadable) { Workbook::Inflating.new(file, wrong_crc).read(sheet.size + 1) }
+        assert_match "damaged", error.message
+      end
+    end
+  end
+
+  test "a part that claims or reaches more than the limit is refused, not inflated" do
+    path = file_fixture("eia/real_trimmed.xlsx").to_s
+
+    Zip::File.open(path) do |zip|
+      File.open(path, "rb") do |file|
+        sheet = zip.entries.max_by(&:size)
+        claims_too_much = SimpleDelegator.new(sheet)
+        def claims_too_much.size = Workbook::Inflating::MAX_SIZE + 1
+        assert_match "too large", assert_raises(Workbook::Unreadable) { Workbook::Inflating.new(file, claims_too_much) }.message
+
+        claims_little = SimpleDelegator.new(sheet) # a crafted file can understate its size
+        def claims_little.size = 1
+        stub_const(Workbook::Inflating, :MAX_SIZE, sheet.size / 2) do
+          assert_match "expands past", assert_raises(Workbook::Unreadable) { Workbook::Inflating.new(file, claims_little).read }.message
+        end
+      end
+    end
+  end
+
   test "a large workbook with shared strings reads every row, like EIA's real file" do
     generators = Workbook.nuclear_generators(shared_strings_workbook(rows: 3000))
 
