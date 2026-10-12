@@ -34,6 +34,8 @@ module Verifiable
     # Attribute changes made in the same write, kept on its event.
     attribute :audited_changes
     after_save :record_verification_event, if: -> { saved_change_to_verification_status? || saved_change_to_verified_by? }
+    # The public JSON snapshot (#193) is rebuilt after any fact changes.
+    after_commit { DirectorySnapshot.expire! }
   end
 
   # by: who made the call, e.g. "human:tosin" or "agent:verifier/<model>"
