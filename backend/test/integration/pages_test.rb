@@ -4,15 +4,15 @@ require_relative "../support/directory_builders"
 class PagesTest < ActionDispatch::IntegrationTest
   include DirectoryBuilders
 
-  test "the privacy page says what analytics records, and that PostHog keeps IP addresses for location (#203)" do
+  test "the privacy page says what analytics records, and that PostHog doesn't store IP addresses (#203)" do
     get privacy_path
 
-    assert_select "meta[name=description][content*=?]", "time on page and dead clicks, with a location estimated from your IP address"
+    assert_select "meta[name=description][content*=?]", "time on page and dead clicks"
     assert_select "h2#counts", "Analytics"
     assert_select "#counts + p", /page views, searches .*how long a page stays open, and dead clicks/m
     assert_select "#counts ~ p", /cookieless mode.*no session recordings/m
-    # #203: PostHog keeps IP addresses to estimate location, and some scripts load from PostHog.
-    assert_select "#counts ~ p", /receives your IP address .*estimate where you are \(country, region and city\) and keeps it/m
+    # Cookieless mode strips the IP before PostHog stores anything (PostHog #48660), and some scripts load from PostHog.
+    assert_select "#counts ~ p", /In cookieless mode it doesn't store the IP address/
     assert_select "#counts ~ p", /load from PostHog's servers/
     assert_select "p", /Last updated\s+2026-10-12/
     assert_no_match(/set to discard IP addresses/, response.body)

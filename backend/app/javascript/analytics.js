@@ -7,9 +7,9 @@
 // leaves (for bounce rate and time on page) are sent, plus dead clicks when
 // they're on in the PostHog project (Tosin's choice), and every URL in them
 // is cut back to its path, so query strings (which can hold an email or a
-// search) never leave the page. PostHog keeps the visitor's IP address and
-// estimates location from it (#203; "Discard client IP data" is off), which
-// the privacy page says. The
+// search) never leave the page. Cookieless mode also strips the IP before
+// PostHog stores anything (PostHog #48660), so there's no location from it;
+// #205 adds a country looked up on our side. The
 // library loads when the browser is idle, so it never slows a page down.
 const meta = (name) => document.querySelector(`meta[name="${name}"]`)?.content
 
