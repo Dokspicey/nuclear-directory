@@ -10,8 +10,13 @@ class CheckBlueprintTest < Minitest::Test
   BASE = YAML.load_file(File.expand_path("../../render.yaml", __dir__))
 
   def check(allow_list)
+    check_blueprint { |blueprint| blueprint["databases"].each { |database| database["ipAllowList"] = allow_list } }
+  end
+
+  # Runs the check on a copy of render.yaml changed by the block.
+  def check_blueprint
     blueprint = Marshal.load(Marshal.dump(BASE))
-    blueprint["databases"].each { |database| database["ipAllowList"] = allow_list }
+    yield blueprint
     Dir.mktmpdir do |dir|
       path = File.join(dir, "render.yaml")
       File.write(path, blueprint.to_yaml)
@@ -22,6 +27,29 @@ class CheckBlueprintTest < Minitest::Test
 
   def host(source, description = "Tosin home (Metabase)")
     { "source" => source, "description" => description }
+  end
+
+  def check_preview
+    check_blueprint { |blueprint| yield blueprint["services"].find { |service| service["name"] == "nuclear-directory-preview" }["envVars"] }
+  end
+
+  def test_the_preview_never_gets_the_production_database
+    ok, output = check_preview do |vars|
+      vars.find { |var| var["key"] == "DATABASE_URL" }.replace(
+        "key" => "DATABASE_URL", "fromDatabase" => { "name" => "nuclear-directory-db", "property" => "connectionString" })
+    end
+    refute ok
+    assert_includes output, "the preview's DATABASE_URL must be sync: false"
+  end
+
+  def test_the_preview_gets_no_production_secrets_and_stays_noindex
+    ok, output = check_preview do |vars|
+      vars << { "key" => "SENTRY_DSN", "sync" => false }
+      vars.reject! { |var| var["key"] == "NOINDEX" }
+    end
+    refute ok
+    assert_includes output, "the preview must not set SENTRY_DSN"
+    assert_includes output, "the preview must set NOINDEX"
   end
 
   def test_the_real_render_yaml_passes
