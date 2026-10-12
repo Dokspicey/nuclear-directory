@@ -53,7 +53,7 @@ class DataQuality::Pipeline
   end
 
   # The same for every source kind not being run right now, without waiting
-  # for its next run: on boot, and from the hourly catch-up. A kind whose
+  # for its next run: from the hourly catch-up (CatchUpJob). A kind whose
   # lock is held is mid-run, so it's left alone.
   def self.sweep_all_abandoned
     CrawlRun.running.distinct.pluck(:source_kind).sum do |source_kind|

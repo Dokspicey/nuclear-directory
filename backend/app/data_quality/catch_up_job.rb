@@ -32,6 +32,10 @@ class DataQuality::CatchUpJob < ApplicationJob
 
     since = local.beginning_of_day.change(hour: DAILY_AT)
     kinds = DataQuality::DailyCrawlJob::SOURCE_KINDS
+    # After the sweep, a run still "running" really is (its lock is held):
+    # wait for it, so EIA is never queued while NRC is still going.
+    return if CrawlRun.running.exists?(source_kind: kinds)
+
     first = kinds.index { |kind| needs_catching_up?(kind, since) }
     return unless first
 

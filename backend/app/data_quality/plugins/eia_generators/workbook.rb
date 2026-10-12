@@ -229,7 +229,9 @@ class DataQuality::Plugins::EiaGenerators::Workbook
         # extra field lengths can differ from the central directory's.
         file.seek(entry.local_header_offset)
         header = file.read(LOCAL_HEADER)
-        raise Unreadable, "#{entry.name}: bad local header" unless header&.start_with?("PK\x03\x04".b)
+        unless header&.bytesize == LOCAL_HEADER && header.start_with?("PK\x03\x04".b)
+          raise Unreadable, "#{entry.name}: bad local header"
+        end
 
         name_length, extra_length = header.unpack("@26vv")
         file.seek(entry.local_header_offset + LOCAL_HEADER + name_length + extra_length)

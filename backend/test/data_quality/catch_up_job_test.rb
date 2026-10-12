@@ -76,6 +76,22 @@ class DataQuality::CatchUpJobTest < ActiveSupport::TestCase
     failing.define_method(:perform_later, original)
   end
 
+  test "waits while a daily source is really mid-run, so EIA never starts alongside NRC" do
+    nrc = make_run("nrc_reactor_list", "extract", "running")
+    other = PG.connect(**ActiveRecord::Base.connection_db_config.configuration_hash
+      .slice(:host, :port, :password).merge(dbname: ActiveRecord::Base.connection_db_config.database,
+        user: ActiveRecord::Base.connection_db_config.configuration_hash[:username]))
+    other.exec("SELECT pg_advisory_lock(#{Zlib.crc32('data_quality:nrc_reactor_list')})")
+
+    catch_up
+
+    assert nrc.reload.running?, "its lock is held, so it's working"
+    assert_no_enqueued_jobs only: DataQuality::DailyCrawlJob
+  ensure
+    other&.exec("SELECT pg_advisory_unlock_all()")
+    other&.close
+  end
+
   test "a daily crawl that never started is queued after 4am" do
     catch_up(at: NOW.change(hour: 3, min: 30))
     assert_no_enqueued_jobs only: DataQuality::DailyCrawlJob
