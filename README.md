@@ -243,7 +243,8 @@ connections from the internet only from the one IP address in `render.yaml`,
 and only over SSL.
 
 **1. Create the read-only role** (once, and again after any restore from a
-backup, which doesn't carry roles):
+backup, which doesn't carry roles). The task below is part of the app, so
+run it only after the deploy that added it has finished:
 
 1. In the password manager, generate a password of 32 or more characters for
    a new entry, "Nuclear Directory metabase_ro".
