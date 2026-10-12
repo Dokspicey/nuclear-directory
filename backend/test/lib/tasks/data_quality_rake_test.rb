@@ -44,11 +44,25 @@ class DataQualityRakeTest < ActiveSupport::TestCase
     assert_equal "human:tosin", event.by
   end
 
-  test "correcting a state needs a person and a two-letter state" do
-    Facility.create!(name: "Salem 1", nrc_docket: "05000272", state: "DE", facility_type: "power_reactor")
+  test "correcting a state needs a named person and a two-letter state" do
+    salem = Facility.create!(name: "Salem 1", nrc_docket: "05000272", state: "DE", facility_type: "power_reactor")
+    salem.evidence.create!(source: sources(:nrc), quote: "Salem 1 | 05000272", found_by: "human")
+    salem.verify!(by: "human:tosin")
 
-    assert_raises(SystemExit) { capture_io { correct_state("05000272", "NJ", by: "agent:verifier") } }
-    assert_raises(SystemExit) { capture_io { correct_state("05000272", "New Jersey") } }
-    assert_equal "DE", Facility.find_by(nrc_docket: "05000272").state
+    [ [ "NJ", "agent:verifier" ], [ "NJ", "human:" ], [ "New Jersey", "human:tosin" ] ].each do |state, by|
+      _, err = capture_io { assert_raises(SystemExit) { correct_state("05000272", state, by:) } }
+      assert_match "Usage:", err, "#{state} as #{by}"
+    end
+    assert_equal "DE", salem.reload.state
+  end
+
+  test "only a published unit's state is corrected; a pending one isn't published as a side effect" do
+    pending = Facility.create!(name: "Salem 2", nrc_docket: "05000311", state: "DE", facility_type: "power_reactor")
+    pending.evidence.create!(source: sources(:nrc), quote: "Salem 2 | 05000311", found_by: "human")
+
+    _, err = capture_io { assert_raises(SystemExit) { correct_state("05000311", "NJ") } }
+
+    assert_match "isn't published (pending)", err
+    assert_equal [ "DE", "pending" ], [ pending.reload.state, pending.verification_status ]
   end
 end

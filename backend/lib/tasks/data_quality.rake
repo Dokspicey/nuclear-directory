@@ -47,10 +47,14 @@ namespace :data_quality do
   task :correct_unit_state, [ :nrc_docket, :state ] => :environment do |_task, args|
     by = ENV["BY"].to_s
     abort "Usage: BY=human:<handle> bin/rails \"data_quality:correct_unit_state[nrc_docket,STATE]\"" unless
-      by.start_with?("human:") && args[:nrc_docket].present? && args[:state].to_s.match?(/\A[A-Z]{2}\z/)
+      by.match?(/\Ahuman:\S+\z/) && args[:nrc_docket].present? && args[:state].to_s.match?(/\A[A-Z]{2}\z/)
 
     directory = DataQuality::DirectoryClient.new
     unit = directory.facility(nrc_docket: args[:nrc_docket]) or abort "No unit with NRC docket #{args[:nrc_docket]}"
+    # A published unit only: approving would also publish a pending or taken-down one.
+    unless unit.verification_status == "verified"
+      abort "#{unit.name} isn't published (#{unit.verification_status}), so its state isn't corrected here"
+    end
     reason = "State corrected from #{unit.state.presence || 'blank'} to #{args[:state]}: NRC's Location is measured from a " \
       "nearby city in another state; EIA-860M lists the plant in #{args[:state]} (#197)"
     result = DataQuality::Review.approve_fact(type: "Facility", id: unit.id, by:, reason:, attributes: { "state" => args[:state] },
