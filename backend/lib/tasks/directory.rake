@@ -20,4 +20,38 @@ namespace :directory do
     end
     puts kept.any? ? kept : "Nothing to backfill."
   end
+
+  # EIA's Entity Name is the utility that reports a generator, not the
+  # plant's operator (#227). Published "operates" links whose only evidence
+  # is EIA's are listed. With BY=human:<name> APPLY=1, the ones whose plant
+  # already has another published operator (from NRC's list) are unpublished,
+  # each recorded with who did it and why; the rest are left for a person.
+  desc "List the published operates links only EIA backs; BY=human:<name> APPLY=1 unpublishes those another operator contradicts (#227)"
+  task retire_eia_operators: :environment do
+    by = ENV["BY"].to_s
+    apply = ENV["APPLY"].present?
+    abort "APPLY needs BY=human:<name>" if apply && !by.start_with?("human:")
+
+    eia = Evidence.joins(:source).where(subject_type: "FacilityRelationship", sources: { source_kind: "eia_generators" }).select(:subject_id)
+    other = Evidence.joins(:source).where(subject_type: "FacilityRelationship").where.not(sources: { source_kind: "eia_generators" }).select(:subject_id)
+    links = FacilityRelationship.verified.where(relationship_type: "operates", id: eia).where.not(id: other).includes(:organization, :facility)
+    reason = "EIA's Entity Name is the utility that reports the generator, not the plant's operator (#227)"
+
+    found = links.map do |link|
+      site = link.facility.parent || link.facility
+      plant = [ site.id, *Facility.where(parent_id: site.id).ids ]
+      operators = FacilityRelationship.verified.where(relationship_type: "operates", facility_id: plant)
+        .where.not(id: link.id).where.not(organization_id: link.organization_id).includes(:organization).map { |o| o.organization.name }.uniq
+      line = "FacilityRelationship #{link.id}: #{link.organization.name} operates #{link.facility.name}"
+      if operators.empty?
+        "#{line} (no other operator; check by hand)"
+      elsif apply
+        result = DataQuality::Review.unpublish(type: "FacilityRelationship", id: link.id, by:, reason:)
+        "#{line} -> #{result.errors.empty? ? 'unpublished' : "not unpublished: #{result.errors.join('; ')}"} (#{operators.join(', ')})"
+      else
+        "#{line} -> would unpublish (#{operators.join(', ')})"
+      end
+    end
+    puts found.any? ? found : "No published operates links rest on EIA alone."
+  end
 end

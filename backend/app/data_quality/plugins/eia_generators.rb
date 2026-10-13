@@ -1,10 +1,10 @@
 # EIA's monthly generator inventory (Form EIA-860M, #61): capacity and
-# coordinates for nuclear units, and (#121) the plants and their operators.
+# coordinates for nuclear units, and (#121) the plants.
 # - Each generator enriches its NRC unit (capacity_mw, state, latitude,
 #   longitude); it never creates or renames a unit.
-# - Each plant also proposes its site (by EIA plant ID and name), its operator
-#   (EIA's entity name) and an "operates" link, so the directory can grow
-#   when NRC's list can't be read. NRC stays preferred for dockets, reactor
+# - Each plant also proposes its site (by EIA plant ID and name), so the
+#   directory can grow when NRC's list can't be read. Not its operator: EIA's
+#   Entity Name is the reporting utility (#227). NRC stays preferred for dockets, reactor
 #   types and licensees: a site found by name keeps what it has, agreement adds
 #   EIA's row as evidence, and a disagreement with a human-reviewed value goes
 #   to review. A site is found by EIA plant ID first, so nothing duplicates.
@@ -27,6 +27,8 @@ class DataQuality::Plugins::EiaGenerators < DataQuality::Plugin
   end
 
   def crawl(run)
+    # First, so it happens even when EIA's page can't be read today.
+    withdrawn = withdraw_operator_claims(run)
     index = Source.find_or_create_by!(url: INDEX_URL) do |new_source|
       new_source.source_kind = INDEX_SOURCE_KIND
       new_source.title = "EIA-860M monthly generator inventory page"
@@ -48,7 +50,8 @@ class DataQuality::Plugins::EiaGenerators < DataQuality::Plugin
       Workbook.to_csv(Workbook.nuclear_generators(bytes))
     end
     { "file" => url, "snapshot" => result.to_s, "generators" => [ CSV.parse(source.reload.content_text.to_s).size - 1, 0 ].max,
-      "superseded" => (supersede_older_files(source, run) if source.crawl_ok?) }.compact
+      "superseded" => (supersede_older_files(source, run) if source.crawl_ok?),
+      "operator_claims_withdrawn" => (withdrawn if withdrawn.positive?) }.compact
   rescue Workbook::Unreadable => error
     source.update!(crawl_status: "needs_human", status_reason: "Couldn't read the EIA workbook: #{error.message}")
     { "file" => url, "snapshot" => "needs_human" }
@@ -94,13 +97,15 @@ class DataQuality::Plugins::EiaGenerators < DataQuality::Plugin
       }
     end
 
-    # The plant's site, its operator and the link between them (#121), each
-    # quoting the plant's first generator row, which names all three.
+    # The plant's site (#121), quoting its first generator row. No operator:
+    # EIA's Entity Name is the utility that reports the generator, not the
+    # plant's operator (Hatch reads Georgia Power; the operator is Southern
+    # Nuclear), so NRC's list stays the only source of operators (#227).
     def plant_candidates(rows)
       row = rows.first
       quote = row.to_csv.chomp
       site = { "name" => row["plant_name"], "eia_plant_id" => row["eia_plant_id"] }
-      candidates = [ {
+      [ {
         kind: "facility",
         payload: site.merge(
           "facility_type" => "power_reactor",
@@ -111,13 +116,26 @@ class DataQuality::Plugins::EiaGenerators < DataQuality::Plugin
         ).compact,
         quote:
       } ]
-      operator = row["entity_name"].presence or return candidates
+    end
 
-      candidates + [
-        { kind: "organization", payload: { "name" => operator }, quote: },
-        { kind: "facility_relationship", quote:,
-          payload: { "organization" => { "name" => operator }, "facility" => site, "relationship_type" => "operates" } }
-      ]
+    # Operator claims EIA proposed before #227 that nobody has decided yet are
+    # withdrawn, with the reason, and so is any company or link they
+    # proposed that nothing else uses. Published ones are left to a person
+    # (bin/rails directory:retire_eia_operators). Runs on every crawl, so
+    # claims reopened later are withdrawn too. Returns how many.
+    WITHDRAWN = "EIA's Entity Name is the utility that reports the generator, not the plant's operator; " \
+      "operators come from NRC's list (#227)"
+
+    def withdraw_operator_claims(run)
+      open = Candidate.joins(:source).where(sources: { source_kind: }, kind: %w[organization facility_relationship],
+        status: %w[new matched needs_review]).to_a
+      return 0 if open.empty?
+
+      Candidate.transaction do
+        Candidate.where(id: open.map(&:id)).update_all(status: "rejected", notes: WITHDRAWN, updated_at: Time.current)
+        retire_orphans(open.select(&:subject_id), nil, run)
+      end
+      open.size
     end
 
     # Once a newer monthly file is read, candidates from older files that
@@ -149,24 +167,17 @@ class DataQuality::Plugins::EiaGenerators < DataQuality::Plugin
     # A proposed record a withdrawn candidate pointed at is retired
     # (rejected, as the verify stage does for a rejected proposal) only when
     # the newer file no longer has it and no live candidate points at it.
-    # "Has it" is by plant for a site, by operator for a company, and by the
-    # (plant, operator) pair for an operates link. A record still in the
-    # newer file keeps its proposal, which the newer file's candidates then
-    # match. The proposing candidate may be from any earlier month: after one
-    # supersession, a later month's candidate attaches without proposing.
+    # "Has it" is by plant for a site. A company or operates link is never
+    # "had" any more: EIA no longer proposes operators (#227). A record still
+    # in the newer file keeps its proposal, which the newer file's candidates
+    # then match. The proposing candidate may be from any earlier month: after
+    # one supersession, a later month's candidate attaches without proposing.
+    # source: nil when withdrawing operator claims (no file to compare).
     def retire_orphans(candidates, source, run)
-      # Each plant's first generator row, as extraction proposes from.
-      rows = CSV.parse(source.content_text.to_s, headers: true).group_by { |row| row["eia_plant_id"] }.values.map(&:first)
+      plants = CSV.parse(source&.content_text.to_s, headers: true).map { |row| row["eia_plant_id"] }.to_set
       directory = DataQuality::DirectoryClient.new
-      operator = operator_key(directory)
-      operated = rows.select { |row| row["entity_name"].present? }
-      listed = {
-        plants: rows.map { |row| row["eia_plant_id"] }.to_set,
-        operators: operated.map { |row| operator[row["entity_name"]] }.to_set,
-        links: operated.map { |row| [ row["eia_plant_id"], operator[row["entity_name"]] ] }.to_set
-      }
       candidates.uniq { |c| [ c.subject_type, c.subject_id ] }.each do |candidate|
-        next if still_listed?(candidate, listed, operator)
+        next if kept?(candidate, plants)
 
         attached = Candidate.where(subject_type: candidate.subject_type, subject_id: candidate.subject_id)
         next unless attached.where(proposed_subject: true).exists?
@@ -181,26 +192,13 @@ class DataQuality::Plugins::EiaGenerators < DataQuality::Plugin
       end
     end
 
-    def still_listed?(candidate, listed, operator)
-      payload = candidate.payload
+    # A site the newer file still lists keeps its proposal. Companies and
+    # operates links from EIA never do (#227); other kinds aren't EIA's.
+    def kept?(candidate, plants)
       case candidate.kind
-      when "facility" then listed[:plants].include?(payload["eia_plant_id"])
-      # The proposed company itself, however this month spells its name.
-      when "organization" then listed[:operators].include?(candidate.subject_id)
-      when "facility_relationship"
-        listed[:links].include?([ payload.dig("facility", "eia_plant_id"), operator[payload.dig("organization", "name")] ])
+      when "facility" then plants.include?(candidate.payload["eia_plant_id"])
+      when "organization", "facility_relationship" then false
       else true
-      end
-    end
-
-    # An operator as matching sees it: the company its name finds in the
-    # directory (by any alias, normalized, so "Acme Co" and "Acme Co." are
-    # one), or the one company of its brand ("Duke Energy Carolinas, LLC" is
-    # Duke Energy), else the name as written. Cached for the run.
-    def operator_key(directory)
-      Hash.new do |keys, name|
-        brand = directory.same_brand_organizations(name.to_s)
-        keys[name] = directory.organization(name:)&.id || (brand.first.id if brand.one?) || name.to_s.strip.downcase
       end
     end
 
