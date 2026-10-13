@@ -74,4 +74,18 @@ class DirectoryRakeTest < ActiveSupport::TestCase
     assert hidden.reload.verified?, "not published, so not this task's"
     assert current.reload.verified?, "NRC's only operator there ended in 2000"
   end
+
+  test "a link named in SKIP is listed but kept, even with APPLY (Perry, #237)" do
+    eia = Source.create!(url: "https://www.eia.gov/electricity/data/eia860m/xls/july_generator2026.xlsx", source_kind: "eia_generators")
+    nrc = Source.create!(url: "https://www.nrc.gov/test/operators", source_kind: "nrc_reactor_list")
+    perry = plant("Perry", eia_plant_id: "6020")
+    kept = operates(company("Energy Harbor Nuclear Corp."), perry, eia)
+    operates(company("FirstEnergy Nuclear Operating Co."), plant("Perry 1", parent: perry, nrc_docket: "05000440"), nrc)
+
+    assert_output(/Energy Harbor Nuclear Corp. operates Perry -> kept \(SKIP; FirstEnergy Nuclear Operating Co.\)/) do
+      retire_eia_operators(APPLY: "1", BY: "human:tosin", SKIP: " #{kept.id} ")
+    end
+    assert kept.reload.verified?
+    assert_raises(SystemExit) { capture_io { retire_eia_operators(SKIP: "Perry") } }
+  end
 end
