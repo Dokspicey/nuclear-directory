@@ -434,4 +434,22 @@ class DataQuality::ReviewTest < ActiveSupport::TestCase
     assert_match "can't edit organization_id", Review.approve_fact(type: "FacilityRelationship", id: link.id, by: BY,
       attributes: { organization_id: organizations(:terrapower).id }).errors.join, "a published link can't be moved"
   end
+
+  test "a link whose company or plant is still in review can't be approved, alone or in bulk" do
+    other = FacilityRelationship.create!(organization: organizations(:westinghouse), facility: facilities(:vogtle),
+      relationship_type: "operates", verification_status: "verified", verified_by: BY)
+    open_end = Candidate.create!(source: @source, kind: "facility_relationship", quote: "Nine Mile Point 1 | ...",
+      payload: { "organization" => { "name" => "Constellation" }, "facility" => { "name" => "Nine Mile Point 1" },
+        "relationship_type" => "operates" },
+      status: "needs_review", notes: "facility: no exact match for \"Nine Mile Point 1\"",
+      ai_recommendation: "recommend_publish", ai_source_sha256: @source.content_sha256)
+
+    single = Review.approve([ open_end.id ], by: BY).sole
+    bulk = Review.approve([ open_end.id ], by: BY, only_recommended: true).sole
+
+    assert_match "isn't settled yet", single.errors.join
+    assert_not bulk.ok?
+    assert open_end.reload.status_needs_review?, "left for a person"
+    assert_empty other.reload.evidence, "no quote added to another link"
+  end
 end

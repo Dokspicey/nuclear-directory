@@ -81,6 +81,23 @@ namespace :data_quality do
     kinds.each { |kind| puts "Next: bin/rails \"data_quality:rerun[#{kind}]\", then review them in the admin." }
   end
 
+  # #226: 24 link approvals were written onto other links. Dry run unless
+  # APPLY=1; every change is recorded as the named person.
+  desc "Repair #226 (misplaced link evidence), audited: BY=human:tosin [APPLY=1] bin/rails data_quality:repair_226"
+  task repair_226: :environment do
+    by = ENV["BY"].to_s
+    abort "Usage: BY=human:<handle> [APPLY=1] bin/rails data_quality:repair_226" unless by.match?(/\Ahuman:\S+\z/)
+
+    apply = ENV["APPLY"] == "1"
+    outcomes = DataQuality::Repairs::MisplacedLinkEvidence.call(items: DataQuality::Repairs::MisplacedLinkEvidence::ISSUE_226,
+      by:, dry_run: !apply)
+    outcomes.each { |outcome| puts "candidate #{outcome.candidate_id.to_s.ljust(4)} #{outcome.status.to_s.ljust(16)} #{outcome.message}" }
+    counts = outcomes.group_by(&:status).transform_values(&:size)
+    puts counts.map { |status, count| "#{count} #{status.to_s.tr('_', ' ')}" }.join(", ")
+    puts "Dry run: nothing changed. Run again with APPLY=1 to apply." unless apply
+    abort "Some items were skipped; see above." if counts.key?(:skipped)
+  end
+
   desc "Check the OpenRouter key works, without a model call: bin/rails data_quality:check_key"
   task check_key: :environment do
     key = DataQuality::OpenRouter::Client.new.check_key

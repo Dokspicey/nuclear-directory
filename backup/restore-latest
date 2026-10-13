@@ -26,9 +26,10 @@ if ! grep -q '^AGE-SECRET-KEY-1' <<< "$key"; then
   exit 1
 fi
 
-# The newest published backup-* release, not the repo's overall "latest".
-tag="${1:-$(gh release list --repo "$repo" --exclude-drafts --limit 100 --json tagName,createdAt \
-  --jq '[.[] | select(.tagName | startswith("backup-"))] | sort_by(.createdAt) | last | .tagName // empty')}"
+# The newest published backup-* release (backup/newest_backup.jq), not the
+# repo's overall "latest".
+tag="${1:-$(gh release list --repo "$repo" --exclude-drafts --limit 100 --json tagName,isDraft \
+  --jq "$(cat "$(dirname "$0")/newest_backup.jq")")}"
 if [[ -z "$tag" ]]; then
   echo "No backups found in ${repo}." >&2
   exit 1

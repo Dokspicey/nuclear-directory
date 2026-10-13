@@ -285,6 +285,14 @@ module DataQuality::Review
           if only_recommended && !(candidate.ai_recommendation == "recommend_publish" && !candidate.status_needs_review?)
             next Result.new(candidate_id: candidate.id, ref: nil, errors: [ "it isn't recommended, so approve it on its own" ])
           end
+          # A link is written onto the record match attached, which needs both
+          # ends found. One whose company or plant is still a question has no
+          # link yet; without this check the write would find any link of the
+          # same type and add the quote to it.
+          if DataQuality::DirectoryClient::LINK_KINDS.include?(candidate.kind) && candidate.subject_id.nil?
+            next Result.new(candidate_id: candidate.id, ref: nil,
+              errors: [ "its company or plant isn't settled yet; decide that, and the next match run links it" ])
+          end
           if lapsed?(candidate)
             next Result.new(candidate_id: candidate.id, ref: nil,
               errors: [ "its source changed after the verifier checked it; the next verify run checks it again" ])

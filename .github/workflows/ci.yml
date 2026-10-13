@@ -73,6 +73,9 @@ jobs:
       - name: Test the CI scope rules
         run: ruby .github/scripts/ci_scope_test.rb
 
+      - name: Test the backup ordering
+        run: .github/scripts/backup_order_test.sh
+
   test:
     needs: scope
     # Runs unless scope says it isn't needed; if scope itself failed, runs anyway.
