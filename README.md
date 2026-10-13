@@ -272,12 +272,14 @@ leaves the current one alone; check it, then point the web service's
 `DATABASE_URL` at it. Use this for recent mistakes, like a bad migration or a
 wrong bulk edit.
 
-**Weekly encrypted copy, off Render.** The `nuclear-directory-backup` cron
-job (`backup/`) runs every Sunday at 10:00 UTC. It dumps the database with
+**Daily encrypted copy, off Render.** The `nuclear-directory-backup` cron
+job (`backup/`) runs every day at 09:00 UTC, one to two hours after the daily
+crawl (3 a.m. New York time).
+It dumps the database with
 `pg_dump`, encrypts the dump with [age](https://age-encryption.org) and
 uploads it as a release to the private repo
-`tosinoladokun/nuclear-directory-backups`, keeping the newest 12 (about three
-months). Only the private key decrypts them. It lives in Tosin's password
+`tosinoladokun/nuclear-directory-backups`, keeping the newest 14 (two weeks;
+backups are ordered by the timestamp in their tag, `backup-YYYY-MM-DDTHHMMZ`). Only the private key decrypts them. It lives in Tosin's password
 manager, never in git or on Render; `render.yaml` holds just the public key.
 If that key is lost, so are the backups. The job's log on Render lists every
 table's row count at backup time. Run it on demand with Cron job → Trigger
@@ -328,7 +330,7 @@ the end. Same tools as the restore test, run from a Mac:
 5. Set `DATABASE_URL` to the new database's **Internal** Database URL in
    both places that use it, and save each: the web service's Environment
    (it restarts on it) and the `nuclear-directory-backup` cron job's
-   Environment (so the next weekly backup copies the new database).
+   Environment (so the next daily backup copies the new database).
 6. Open a PR that points `render.yaml` at the new database, so the next
    Blueprint sync doesn't switch either one back. Keep the old database
    until that PR has synced and the site and a backup run are confirmed
