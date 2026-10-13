@@ -8,12 +8,12 @@
 #   BACKUP_AGE_RECIPIENT  age public key (age1...); only its private half decrypts
 #   BACKUP_REPO           owner/name of the private backups repo
 #   BACKUP_GITHUB_TOKEN   fine-grained token for BACKUP_REPO, Contents read/write
-#   BACKUP_KEEP           releases to keep (default 12)
+#   BACKUP_KEEP           releases to keep (default 14)
 #   BACKUP_OUTPUT_DIR     if set, write the file there and skip GitHub (local tests)
 set -euo pipefail
 
 : "${DATABASE_URL:?}" "${BACKUP_AGE_RECIPIENT:?}"
-keep="${BACKUP_KEEP:-12}"
+keep="${BACKUP_KEEP:-14}"
 stamp="$(date -u +%Y-%m-%dT%H%MZ)"
 name="nuclear-directory-${stamp}.dump.age"
 dir="${BACKUP_OUTPUT_DIR:-$(mktemp -d)}"

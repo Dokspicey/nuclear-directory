@@ -132,7 +132,7 @@ services:
       - key: PREVIEW_ADMIN_PASSWORD
         sync: false
 
-  # Weekly encrypted off-site backup (#54); see "Backups" in README.md.
+  # Daily encrypted off-site backup (#54); see "Backups" in README.md.
   # Runs inside Render's private network, so the database stays closed to
   # the internet.
   - type: cron
@@ -148,8 +148,9 @@ services:
     buildFilter:
       paths:
         - backup/**
-    # Sundays 10:00 UTC (2–3 a.m. in California).
-    schedule: "0 10 * * 0"
+    # Every day at 09:00 UTC (1–2 a.m. in California), two hours after the
+    # 07:00 UTC daily crawl, so each backup includes that day's crawl.
+    schedule: "0 9 * * *"
     envVars:
       - key: DATABASE_URL
         fromDatabase:
@@ -161,8 +162,9 @@ services:
         value: age1lht4cs0audrr4m2fq3ktp2m9yx9qvutffmrq6y898p4an37f4enssk6ctd
       - key: BACKUP_REPO
         value: tosinoladokun/nuclear-directory-backups
+      # Two weeks of daily backups.
       - key: BACKUP_KEEP
-        value: "12"
+        value: "14"
       # Fine-grained token for the backups repo only (Contents read/write).
       - key: BACKUP_GITHUB_TOKEN
         sync: false

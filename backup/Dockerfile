@@ -1,4 +1,4 @@
-# Weekly off-site database backup (issue #54), run by the Render cron job in
+# Daily off-site database backup (issue #54), run by the Render cron job in
 # render.yaml. Postgres 16 tools to match the server (the app image's Debian
 # pg_dump is 15, which refuses a 16 server), plus age to encrypt and curl/jq
 # to talk to the GitHub API.
