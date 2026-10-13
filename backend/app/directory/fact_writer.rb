@@ -158,6 +158,75 @@ module Directory
       failure(:organization, error.message)
     end
 
+    def self.merge_facility(...) = new.merge_facility(...)
+
+    # Site fields a merge copies to into when into has none.
+    SITE_FIELDS = %i[eia_plant_id facility_type status technology_id reactor_type capacity_mw city state latitude longitude].freeze
+
+    # Merges one site into another (one page per plant, #229), the
+    # counterpart of merge_organization: a human's decision, in one
+    # transaction that locks both. into gets from's blank-on-into fields (its
+    # EIA plant ID first, cleared on from so the unique index holds), its
+    # units, its aliases and its name as an alias, its company links,
+    # evidence and the candidates attached to it. A link into already has
+    # stays on from and is rejected, and a closed link stays where it was
+    # decided; values into already has are kept. Then
+    # from is unpublished with where it went and what moved, and its address
+    # leads to into (#143). Sites only: a unit is merged by moving it.
+    def merge_facility(from_id:, into_id:, by:, reason: nil)
+      raise Invalid, "a merge is a human's decision (by: \"human:…\")" unless by.to_s.match?(/\Ahuman:\S+\z/)
+      raise Invalid, "can't merge a plant into itself" if from_id == into_id
+
+      moved = Hash.new(0)
+      ActiveRecord::Base.transaction(requires_new: true) do
+        records = Facility.lock.where(id: [ from_id, into_id ]).order(:id).index_by(&:id)
+        from = records[from_id] or raise Invalid, "no plant with id #{from_id}"
+        into = records[into_id] or raise Invalid, "no plant with id #{into_id}"
+        raise Invalid, "#{into.name} is #{into.verification_status}; merge into a live plant" if into.closed?
+        raise Invalid, "#{from.name} is already #{from.verification_status}" if from.closed?
+        [ from, into ].each { |site| raise Invalid, "#{site.name} is a unit; only sites are merged" if site.parent_id }
+
+        filled = SITE_FIELDS.select { |name| into.public_send(name).blank? && from.public_send(name).present? }
+        values = filled.index_with { |name| from.public_send(name) }
+        from.update_columns(eia_plant_id: nil) if values.key?(:eia_plant_id)
+        into.update!(values) if filled.any?
+
+        moved["units"] = from.children.update_all(parent_id: into.id, updated_at: Time.current)
+        names = [ *from.aliases.map(&:alias), from.name ]
+        from.aliases.destroy_all
+        names.each do |name|
+          normalized = FacilityAlias.normalize(name)
+          next if normalized == FacilityAlias.normalize(into.name) || FacilityAlias.exists?(normalized_alias: normalized)
+
+          into.aliases.create!(alias: name) && moved["aliases"] += 1
+        end
+        retired = []
+        from.facility_relationships.each do |row|
+          next if row.closed? # a link someone rejected or took down stays where it was decided
+          next retired << row if into.facility_relationships.exists?(organization_id: row.organization_id, relationship_type: row.relationship_type)
+
+          row.update!(facility: into) && moved["facility_relationships"] += 1
+        end
+        Evidence.where(subject: from).each do |row|
+          duplicate = Evidence.where(subject: into, source_id: row.source_id, quote: row.quote).exists?
+          duplicate ? row.destroy! : row.update!(subject: into) && moved["evidence"] += 1
+        end
+        moved["candidates"] = Candidate.where(subject_type: "Facility", subject_id: from.id).update_all(subject_id: into.id)
+
+        note = "Merged into #{into.name} (##{into.id})"
+        retired.each { |row| row.reject!(by:, reason: "#{note}; #{into.name} already has this link") unless row.closed? }
+        summary = moved.select { |_, count| count.positive? }.map { |what, count| "#{count} #{what.tr('_', ' ')}" }
+        summary << filled.join(", ") if filled.any?
+        from.unpublish!(by:, reason: [ reason, "#{note}. Moved: #{summary.join(', ').presence || 'nothing'}" ].compact.join(". "))
+        FormerSlug.where(sluggable: from).find_each { |former| into.remember_slug(former.slug) }
+        into.remember_slug(from.slug)
+        into.recompute_confidence!
+      end
+      Result.new(kind: :facility, id: into_id, created: false, errors: [])
+    rescue Invalid, ActiveRecord::RecordInvalid => error
+      failure(:facility, error.message)
+    end
+
     def self.fill_site_from_unit(...) = new.fill_site_from_unit(...)
 
     # Fills a site's blank fields (from fields:) with its unit's stored
