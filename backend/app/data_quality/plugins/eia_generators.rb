@@ -127,15 +127,18 @@ class DataQuality::Plugins::EiaGenerators < DataQuality::Plugin
       "operators come from NRC's list (#227)"
 
     def withdraw_operator_claims(run)
-      open = Candidate.joins(:source).where(sources: { source_kind: }, kind: %w[organization facility_relationship],
-        status: %w[new matched needs_review]).to_a
-      return 0 if open.empty?
-
+      # Locked, as a review decision locks them: one a person approves or
+      # rejects at the same moment is either decided first (and skipped
+      # here, as Postgres rechecks the status) or waits and sees it withdrawn.
       Candidate.transaction do
+        open = Candidate.where(source_id: Source.where(source_kind:).select(:id), kind: %w[organization facility_relationship],
+          status: %w[new matched needs_review]).order(:id).lock.to_a
+        next 0 if open.empty?
+
         Candidate.where(id: open.map(&:id)).update_all(status: "rejected", notes: WITHDRAWN, updated_at: Time.current)
         retire_orphans(open.select(&:subject_id), nil, run)
+        open.size
       end
-      open.size
     end
 
     # Once a newer monthly file is read, candidates from older files that

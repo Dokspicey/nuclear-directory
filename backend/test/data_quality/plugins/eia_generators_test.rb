@@ -497,6 +497,20 @@ class DataQuality::Plugins::EiaGeneratorsTest < ActiveSupport::TestCase
     assert_nil crawl!["operator_claims_withdrawn"], "nothing left to withdraw"
   end
 
+  test "the claims are locked before they're withdrawn, so a decision made at the same moment isn't overwritten" do
+    operator_claims(Source.create!(url: FILE, source_kind: "eia_generators"), status: "matched")
+    queries = []
+    subscriber = ActiveSupport::Notifications.subscribe("sql.active_record") { |*, payload| queries << payload[:sql] }
+
+    plugin.send(:withdraw_operator_claims, CrawlRun.create!(stage: "crawl", source_kind: "eia_generators"))
+
+    ActiveSupport::Notifications.unsubscribe(subscriber)
+    locking = queries.index { |sql| sql.include?("candidates") && sql.include?("FOR UPDATE") }
+    withdrawing = queries.index { |sql| sql.start_with?("UPDATE \"candidates\"") }
+    assert locking, "the open claims are selected FOR UPDATE"
+    assert_operator locking, :<, withdrawing
+  end
+
   test "operator claims are withdrawn even when EIA's page can't be read" do
     stub_request(:get, INDEX).to_return(status: 503)
     claims = operator_claims(Source.create!(url: FILE, source_kind: "eia_generators"), status: "new")
