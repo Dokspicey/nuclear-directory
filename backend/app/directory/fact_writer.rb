@@ -158,6 +158,55 @@ module Directory
       failure(:organization, error.message)
     end
 
+    def self.remove_evidence(...) = new.remove_evidence(...)
+
+    # Removes one piece of evidence from a fact, e.g. a quote attached to the
+    # wrong link (#226): a human's correction, so by: must start with "human:"
+    # and a reason is required. The fact is locked first, like any write, and
+    # a rejected or unpublished fact isn't changed. A published or verified
+    # fact keeps at least one piece of evidence. The fact's history records what was
+    # removed (changed_values "evidence" => ["<source url>: <quote>", nil]).
+    # source_id: and quote: must be the row's, so a wrong id can't remove
+    # the right evidence.
+    def remove_evidence(type:, id:, evidence_id:, source_id:, quote:, by:, reason:)
+      raise Invalid, "removing evidence is a human's decision (by: \"human:…\")" unless by.to_s.match?(/\Ahuman:\S+\z/)
+      raise Invalid, "removing evidence needs a reason" if reason.blank?
+      raise Invalid, "not a fact type: #{type.inspect}" unless Lookup::FACT_TYPES.include?(type.to_s)
+
+      ActiveRecord::Base.transaction(requires_new: true) do
+        record = type.to_s.constantize.lock.find_by(id:) or raise Invalid, "no #{type} with id #{id}"
+        name = Lookup.fact_state(type: type.to_s, id:).name.upcase_first
+        if record.closed?
+          raise Invalid, "#{name} was #{record.verification_status} by #{record.verified_by || 'review'}; not changed"
+        end
+        row = Evidence.lock.find_by(id: evidence_id, subject: record) or
+          raise Invalid, "evidence #{evidence_id} isn't on #{name}"
+        # Compared exactly: "9oops" isn't source 9, and "" isn't a missing quote.
+        unless row.source_id == source_id && row.quote == quote
+          raise Invalid, "evidence #{evidence_id} on #{name} isn't the source and quote given; not removed"
+        end
+        # Public now (a pending site shows through a verified unit), or verified
+        # and hidden only by its parent: either way it must stay sourced.
+        public_or_verified = record.verified? || Lookup.published?(type: type.to_s, id:)
+        if public_or_verified && !Evidence.where(subject: record).where.not(id: row.id).exists?
+          raise Invalid, "#{name} is published or verified and this is its only evidence; not removed"
+        end
+
+        removed = [ row.source.url, row.quote ].compact_blank.join(": ")
+        row.destroy!
+        record.recompute_confidence!
+        record.verification_reason = reason
+        record.audited_changes = { "evidence" => [ removed, nil ] }
+        record.log_verification_event(from_status: record.verification_status, by:)
+        # A change to the fact like any other: its updated_at moves and, on
+        # commit, the public snapshot expires (Verifiable).
+        record.touch
+      end
+      Result.new(kind: type.to_s.underscore.to_sym, id:, created: false, errors: [])
+    rescue Invalid, ActiveRecord::RecordInvalid, ActiveRecord::RecordNotDestroyed => error
+      failure(type.to_s.underscore.to_sym, error.message)
+    end
+
     def self.fill_site_from_unit(...) = new.fill_site_from_unit(...)
 
     # Fills a site's blank fields (from fields:) with its unit's stored
