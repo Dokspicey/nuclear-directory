@@ -54,7 +54,7 @@ class DataQuality::Plugins::EiaGenerators < DataQuality::Plugin
       "operator_claims_withdrawn" => (withdrawn if withdrawn.positive?) }.compact
   rescue Workbook::Unreadable => error
     source.update!(crawl_status: "needs_human", status_reason: "Couldn't read the EIA workbook: #{error.message}")
-    { "file" => url, "snapshot" => "needs_human" }
+    { "file" => url, "snapshot" => "needs_human", "operator_claims_withdrawn" => (withdrawn if withdrawn.to_i.positive?) }.compact
   end
 
   # EIA's status code for a plant in service; anything else (standby, out of

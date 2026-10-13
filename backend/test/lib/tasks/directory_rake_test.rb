@@ -38,27 +38,36 @@ class DirectoryRakeTest < ActiveSupport::TestCase
     end
   end
 
+  PUBLISHED = { verification_status: "verified", verified_by: "human:tosin" }.freeze
+
+  def company(name) = Organization.create!(name:, **PUBLISHED)
+  def plant(name, **attributes) = Facility.create!(name:, **PUBLISHED, **attributes)
+
   test "published operates links only EIA backs are listed, and unpublished on APPLY where NRC names another operator (#227)" do
     eia = Source.create!(url: "https://www.eia.gov/electricity/data/eia860m/xls/july_generator2026.xlsx", source_kind: "eia_generators")
-    nrc = Source.create!(url: "https://www.nrc.gov/test/operators", source_kind: "nrc_reactors")
-    hatch = Facility.create!(name: "Edwin I Hatch", eia_plant_id: "6051")
-    hatch_1 = Facility.create!(name: "Hatch 1", parent: hatch, nrc_docket: "05000321")
-    georgia = Organization.create!(name: "Georgia Power")
-    wrong = operates(georgia, hatch, eia)
-    operates(Organization.create!(name: "Southern Nuclear"), hatch_1, nrc)
-    alone = operates(Organization.create!(name: "Energy Northwest"), Facility.create!(name: "Columbia", eia_plant_id: "371"), eia)
-    both = operates(Organization.create!(name: "Entergy"), Facility.create!(name: "Arkansas Nuclear One", eia_plant_id: "8055"), eia, nrc)
+    nrc = Source.create!(url: "https://www.nrc.gov/test/operators", source_kind: "nrc_reactor_list")
+    hatch = plant("Edwin I Hatch", eia_plant_id: "6051")
+    wrong = operates(company("Georgia Power"), hatch, eia)
+    operates(company("Southern Nuclear"), plant("Hatch 1", parent: hatch, nrc_docket: "05000321"), nrc)
+    columbia = plant("Columbia", eia_plant_id: "371")
+    alone = operates(company("Energy Northwest"), columbia, eia)
+    operates(company("Bonneville Power"), columbia, eia) # another EIA-only operator isn't NRC's word
+    both = operates(company("Entergy"), plant("Arkansas Nuclear One", eia_plant_id: "8055"), eia, nrc)
+    # Hidden: its company was taken down, so the task leaves it be.
+    hidden = operates(gone = company("Gone Co"), hatch, eia)
+    gone.unpublish!(by: "human:tosin", reason: "Not a real company")
 
-    assert_output(/Georgia Power operates Edwin I Hatch -> would unpublish \(Southern Nuclear\)\n.*Energy Northwest operates Columbia \(no other operator; check by hand\)\n\z/) do
-      retire_eia_operators
-    end
-    assert wrong.reload.verified?, "a dry run changes nothing"
+    assert_output(/Georgia Power operates Edwin I Hatch -> would unpublish \(Southern Nuclear\)\n/) { retire_eia_operators }
+    assert_output(/Energy Northwest operates Columbia \(no published NRC operator; check by hand\)/) { retire_eia_operators(APPLY: "0") }
+    assert wrong.reload.verified?, "a dry run, and APPLY=0, change nothing"
     assert_raises(SystemExit) { capture_io { retire_eia_operators(APPLY: "1") } }
+    assert_raises(SystemExit) { capture_io { retire_eia_operators(APPLY: "1", BY: "human:") } }
 
     assert_output(/Georgia Power operates Edwin I Hatch -> unpublished/) { retire_eia_operators(APPLY: "1", BY: "human:tosin") }
     assert wrong.reload.unpublished?
     assert_equal "human:tosin", wrong.verified_by
-    assert alone.reload.verified?, "no other operator to go by"
+    assert alone.reload.verified?, "no NRC operator to go by"
     assert both.reload.verified?, "NRC backs it too"
+    assert hidden.reload.verified?, "not published, so not this task's"
   end
 end

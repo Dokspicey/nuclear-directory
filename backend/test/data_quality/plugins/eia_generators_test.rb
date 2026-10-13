@@ -506,11 +506,21 @@ class DataQuality::Plugins::EiaGeneratorsTest < ActiveSupport::TestCase
     assert claims.all? { |claim| claim.reload.status_rejected? }
   end
 
+  test "an unreadable workbook still reports the claims it withdrew" do
+    stub_request(:get, FILE).to_return(body: "not a zip")
+    operator_claims(Source.create!(url: "https://www.eia.gov/electricity/data/eia860m/xls/july_generator2026.xlsx",
+      source_kind: "eia_generators"), status: "matched")
+
+    stats = crawl!
+
+    assert_equal [ "needs_human", 2 ], stats.values_at("snapshot", "operator_claims_withdrawn")
+  end
+
   test "a published operator link, and a company something else uses, are left for a person" do
     august = Source.create!(url: FILE, source_kind: "eia_generators")
     company_claim, link_claim = operator_claims(august, status: "merged")
     company = Organization.find(company_claim.subject_id)
-    Candidate.create!(source: Source.create!(url: "https://www.nrc.gov/list", source_kind: "nrc_reactors"), kind: "organization",
+    Candidate.create!(source: Source.create!(url: "https://www.nrc.gov/list", source_kind: "nrc_reactor_list"), kind: "organization",
       quote: "nrc", status: "matched", payload: { "name" => "Alabama Power Co" }, subject_type: "Organization", subject_id: company.id)
     still_open = Candidate.create!(source: august, kind: "organization", quote: "old", status: "matched",
       payload: { "name" => "Alabama Power Co" }, subject_type: "Organization", subject_id: company.id)
