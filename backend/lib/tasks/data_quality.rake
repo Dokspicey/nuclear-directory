@@ -76,7 +76,9 @@ namespace :data_quality do
     results = DataQuality::Review.reopen(ids.map(&:to_i), by:, reason:)
     results.each { |result| puts "Candidate #{result.candidate_id}: #{result.ok? ? 'reopened' : result.errors.to_sentence}" }
     (ids.map(&:to_i) - results.map(&:candidate_id)).each { |id| puts "Candidate #{id}: not found" }
-    puts "Next: bin/rails \"data_quality:stage[match,<source kind>]\", then verify, then review them in the admin."
+    # Queued in the worker, not run in this shell (Render's 512 MB limit).
+    kinds = Candidate.where(id: results.select(&:ok?).map(&:candidate_id)).joins(:source).distinct.pluck("sources.source_kind")
+    kinds.each { |kind| puts "Next: bin/rails \"data_quality:rerun[#{kind}]\", then review them in the admin." }
   end
 
   desc "Check the OpenRouter key works, without a model call: bin/rails data_quality:check_key"

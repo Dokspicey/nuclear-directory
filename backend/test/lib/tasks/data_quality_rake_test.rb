@@ -78,10 +78,12 @@ class DataQualityRakeTest < ActiveSupport::TestCase
     rejected = Candidate.create!(source:, kind: "facility", quote: "row", status: "rejected", payload: { "identify" => { "name" => "Salem" } })
     open = Candidate.create!(source:, kind: "facility", quote: "row", status: "needs_review", payload: { "identify" => { "name" => "Salem" } })
 
-    assert_output(/Candidate #{rejected.id}: reopened\nCandidate #{open.id}: it isn't rejected\nCandidate 0: not found\n/) do
+    assert_output(/Candidate #{rejected.id}: reopened\nCandidate #{open.id}: it isn't rejected\nCandidate 0: not found\n.*data_quality:rerun\[eia_generators\]/) do
       reopen(BY: "human:tosin", REASON: "rejected while the state was wrong", IDS: "#{rejected.id},#{open.id},0")
     end
     assert_equal [ "new", "human:tosin" ], [ rejected.reload.status, rejected.reopenings.sole["by"] ]
+    out, = capture_io { reopen(BY: "human:tosin", REASON: "again", IDS: "#{open.id},0") }
+    assert_no_match "Next:", out, "nothing reopened, nothing to rerun"
 
     assert_raises(SystemExit) { capture_io { reopen(BY: "human:tosin", IDS: rejected.id.to_s) } }
     assert_raises(SystemExit) { capture_io { reopen(BY: "tosin", REASON: "why", IDS: rejected.id.to_s) } }
