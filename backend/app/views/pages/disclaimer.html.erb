@@ -6,25 +6,38 @@
 
 <main class="nd-page nd-page--narrow nd-prose">
   <h1 class="type-title-md">Disclaimer</h1>
-  <p class="type-body">Nuclear Directory is a reference built from public sources: company announcements, regulator filings and news reports. Each fact links to the source it came from and shows when we last checked it.</p>
+  <p class="type-body"><strong>In short:</strong> Nuclear Directory is a reference built from public sources. Check a fact's source before you rely on it.</p>
+
+  <section aria-labelledby="sources">
+    <h2 id="sources" class="type-body-strong">Sources</h2>
+    <p class="type-body">Every fact comes from a public source.</p>
+    <ul class="type-body">
+      <li>Sources are company announcements, regulator filings and news reports.</li>
+      <li>Each fact links to the source it came from and shows when we last checked it.</li>
+    </ul>
+  </section>
 
   <section aria-labelledby="currency">
-    <h2 id="currency" class="type-body-strong">It may be incomplete or out of date</h2>
-    <p class="type-body">Companies change names, deals end and plans move. Check the source and its date before you rely on a fact.</p>
+    <h2 id="currency" class="type-body-strong">Accuracy</h2>
+    <p class="type-body">The directory may be incomplete or out of date.</p>
+    <ul class="type-body">
+      <li>Companies change names, deals end and plans move.</li>
+      <li>Check the source and its date before you rely on a fact.</li>
+    </ul>
   </section>
 
   <section aria-labelledby="advice">
-    <h2 id="advice" class="type-body-strong">It isn't advice</h2>
+    <h2 id="advice" class="type-body-strong">Advice</h2>
     <p class="type-body">Nothing here is safety, engineering, legal or investment advice.</p>
   </section>
 
   <section aria-labelledby="endorsement">
-    <h2 id="endorsement" class="type-body-strong">Listing isn't endorsement</h2>
+    <h2 id="endorsement" class="type-body-strong">Endorsement</h2>
     <p class="type-body">A company, plant or deal appears because a source reports it, not because we recommend it.</p>
   </section>
 
   <section aria-labelledby="mistakes">
-    <h2 id="mistakes" class="type-body-strong">Spotted a mistake?</h2>
+    <h2 id="mistakes" class="type-body-strong">Corrections</h2>
     <p class="type-body">Use "Report a correction" next to any fact, or email <%= mail_to DirectoryHelper::CORRECTIONS_EMAIL, nil, class: "nd-link" %>. We check every correction against its source.</p>
   </section>
 </main>

@@ -9,12 +9,12 @@ class PagesTest < ActionDispatch::IntegrationTest
 
     assert_select "meta[name=description][content*=?]", "dead clicks, the country you're visiting from"
     assert_select "h2#counts", "Analytics"
-    assert_select "#counts + p", /page views, searches .*how long a page stays open, and dead clicks/m
-    assert_select "#counts ~ p", /cookieless mode.*no session recordings/m
+    assert_select "section[aria-labelledby=counts]", /how the site is used.*No cookies, and one visit isn't linked to the next.*no session recordings/m
     # #205: we look up the country and send only that; PostHog uses the IP to count visitors and drops it.
-    assert_select "#counts ~ p", /country you're in from your IP address, on this site's server, and add only the country to the analytics data/
-    assert_select "#counts ~ p", /To count unique visitors without cookies, PostHog also receives your IP address .*doesn't store the IP address/m
+    assert_select "#counts ~ p", /which country you're in from your IP address, and adds only the country to the analytics/
+    assert_select "#counts ~ p", /PostHog receives your IP address and browser with each request so it can count unique visitors without cookies. It doesn't store the IP address/
     assert_select "#counts ~ p a[href='https://db-ip.com']", "IP Geolocation by DB-IP"
+    assert_select "#counts ~ p a[href='https://creativecommons.org/licenses/by/4.0/']", "CC BY 4.0"
     assert_select "#counts ~ p", /go through this site rather than straight to PostHog/
     assert_select "p", /Last updated\s+2026-10-12/
     assert_no_match(/set to discard IP addresses/, response.body)
@@ -36,6 +36,35 @@ class PagesTest < ActionDispatch::IntegrationTest
       assert_select "h1", heading
       assert_select "meta[name=description]"
     end
+  end
+
+  test "text pages have a skeleton: a summary, topic headings, a short lead, details as a list (#215)" do
+    { privacy_path => %w[collect counts cookie corrections errors hosting contact],
+      bot_path => %w[identity behaviour blocking contact],
+      disclaimer_path => %w[sources currency advice endorsement mistakes] }.each do |path, sections|
+      get path
+      assert_select "h1 + p strong", "In short:"
+      assert_equal sections, css_select("section h2").map { |h| h["id"] }
+    end
+
+    get privacy_path
+    assert_equal [ "What we collect", "Analytics", "Cookies", "Corrections", "Error reports", "Hosting", "Questions" ], css_select("section h2").map(&:text)
+    assert_select "section[aria-labelledby=counts] > p + ul li", 5
+    get disclaimer_path
+    assert_equal %w[Sources Accuracy Advice Endorsement Corrections], css_select("section h2").map(&:text)
+  end
+
+  test "text pages number what they cover and any steps, and link the companies they name" do
+    get privacy_path
+    assert_select "section[aria-labelledby=collect] ol li", 3
+    { "PostHog" => "https://posthog.com/privacy", "Sentry" => "https://sentry.io/privacy/",
+      "Render" => "https://render.com/privacy", "IP Geolocation by DB-IP" => "https://db-ip.com" }.each do |name, url|
+      assert_select "main a[href=?][rel=noopener]", url, text: name
+    end
+    assert_no_match(/utm_/, response.body)
+
+    get bot_path
+    assert_select "section[aria-labelledby=blocking] ol li", 2
   end
 
   test "the crawler page shows the user agent the crawler actually sends" do

@@ -6,7 +6,7 @@
 
 <main class="nd-page nd-page--narrow nd-prose">
   <h1 class="type-title-md">NuclearDirectoryBot</h1>
-  <p class="type-body">NuclearDirectoryBot is the crawler that keeps Nuclear Directory up to date. It reads public pages, such as regulator filings, company press releases and news reports, and looks for facts about the US nuclear industry.</p>
+  <p class="type-body"><strong>In short:</strong> NuclearDirectoryBot is the crawler that keeps Nuclear Directory up to date. It reads public pages, such as regulator filings, company press releases and news reports, for facts about the US nuclear industry. It follows robots.txt, and you can block it.</p>
 
   <section aria-labelledby="identity">
     <h2 id="identity" class="type-body-strong">How to recognize it</h2>
@@ -16,6 +16,7 @@
 
   <section aria-labelledby="behaviour">
     <h2 id="behaviour" class="type-body-strong">How it behaves</h2>
+    <p class="type-body">It follows each site's rules and keeps its visits light.</p>
     <ul class="type-body">
       <li>It checks every page against the site's robots.txt, including pages it's redirected to. It reads a site's robots.txt once per visit, not once per page.</li>
       <li>It waits <%= DataQuality::Fetcher::HOST_INTERVAL %> seconds between requests to the same site.</li>
@@ -26,7 +27,11 @@
 
   <section aria-labelledby="blocking">
     <h2 id="blocking" class="type-body-strong">How to block it</h2>
-    <p class="type-body">Add this to your robots.txt. It stops on its next visit.</p>
+    <p class="type-body">Two steps, and it stops on its next visit.</p>
+    <ol class="type-body">
+      <li>Open your site's robots.txt.</li>
+      <li>Add these two lines:</li>
+    </ol>
     <pre class="nd-code type-data">User-agent: <%= DataQuality::Fetcher::AGENT_TOKEN %>
 Disallow: /</pre>
   </section>

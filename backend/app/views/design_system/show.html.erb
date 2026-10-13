@@ -234,9 +234,13 @@
       <div class="border border-rule"><%= render "shared/site_footer" %></div>
       <div class="border border-rule nd-prose flex flex-col p-4">
         <h3 class="type-title-md">NuclearDirectoryBot</h3>
-        <p class="type-body">A short page reads as headed sections in a narrow column.</p>
+        <p class="type-body"><strong>In short:</strong> an optional one-line summary (VOICE.md, "Prose has structure").</p>
         <section class="flex flex-col gap-2">
           <h4 class="type-body-strong">How to block it</h4>
+          <p class="type-body">A topic heading, then a short lead sentence.</p>
+          <ul class="type-body">
+            <li>Then the details as a list, one fact per bullet.</li>
+          </ul>
           <pre class="nd-code type-data">User-agent: NuclearDirectoryBot
 Disallow: /</pre>
         </section>

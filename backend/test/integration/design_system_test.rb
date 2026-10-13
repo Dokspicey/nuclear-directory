@@ -9,6 +9,8 @@ class DesignSystemTest < ActionDispatch::IntegrationTest
       assert_select ".#{component}", { minimum: 1 }, "missing #{component}"
     end
     assert_select "svg.nd-ic", minimum: 20
+    # Text pages: summary, topic heading, lead, then a list (VOICE.md, #215).
+    assert_select ".nd-prose section h4 + p.type-body + ul"
     # The dated source chip uses the same markup as the shared partial (#90).
     assert_select ".nd-src .nd-src__checked", minimum: 1
   end

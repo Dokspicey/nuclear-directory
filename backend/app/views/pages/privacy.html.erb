@@ -6,34 +6,51 @@
 
 <main class="nd-page nd-page--narrow nd-prose">
   <h1 class="type-title-md">Privacy</h1>
-  <p class="type-body">Nuclear Directory doesn't ask who you are. There are no accounts and no advertising trackers.</p>
+  <p class="type-body"><strong>In short:</strong> Nuclear Directory has no accounts, no ads and no tracking cookies. We count visits to make the site better, using as little information as we can.</p>
 
-  <section aria-labelledby="cookie">
-    <h2 id="cookie" class="type-body-strong">One cookie</h2>
-    <p class="type-body">The site sets a single session cookie that protects its forms against forged submissions. It holds no information about you, isn't used to count or follow visits, and ends when you close your browser.</p>
+  <section aria-labelledby="collect">
+    <h2 id="collect" class="type-body-strong">What we collect</h2>
+    <ol class="type-body">
+      <li><strong>Analytics:</strong> which pages are viewed, what's searched, how long a page stays open, and clicks on things that don't respond.</li>
+      <li><strong>Corrections:</strong> what you send us when you report a mistake.</li>
+      <li><strong>Error reports:</strong> technical details when a page breaks.</li>
+    </ol>
+    <p class="type-body">We don't sell data or share it for advertising.</p>
   </section>
 
   <section aria-labelledby="counts">
     <h2 id="counts" class="type-body-strong">Analytics</h2>
-    <p class="type-body">We use PostHog to see how the site is used. It records page views, searches (their words and how many results they found), how long a page stays open, and dead clicks: clicks on something that doesn't respond, such as text that looks like a link, with the text of what was clicked. Page addresses are recorded without their query strings.</p>
-    <p class="type-body">PostHog runs in cookieless mode: nothing is stored in your browser, and one visit isn't linked to the next. There are no session recordings and no visitor accounts.</p>
-    <p class="type-body">We look up which country you're in from your IP address, on this site's server, and add only the country to the analytics data. To count unique visitors without cookies, PostHog also receives your IP address and browser with each request, and in cookieless mode it doesn't store the IP address. The country data is <a class="nd-link" href="https://db-ip.com">IP Geolocation by DB-IP</a>, used under the <a class="nd-link" href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a> license.</p>
+    <p class="type-body">We use <a class="nd-link" href="https://posthog.com/privacy" rel="noopener">PostHog</a> to understand how the site is used.</p>
+    <ul class="type-body">
+      <li>No cookies, and one visit isn't linked to the next.</li>
+      <li>Searches are recorded with their words and the number of results.</li>
+      <li>For a click on something that doesn't respond, we record the text that was clicked.</li>
+      <li>Page addresses are recorded without their query strings.</li>
+      <li>There are no session recordings.</li>
+    </ul>
+    <p class="type-body"><strong>Location.</strong> Our server works out which country you're in from your IP address, and adds only the country to the analytics. PostHog receives your IP address and browser with each request so it can count unique visitors without cookies. It doesn't store the IP address. Country data is <a class="nd-link" href="https://db-ip.com" rel="noopener">IP Geolocation by DB-IP</a>, used under the <a class="nd-link" href="https://creativecommons.org/licenses/by/4.0/" rel="noopener">CC BY 4.0</a> license.</p>
     <p class="type-body">PostHog's scripts, and the data they send, go through this site rather than straight to PostHog.</p>
+  </section>
+
+  <section aria-labelledby="cookie">
+    <h2 id="cookie" class="type-body-strong">Cookies</h2>
+    <p class="type-body">We set one cookie. It protects the site's forms against forged submissions, holds no personal information, and is deleted when you close your browser.</p>
   </section>
 
   <section aria-labelledby="corrections">
     <h2 id="corrections" class="type-body-strong">Corrections</h2>
-    <p class="type-body">When you report a correction, we keep what you type (your message and, if you add one, your email address) and the page it's about. We use your email only to reply about that correction. We don't store your IP address with it. To stop floods of reports, a scrambled form of your IP address is kept in the site's cache for ten minutes and then deleted.</p>
+    <p class="type-body">When you report a correction, we keep your message, the page it's about and, if you give one, your email address. We use your email only to reply about that correction.</p>
+    <p class="type-body">Your IP address isn't stored with it. To stop floods of reports, a scrambled form of it is kept for ten minutes, then deleted.</p>
   </section>
 
   <section aria-labelledby="errors">
     <h2 id="errors" class="type-body-strong">Error reports</h2>
-    <p class="type-body">When a page fails, an error report goes to Sentry with the page address and the error. It leaves out cookies, form contents, query strings and anything that identifies you.</p>
+    <p class="type-body">If a page breaks, <a class="nd-link" href="https://sentry.io/privacy/" rel="noopener">Sentry</a> receives the page address and the error. It never receives cookies, form contents, query strings or anything that identifies you.</p>
   </section>
 
   <section aria-labelledby="hosting">
     <h2 id="hosting" class="type-body-strong">Hosting</h2>
-    <p class="type-body">The site runs on Render. Like any web host, Render keeps standard server logs, which include IP addresses, for a limited time to run and secure the service. Fonts and scripts are served from this site, not from a third party.</p>
+    <p class="type-body">The site runs on <a class="nd-link" href="https://render.com/privacy" rel="noopener">Render</a>, and fonts and scripts are served from this site. Like any host, Render keeps server logs, which include IP addresses, for a limited time to run and secure the service.</p>
   </section>
 
   <section aria-labelledby="contact">
