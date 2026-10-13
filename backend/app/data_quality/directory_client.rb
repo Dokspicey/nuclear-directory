@@ -274,6 +274,12 @@ class DataQuality::DirectoryClient
     write_result(result)
   end
 
+  # A human removes one piece of evidence from a fact (see
+  # Directory::FactWriter#remove_evidence). Returns a WriteResult.
+  def remove_evidence(type:, id:, evidence_id:, source_id:, quote:, by:, reason:)
+    write_result(fact_writer.remove_evidence(type:, id:, evidence_id:, source_id:, quote:, by:, reason:))
+  end
+
   private
     # "X is also known as Y": the alias goes on its company, which must be
     # published already (approving an alias doesn't publish a company).

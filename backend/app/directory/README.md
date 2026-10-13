@@ -114,6 +114,18 @@ Each item: `source_id` (required), `quote`, `found_by` (`crawler`, `verifier`
 or `human`), `confidence` (0–1), `crawl_run_id`. Evidence is matched by source
 and quote, so writing the same item again updates it and never duplicates it.
 
+Evidence attached to the wrong fact (#226) is removed by a human, never by the pipeline:
+
+```ruby
+Directory::FactWriter.remove_evidence(type: "FacilityRelationship", id: 112, evidence_id: 1114,
+  source_id: 9, quote: "649,Vogtle,1,GA,…", by: "human:tosin",
+  reason: "Quote is about Vogtle, not Nine Mile Point 1 (#226)")
+```
+
+`source_id` and `quote` must match the row, so a wrong id can't remove the right evidence. The fact is locked first. A rejected or unpublished fact isn't changed, and a
+published or verified fact keeps at least one piece of evidence. The fact's audit trail
+gets an event with the reason and `changed_values: { "evidence" => ["<source url>: <quote>", nil] }`.
+
 ### Verification
 
 `verification: { status: "verified", by: "human:tosin", reason: "…", context: { … } }`.

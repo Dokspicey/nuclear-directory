@@ -217,7 +217,9 @@ class DataQuality::DirectoryClientTest < ActiveSupport::TestCase
       "FactWriter.write" => [ Directory::FactWriter.instance_method(:write), FakeDirectory::FactWriter.instance_method(:write) ],
       "FactWriter.while_open" => [ Directory::FactWriter.method(:while_open), FakeDirectory::FactWriter.instance_method(:while_open) ],
       "FactWriter.fill_site_from_unit" => [ Directory::FactWriter.instance_method(:fill_site_from_unit),
-        FakeDirectory::FactWriter.instance_method(:fill_site_from_unit) ]
+        FakeDirectory::FactWriter.instance_method(:fill_site_from_unit) ],
+      "FactWriter.remove_evidence" => [ Directory::FactWriter.instance_method(:remove_evidence),
+        FakeDirectory::FactWriter.instance_method(:remove_evidence) ]
     }.each do |name, (real, fake)|
       assert_equal real.parameters, fake.parameters, "the fake #{name} no longer matches the real one"
     end

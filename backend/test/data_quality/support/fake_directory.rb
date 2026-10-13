@@ -68,6 +68,14 @@ module FakeDirectory
       nil
     end
 
+    def remove_evidence(type:, id:, evidence_id:, source_id:, quote:, by:, reason:)
+      @writes << { remove_evidence: evidence_id, type:, id:, source_id:, quote:, by:, reason: }
+      kind = type.to_s.underscore.to_sym
+      return Directory::FactWriter::Result.new(kind:, id: nil, created: false, errors: [ @fail_with ]) if @fail_with
+
+      Directory::FactWriter::Result.new(kind:, id:, created: false, errors: [])
+    end
+
     # The fake directory has no sites to fill.
     def fill_site_from_unit(unit_id, fields:, evidence:) = nil
   end
