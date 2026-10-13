@@ -62,7 +62,9 @@ class DataQuality::Stages::Extract < DataQuality::Stage
       stats
     end
 
+    # A candidate a person reopened (#228) is kept with its reopenings.
     def stale(source)
       source.candidates.status_new.or(source.candidates.status_needs_review.where(review_origin: "extract"))
+        .where("candidates.reopenings = '[]'::jsonb")
     end
 end
