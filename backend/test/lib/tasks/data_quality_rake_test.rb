@@ -81,7 +81,7 @@ class DataQualityRakeTest < ActiveSupport::TestCase
     assert_output(/Candidate #{rejected.id}: reopened\nCandidate #{open.id}: it isn't rejected\nCandidate 0: not found\n/) do
       reopen(BY: "human:tosin", REASON: "rejected while the state was wrong", IDS: "#{rejected.id},#{open.id},0")
     end
-    assert_equal [ "new", "human:tosin" ], [ rejected.reload.status, rejected.reviewed_by ]
+    assert_equal [ "new", "human:tosin" ], [ rejected.reload.status, rejected.reopenings.sole["by"] ]
 
     assert_raises(SystemExit) { capture_io { reopen(BY: "human:tosin", IDS: rejected.id.to_s) } }
     assert_raises(SystemExit) { capture_io { reopen(BY: "tosin", REASON: "why", IDS: rejected.id.to_s) } }
