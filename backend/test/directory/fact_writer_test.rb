@@ -120,6 +120,41 @@ class Directory::FactWriterTest < ActiveSupport::TestCase
     assert_equal "Owned via subsidiary US SFR Owner.", FacilityRelationship.find(link.id).description
   end
 
+  # #226: a link candidate approved before its company or plant existed
+  # reached FactWriter with only relationship_type, and was written onto
+  # whichever "operates" link find_by returned, with its quote as evidence.
+  test "a plant link without both ends is refused and changes no other link" do
+    facility = write(:facility, { name: "Kemmerer Unit 1 (Natrium)" })
+    existing = write(:facility_relationship, { organization_id: organizations(:terrapower).id, facility_id: facility.id,
+      relationship_type: "operates" })
+    assert existing.ok?
+
+    [ {}, { organization_id: organizations(:terrapower).id }, { facility_id: facility.id } ].each do |ends|
+      result = write(:facility_relationship, ends.merge(relationship_type: "operates"), evidence: [ @evidence ],
+        verification: { status: "verified", by: "human:tosin" })
+
+      refute result.ok?, "wrote a link with ends #{ends.keys.inspect}"
+      assert_not_equal existing.id, result.id
+    end
+    assert_empty Evidence.where(subject_type: "FacilityRelationship", subject_id: existing.id, quote: @evidence[:quote])
+    assert FacilityRelationship.find(existing.id).pending?
+  end
+
+  test "a company link without both ends is refused and changes no other link" do
+    existing = write(:relationship, { from_organization_id: organizations(:westinghouse).id,
+      to_organization_id: organizations(:terrapower).id, relationship_type: "supplies" })
+    assert existing.ok?
+
+    [ {}, { from_organization_id: organizations(:westinghouse).id }, { to_organization_id: organizations(:terrapower).id } ].each do |ends|
+      result = write(:relationship, ends.merge(relationship_type: "supplies"), evidence: [ @evidence ],
+        verification: { status: "verified", by: "human:tosin" })
+
+      refute result.ok?, "wrote a link with ends #{ends.keys.inspect}"
+      assert_not_equal existing.id, result.id
+    end
+    assert_empty Evidence.where(subject_type: "Relationship", subject_id: existing.id, quote: @evidence[:quote])
+  end
+
   test "fill_blank sets only fields that are blank on an existing record" do
     site = facilities(:vogtle)
     site.update!(state: "GA")
