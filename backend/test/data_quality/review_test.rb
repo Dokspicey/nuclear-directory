@@ -248,6 +248,67 @@ class DataQuality::ReviewTest < ActiveSupport::TestCase
     assert_match "already rejected", Review.reject([ c.id ], by: BY).sole.errors.join
   end
 
+  test "reopening sends a rejected candidate back through match and verify, keeping who and why (#228)" do
+    unit = Facility.create!(name: "Salem 1", nrc_docket: "05000272", state: "NJ", verification_status: "verified", verified_by: BY)
+    c = Candidate.create!(source: @source, kind: "facility", quote: "row", status: "rejected", subject_type: "Facility", subject_id: unit.id,
+      payload: { "identify" => { "name" => "Salem", "state" => "NJ", "unit" => "1" }, "capacity_mw" => "1169.0" },
+      ai_recommendation: "recommend_publish", ai_confidence: 0.9, ai_reason: "old", reviewed_by: BY, reviewed_at: 1.hour.ago)
+
+    c.update!(notes: "Wrong state")
+
+    result = Review.reopen([ c.id ], by: "human:pat", reason: "rejected while the unit's state was wrong (#197)").sole
+
+    assert result.ok?
+    c.reload
+    assert_equal [ "new", nil, nil, nil ], [ c.status, c.subject_id, c.ai_recommendation, c.reviewed_by ]
+    assert_equal "Reopened: rejected while the unit's state was wrong (#197)", c.notes
+    assert_equal [ [ "human:pat", "rejected while the unit's state was wrong (#197)", BY, "Wrong state" ] ],
+      c.reopenings.map { |r| r.values_at("by", "reason", "rejected_by", "rejection") }
+    assert_match "isn't rejected", Review.reopen([ c.id ], by: BY, reason: "again").sole.errors.join
+    assert unit.reload.verified?, "the unit itself is untouched"
+  end
+
+  test "a candidate isn't reopened when its record was retired, even by another candidate's proposal" do
+    company = Organization.create!(name: "Imaginary Fission Co")
+    c = Candidate.create!(source: @source, kind: "organization", quote: "q", status: "rejected", proposed_subject: false,
+      subject_type: "Organization", subject_id: company.id, payload: { "name" => "Imaginary Fission Co" })
+    company.reject!(by: BY, reason: "Not a real company")
+
+    assert_match "decide that record first", Review.reopen([ c.id ], by: BY, reason: "why").sole.errors.join
+    assert c.reload.status_rejected?
+  end
+
+  test "who reopened a candidate, and why, survive match, verify and the next decision" do
+    c = candidate("organization", { "name" => "Imaginary Fission Co" })
+    run_stage("match")
+    # Matched to a company another candidate proposed, so rejecting it retires nothing.
+    c.reload.update!(proposed_subject: false)
+    Review.reject([ c.id ], by: BY, reason: "Wrong company")
+
+    reopened = Review.reopen([ c.id ], by: "human:pat", reason: "it was the right one").sole
+    assert reopened.ok?, reopened.errors.inspect
+    run_stage("match")
+    run_stage("verify", verifier: Recommend.new)
+    approved = Review.approve([ c.id ], by: BY).sole
+    assert approved.ok?, [ approved.errors, c.reload.attributes.slice("status", "notes", "ai_recommendation") ].inspect
+
+    c.reload
+    assert_equal [ "merged", BY ], [ c.status, c.reviewed_by ]
+    assert_equal [ [ "human:pat", "it was the right one", BY, "Wrong company" ] ],
+      c.reopenings.map { |r| r.values_at("by", "reason", "rejected_by", "rejection") }
+  end
+
+  test "a candidate whose rejection retired its proposal isn't reopened, and a reason is required" do
+    c = candidate("organization", { "name" => "Imaginary Fission Co" })
+    run_stage("match")
+    Review.reject([ c.id ], by: BY, reason: "Not a real company")
+
+    assert_match "decide that record first", Review.reopen([ c.id ], by: BY, reason: "changed my mind").sole.errors.join
+    assert c.reload.status_rejected?
+    assert_raises(ArgumentError) { Review.reopen([ c.id ], by: BY, reason: " ") }
+    assert_raises(ArgumentError) { Review.reopen([ c.id ], by: "agent:x", reason: "why") }
+  end
+
   test "only a human decides, and says who" do
     assert_raises(ArgumentError) { Review.approve([], by: "agent:verifier/x") }
     assert_raises(ArgumentError) { Review.reject([], by: "") }

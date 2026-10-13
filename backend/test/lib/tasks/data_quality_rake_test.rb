@@ -65,4 +65,27 @@ class DataQualityRakeTest < ActiveSupport::TestCase
     assert_match "isn't published (pending)", err
     assert_equal [ "DE", "pending" ], [ pending.reload.state, pending.verification_status ]
   end
+
+  def reopen(**env)
+    env.each { |key, value| ENV[key.to_s] = value }
+    Rake::Task["data_quality:reopen"].execute
+  ensure
+    env.each_key { |key| ENV.delete(key.to_s) }
+  end
+
+  test "reopen puts rejected candidates back, as the named person, and says which it couldn't (#228)" do
+    source = Source.create!(url: "https://www.eia.gov/test/reopen.xlsx", source_kind: "eia_generators", crawl_status: "ok")
+    rejected = Candidate.create!(source:, kind: "facility", quote: "row", status: "rejected", payload: { "identify" => { "name" => "Salem" } })
+    open = Candidate.create!(source:, kind: "facility", quote: "row", status: "needs_review", payload: { "identify" => { "name" => "Salem" } })
+
+    assert_output(/Candidate #{rejected.id}: reopened\nCandidate #{open.id}: it isn't rejected\nCandidate 0: not found\n.*data_quality:rerun\[eia_generators\]/) do
+      reopen(BY: "human:tosin", REASON: "rejected while the state was wrong", IDS: "#{rejected.id},#{open.id},0")
+    end
+    assert_equal [ "new", "human:tosin" ], [ rejected.reload.status, rejected.reopenings.sole["by"] ]
+    out, = capture_io { reopen(BY: "human:tosin", REASON: "again", IDS: "#{open.id},0") }
+    assert_no_match "Next:", out, "nothing reopened, nothing to rerun"
+
+    assert_raises(SystemExit) { capture_io { reopen(BY: "human:tosin", IDS: rejected.id.to_s) } }
+    assert_raises(SystemExit) { capture_io { reopen(BY: "tosin", REASON: "why", IDS: rejected.id.to_s) } }
+  end
 end
