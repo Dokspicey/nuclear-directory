@@ -64,6 +64,21 @@ namespace :data_quality do
     puts "#{unit.name} (#{unit.nrc_docket}): state #{directory.facility(id: unit.id).state}, recorded as #{by}"
   end
 
+  # #228: candidates rejected for a reason that no longer holds go back to
+  # the queue through the Review API, with who and why kept on each.
+  desc "Reopen rejected candidates, audited: BY=human:tosin REASON=\"…\" IDS=243,244 bin/rails data_quality:reopen"
+  task reopen: :environment do
+    by, reason = ENV["BY"].to_s, ENV["REASON"].to_s
+    ids = ENV["IDS"].to_s.split(",").map(&:strip)
+    abort "Usage: BY=human:<handle> REASON=\"why\" IDS=1,2 bin/rails data_quality:reopen" unless
+      by.match?(/\Ahuman:\S+\z/) && reason.present? && ids.any? && ids.all? { |id| id.match?(/\A\d+\z/) }
+
+    results = DataQuality::Review.reopen(ids.map(&:to_i), by:, reason:)
+    results.each { |result| puts "Candidate #{result.candidate_id}: #{result.ok? ? 'reopened' : result.errors.to_sentence}" }
+    (ids.map(&:to_i) - results.map(&:candidate_id)).each { |id| puts "Candidate #{id}: not found" }
+    puts "Next: bin/rails \"data_quality:stage[match,<source kind>]\", then verify, then review them in the admin."
+  end
+
   desc "Check the OpenRouter key works, without a model call: bin/rails data_quality:check_key"
   task check_key: :environment do
     key = DataQuality::OpenRouter::Client.new.check_key

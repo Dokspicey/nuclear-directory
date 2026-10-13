@@ -139,6 +139,31 @@ module DataQuality::Review
       result
     end
 
+    # Reopens rejected candidates (#228): each goes back to new, unattached
+    # and with no AI verdict, so the next match and verify runs decide it
+    # afresh and it comes back to the review queue. Who reopened it and why
+    # are kept on it. A candidate that proposed its record can't be reopened
+    # here: rejecting it retired that record.
+    def reopen(candidate_ids, by:, reason:)
+      human!(by)
+      raise ArgumentError, "say why it's reopened" if reason.blank?
+
+      Candidate.where(id: candidate_ids).order(:id).map do |candidate|
+        Candidate.transaction do
+          candidate.lock!
+          next Result.new(candidate_id: candidate.id, ref: nil, errors: [ "it isn't rejected" ]) unless candidate.status_rejected?
+          if candidate.proposed_subject
+            next Result.new(candidate_id: candidate.id, ref: nil, errors: [ "it proposed a record, which was retired with it" ])
+          end
+
+          candidate.update!(status: "new", subject_type: nil, subject_id: nil, review_origin: nil, notes: "Reopened: #{reason}",
+            reviewed_by: by, reviewed_at: Time.current, ai_recommendation: nil, ai_reason: nil, ai_confidence: nil,
+            ai_model: nil, ai_checked_at: nil, verify_run_id: nil, ai_source_sha256: nil)
+          Result.new(candidate_id: candidate.id, ref: nil, errors: [])
+        end
+      end
+    end
+
     # Rejects candidates. A record match created only for one of them (a
     # proposal) is rejected too, unless another live candidate is attached.
     def reject(candidate_ids, by:, reason: nil, directory: DataQuality::DirectoryClient.new)
