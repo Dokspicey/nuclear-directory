@@ -63,7 +63,8 @@ module Seed
       facilities = File.exist?(@facilities_file.to_s) ? Array(read(@facilities_file)["facilities"]) : []
       facilities.select { |entry| entry["eia_plant_id"].present? }.filter_map do |entry|
         holder = Facility.find_by(parent_id: nil, eia_plant_id: entry["eia_plant_id"].to_s)
-        next if holder.nil? || holder.name.casecmp?(entry["name"])
+        # The site the loader would write to, found as it finds it.
+        next if holder.nil? || holder.id == Directory::Lookup.facility(name: entry["name"])&.id
 
         "facilities.yml: #{entry['name'].inspect}'s EIA plant ID #{entry['eia_plant_id']} already belongs to " \
           "#{holder.name} (#{holder.slug}); merge it in first: bin/rails \"directory:merge_facility[#{holder.id},<site id>]\""
@@ -208,6 +209,7 @@ module Seed
           former = Directory::Lookup.organization(name:) or next
           target = Directory::Lookup.organization(slug:)
           next if target && former.id == target.id
+          next if former.verification_status == "unpublished" # merged on an earlier load
           next @errors << "#{slug}: can't merge #{name.inspect}: #{doc["name"].inspect} isn't loaded yet" unless target
 
           result = Directory::FactWriter.merge_organization(from_id: former.id, into_id: target.id, by: VERIFICATION[:by],

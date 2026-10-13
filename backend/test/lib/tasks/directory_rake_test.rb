@@ -56,5 +56,6 @@ class DirectoryRakeTest < ActiveSupport::TestCase
     assert eia.reload.verified?
     assert_output(/\AMerged TalenEnergy/) { merge(:merge_organization, eia.id, talen.id, BY: "human:tosin", APPLY: "1") }
     assert eia.reload.unpublished?
+    assert_raises(SystemExit) { capture_io { merge(:merge_organization, eia.id, talen.id, BY: "human:tosin", APPLY: "1") } }
   end
 end

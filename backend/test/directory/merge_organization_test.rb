@@ -102,4 +102,10 @@ class Directory::MergeOrganizationTest < ActiveSupport::TestCase
     assert_match "merge into a live organization", merge.errors.join
     assert @from.reload.pending?, "nothing changed"
   end
+
+  test "a company already merged away isn't merged again (#229)" do
+    assert merge.ok?
+
+    assert_match "already unpublished", merge.errors.join
+  end
 end

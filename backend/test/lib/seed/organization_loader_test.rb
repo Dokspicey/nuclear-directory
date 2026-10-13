@@ -189,6 +189,15 @@ class Seed::OrganizationLoaderTest < ActiveSupport::TestCase
       Seed::OrganizationLoader.new(@dir, facilities: facilities_file).collisions.map { |line| line.sub(/: bin.*/, "") }
   end
 
+  test "the dry run compares the site the loader writes to, not names: a same-named other site still collides" do
+    write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com", facilities: [ item(name: "Acme Plant", type: "owns") ]))
+    File.write(facilities_file, { "facilities" => [ { "name" => "Acme Plant", "eia_plant_id" => "649" } ] }.to_yaml)
+    Facility.create!(name: "Acme Plant")
+    Facility.create!(name: "Acme Plant", eia_plant_id: "649") # a later, same-named site the loader won't write to
+
+    assert_equal 1, Seed::OrganizationLoader.new(@dir, facilities: facilities_file).collisions.size
+  end
+
   test "a former name that was an unquoted legal name is dropped from the aliases on a rerun" do
     Directory::FactWriter.write(:organization, { name: "Acme Fuel Holdings, Inc.", slug: "acme-fuel" })
     write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com", legal_name: "Acme Fuel Holdings, Inc.",

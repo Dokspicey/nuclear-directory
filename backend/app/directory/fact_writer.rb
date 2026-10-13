@@ -110,6 +110,7 @@ module Directory
         from = records[from_id] or raise Invalid, "no organization with id #{from_id}"
         into = records[into_id] or raise Invalid, "no organization with id #{into_id}"
         raise Invalid, "#{into.name} is #{into.verification_status}; merge into a live organization" if into.closed?
+        raise Invalid, "#{from.name} is already #{from.verification_status}" if from.closed?
 
         from.aliases.each do |row|
           if into.aliases.exists?(normalized_alias: row.normalized_alias) then row.destroy!
