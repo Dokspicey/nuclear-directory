@@ -49,9 +49,10 @@ class Directory::RemoveEvidenceTest < ActiveSupport::TestCase
 
   test "only a human removes evidence, with a reason" do
     agent = remove_from("FacilityRelationship", @link.id, @wrong, by: "agent:verifier/x")
+    nameless = [ "human:", "human: tosin", "human:to sin" ].map { |by| remove_from("FacilityRelationship", @link.id, @wrong, by:) }
     no_reason = remove(reason: " ")
 
-    assert_match "a human's decision", agent.errors.join
+    [ agent, *nameless ].each { |result| assert_match "a human's decision", result.errors.join }
     assert_match "needs a reason", no_reason.errors.join
     assert_equal 2, @link.evidence.count
   end

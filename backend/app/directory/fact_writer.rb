@@ -169,7 +169,7 @@ module Directory
     # source_id: and quote: must be the row's, so a wrong id can't remove
     # the right evidence.
     def remove_evidence(type:, id:, evidence_id:, source_id:, quote:, by:, reason:)
-      raise Invalid, "removing evidence is a human's decision (by: \"human:…\")" unless by.to_s.start_with?("human:")
+      raise Invalid, "removing evidence is a human's decision (by: \"human:…\")" unless by.to_s.match?(/\Ahuman:\S+\z/)
       raise Invalid, "removing evidence needs a reason" if reason.blank?
       raise Invalid, "not a fact type: #{type.inspect}" unless Lookup::FACT_TYPES.include?(type.to_s)
 
