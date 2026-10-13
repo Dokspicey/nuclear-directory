@@ -58,6 +58,21 @@ class Directory::MergeOrganizationTest < ActiveSupport::TestCase
     assert_equal [ @from.id, @into.id ], [ itself.from_organization_id, itself.to_organization_id ]
   end
 
+  test "a link someone took down stays with the merged company (#229)" do
+    # TalenEnergy operates Susquehanna, from EIA, unpublished by #227's task before the merge.
+    operates = @from.facility_relationships.create!(facility: @plant, relationship_type: "operates",
+      verification_status: "verified", verified_by: BY)
+    operates.unpublish!(by: BY, reason: "EIA's Entity Name isn't the operator (#227)")
+    deal = Relationship.create!(from_organization: @other, to_organization: @from, relationship_type: "supplies")
+    deal.reject!(by: BY, reason: "no source")
+
+    assert merge.ok?
+
+    assert_equal [ @from.id, "unpublished" ], [ operates.reload.organization_id, operates.verification_status ]
+    assert_equal [ @from.id, "rejected" ], [ deal.reload.to_organization_id, deal.verification_status ]
+    assert_empty @into.facility_relationships
+  end
+
   test "the merged company is unpublished, saying where it went and what moved" do
     @from.organization_roles.create!(role: @role)
 

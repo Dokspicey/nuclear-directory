@@ -97,7 +97,8 @@ module Directory
     # has none, roles, technologies, plant links, company links, evidence and
     # the candidates attached to it. A fact into already has (or a link that
     # would point at itself, such as "Urenco USA subsidiary of Urenco") stays
-    # on from and is rejected. Then from is unpublished, and the audit reason
+    # on from and is rejected, and a closed fact stays where it was decided
+    # (#229). Then from is unpublished, and the audit reason
     # says where it went and what moved. Returns a Result for into.
     def merge_organization(from_id:, into_id:, by:, reason: nil)
       raise Invalid, "a merge is a human's decision (by: \"human:…\")" unless by.to_s.start_with?("human:")
@@ -123,6 +124,8 @@ module Directory
         { organization_roles: :role_id, organization_technologies: :technology_id,
           facility_relationships: %i[facility_id relationship_type] }.each do |table, key|
           from.public_send(table).each do |row|
+            next if row.closed? # rejected or taken down: it stays where it was decided (#229)
+
             same = into.public_send(table).where(Array(key).index_with { |column| row.public_send(column) })
             next retired << row if same.exists?
 
@@ -130,7 +133,9 @@ module Directory
           end
         end
         Relationship.where(from_organization_id: from.id).or(Relationship.where(to_organization_id: from.id)).each do |row|
-          ends = { from_organization_id: row.from_organization_id, to_organization_id: row.to_organization_id }
+          next if row.closed?
+
+          ends ={ from_organization_id: row.from_organization_id, to_organization_id: row.to_organization_id }
             .transform_values { |id| id == from.id ? into.id : id }
           duplicate = Relationship.where(**ends, relationship_type: row.relationship_type).where.not(id: row.id).exists?
           next retired << row if ends.values.uniq.size == 1 || duplicate
