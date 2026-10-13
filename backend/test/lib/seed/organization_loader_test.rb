@@ -198,6 +198,24 @@ class Seed::OrganizationLoaderTest < ActiveSupport::TestCase
     assert_equal 1, Seed::OrganizationLoader.new(@dir, facilities: facilities_file).collisions.size
   end
 
+  test "a site still under a former name that holds the plant ID is the loader's own target, not a collision" do
+    write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com", facilities: [ item(name: "Acme Plant", type: "owns") ]))
+    File.write(facilities_file, { "facilities" => [
+      { "name" => "Acme Plant", "other_names" => [ "Acme Plant (Oak Ridge, TN)" ], "eia_plant_id" => "649" } ] }.to_yaml)
+    Facility.create!(name: "Acme Plant (Oak Ridge, TN)", eia_plant_id: "649")
+
+    assert_empty Seed::OrganizationLoader.new(@dir, facilities: facilities_file).collisions
+  end
+
+  test "the collision message names the site to merge into" do
+    write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com", facilities: [ item(name: "Acme Plant", type: "owns") ]))
+    File.write(facilities_file, { "facilities" => [ { "name" => "Acme Plant", "eia_plant_id" => "649" } ] }.to_yaml)
+    kept = Facility.create!(name: "Acme Plant")
+    duplicate = Facility.create!(name: "Acme", eia_plant_id: "649")
+
+    assert_match "directory:merge_facility[#{duplicate.id},#{kept.id}]", Seed::OrganizationLoader.new(@dir, facilities: facilities_file).collisions.sole
+  end
+
   test "a former name that was an unquoted legal name is dropped from the aliases on a rerun" do
     Directory::FactWriter.write(:organization, { name: "Acme Fuel Holdings, Inc.", slug: "acme-fuel" })
     write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com", legal_name: "Acme Fuel Holdings, Inc.",

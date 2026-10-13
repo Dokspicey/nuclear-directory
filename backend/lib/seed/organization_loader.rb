@@ -62,12 +62,14 @@ module Seed
     def plant_id_collisions
       facilities = File.exist?(@facilities_file.to_s) ? Array(read(@facilities_file)["facilities"]) : []
       facilities.select { |entry| entry["eia_plant_id"].present? }.filter_map do |entry|
-        holder = Facility.find_by(parent_id: nil, eia_plant_id: entry["eia_plant_id"].to_s)
-        # The site the loader would write to, found as it finds it.
-        next if holder.nil? || holder.id == Directory::Lookup.facility(name: entry["name"])&.id
+        holder = Facility.find_by(parent_id: nil, eia_plant_id: entry["eia_plant_id"].to_s) or next
+        # The site the loader would write to, found as it finds it: by its
+        # name, then by a former one (rename_from_former_name).
+        target = [ entry["name"], *entry["other_names"] ].compact_blank.lazy.filter_map { |name| Directory::Lookup.facility(name:) }.first
+        next if holder.id == target&.id
 
         "facilities.yml: #{entry['name'].inspect}'s EIA plant ID #{entry['eia_plant_id']} already belongs to " \
-          "#{holder.name} (#{holder.slug}); merge it in first: bin/rails \"directory:merge_facility[#{holder.id},<site id>]\""
+          "#{holder.name} (#{holder.slug}); merge it in first: bin/rails \"directory:merge_facility[#{holder.id},#{target&.id || '<site id>'}]\""
       end
     end
 
