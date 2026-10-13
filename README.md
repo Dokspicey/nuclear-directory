@@ -273,7 +273,8 @@ leaves the current one alone; check it, then point the web service's
 wrong bulk edit.
 
 **Daily encrypted copy, off Render.** The `nuclear-directory-backup` cron
-job (`backup/`) runs every day at 09:00 UTC, two hours after the daily crawl.
+job (`backup/`) runs every day at 09:00 UTC, one to two hours after the daily
+crawl (3 a.m. New York time).
 It dumps the database with
 `pg_dump`, encrypts the dump with [age](https://age-encryption.org) and
 uploads it as a release to the private repo

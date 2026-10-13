@@ -138,7 +138,7 @@ services:
   - type: cron
     name: nuclear-directory-backup
     runtime: docker
-    # Billed per second of run time (a minute or so a week), $1/month minimum.
+    # Billed per second of run time (about a minute a day), $1/month minimum.
     plan: 0.5c-512mb
     region: oregon
     branch: main
@@ -148,8 +148,9 @@ services:
     buildFilter:
       paths:
         - backup/**
-    # Every day at 09:00 UTC (1–2 a.m. in California), two hours after the
-    # 07:00 UTC daily crawl, so each backup includes that day's crawl.
+    # Every day at 09:00 UTC (1–2 a.m. in California). The daily crawl runs at
+    # 3 a.m. New York time (07:00 UTC in summer, 08:00 UTC in winter), so each
+    # backup comes one to two hours after it and includes that day's crawl.
     schedule: "0 9 * * *"
     envVars:
       - key: DATABASE_URL
