@@ -26,8 +26,8 @@ rest='[
   {"id":9,"tag_name":"backup-2026-10-25T1000Z","draft":true, "created_at":"2026-10-10T16:24:59Z"},
   {"id":3,"tag_name":"backup-2026-10-13T0240Z","draft":false,"created_at":"2026-10-10T16:24:59Z"},
   {"id":7,"tag_name":"v1","draft":false,"created_at":"2026-10-10T16:24:59Z"}]'
-check "keep 2: prune the two oldest backups only" \
-  "$(jq -r --argjson keep 2 -f backup/prune_backups.jq <<< "$rest" | tr '\n' ' ')" "2 backup-2026-10-11T1000Z 1 backup-2026-10-10T1751Z "
+check "keep 2: prune the two oldest backups only, oldest first" \
+  "$(jq -r --argjson keep 2 -f backup/prune_backups.jq <<< "$rest" | tr '\n' ' ')" "1 backup-2026-10-10T1751Z 2 backup-2026-10-11T1000Z "
 check "keep 12: prune nothing" "$(jq -r --argjson keep 12 -f backup/prune_backups.jq <<< "$rest")" ""
 
 exit $fail
