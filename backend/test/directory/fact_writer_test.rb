@@ -120,6 +120,41 @@ class Directory::FactWriterTest < ActiveSupport::TestCase
     assert_equal "Owned via subsidiary US SFR Owner.", FacilityRelationship.find(link.id).description
   end
 
+  # #226: a link candidate approved before its company or plant existed
+  # reached FactWriter with only relationship_type, and was written onto
+  # whichever "operates" link find_by returned, with its quote as evidence.
+  test "a plant link without both ends is refused and changes no other link" do
+    facility = write(:facility, { name: "Kemmerer Unit 1 (Natrium)" })
+    existing = write(:facility_relationship, { organization_id: organizations(:terrapower).id, facility_id: facility.id,
+      relationship_type: "operates" })
+    assert existing.ok?
+
+    [ {}, { organization_id: organizations(:terrapower).id }, { facility_id: facility.id } ].each do |ends|
+      result = write(:facility_relationship, ends.merge(relationship_type: "operates"), evidence: [ @evidence ],
+        verification: { status: "verified", by: "human:tosin" })
+
+      refute result.ok?, "wrote a link with ends #{ends.keys.inspect}"
+      assert_not_equal existing.id, result.id
+    end
+    assert_empty Evidence.where(subject_type: "FacilityRelationship", subject_id: existing.id, quote: @evidence[:quote])
+    assert FacilityRelationship.find(existing.id).pending?
+  end
+
+  test "a company link without both ends is refused and changes no other link" do
+    existing = write(:relationship, { from_organization_id: organizations(:westinghouse).id,
+      to_organization_id: organizations(:terrapower).id, relationship_type: "supplies" })
+    assert existing.ok?
+
+    [ {}, { from_organization_id: organizations(:westinghouse).id }, { to_organization_id: organizations(:terrapower).id } ].each do |ends|
+      result = write(:relationship, ends.merge(relationship_type: "supplies"), evidence: [ @evidence ],
+        verification: { status: "verified", by: "human:tosin" })
+
+      refute result.ok?, "wrote a link with ends #{ends.keys.inspect}"
+      assert_not_equal existing.id, result.id
+    end
+    assert_empty Evidence.where(subject_type: "Relationship", subject_id: existing.id, quote: @evidence[:quote])
+  end
+
   test "fill_blank sets only fields that are blank on an existing record" do
     site = facilities(:vogtle)
     site.update!(state: "GA")
@@ -263,5 +298,50 @@ class Directory::FactWriterTest < ActiveSupport::TestCase
       write(:organization_role, { organization_id: organizations(:terrapower).id, role: "reactor_vendor" },
         evidence: [ @evidence.merge(source_id: nil) ])
     end
+  end
+
+  test "a new link without both ends is refused, never matched to another link of the same type" do
+    other = FacilityRelationship.create!(organization: organizations(:westinghouse), facility: facilities(:vogtle),
+      relationship_type: "operates", verification_status: "verified", verified_by: "human:tosin")
+
+    [
+      [ :facility_relationship, { relationship_type: "operates" } ],
+      [ :facility_relationship, { relationship_type: "operates", organization_id: organizations(:terrapower).id } ],
+      [ :relationship, { relationship_type: "supplies", from_organization_id: organizations(:terrapower).id } ],
+      [ :organization_role, { role: "reactor_vendor" } ],
+      [ :organization_technology, { technology: "pwr" } ]
+    ].each do |kind, attributes|
+      result = write(kind, attributes, evidence: [ @evidence ], verification: { status: "verified", by: "human:tosin" })
+
+      assert_not result.ok?, kind
+      assert_match "needs both ends; missing", result.errors.join, kind
+    end
+    assert_empty other.reload.evidence, "the existing link got no quote"
+  end
+
+  test "a new link with both ends but no type is refused, never matched to another link between them" do
+    westinghouse, vogtle = organizations(:westinghouse), facilities(:vogtle)
+    other = FacilityRelationship.create!(organization: westinghouse, facility: vogtle, relationship_type: "operates")
+    supplies = Relationship.create!(from_organization: westinghouse, to_organization: organizations(:terrapower), relationship_type: "supplies")
+
+    [
+      [ :facility_relationship, { organization_id: westinghouse.id, facility_id: vogtle.id } ],
+      [ :relationship, { from_organization_id: westinghouse.id, to_organization_id: organizations(:terrapower).id, relationship_type: "" } ]
+    ].each do |kind, attributes|
+      result = write(kind, attributes, evidence: [ @evidence ])
+
+      assert_not result.ok?, kind
+      assert_match "needs a relationship type", result.errors.join, kind
+    end
+    assert_empty other.reload.evidence
+    assert_empty supplies.reload.evidence
+  end
+
+  test "a link written by id or with both ends still works" do
+    link = write(:facility_relationship, { relationship_type: "operates", organization_id: organizations(:terrapower).id,
+      facility_id: facilities(:vogtle).id }, evidence: [ @evidence ])
+    assert link.ok?
+
+    assert write(:facility_relationship, { id: link.id, description: "Runs it." }).ok?
   end
 end
