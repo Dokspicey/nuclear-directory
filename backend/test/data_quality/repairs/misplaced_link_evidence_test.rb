@@ -34,6 +34,13 @@ class DataQuality::Repairs::MisplacedLinkEvidenceTest < ActiveSupport::TestCase
     assert @candidate.reload.status_merged?
   end
 
+  test "a dry run checks the evidence too, so a wrong evidence id is reported then, not at apply" do
+    outcome = run_repair([ [ @candidate.id, @own.id, @link.id ] ], dry_run: true).sole
+
+    assert_equal :skipped, outcome.status
+    assert_match "isn't the source and quote given", outcome.message
+  end
+
   test "removes the evidence from the link and reopens the candidate as new" do
     outcome = run_repair.sole
 

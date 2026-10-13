@@ -10,7 +10,8 @@
 # that link, the link's plant isn't the candidate's plant, and the evidence
 # has the candidate's source and quote. Each item is its own transaction, and
 # an item already repaired is reported, not repeated, so a re-run is safe.
-# dry_run (the default) checks everything and changes nothing.
+# dry_run (the default) runs every check, the removal included, then rolls
+# it back, so it changes nothing.
 class DataQuality::Repairs::MisplacedLinkEvidence
   # From the 12 Oct 2026 production audit: [candidate id, evidence id, link id].
   ISSUE_226 = [
@@ -41,7 +42,7 @@ class DataQuality::Repairs::MisplacedLinkEvidence
   private
     def repair(candidate_id, evidence_id, link_id)
       outcome = nil
-      Candidate.transaction do
+      Candidate.transaction(requires_new: true) do
         candidate = Candidate.find_by(id: candidate_id) or next outcome = skipped(candidate_id, "no such candidate")
         # Locked in Review's order (source, then candidate), then the link inside FactWriter.
         ::Source.lock.find(candidate.source_id)
@@ -50,13 +51,16 @@ class DataQuality::Repairs::MisplacedLinkEvidence
 
         problem = mismatch(candidate, link_id) and next outcome = skipped(candidate_id, problem)
         claim = "#{candidate.payload.dig('organization', 'name')} operates #{candidate.payload.dig('facility', 'name')}"
-        next outcome = Outcome.new(candidate_id:, status: :would_repair, message: "#{claim}: off link #{link_id}") if @dry_run
-
         removed = @directory.remove_evidence(type: LINK, id: link_id, evidence_id:, source_id: candidate.source_id,
           quote: candidate.quote, by: @by, reason: "Evidence for \"#{claim}\" (candidate #{candidate.id}) was attached " \
           "to this link by mistake; removed (#226)")
         unless removed.success?
           outcome = skipped(candidate_id, removed.errors.join("; "))
+          raise ActiveRecord::Rollback
+        end
+        # A dry run makes the removal (so every check runs) and undoes it.
+        if @dry_run
+          outcome = Outcome.new(candidate_id:, status: :would_repair, message: "#{claim}: evidence #{evidence_id} off link #{link_id}")
           raise ActiveRecord::Rollback
         end
 

@@ -123,7 +123,7 @@ Directory::FactWriter.remove_evidence(type: "FacilityRelationship", id: 112, evi
 ```
 
 `source_id` and `quote` must match the row, so a wrong id can't remove the right evidence. The fact is locked first. A rejected or unpublished fact isn't changed, and a
-published fact keeps at least one piece of evidence. The fact's audit trail
+published or verified fact keeps at least one piece of evidence. The fact's audit trail
 gets an event with the reason and `changed_values: { "evidence" => ["<source url>: <quote>", nil] }`.
 
 ### Verification

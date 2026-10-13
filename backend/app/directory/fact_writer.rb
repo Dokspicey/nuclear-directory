@@ -163,8 +163,8 @@ module Directory
     # Removes one piece of evidence from a fact, e.g. a quote attached to the
     # wrong link (#226): a human's correction, so by: must start with "human:"
     # and a reason is required. The fact is locked first, like any write, and
-    # a rejected or unpublished fact isn't changed. A published fact keeps at
-    # least one piece of evidence. The fact's history records what was
+    # a rejected or unpublished fact isn't changed. A published or verified
+    # fact keeps at least one piece of evidence. The fact's history records what was
     # removed (changed_values "evidence" => ["<source url>: <quote>", nil]).
     # source_id: and quote: must be the row's, so a wrong id can't remove
     # the right evidence.
@@ -184,8 +184,11 @@ module Directory
         unless row.source_id == source_id.to_i && row.quote.to_s == quote.to_s
           raise Invalid, "evidence #{evidence_id} on #{name} isn't the source and quote given; not removed"
         end
-        if record.verified? && !Evidence.where(subject: record).where.not(id: row.id).exists?
-          raise Invalid, "#{name} is published and this is its only evidence; not removed"
+        # Public now (a pending site shows through a verified unit), or verified
+        # and hidden only by its parent: either way it must stay sourced.
+        public_or_verified = record.verified? || Lookup.published?(type: type.to_s, id:)
+        if public_or_verified && !Evidence.where(subject: record).where.not(id: row.id).exists?
+          raise Invalid, "#{name} is published or verified and this is its only evidence; not removed"
         end
 
         removed = [ row.source.url, row.quote ].compact_blank.join(": ")

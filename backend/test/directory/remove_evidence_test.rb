@@ -74,6 +74,19 @@ class Directory::RemoveEvidenceTest < ActiveSupport::TestCase
     assert Evidence.exists?(@right.id)
   end
 
+  test "a pending site that is public through a verified unit keeps its last evidence" do
+    site = Facility.create!(name: "Acme Site")
+    Facility.create!(name: "Acme 1", parent: site, nrc_docket: "05099999").verify!(by: BY)
+    only = Evidence.create!(subject: site, source: sources(:nrc), quote: "Acme Site", found_by: "crawler")
+    assert site.reload.pending?
+
+    result = remove_from("Facility", site.id, only)
+
+    refute result.ok?
+    assert_match "only evidence", result.errors.join
+    assert Evidence.exists?(only.id)
+  end
+
   test "a pending fact can lose its last evidence" do
     link = FacilityRelationship.create!(organization: organizations(:terrapower), facility: facilities(:vogtle),
       relationship_type: "owns")
