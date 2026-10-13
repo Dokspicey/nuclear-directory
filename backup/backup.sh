@@ -89,8 +89,7 @@ echo "Uploaded to ${BACKUP_REPO} release ${tag}"
 
 # Prune: keep the newest $keep published backups, delete the rest and their tags.
 api "${releases}?per_page=100" \
-  | jq -r --argjson keep "$keep" \
-      '[.[] | select((.draft | not) and (.tag_name | startswith("backup-")))] | sort_by(.created_at) | reverse | .[$keep:][] | "\(.id) \(.tag_name)"' \
+  | jq -r --argjson keep "$keep" -f /usr/local/share/backup/prune_backups.jq \
   | while read -r id old_tag; do
       api -X DELETE "${releases}/${id}" > /dev/null
       api -X DELETE "https://api.github.com/repos/${BACKUP_REPO}/git/refs/tags/${old_tag}" > /dev/null

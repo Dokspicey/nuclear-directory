@@ -10,6 +10,7 @@ RUN apt-get update -qq && \
 
 COPY backup.sh /usr/local/bin/backup
 COPY restore.sh /usr/local/bin/restore
+COPY prune_backups.jq /usr/local/share/backup/prune_backups.jq
 
 USER postgres
 ENTRYPOINT []
