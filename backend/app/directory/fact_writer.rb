@@ -135,7 +135,7 @@ module Directory
         Relationship.where(from_organization_id: from.id).or(Relationship.where(to_organization_id: from.id)).each do |row|
           next if row.closed?
 
-          ends ={ from_organization_id: row.from_organization_id, to_organization_id: row.to_organization_id }
+          ends = { from_organization_id: row.from_organization_id, to_organization_id: row.to_organization_id }
             .transform_values { |id| id == from.id ? into.id : id }
           duplicate = Relationship.where(**ends, relationship_type: row.relationship_type).where.not(id: row.id).exists?
           next retired << row if ends.values.uniq.size == 1 || duplicate
@@ -175,7 +175,9 @@ module Directory
     # units, its aliases and its name as an alias, its company links,
     # evidence and the candidates attached to it. A link into already has
     # stays on from and is rejected, and a closed link stays where it was
-    # decided; values into already has are kept. Then
+    # decided; values into already has are kept, and filled ones are on
+    # into's history. Two sites with different EIA plant IDs are two plants
+    # and aren't merged. Then
     # from is unpublished with where it went and what moved, and its address
     # leads to into (#143). Sites only: a unit is merged by moving it.
     def merge_facility(from_id:, into_id:, by:, reason: nil)
@@ -190,18 +192,34 @@ module Directory
         raise Invalid, "#{into.name} is #{into.verification_status}; merge into a live plant" if into.closed?
         raise Invalid, "#{from.name} is already #{from.verification_status}" if from.closed?
         [ from, into ].each { |site| raise Invalid, "#{site.name} is a unit; only sites are merged" if site.parent_id }
+        if from.eia_plant_id.present? && into.eia_plant_id.present? && from.eia_plant_id != into.eia_plant_id
+          raise Invalid, "#{from.name} is EIA plant #{from.eia_plant_id} and #{into.name} is #{into.eia_plant_id}: two plants, not one"
+        end
 
+        note = "Merged into #{into.name} (##{into.id})"
         filled = SITE_FIELDS.select { |name| into.public_send(name).blank? && from.public_send(name).present? }
         values = filled.index_with { |name| from.public_send(name) }
         from.update_columns(eia_plant_id: nil) if values.key?(:eia_plant_id)
-        into.update!(values) if filled.any?
+        if filled.any?
+          into.update!(values)
+          # On into's own history too, with where the values came from.
+          into.verification_reason = "#{from.name} (##{from.id}) merged in: its #{filled.join(', ')}"
+          into.audited_changes = values.transform_keys(&:to_s).transform_values { |value| [ nil, value ] }
+          into.log_verification_event(from_status: into.verification_status, by:)
+        end
 
         moved["units"] = from.children.update_all(parent_id: into.id, updated_at: Time.current)
+        # Names as #89 has them: locked, and never another facility's name.
+        # from's own name is the one exception: from is unpublished, and its
+        # name now leads to into.
         names = [ *from.aliases.map(&:alias), from.name ]
+        lock_facility_names(names)
+        others = Facility.where.not(id: [ from.id, into.id ]).pluck(:name).map { |other| FacilityAlias.normalize(other) }.to_set
         from.aliases.destroy_all
         names.each do |name|
           normalized = FacilityAlias.normalize(name)
           next if normalized == FacilityAlias.normalize(into.name) || FacilityAlias.exists?(normalized_alias: normalized)
+          next if others.include?(normalized)
 
           into.aliases.create!(alias: name) && moved["aliases"] += 1
         end
@@ -218,7 +236,6 @@ module Directory
         end
         moved["candidates"] = Candidate.where(subject_type: "Facility", subject_id: from.id).update_all(subject_id: into.id)
 
-        note = "Merged into #{into.name} (##{into.id})"
         retired.each { |row| row.reject!(by:, reason: "#{note}; #{into.name} already has this link") unless row.closed? }
         summary = moved.select { |_, count| count.positive? }.map { |what, count| "#{count} #{what.tr('_', ' ')}" }
         summary << filled.join(", ") if filled.any?
@@ -226,6 +243,9 @@ module Directory
         FormerSlug.where(sluggable: from).find_each { |former| into.remember_slug(former.slug) }
         into.remember_slug(from.slug)
         into.recompute_confidence!
+        # Units and links moved without saving into: its public snapshot
+        # expires on commit all the same (Verifiable).
+        into.touch
       end
       Result.new(kind: :facility, id: into_id, created: false, errors: [])
     rescue Invalid, ActiveRecord::RecordInvalid => error

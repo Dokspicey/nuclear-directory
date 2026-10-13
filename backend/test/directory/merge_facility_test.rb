@@ -58,6 +58,44 @@ class Directory::MergeFacilityTest < ActiveSupport::TestCase
     assert_equal [ @from.id, "unpublished" ], [ eia_operator.reload.facility_id, eia_operator.verification_status ]
   end
 
+  test "into's own history says which values came from the merged site" do
+    assert merge.ok?
+
+    event = @into.verification_events.order(:id).last
+    assert_equal "Vogtle (##{@from.id}) merged in: its eia_plant_id, status, latitude, longitude", event.reason
+    assert_equal [ nil, "649" ], event.changed_values["eia_plant_id"]
+    assert_equal BY, event.by
+  end
+
+  test "an alias that's another plant's name isn't added (#89); from's own name is" do
+    Facility.create!(name: "Vogtle Electric Generating Plant")
+    @from.aliases.create!(alias: "Vogtle Electric Generating Plant!")
+    @from.aliases.create!(alias: "VEGP")
+
+    assert merge.ok?
+
+    assert_equal [ "plant vogtle units 3 and 4", "vegp", "vogtle" ], @into.aliases.pluck(:normalized_alias).sort
+  end
+
+  test "two sites with different EIA plant IDs are two plants, and aren't merged" do
+    @into.update!(eia_plant_id: "2410")
+
+    result = merge
+
+    assert_match "two plants, not one", result.errors.join
+    assert_equal [ "649", "verified" ], [ @from.reload.eia_plant_id, @from.verification_status ]
+  end
+
+  test "into's public snapshot expires even when nothing about it was filled" do
+    @from.update_columns(eia_plant_id: nil, status: nil, latitude: nil, longitude: nil)
+    before = @into.updated_at
+    travel 1.minute
+
+    assert merge.ok?
+
+    assert_operator @into.reload.updated_at, :>, before
+  end
+
   test "evidence into already has isn't copied" do
     Evidence.create!(subject: @into, source: sources(:press_release), quote: "Vogtle, Waynesboro", found_by: "crawler")
     Evidence.create!(subject: @from, source: sources(:press_release), quote: "Vogtle, Waynesboro", found_by: "crawler")
