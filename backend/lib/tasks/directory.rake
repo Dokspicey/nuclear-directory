@@ -41,8 +41,10 @@ namespace :directory do
     found = links.map do |link|
       site = link.facility.parent || link.facility
       plant = [ site.id, *Facility.where(parent_id: site.id).ids ]
-      # Only a published operator that NRC's list backs counts against EIA's.
+      # Only a current, published operator that NRC's list backs counts
+      # against EIA's (an ended one isn't shown as current, PlantProfile#links).
       operators = FacilityRelationship.published.where(relationship_type: "operates", facility_id: plant, id: backed_by["nrc_reactor_list"])
+        .where("facility_relationships.ended_on IS NULL OR facility_relationships.ended_on > ?", Date.current)
         .where.not(id: link.id).where.not(organization_id: link.organization_id).includes(:organization).map { |o| o.organization.name }.uniq
       line = "FacilityRelationship #{link.id}: #{link.organization.name} operates #{link.facility.name}"
       if operators.empty?

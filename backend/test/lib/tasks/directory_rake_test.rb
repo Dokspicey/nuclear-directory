@@ -53,6 +53,9 @@ class DirectoryRakeTest < ActiveSupport::TestCase
     alone = operates(company("Energy Northwest"), columbia, eia)
     operates(company("Bonneville Power"), columbia, eia) # another EIA-only operator isn't NRC's word
     both = operates(company("Entergy"), plant("Arkansas Nuclear One", eia_plant_id: "8055"), eia, nrc)
+    salem = plant("Salem", eia_plant_id: "2410")
+    current = operates(company("PSEG Nuclear"), salem, eia)
+    operates(company("Public Service Electric & Gas"), salem, nrc).update_columns(ended_on: Date.new(2000, 1, 1))
     # Hidden: its company was taken down, so the task leaves it be.
     hidden = operates(gone = company("Gone Co"), hatch, eia)
     gone.unpublish!(by: "human:tosin", reason: "Not a real company")
@@ -69,5 +72,6 @@ class DirectoryRakeTest < ActiveSupport::TestCase
     assert alone.reload.verified?, "no NRC operator to go by"
     assert both.reload.verified?, "NRC backs it too"
     assert hidden.reload.verified?, "not published, so not this task's"
+    assert current.reload.verified?, "NRC's only operator there ended in 2000"
   end
 end
