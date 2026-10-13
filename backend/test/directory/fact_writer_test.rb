@@ -264,4 +264,30 @@ class Directory::FactWriterTest < ActiveSupport::TestCase
         evidence: [ @evidence.merge(source_id: nil) ])
     end
   end
+
+  test "a new link without both ends is refused, never matched to another link of the same type" do
+    other = FacilityRelationship.create!(organization: organizations(:westinghouse), facility: facilities(:vogtle),
+      relationship_type: "operates", verification_status: "verified", verified_by: "human:tosin")
+
+    [
+      [ :facility_relationship, { relationship_type: "operates" } ],
+      [ :facility_relationship, { relationship_type: "operates", organization_id: organizations(:terrapower).id } ],
+      [ :relationship, { relationship_type: "supplies", from_organization_id: organizations(:terrapower).id } ],
+      [ :organization_role, { role: "reactor_vendor" } ]
+    ].each do |kind, attributes|
+      result = write(kind, attributes, evidence: [ @evidence ], verification: { status: "verified", by: "human:tosin" })
+
+      assert_not result.ok?, kind
+      assert_match "needs both ends; missing", result.errors.join, kind
+    end
+    assert_empty other.reload.evidence, "the existing link got no quote"
+  end
+
+  test "a link written by id or with both ends still works" do
+    link = write(:facility_relationship, { relationship_type: "operates", organization_id: organizations(:terrapower).id,
+      facility_id: facilities(:vogtle).id }, evidence: [ @evidence ])
+    assert link.ok?
+
+    assert write(:facility_relationship, { id: link.id, description: "Runs it." }).ok?
+  end
 end
