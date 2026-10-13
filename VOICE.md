@@ -63,7 +63,8 @@ Pages of running text (privacy, the crawler page, the disclaimer) are read in pi
 1. **An optional one-line summary** under the page title, starting "In short:".
 2. **Topic headings that name the section:** "Analytics", "Cookies", "Corrections". Headings name the topic; they don't make claims.
 3. **A short lead sentence** that says what the section is about.
-4. **Details as a list.** One fact per bullet.
+4. **Details as a list.** One fact per item. Number the top-level list of what a page covers ("1. Analytics, 2. Corrections, 3. Error reports") and any steps; use bullets for details.
+5. **Link the companies named.** When a page names a service it relies on (PostHog, Sentry, Render, DB-IP), link the name to that company's privacy page or site: a plain inline link, no tracking parameters.
 
 | Don't | Do |
 |---|---|

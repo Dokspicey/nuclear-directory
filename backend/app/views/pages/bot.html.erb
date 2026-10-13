@@ -27,7 +27,11 @@
 
   <section aria-labelledby="blocking">
     <h2 id="blocking" class="type-body-strong">How to block it</h2>
-    <p class="type-body">Add this to your robots.txt. It stops on its next visit.</p>
+    <p class="type-body">Two steps, and it stops on its next visit.</p>
+    <ol class="type-body">
+      <li>Open your site's robots.txt.</li>
+      <li>Add these two lines:</li>
+    </ol>
     <pre class="nd-code type-data">User-agent: <%= DataQuality::Fetcher::AGENT_TOKEN %>
 Disallow: /</pre>
   </section>

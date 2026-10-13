@@ -54,6 +54,19 @@ class PagesTest < ActionDispatch::IntegrationTest
     assert_equal %w[Sources Accuracy Advice Endorsement Corrections], css_select("section h2").map(&:text)
   end
 
+  test "text pages number what they cover and any steps, and link the companies they name" do
+    get privacy_path
+    assert_select "section[aria-labelledby=collect] ol li", 3
+    { "PostHog" => "https://posthog.com/privacy", "Sentry" => "https://sentry.io/privacy/",
+      "Render" => "https://render.com/privacy", "IP Geolocation by DB-IP" => "https://db-ip.com" }.each do |name, url|
+      assert_select "main a[href=?][rel=noopener]", url, text: name
+    end
+    assert_no_match(/utm_/, response.body)
+
+    get bot_path
+    assert_select "section[aria-labelledby=blocking] ol li", 2
+  end
+
   test "the crawler page shows the user agent the crawler actually sends" do
     get bot_path
 
