@@ -77,6 +77,23 @@ class Directory::MergeFacilityTest < ActiveSupport::TestCase
     assert_equal [ "plant vogtle units 3 and 4", "vegp", "vogtle" ], @into.aliases.pluck(:normalized_alias).sort
   end
 
+  test "a docketed NRC unit not yet under a site isn't merged as a site" do
+    unit = Facility.create!(name: "Columbia Generating Station", nrc_docket: "05000397", **VERIFIED)
+
+    assert_match "is a unit", Directory::FactWriter.merge_facility(from_id: @from.id, into_id: unit.id, by: BY).errors.join
+    assert_match "is a unit", Directory::FactWriter.merge_facility(from_id: unit.id, into_id: @into.id, by: BY).errors.join
+    assert @from.reload.verified?
+  end
+
+  test "the history records the value into actually had, even an empty string" do
+    @into.update_columns(city: "")
+    @from.update!(city: "Waynesboro")
+
+    assert merge.ok?
+
+    assert_equal [ "", "Waynesboro" ], @into.verification_events.order(:id).last.changed_values["city"]
+  end
+
   test "two sites with different EIA plant IDs are two plants, and aren't merged" do
     @into.update!(eia_plant_id: "2410")
 

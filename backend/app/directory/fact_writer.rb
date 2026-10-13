@@ -192,7 +192,10 @@ module Directory
         into = records[into_id] or raise Invalid, "no plant with id #{into_id}"
         raise Invalid, "#{into.name} is #{into.verification_status}; merge into a live plant" if into.closed?
         raise Invalid, "#{from.name} is already #{from.verification_status}" if from.closed?
-        [ from, into ].each { |site| raise Invalid, "#{site.name} is a unit; only sites are merged" if site.parent_id }
+        # A docketed record is an NRC unit, even one not yet under a site.
+        [ from, into ].each do |site|
+          raise Invalid, "#{site.name} is a unit; only sites are merged" if site.parent_id || site.nrc_docket.present?
+        end
         if from.eia_plant_id.present? && into.eia_plant_id.present? && from.eia_plant_id != into.eia_plant_id
           raise Invalid, "#{from.name} is EIA plant #{from.eia_plant_id} and #{into.name} is #{into.eia_plant_id}: two plants, not one"
         end
@@ -200,12 +203,13 @@ module Directory
         note = "Merged into #{into.name} (##{into.id})"
         filled = SITE_FIELDS.select { |name| into.public_send(name).blank? && from.public_send(name).present? }
         values = filled.index_with { |name| from.public_send(name) }
+        before = filled.index_with { |name| into.public_send(name) } # blank, but "" isn't nil
         from.update_columns(eia_plant_id: nil) if values.key?(:eia_plant_id)
         if filled.any?
           into.update!(values)
           # On into's own history too, with where the values came from.
           into.verification_reason = "#{from.name} (##{from.id}) merged in: its #{filled.join(', ')}"
-          into.audited_changes = values.transform_keys(&:to_s).transform_values { |value| [ nil, value ] }
+          into.audited_changes = values.to_h { |name, value| [ name.to_s, [ before[name], value ] ] }
           into.log_verification_event(from_status: into.verification_status, by:)
         end
 
