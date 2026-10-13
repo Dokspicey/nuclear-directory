@@ -47,12 +47,14 @@ class DataQuality::Repairs::MisplacedLinkEvidence
         # Locked in Review's order (source, then candidate), then the link inside FactWriter.
         ::Source.lock.find(candidate.source_id)
         candidate.lock!
-        next outcome = Outcome.new(candidate_id:, status: :already_repaired, message: "reopened before") if repaired?(candidate)
+        if repaired?(candidate, link_id)
+          next outcome = Outcome.new(candidate_id:, status: :already_repaired, message: "evidence removed from link #{link_id} before")
+        end
 
         problem = mismatch(candidate, link_id) and next outcome = skipped(candidate_id, problem)
         claim = "#{candidate.payload.dig('organization', 'name')} operates #{candidate.payload.dig('facility', 'name')}"
         removed = @directory.remove_evidence(type: LINK, id: link_id, evidence_id:, source_id: candidate.source_id,
-          quote: candidate.quote, by: @by, reason: "Evidence for \"#{claim}\" (candidate #{candidate.id}) was attached " \
+          quote: candidate.quote, by: @by, reason: "Evidence for \"#{claim}\" (#{marker(candidate)}) was attached " \
           "to this link by mistake; removed (#226)")
         unless removed.success?
           outcome = skipped(candidate_id, removed.errors.join("; "))
@@ -71,7 +73,16 @@ class DataQuality::Repairs::MisplacedLinkEvidence
       outcome
     end
 
-    def repaired?(candidate) = candidate.status_new? && candidate.subject_id.nil? && candidate.notes.to_s.include?(NOTE)
+    # Done before when the link's history has this candidate's removal: the
+    # audit trail is append-only, while the candidate's status and notes
+    # change once match picks it up again.
+    def repaired?(candidate, link_id)
+      @directory.verification_history(type: LINK, id: link_id).any? do |event|
+        event.changed_values.to_h.key?("evidence") && event.reason.to_s.include?("(#{marker(candidate)})")
+      end
+    end
+
+    def marker(candidate) = "candidate #{candidate.id}"
 
     # Why this item isn't the misplacement found in #226, or nil when it is.
     def mismatch(candidate, link_id)

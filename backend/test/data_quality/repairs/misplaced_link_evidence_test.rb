@@ -66,6 +66,16 @@ class DataQuality::Repairs::MisplacedLinkEvidenceTest < ActiveSupport::TestCase
     assert_equal [ @own.id ], @link.evidence.reload.ids
   end
 
+  test "still reports already repaired after match has picked the candidate up again" do
+    run_repair
+    @candidate.update!(status: "needs_review", notes: "organization: no exact match for …")
+
+    outcome = run_repair.sole
+
+    assert_equal :already_repaired, outcome.status
+    assert_equal [ @own.id ], @link.evidence.reload.ids
+  end
+
   test "skips a candidate that is on its own plant's link" do
     southern = Organization.create!(name: "Southern Nuclear Operating Co.")
     right = FacilityRelationship.create!(organization: southern, facility: @farley, relationship_type: "operates")

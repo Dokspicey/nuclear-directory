@@ -71,9 +71,13 @@ class Directory::RemoveEvidenceTest < ActiveSupport::TestCase
   test "the source and quote given must be the row's" do
     other_quote = remove(quote: "Vogtle 1 | Westinghouse")
     other_source = remove(source_id: sources(:nrc).id)
+    loose_source = remove(source_id: "#{@wrong.source_id}oops")
+    no_quote = Evidence.create!(subject: @link, source: sources(:nrc), quote: nil, found_by: "crawler")
+    blank_for_nil = remove(no_quote, quote: "")
 
-    [ other_quote, other_source ].each { |result| assert_match "isn't the source and quote given", result.errors.join }
+    [ other_quote, other_source, loose_source, blank_for_nil ].each { |result| assert_match "isn't the source and quote given", result.errors.join }
     assert Evidence.exists?(@wrong.id)
+    assert Evidence.exists?(no_quote.id)
   end
 
   test "a published fact keeps its last evidence" do

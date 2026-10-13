@@ -181,7 +181,8 @@ module Directory
         end
         row = Evidence.lock.find_by(id: evidence_id, subject: record) or
           raise Invalid, "evidence #{evidence_id} isn't on #{name}"
-        unless row.source_id == source_id.to_i && row.quote.to_s == quote.to_s
+        # Compared exactly: "9oops" isn't source 9, and "" isn't a missing quote.
+        unless row.source_id == source_id && row.quote == quote
           raise Invalid, "evidence #{evidence_id} on #{name} isn't the source and quote given; not removed"
         end
         # Public now (a pending site shows through a verified unit), or verified
