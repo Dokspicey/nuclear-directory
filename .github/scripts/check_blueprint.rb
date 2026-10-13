@@ -3,7 +3,7 @@
 require "yaml"
 
 # age public keys are Bech32 (BIP 173) with the "age" prefix. Checking the
-# checksum catches a mistyped key before the weekly backup fails on it.
+# checksum catches a mistyped key before the daily backup fails on it.
 BECH32 = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
 
 def bech32_valid?(string)

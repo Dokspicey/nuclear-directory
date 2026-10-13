@@ -367,6 +367,16 @@ module Directory
       def find(kind, model, attrs)
         return model.find_by(id: attrs[:id]) || raise(Invalid, "no #{kind} with id #{attrs[:id]}") if attrs[:id]
 
+        # A link is found (or made) by its ends. Without one, find_by would
+        # match any link of that type, and the write would land on the wrong
+        # one (24 approvals on 12 Oct added quotes to unrelated "operates" links).
+        missing = LINK_ENDS.fetch(kind, {}).keys.reject { |key| attrs[key].present? }
+        raise Invalid, "a #{kind.to_s.tr('_', ' ')} needs both ends; missing #{missing.to_sentence}" if missing.any?
+        # And its type: with both ends but no type, it would match any link between them.
+        if %i[relationship facility_relationship].include?(kind) && attrs[:relationship_type].blank?
+          raise Invalid, "a #{kind.to_s.tr('_', ' ')} needs a relationship type"
+        end
+
         case kind
         when :organization
           ref = [ attrs[:name], *attrs[:aliases] ].compact.lazy.filter_map { |name| Lookup.organization(name:) }.first
