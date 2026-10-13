@@ -372,6 +372,10 @@ module Directory
         # one (24 approvals on 12 Oct added quotes to unrelated "operates" links).
         missing = LINK_ENDS.fetch(kind, {}).keys.reject { |key| attrs[key].present? }
         raise Invalid, "a #{kind.to_s.tr('_', ' ')} needs both ends; missing #{missing.to_sentence}" if missing.any?
+        # And its type: with both ends but no type, it would match any link between them.
+        if %i[relationship facility_relationship].include?(kind) && attrs[:relationship_type].blank?
+          raise Invalid, "a #{kind.to_s.tr('_', ' ')} needs a relationship type"
+        end
 
         case kind
         when :organization
