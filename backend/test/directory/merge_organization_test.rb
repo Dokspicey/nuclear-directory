@@ -83,7 +83,7 @@ class Directory::MergeOrganizationTest < ActiveSupport::TestCase
     assert_equal BY, @from.verified_by
     assert_empty @from.aliases
     reason = @from.verification_events.order(:id).last.reason
-    assert_match "One company per brand. Merged into Acme (##{@into.id}). Moved: 2 aliases, 1 domain, 1 organization roles", reason
+    assert_match "One company per brand. Merged into Acme (##{@into.id}). Moved: 2 aliases, 1 domain, 1 organization role", reason
   end
 
   test "an evidence row into already has isn't duplicated" do

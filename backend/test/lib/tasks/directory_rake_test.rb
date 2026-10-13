@@ -35,7 +35,7 @@ class DirectoryRakeTest < ActiveSupport::TestCase
     vogtle = Facility.create!(name: "Plant Vogtle", verification_status: "verified", verified_by: "human:tosin")
     eia = Facility.create!(name: "Vogtle", eia_plant_id: "649", verification_status: "verified", verified_by: "human:tosin")
 
-    assert_output(/Would merge Vogtle \(##{eia.id}\) into Plant Vogtle \(##{vogtle.id}\): .*Moved: 1 aliases, eia_plant_id\nDry run/) do
+    assert_output(/Would merge Vogtle \(##{eia.id}\) into Plant Vogtle \(##{vogtle.id}\): .*Moved: 1 alias, eia_plant_id\nDry run/) do
       merge(:merge_facility, eia.id, vogtle.id, BY: "human:tosin")
     end
     assert_equal [ "verified", nil ], [ eia.reload.verification_status, vogtle.reload.eia_plant_id ]
