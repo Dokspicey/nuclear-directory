@@ -182,14 +182,20 @@ class DataQuality::Plugins::EiaGenerators < DataQuality::Plugin
       candidates.uniq { |c| [ c.subject_type, c.subject_id ] }.each do |candidate|
         next if kept?(candidate, plants)
 
-        attached = Candidate.where(subject_type: candidate.subject_type, subject_id: candidate.subject_id)
-        next unless attached.where(proposed_subject: true).exists?
-        next if attached.where(status: %w[new matched merged needs_review]).exists?
+        # Under the record's lock, as Review#retire_proposal does: another
+        # source's match attaching to it at the same moment either lands
+        # first (and keeps it) or waits until it's retired. Already closed:
+        # nothing to retire.
+        result = nil
+        directory.unless_closed(candidate) do
+          attached = Candidate.where(subject_type: candidate.subject_type, subject_id: candidate.subject_id)
+          next unless attached.where(proposed_subject: true).exists?
+          next if attached.where(status: %w[new matched merged needs_review]).exists?
 
-        result = directory.retire(candidate, crawl_run: run)
-        # Already rejected or unpublished is done; any other failure undoes
-        # the withdrawal too, so the next run tries again.
-        next if result.success? || directory.fact(type: candidate.subject_type, id: candidate.subject_id)&.closed?
+          result = directory.retire(candidate, crawl_run: run)
+        end
+        # Any failure undoes the withdrawal too, so the next run tries again.
+        next if result.nil? || result.success?
 
         raise "Couldn't retire #{candidate.subject_type} #{candidate.subject_id}: #{result.errors.join('; ')}"
       end
