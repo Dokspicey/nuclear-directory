@@ -196,7 +196,7 @@ module Directory
         record.log_verification_event(from_status: record.verification_status, by:)
       end
       Result.new(kind: type.to_s.underscore.to_sym, id:, created: false, errors: [])
-    rescue Invalid => error
+    rescue Invalid, ActiveRecord::RecordInvalid, ActiveRecord::RecordNotDestroyed => error
       failure(type.to_s.underscore.to_sym, error.message)
     end
 

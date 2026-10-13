@@ -95,6 +95,19 @@ class Directory::RemoveEvidenceTest < ActiveSupport::TestCase
     assert Evidence.exists?(@wrong.id)
   end
 
+  test "a refused destroy is an error, not an exception, and changes nothing" do
+    wrong_id = @wrong.id
+    refuse = -> { throw :abort if id == wrong_id }
+    Evidence.set_callback(:destroy, :before, refuse)
+    result = remove
+
+    refute result.ok?
+    assert Evidence.exists?(@wrong.id)
+    assert_empty @link.verification_events.where("changed_values ? 'evidence'")
+  ensure
+    Evidence.skip_callback(:destroy, :before, refuse)
+  end
+
   test "an unknown type or id is an error, not an exception" do
     assert_match "not a fact type", remove_from("Source", 1, @wrong).errors.join
     assert_match "no FacilityRelationship", remove_from("FacilityRelationship", 0, @wrong).errors.join
