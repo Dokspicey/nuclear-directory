@@ -142,9 +142,11 @@ module DataQuality::Review
     # Reopens rejected candidates (#228): each goes back to new, unattached
     # and with no AI verdict, so the next match and verify runs decide it
     # afresh and it comes back to the review queue. Who reopened it, when and
-    # why are appended to its reopenings, with the rejection it undid. A candidate that proposed its record can't be reopened
-    # here: rejecting it retired that record.
-    def reopen(candidate_ids, by:, reason:)
+    # why are appended to its reopenings, with the rejection it undid.
+    # Re-extracting its source keeps it (Stages::Extract). One that proposed
+    # its record, or whose record was rejected or taken down, can't be
+    # reopened here.
+    def reopen(candidate_ids, by:, reason:, directory: DataQuality::DirectoryClient.new)
       human!(by)
       raise ArgumentError, "say why it's reopened" if reason.blank?
 
@@ -152,8 +154,11 @@ module DataQuality::Review
         Candidate.transaction do
           candidate.lock!
           next Result.new(candidate_id: candidate.id, ref: nil, errors: [ "it isn't rejected" ]) unless candidate.status_rejected?
-          if candidate.proposed_subject
-            next Result.new(candidate_id: candidate.id, ref: nil, errors: [ "it proposed a record, which was retired with it" ])
+          # A proposal is retired when its last candidate is rejected, whichever
+          # one proposed it; match would only send it back to review as closed.
+          if candidate.proposed_subject || (candidate.subject_id && directory.fact(type: candidate.subject_type, id: candidate.subject_id)&.closed?)
+            next Result.new(candidate_id: candidate.id, ref: nil,
+              errors: [ "the record it was attached to was rejected or taken down; decide that record first" ])
           end
 
           # Appended, so the match notes and review decisions that follow don't

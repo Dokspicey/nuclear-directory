@@ -103,6 +103,19 @@ class DataQuality::PipelineTest < ActiveSupport::TestCase
     assert_equal source.content_sha256, source.reload.extracted_sha256
   end
 
+  test "a candidate a person reopened isn't replaced on re-extraction, so its reopenings stay (#228)" do
+    run_pipeline(only: %w[crawl extract])
+    source = Source.find_by!(url: DummyPlugin::URL)
+    reopened = dummy_candidates.first
+    reopened.update!(reopenings: [ { "by" => "human:tosin", "reason" => "rejected by mistake" } ])
+    source.update!(content_text: "new text", content_sha256: Digest::SHA256.hexdigest("new text"))
+
+    run_pipeline(only: "extract")
+
+    assert_equal [ "rejected by mistake" ], reopened.reload.reopenings.map { |r| r["reason"] }
+    assert_equal 3, dummy_candidates.count, "the other one was replaced; this one stays beside the new two"
+  end
+
   test "a failing stage is recorded and stops the pipeline" do
     broken = DummyPlugin.new
     def broken.crawl(_run) = raise("site is down")

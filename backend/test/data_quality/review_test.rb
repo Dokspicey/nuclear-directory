@@ -268,6 +268,16 @@ class DataQuality::ReviewTest < ActiveSupport::TestCase
     assert unit.reload.verified?, "the unit itself is untouched"
   end
 
+  test "a candidate isn't reopened when its record was retired, even by another candidate's proposal" do
+    company = Organization.create!(name: "Imaginary Fission Co")
+    c = Candidate.create!(source: @source, kind: "organization", quote: "q", status: "rejected", proposed_subject: false,
+      subject_type: "Organization", subject_id: company.id, payload: { "name" => "Imaginary Fission Co" })
+    company.reject!(by: BY, reason: "Not a real company")
+
+    assert_match "decide that record first", Review.reopen([ c.id ], by: BY, reason: "why").sole.errors.join
+    assert c.reload.status_rejected?
+  end
+
   test "who reopened a candidate, and why, survive match, verify and the next decision" do
     c = candidate("organization", { "name" => "Imaginary Fission Co" })
     run_stage("match")
@@ -293,7 +303,7 @@ class DataQuality::ReviewTest < ActiveSupport::TestCase
     run_stage("match")
     Review.reject([ c.id ], by: BY, reason: "Not a real company")
 
-    assert_match "proposed a record", Review.reopen([ c.id ], by: BY, reason: "changed my mind").sole.errors.join
+    assert_match "decide that record first", Review.reopen([ c.id ], by: BY, reason: "changed my mind").sole.errors.join
     assert c.reload.status_rejected?
     assert_raises(ArgumentError) { Review.reopen([ c.id ], by: BY, reason: " ") }
     assert_raises(ArgumentError) { Review.reopen([ c.id ], by: "agent:x", reason: "why") }
