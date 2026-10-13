@@ -234,16 +234,15 @@
       <div class="border border-rule"><%= render "shared/site_footer" %></div>
       <div class="border border-rule nd-prose flex flex-col p-4">
         <h3 class="type-title-md">NuclearDirectoryBot</h3>
-        <div class="nd-prose__intro">
-          <p class="type-body-strong">The intro's first line states the point.</p>
-          <p class="type-body">One or two sentences explain it (VOICE.md, "Prose has hierarchy").</p>
-        </div>
+        <p class="type-body"><strong>In short:</strong> an optional one-line summary (VOICE.md, "Prose has structure").</p>
         <section class="flex flex-col gap-2">
-          <h4 class="type-body-strong">Block it with robots.txt</h4>
-          <p class="type-body">Add these two lines. It stops on its next visit.</p>
+          <h4 class="type-body-strong">How to block it</h4>
+          <p class="type-body">A topic heading, then a short lead sentence.</p>
+          <ul class="type-body">
+            <li>Then the details as a list, one fact per bullet.</li>
+          </ul>
           <pre class="nd-code type-data">User-agent: NuclearDirectoryBot
 Disallow: /</pre>
-          <p class="type-small text-ink-muted">Details come last, in smaller type.</p>
         </section>
       </div>
     </div>

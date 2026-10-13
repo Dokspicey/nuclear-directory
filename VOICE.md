@@ -56,20 +56,19 @@ Say what the page is and what it covers. No tagline above the title, no promise 
 
 > A directory of the organizations and facilities in the US nuclear industry, and the agreements between them. Each fact links to the public document it came from.
 
-## Prose has hierarchy
+## Prose has structure
 
-Pages of running text (privacy, the crawler page, the disclaimer) are read in pieces, so every block puts its point first. Tosin's words: "the main thing, the text, the subtext, the reasons."
+Pages of running text (privacy, the crawler page, the disclaimer) are read in pieces, so they have a visible skeleton. Tosin's words: "the main thing, the text, the subtext, the reasons."
 
-1. **The main thing.** The point, stated as a plain sentence, as the section's heading: "It isn't advice", "We count how the site is used, without cookies". The page's intro, which sits under the page title, starts with a bold first line instead.
-2. **The text.** One or two short sentences that explain it.
-3. **The subtext.** Details, only if needed, as a short list in smaller type.
-4. **The reasons.** Why, last and brief. Leave it out if the reason is obvious.
-
-One point per block. If a paragraph covers two things (what we record and where the script loads from), split it into two blocks, each with its own heading.
+1. **An optional one-line summary** under the page title, starting "In short:".
+2. **Topic headings that name the section:** "Analytics", "Cookies", "Corrections". Headings name the topic; they don't make claims.
+3. **A short lead sentence** that says what the section is about.
+4. **Details as a list.** One fact per bullet.
 
 | Don't | Do |
 |---|---|
-| A paragraph that opens with the tool, then lists what it records, then how it's stored, then where it loads from. | **We count how the site is used, without cookies.** Then what's recorded, then the details as a list. Where the scripts load from is its own block. |
+| A heading that makes a claim: "We keep your country, not your IP address". | A heading that names the topic: "Analytics", then a short lead, then the details as bullets. |
+| One long paragraph that mixes what's recorded, how it's stored and where the script loads from. | A lead sentence, then each of those as its own bullet. |
 
 ## Facts and sources
 

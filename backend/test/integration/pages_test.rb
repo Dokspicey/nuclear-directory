@@ -8,27 +8,16 @@ class PagesTest < ActionDispatch::IntegrationTest
     get privacy_path
 
     assert_select "meta[name=description][content*=?]", "dead clicks, the country you're visiting from"
-    assert_select "h2#counts", "We count how the site is used, without cookies"
-    assert_select "#counts + p", /page views, searches, how long a page stays open and dead clicks/
-    assert_select "section[aria-labelledby=counts]", /Nothing is stored in your browser.*no session recordings/m
+    assert_select "h2#counts", "Analytics"
+    assert_select "section[aria-labelledby=counts]", /how the site is used.*No cookies, and one visit isn't linked to the next.*no session recordings/m
     # #205: we look up the country and send only that; PostHog uses the IP to count visitors and drops it.
-    assert_select "h2#ip", "We keep your country, not your IP address"
-    assert_select "#ip ~ p", /country you're in from your IP address, on this site's server, and add only the country to the analytics data/
-    assert_select "#ip ~ p", /PostHog also receives your IP address and browser with each request, to count unique visitors without cookies, and doesn't store the IP address/
-    assert_select "#ip ~ p a[href='https://db-ip.com']", "IP Geolocation by DB-IP"
-    assert_select "#ip ~ p a[href='https://creativecommons.org/licenses/by/4.0/']", "CC BY 4.0"
-    assert_select "#relay ~ p", /go through this site rather than straight to PostHog/
+    assert_select "#counts ~ p", /which country you're in from your IP address, and adds only the country to the analytics/
+    assert_select "#counts ~ p", /PostHog receives your IP address and browser with each request so it can count unique visitors without cookies. It doesn't store the IP address/
+    assert_select "#counts ~ p a[href='https://db-ip.com']", "IP Geolocation by DB-IP"
+    assert_select "#counts ~ p a[href='https://creativecommons.org/licenses/by/4.0/']", "CC BY 4.0"
+    assert_select "#counts ~ p", /go through this site rather than straight to PostHog/
     assert_select "p", /Last updated\s+2026-10-12/
     assert_no_match(/set to discard IP addresses/, response.body)
-  end
-
-  test "every privacy section leads with its point, then details in smaller type (#215)" do
-    get privacy_path
-
-    assert_select "h1 + .nd-prose__intro > p.type-body-strong:first-child", "Nuclear Directory doesn't ask who you are."
-    assert_select "section h2", 8
-    assert_select "section[aria-labelledby=counts] ul.type-small li", 4
-    assert_select "section[aria-labelledby=corrections] p.type-small", /scrambled form of your IP address/
   end
 
   test "privacy, disclaimer and the crawler page are linked from every page's footer" do
@@ -49,18 +38,20 @@ class PagesTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "the crawler page and the disclaimer put the main point first in every block (#215)" do
-    get bot_path
-    assert_select "h1 + .nd-prose__intro > p.type-body-strong:first-child", "NuclearDirectoryBot is the crawler that keeps Nuclear Directory up to date."
-    assert_select "h2#behaviour", "It follows robots.txt and stops when blocked"
-    assert_select "section[aria-labelledby=behaviour] ul.type-small li", 2
-    assert_select "h2#pace", "It visits each page at most once a day"
-    assert_select "h2#blocking", "Block it with robots.txt"
+  test "text pages have a skeleton: a summary, topic headings, a short lead, details as a list (#215)" do
+    { privacy_path => %w[collect counts cookie corrections errors hosting contact],
+      bot_path => %w[identity behaviour blocking contact],
+      disclaimer_path => %w[sources currency advice endorsement mistakes] }.each do |path, sections|
+      get path
+      assert_select "h1 + p strong", "In short:"
+      assert_equal sections, css_select("section h2").map { |h| h["id"] }
+    end
 
+    get privacy_path
+    assert_equal [ "What we collect", "Analytics", "Cookies", "Corrections", "Error reports", "Hosting", "Questions" ], css_select("section h2").map(&:text)
+    assert_select "section[aria-labelledby=counts] > p + ul li", 5
     get disclaimer_path
-    assert_select "h1 + .nd-prose__intro > p.type-body-strong:first-child", "Nuclear Directory is a reference built from public sources."
-    assert_select "h2#mistakes", "Report mistakes and we'll check them"
-    assert_select "section[aria-labelledby=mistakes] p.type-small", "We check every correction against its source."
+    assert_equal %w[Sources Accuracy Advice Endorsement Corrections], css_select("section h2").map(&:text)
   end
 
   test "the crawler page shows the user agent the crawler actually sends" do

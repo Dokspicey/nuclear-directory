@@ -6,42 +6,35 @@
 
 <main class="nd-page nd-page--narrow nd-prose">
   <h1 class="type-title-md">NuclearDirectoryBot</h1>
-  <div class="nd-prose__intro">
-    <p class="type-body-strong">NuclearDirectoryBot is the crawler that keeps Nuclear Directory up to date.</p>
-    <p class="type-body">It reads public pages, such as regulator filings, company press releases and news reports, and looks for facts about the US nuclear industry.</p>
-  </div>
+  <p class="type-body"><strong>In short:</strong> NuclearDirectoryBot is the crawler that keeps Nuclear Directory up to date. It follows robots.txt, and you can block it.</p>
+  <p class="type-body">It reads public pages, such as regulator filings, company press releases and news reports, and looks for facts about the US nuclear industry.</p>
 
   <section aria-labelledby="identity">
-    <h2 id="identity" class="type-body-strong">It always says who it is</h2>
+    <h2 id="identity" class="type-body-strong">How to recognize it</h2>
     <p class="type-body">Every request sends this user agent:</p>
     <pre class="nd-code type-data"><%= DataQuality::Fetcher::USER_AGENT %></pre>
   </section>
 
   <section aria-labelledby="behaviour">
-    <h2 id="behaviour" class="type-body-strong">It follows robots.txt and stops when blocked</h2>
-    <p class="type-body">It checks every page against the site's robots.txt, including pages it's redirected to.</p>
-    <ul class="type-small text-ink-muted">
-      <li>It reads a site's robots.txt once per visit, not once per page.</li>
-      <li>When a site blocks it, it doesn't retry, work around the block or pretend to be a browser.</li>
+    <h2 id="behaviour" class="type-body-strong">How it behaves</h2>
+    <p class="type-body">It follows each site's rules and keeps its visits light.</p>
+    <ul class="type-body">
+      <li>It checks every page against the site's robots.txt, including pages it's redirected to. It reads a site's robots.txt once per visit, not once per page.</li>
+      <li>It waits <%= DataQuality::Fetcher::HOST_INTERVAL %> seconds between requests to the same site.</li>
+      <li>It fetches each page at most once a day and asks only for changes (ETag and Last-Modified), so an unchanged page costs a short reply.</li>
+      <li>When a site blocks it, it stops. It doesn't retry, work around the block or pretend to be a browser.</li>
     </ul>
   </section>
 
-  <section aria-labelledby="pace">
-    <h2 id="pace" class="type-body-strong">It visits each page at most once a day</h2>
-    <p class="type-body">It waits <%= DataQuality::Fetcher::HOST_INTERVAL %> seconds between requests to the same site.</p>
-    <p class="type-small text-ink-muted">It asks only for changes (ETag and Last-Modified), so an unchanged page costs a short reply.</p>
-  </section>
-
   <section aria-labelledby="blocking">
-    <h2 id="blocking" class="type-body-strong">Block it with robots.txt</h2>
-    <p class="type-body">Add these two lines. It stops on its next visit.</p>
+    <h2 id="blocking" class="type-body-strong">How to block it</h2>
+    <p class="type-body">Add this to your robots.txt. It stops on its next visit.</p>
     <pre class="nd-code type-data">User-agent: <%= DataQuality::Fetcher::AGENT_TOKEN %>
 Disallow: /</pre>
   </section>
 
   <section aria-labelledby="contact">
     <h2 id="contact" class="type-body-strong">Questions about a visit</h2>
-    <p class="type-body">Email <%= mail_to DirectoryHelper::CORRECTIONS_EMAIL, nil, class: "nd-link" %>.</p>
-    <p class="type-small text-ink-muted">Include the time and the page, or the reference number from your firewall's block page, so we can find the request.</p>
+    <p class="type-body">Email <%= mail_to DirectoryHelper::CORRECTIONS_EMAIL, nil, class: "nd-link" %> with the time and the page, or the reference number from your firewall's block page.</p>
   </section>
 </main>
