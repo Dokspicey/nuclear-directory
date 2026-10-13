@@ -97,7 +97,8 @@ module Directory
     # has none, roles, technologies, plant links, company links, evidence and
     # the candidates attached to it. A fact into already has (or a link that
     # would point at itself, such as "Urenco USA subsidiary of Urenco") stays
-    # on from and is rejected. Then from is unpublished, and the audit reason
+    # on from and is rejected, and a closed fact stays where it was decided
+    # (#229). Then from is unpublished, and the audit reason
     # says where it went and what moved. Returns a Result for into.
     def merge_organization(from_id:, into_id:, by:, reason: nil)
       raise Invalid, "a merge is a human's decision (by: \"human:…\")" unless by.to_s.start_with?("human:")
@@ -109,6 +110,7 @@ module Directory
         from = records[from_id] or raise Invalid, "no organization with id #{from_id}"
         into = records[into_id] or raise Invalid, "no organization with id #{into_id}"
         raise Invalid, "#{into.name} is #{into.verification_status}; merge into a live organization" if into.closed?
+        raise Invalid, "#{from.name} is already #{from.verification_status}" if from.closed?
 
         from.aliases.each do |row|
           if into.aliases.exists?(normalized_alias: row.normalized_alias) then row.destroy!
@@ -123,6 +125,8 @@ module Directory
         { organization_roles: :role_id, organization_technologies: :technology_id,
           facility_relationships: %i[facility_id relationship_type] }.each do |table, key|
           from.public_send(table).each do |row|
+            next if row.closed? # rejected or taken down: it stays where it was decided (#229)
+
             same = into.public_send(table).where(Array(key).index_with { |column| row.public_send(column) })
             next retired << row if same.exists?
 
@@ -130,6 +134,8 @@ module Directory
           end
         end
         Relationship.where(from_organization_id: from.id).or(Relationship.where(to_organization_id: from.id)).each do |row|
+          next if row.closed?
+
           ends = { from_organization_id: row.from_organization_id, to_organization_id: row.to_organization_id }
             .transform_values { |id| id == from.id ? into.id : id }
           duplicate = Relationship.where(**ends, relationship_type: row.relationship_type).where.not(id: row.id).exists?
@@ -145,7 +151,7 @@ module Directory
 
         note = "Merged into #{into.name} (##{into.id})"
         retired.each { |row| row.reject!(by:, reason: "#{note}; #{into.name} already has this, or it would point at itself") unless row.closed? }
-        summary = moved.select { |_, count| count.positive? }.map { |what, count| "#{count} #{what.tr('_', ' ')}" }
+        summary = moved.select { |_, count| count.positive? }.map { |what, count| "#{count} #{what.tr('_', ' ').then { |label| count == 1 ? label.singularize : label }}" }
         from.unpublish!(by:, reason: [ reason, "#{note}. Moved: #{summary.join(', ').presence || 'nothing'}" ].compact.join(". "))
         # Its address, and any it kept from earlier renames or merges, now
         # lead straight to into's page (#143).
@@ -156,6 +162,99 @@ module Directory
       Result.new(kind: :organization, id: into_id, created: false, errors: [])
     rescue Invalid, ActiveRecord::RecordInvalid => error
       failure(:organization, error.message)
+    end
+
+    def self.merge_facility(...) = new.merge_facility(...)
+
+    # Site fields a merge copies to into when into has none.
+    SITE_FIELDS = %i[eia_plant_id facility_type status technology_id reactor_type capacity_mw city state latitude longitude].freeze
+
+    # Merges one site into another (one page per plant, #229), the
+    # counterpart of merge_organization: a human's decision, in one
+    # transaction that locks both. into gets from's blank-on-into fields (its
+    # EIA plant ID first, cleared on from so the unique index holds), its
+    # units, its aliases and its name as an alias, its company links,
+    # evidence and the candidates attached to it. A link into already has
+    # stays on from and is rejected, and a closed link stays where it was
+    # decided; values into already has are kept, and filled ones are on
+    # into's history. Two sites with different EIA plant IDs are two plants
+    # and aren't merged. Then
+    # from is unpublished with where it went and what moved, and its address
+    # leads to into (#143). Sites only: a unit is merged by moving it.
+    def merge_facility(from_id:, into_id:, by:, reason: nil)
+      raise Invalid, "a merge is a human's decision (by: \"human:…\")" unless by.to_s.match?(/\Ahuman:\S+\z/)
+      raise Invalid, "can't merge a plant into itself" if from_id == into_id
+
+      moved = Hash.new(0)
+      ActiveRecord::Base.transaction(requires_new: true) do
+        records = Facility.lock.where(id: [ from_id, into_id ]).order(:id).index_by(&:id)
+        from = records[from_id] or raise Invalid, "no plant with id #{from_id}"
+        into = records[into_id] or raise Invalid, "no plant with id #{into_id}"
+        raise Invalid, "#{into.name} is #{into.verification_status}; merge into a live plant" if into.closed?
+        raise Invalid, "#{from.name} is already #{from.verification_status}" if from.closed?
+        # A docketed record is an NRC unit, even one not yet under a site.
+        [ from, into ].each do |site|
+          raise Invalid, "#{site.name} is a unit; only sites are merged" if site.parent_id || site.nrc_docket.present?
+        end
+        if from.eia_plant_id.present? && into.eia_plant_id.present? && from.eia_plant_id != into.eia_plant_id
+          raise Invalid, "#{from.name} is EIA plant #{from.eia_plant_id} and #{into.name} is #{into.eia_plant_id}: two plants, not one"
+        end
+
+        note = "Merged into #{into.name} (##{into.id})"
+        filled = SITE_FIELDS.select { |name| into.public_send(name).blank? && from.public_send(name).present? }
+        values = filled.index_with { |name| from.public_send(name) }
+        before = filled.index_with { |name| into.public_send(name) } # blank, but "" isn't nil
+        from.update_columns(eia_plant_id: nil) if values.key?(:eia_plant_id)
+        if filled.any?
+          into.update!(values)
+          # On into's own history too, with where the values came from.
+          into.verification_reason = "#{from.name} (##{from.id}) merged in: its #{filled.join(', ')}"
+          into.audited_changes = values.to_h { |name, value| [ name.to_s, [ before[name], value ] ] }
+          into.log_verification_event(from_status: into.verification_status, by:)
+        end
+
+        moved["units"] = from.children.update_all(parent_id: into.id, updated_at: Time.current)
+        # Names as #89 has them: locked, and never another facility's name.
+        # from's own name is the one exception: from is unpublished, and its
+        # name now leads to into.
+        names = [ *from.aliases.map(&:alias), from.name ]
+        lock_facility_names(names)
+        others = Facility.where.not(id: [ from.id, into.id ]).pluck(:name).map { |other| FacilityAlias.normalize(other) }.to_set
+        from.aliases.destroy_all
+        names.each do |name|
+          normalized = FacilityAlias.normalize(name)
+          next if normalized == FacilityAlias.normalize(into.name) || FacilityAlias.exists?(normalized_alias: normalized)
+          next if others.include?(normalized)
+
+          into.aliases.create!(alias: name) && moved["aliases"] += 1
+        end
+        retired = []
+        from.facility_relationships.each do |row|
+          next if row.closed? # a link someone rejected or took down stays where it was decided
+          next retired << row if into.facility_relationships.exists?(organization_id: row.organization_id, relationship_type: row.relationship_type)
+
+          row.update!(facility: into) && moved["facility_relationships"] += 1
+        end
+        Evidence.where(subject: from).each do |row|
+          duplicate = Evidence.where(subject: into, source_id: row.source_id, quote: row.quote).exists?
+          duplicate ? row.destroy! : row.update!(subject: into) && moved["evidence"] += 1
+        end
+        moved["candidates"] = Candidate.where(subject_type: "Facility", subject_id: from.id).update_all(subject_id: into.id)
+
+        retired.each { |row| row.reject!(by:, reason: "#{note}; #{into.name} already has this link") unless row.closed? }
+        summary = moved.select { |_, count| count.positive? }.map { |what, count| "#{count} #{what.tr('_', ' ').then { |label| count == 1 ? label.singularize : label }}" }
+        summary << filled.join(", ") if filled.any?
+        from.unpublish!(by:, reason: [ reason, "#{note}. Moved: #{summary.join(', ').presence || 'nothing'}" ].compact.join(". "))
+        FormerSlug.where(sluggable: from).find_each { |former| into.remember_slug(former.slug) }
+        into.remember_slug(from.slug)
+        into.recompute_confidence!
+        # Units and links moved without saving into: its public snapshot
+        # expires on commit all the same (Verifiable).
+        into.touch
+      end
+      Result.new(kind: :facility, id: into_id, created: false, errors: [])
+    rescue Invalid, ActiveRecord::RecordInvalid => error
+      failure(:facility, error.message)
     end
 
     def self.remove_evidence(...) = new.remove_evidence(...)

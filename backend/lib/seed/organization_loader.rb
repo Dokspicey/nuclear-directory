@@ -55,6 +55,21 @@ module Seed
         owner = Organization.find_by(domain:) if domain && !shared.include?(domain)
         owners << [ "domain #{domain}", owner ] if owner && owner != target && !merging.include?(OrganizationAlias.normalize(owner.name))
         owners.map { |name, other| "#{slug}: #{name.inspect} already belongs to #{other.name} (#{other.slug})" }
+      end + plant_id_collisions
+    end
+
+    # An EIA plant ID another site holds (#229): merge that site in first.
+    def plant_id_collisions
+      facilities = File.exist?(@facilities_file.to_s) ? Array(read(@facilities_file)["facilities"]) : []
+      facilities.select { |entry| entry["eia_plant_id"].present? }.filter_map do |entry|
+        holder = Facility.find_by(parent_id: nil, eia_plant_id: entry["eia_plant_id"].to_s) or next
+        # The site the loader would write to, found as it finds it: by its
+        # name, then by a former one (rename_from_former_name).
+        target = [ entry["name"], *entry["other_names"] ].compact_blank.lazy.filter_map { |name| Directory::Lookup.facility(name:) }.first
+        next if holder.id == target&.id
+
+        "facilities.yml: #{entry['name'].inspect}'s EIA plant ID #{entry['eia_plant_id']} already belongs to " \
+          "#{holder.name} (#{holder.slug}); merge it in first: bin/rails \"directory:merge_facility[#{holder.id},#{target&.id || '<site id>'}]\""
       end
     end
 
@@ -196,6 +211,7 @@ module Seed
           former = Directory::Lookup.organization(name:) or next
           target = Directory::Lookup.organization(slug:)
           next if target && former.id == target.id
+          next if former.verification_status == "unpublished" # merged on an earlier load
           next @errors << "#{slug}: can't merge #{name.inspect}: #{doc["name"].inspect} isn't loaded yet" unless target
 
           result = Directory::FactWriter.merge_organization(from_id: former.id, into_id: target.id, by: VERIFICATION[:by],
@@ -239,6 +255,11 @@ module Seed
         end
         if entry["other_names"].present?
           write("facilities.yml", :facility, { id: facility.id, aliases: entry["other_names"] }, [])
+        end
+        # An identifier, like its names: EIA's crawl finds the site by it
+        # instead of proposing a second one (#229).
+        if entry["eia_plant_id"].present?
+          write("facilities.yml", :facility, { id: facility.id, eia_plant_id: entry["eia_plant_id"].to_s }, [])
         end
       end
 

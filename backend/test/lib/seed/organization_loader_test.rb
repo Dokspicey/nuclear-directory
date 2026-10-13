@@ -168,6 +168,54 @@ class Seed::OrganizationLoaderTest < ActiveSupport::TestCase
     assert_equal old.id, Directory::Lookup.facility(name: "Acme Plant (Oak Ridge, TN)").id
   end
 
+  test "a plant's EIA plant ID is loaded, so EIA's crawl finds the seed site (#229)" do
+    write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com", facilities: [ item(name: "Acme Plant", type: "owns") ]))
+    File.write(facilities_file, { "facilities" => [ { "name" => "Acme Plant", "eia_plant_id" => "649" } ] }.to_yaml)
+
+    Seed::OrganizationLoader.new(@dir, facilities: facilities_file).load!
+
+    plant = Facility.find_by!(name: "Acme Plant")
+    assert_equal "649", plant.eia_plant_id
+    assert_equal plant.id, Directory::Lookup.facility(eia_plant_id: "649").id
+    assert_empty Seed::OrganizationLoader.new(@dir, facilities: facilities_file).collisions
+  end
+
+  test "the dry run reports an EIA plant ID a duplicate site still holds" do
+    write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com", facilities: [ item(name: "Acme Plant", type: "owns") ]))
+    File.write(facilities_file, { "facilities" => [ { "name" => "Acme Plant", "eia_plant_id" => "649" } ] }.to_yaml)
+    Facility.create!(name: "Acme", eia_plant_id: "649")
+
+    assert_equal [ "facilities.yml: \"Acme Plant\"'s EIA plant ID 649 already belongs to Acme (acme); merge it in first" ],
+      Seed::OrganizationLoader.new(@dir, facilities: facilities_file).collisions.map { |line| line.sub(/: bin.*/, "") }
+  end
+
+  test "the dry run compares the site the loader writes to, not names: a same-named other site still collides" do
+    write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com", facilities: [ item(name: "Acme Plant", type: "owns") ]))
+    File.write(facilities_file, { "facilities" => [ { "name" => "Acme Plant", "eia_plant_id" => "649" } ] }.to_yaml)
+    Facility.create!(name: "Acme Plant")
+    Facility.create!(name: "Acme Plant", eia_plant_id: "649") # a later, same-named site the loader won't write to
+
+    assert_equal 1, Seed::OrganizationLoader.new(@dir, facilities: facilities_file).collisions.size
+  end
+
+  test "a site still under a former name that holds the plant ID is the loader's own target, not a collision" do
+    write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com", facilities: [ item(name: "Acme Plant", type: "owns") ]))
+    File.write(facilities_file, { "facilities" => [
+      { "name" => "Acme Plant", "other_names" => [ "Acme Plant (Oak Ridge, TN)" ], "eia_plant_id" => "649" } ] }.to_yaml)
+    Facility.create!(name: "Acme Plant (Oak Ridge, TN)", eia_plant_id: "649")
+
+    assert_empty Seed::OrganizationLoader.new(@dir, facilities: facilities_file).collisions
+  end
+
+  test "the collision message names the site to merge into" do
+    write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com", facilities: [ item(name: "Acme Plant", type: "owns") ]))
+    File.write(facilities_file, { "facilities" => [ { "name" => "Acme Plant", "eia_plant_id" => "649" } ] }.to_yaml)
+    kept = Facility.create!(name: "Acme Plant")
+    duplicate = Facility.create!(name: "Acme", eia_plant_id: "649")
+
+    assert_match "directory:merge_facility[#{duplicate.id},#{kept.id}]", Seed::OrganizationLoader.new(@dir, facilities: facilities_file).collisions.sole
+  end
+
   test "a former name that was an unquoted legal name is dropped from the aliases on a rerun" do
     Directory::FactWriter.write(:organization, { name: "Acme Fuel Holdings, Inc.", slug: "acme-fuel" })
     write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com", legal_name: "Acme Fuel Holdings, Inc.",

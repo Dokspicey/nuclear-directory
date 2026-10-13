@@ -580,6 +580,16 @@ facilities:
   - Crane Clean Energy Center (Three Mile Island Unit 1)
   - Three Mile Island Unit 1
   - TMI-1
+  eia_plant_id: '8011'
+# EIA plant IDs (#229): EIA's crawl finds these sites by ID instead of
+# proposing a second site under EIA's name for the plant.
 - name: Plant Vogtle
   other_names:
   - Plant Vogtle Units 3 & 4
+  eia_plant_id: '649'
+- name: North Anna Power Station
+  eia_plant_id: '6168'
+- name: Susquehanna Steam Electric Station
+  eia_plant_id: '6103'
+- name: Clinton Clean Energy Center
+  eia_plant_id: '204'
