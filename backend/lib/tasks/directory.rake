@@ -20,4 +20,49 @@ namespace :directory do
     end
     puts kept.any? ? kept : "Nothing to backfill."
   end
+
+  # EIA's Entity Name is the utility that reports a generator, not the
+  # plant's operator (#227). Published "operates" links whose only evidence
+  # is EIA's are listed. With BY=human:<name> APPLY=1, the ones whose plant
+  # has a published operator from NRC's list are unpublished,
+  # each recorded with who did it and why; the rest are left for a person.
+  desc "List the published operates links only EIA backs; BY=human:<name> APPLY=1 [SKIP=id,…] unpublishes those another operator contradicts (#227)"
+  task retire_eia_operators: :environment do
+    by = ENV["BY"].to_s
+    apply = ENV["APPLY"] == "1"
+    abort "APPLY=1 needs BY=human:<name>" if apply && !by.match?(/\Ahuman:\S+\z/)
+    # Links a person decided to keep, e.g. SKIP=169 (Perry: NRC's row still
+    # names a company retired in 2020, #237). Listed, never changed.
+    skip = ENV["SKIP"].to_s.split(",").map(&:strip)
+    abort "SKIP takes link ids: SKIP=169,170" unless skip.all? { |id| id.match?(/\A\d+\z/) }
+    skip = skip.map(&:to_i)
+
+    backed_by = ->(kind) { Evidence.joins(:source).where(subject_type: "FacilityRelationship", sources: { source_kind: kind }).select(:subject_id) }
+    other = Evidence.joins(:source).where(subject_type: "FacilityRelationship").where.not(sources: { source_kind: "eia_generators" }).select(:subject_id)
+    links = FacilityRelationship.published.where(relationship_type: "operates", id: backed_by["eia_generators"]).where.not(id: other)
+      .includes(:organization, :facility)
+    reason = "EIA's Entity Name is the utility that reports the generator, not the plant's operator (#227)"
+
+    found = links.map do |link|
+      site = link.facility.parent || link.facility
+      plant = [ site.id, *Facility.where(parent_id: site.id).ids ]
+      # Only a current, published operator that NRC's list backs counts
+      # against EIA's (an ended one isn't shown as current, PlantProfile#links).
+      operators = FacilityRelationship.published.where(relationship_type: "operates", facility_id: plant, id: backed_by["nrc_reactor_list"])
+        .where("facility_relationships.ended_on IS NULL OR facility_relationships.ended_on > ?", Date.current)
+        .where.not(id: link.id).where.not(organization_id: link.organization_id).includes(:organization).map { |o| o.organization.name }.uniq
+      line = "FacilityRelationship #{link.id}: #{link.organization.name} operates #{link.facility.name}"
+      if operators.empty?
+        "#{line} (no published NRC operator; check by hand)"
+      elsif skip.include?(link.id)
+        "#{line} -> kept (SKIP; #{operators.join(', ')})"
+      elsif apply
+        result = DataQuality::Review.unpublish(type: "FacilityRelationship", id: link.id, by:, reason:)
+        "#{line} -> #{result.errors.empty? ? 'unpublished' : "not unpublished: #{result.errors.join('; ')}"} (#{operators.join(', ')})"
+      else
+        "#{line} -> would unpublish (#{operators.join(', ')})"
+      end
+    end
+    puts found.any? ? found : "No published operates links rest on EIA alone."
+  end
 end

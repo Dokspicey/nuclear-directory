@@ -396,7 +396,7 @@ class DataQuality::Plugins::EiaGeneratorsTest < ActiveSupport::TestCase
     assert_equal [ "crawler" ], unit.evidence.distinct.pluck(:found_by)
   end
 
-  test "each plant proposes its site, its operator and an operates link (#121)" do
+  test "each plant proposes its site and no operator: Entity Name is the reporting utility (#121, #227)" do
     crawl!
     candidates = plugin.extract(source, nil)
 
@@ -404,9 +404,8 @@ class DataQuality::Plugins::EiaGeneratorsTest < ActiveSupport::TestCase
     assert_equal({ "name" => "Vogtle", "eia_plant_id" => "649", "facility_type" => "power_reactor", "state" => "GA" },
       site[:payload].slice("name", "eia_plant_id", "facility_type", "state"))
     assert_includes source.content_text, site[:quote]
-    link = candidates.find { |c| c[:kind] == "facility_relationship" && c[:payload]["facility"]["eia_plant_id"] == "649" }
-    assert_equal "operates", link[:payload]["relationship_type"]
     assert_equal 1, candidates.count { |c| c[:kind] == "facility" && c[:payload]["eia_plant_id"] == "649" }, "one site per plant"
+    assert_equal [ "facility" ], candidates.map { |c| c[:kind] }.uniq, "no company, no operates link"
   end
 
   test "an EIA site isn't matched to an NRC unit of the same name, and units never take an EIA plant ID" do
@@ -462,46 +461,104 @@ class DataQuality::Plugins::EiaGeneratorsTest < ActiveSupport::TestCase
     assert proposed.reload.rejected?, "June proposed it; July only attached; August no longer lists it"
   end
 
-  test "a proposed company and link stay when the newer file only spells the operator differently" do
-    july = Source.create!(url: "https://www.eia.gov/electricity/data/eia860m/xls/july_generator2026.xlsx",
-      source_kind: "eia_generators", crawl_status: "ok")
-    operator_name = Workbook.nuclear_generators(file_fixture("eia/generators_sample.xlsx").binread).find { |g| g["eia_plant_id"] == "6001" }["entity_name"]
-    company = Directory::FactWriter.write(:organization, { name: "#{operator_name}.", aliases: [ operator_name ] }).id
-    Candidate.create!(source: july, kind: "organization", quote: "old", status: "matched", proposed_subject: true,
-      payload: { "name" => "#{operator_name}." }, subject_type: "Organization", subject_id: company)
-
-    crawl!
-
-    assert Organization.find(company).pending?, "the same company, spelled without the period"
-  end
-
-  test "a proposed company stays when the newer file names it by another name of its brand" do
-    july = Source.create!(url: "https://www.eia.gov/electricity/data/eia860m/xls/july_generator2026.xlsx",
-      source_kind: "eia_generators", crawl_status: "ok")
-    operator_name = Workbook.nuclear_generators(file_fixture("eia/generators_sample.xlsx").binread).find { |g| g["eia_plant_id"] == "6001" }["entity_name"]
-    company = Directory::FactWriter.write(:organization, { name: "#{operator_name} Holdings" }).id
-    Candidate.create!(source: july, kind: "organization", quote: "old", status: "matched", proposed_subject: true,
-      payload: { "name" => "#{operator_name} Holdings" }, subject_type: "Organization", subject_id: company)
-
-    crawl!
-
-    assert Organization.find(company).pending?, "#{operator_name} is the same brand"
-  end
-
-  test "only each plant's first generator row counts as current, as extraction proposes from it" do
-    july = Source.create!(url: "https://www.eia.gov/electricity/data/eia860m/xls/july_generator2026.xlsx",
-      source_kind: "eia_generators", crawl_status: "ok")
+  # Before #227, EIA proposed each plant's Entity Name as its operator.
+  def operator_claims(source, status:)
     farley = Facility.create!(name: "Joseph M Farley", eia_plant_id: "6001")
-    old_operator = Organization.create!(name: "Old Operator Co")
-    link = FacilityRelationship.create!(organization: old_operator, facility: farley, relationship_type: "operates")
-    candidate = Candidate.create!(source: july, kind: "facility_relationship", quote: "old", status: "rejected",
-      proposed_subject: true, subject_type: "FacilityRelationship", subject_id: link.id,
-      payload: { "organization" => { "name" => "Old Operator Co" }, "facility" => { "eia_plant_id" => "6001" } })
-    newer = Source.new(content_text: "eia_plant_id,entity_name\n6001,New Operator Co\n6001,Old Operator Co\n")
+    company = Organization.create!(name: "Alabama Power Co")
+    link = FacilityRelationship.create!(organization: company, facility: farley, relationship_type: "operates")
+    [
+      Candidate.create!(source:, kind: "organization", quote: "old", status:, proposed_subject: true,
+        payload: { "name" => "Alabama Power Co" }, subject_type: "Organization", subject_id: company.id),
+      Candidate.create!(source:, kind: "facility_relationship", quote: "old", status:, proposed_subject: true,
+        payload: { "organization" => { "name" => "Alabama Power Co" }, "facility" => { "eia_plant_id" => "6001" },
+          "relationship_type" => "operates" }, subject_type: "FacilityRelationship", subject_id: link.id)
+    ]
+  end
 
-    plugin.send(:retire_orphans, [ candidate ], newer, CrawlRun.create!(stage: "crawl", source_kind: "eia_generators"))
+  test "open operator claims are withdrawn on the next crawl, with what only they proposed (#227)" do
+    august = Source.create!(url: FILE, source_kind: "eia_generators")
+    claims = operator_claims(august, status: "matched")
+    # Reopened by the #226 repair: its ends not settled, so no link yet.
+    reopened = Candidate.create!(source: august, kind: "facility_relationship", quote: "old", status: "new",
+      payload: { "organization" => { "name" => "Southern Co" }, "facility" => { "eia_plant_id" => "649" }, "relationship_type" => "operates" })
+    in_review = Candidate.create!(source: august, kind: "organization", quote: "old", status: "needs_review", payload: { "name" => "Entergy" })
+    site = Candidate.create!(source: august, kind: "facility", quote: "old", status: "needs_review", payload: { "name" => "Vogtle", "eia_plant_id" => "649" })
 
-    assert link.reload.rejected?, "a later row naming the old operator doesn't keep its link"
+    stats = crawl!
+
+    [ *claims, reopened, in_review ].each do |claim|
+      assert claim.reload.status_rejected?, claim.kind
+      assert_match "not the plant's operator", claim.notes
+    end
+    assert site.reload.status_needs_review?, "sites are still EIA's to propose"
+    assert Organization.find(claims.first.subject_id).rejected?, "the company only EIA proposed"
+    assert FacilityRelationship.find(claims.last.subject_id).rejected?, "and its link"
+    assert_equal 4, stats["operator_claims_withdrawn"]
+    assert_nil crawl!["operator_claims_withdrawn"], "nothing left to withdraw"
+  end
+
+  test "the claims are locked before they're withdrawn, so a decision made at the same moment isn't overwritten" do
+    operator_claims(Source.create!(url: FILE, source_kind: "eia_generators"), status: "matched")
+    queries = []
+    subscriber = ActiveSupport::Notifications.subscribe("sql.active_record") { |*, payload| queries << payload[:sql] }
+
+    plugin.send(:withdraw_operator_claims, CrawlRun.create!(stage: "crawl", source_kind: "eia_generators"))
+
+    ActiveSupport::Notifications.unsubscribe(subscriber)
+    locking = queries.index { |sql| sql.include?("candidates") && sql.include?("FOR UPDATE") }
+    withdrawing = queries.index { |sql| sql.start_with?("UPDATE \"candidates\"") }
+    assert locking, "the open claims are selected FOR UPDATE"
+    assert_operator locking, :<, withdrawing
+  end
+
+  test "a record is locked before it's checked for other candidates and retired" do
+    company_claim, = operator_claims(Source.create!(url: FILE, source_kind: "eia_generators"), status: "matched")
+    queries = []
+    subscriber = ActiveSupport::Notifications.subscribe("sql.active_record") { |*, payload| queries << payload[:sql] }
+
+    plugin.send(:withdraw_operator_claims, CrawlRun.create!(stage: "crawl", source_kind: "eia_generators"))
+
+    ActiveSupport::Notifications.unsubscribe(subscriber)
+    locking = queries.index { |sql| sql.include?("FROM \"organizations\"") && sql.include?("FOR UPDATE") }
+    checking = queries.index { |sql| sql.include?("\"candidates\".\"proposed_subject\"") }
+    assert locking, "the company is locked"
+    assert_operator locking, :<, checking, "before its other candidates are checked"
+    assert Organization.find(company_claim.subject_id).rejected?
+  end
+
+  test "operator claims are withdrawn even when EIA's page can't be read" do
+    stub_request(:get, INDEX).to_return(status: 503)
+    claims = operator_claims(Source.create!(url: FILE, source_kind: "eia_generators"), status: "new")
+
+    assert_raises(RuntimeError) { crawl! }
+
+    assert claims.all? { |claim| claim.reload.status_rejected? }
+  end
+
+  test "an unreadable workbook still reports the claims it withdrew" do
+    stub_request(:get, FILE).to_return(body: "not a zip")
+    operator_claims(Source.create!(url: "https://www.eia.gov/electricity/data/eia860m/xls/july_generator2026.xlsx",
+      source_kind: "eia_generators"), status: "matched")
+
+    stats = crawl!
+
+    assert_equal [ "needs_human", 2 ], stats.values_at("snapshot", "operator_claims_withdrawn")
+  end
+
+  test "a published operator link, and a company something else uses, are left for a person" do
+    august = Source.create!(url: FILE, source_kind: "eia_generators")
+    company_claim, link_claim = operator_claims(august, status: "merged")
+    company = Organization.find(company_claim.subject_id)
+    Candidate.create!(source: Source.create!(url: "https://www.nrc.gov/list", source_kind: "nrc_reactor_list"), kind: "organization",
+      quote: "nrc", status: "matched", payload: { "name" => "Alabama Power Co" }, subject_type: "Organization", subject_id: company.id)
+    still_open = Candidate.create!(source: august, kind: "organization", quote: "old", status: "matched",
+      payload: { "name" => "Alabama Power Co" }, subject_type: "Organization", subject_id: company.id)
+
+    crawl!
+
+    assert still_open.reload.status_rejected?
+    assert link_claim.reload.status_merged?, "published: bin/rails directory:retire_eia_operators"
+    assert company.reload.pending?, "published, and NRC's candidate points at it too"
   end
 
   test "withdrawal and retirement are one transaction, so a stopped run retries both" do
