@@ -35,6 +35,18 @@ class Directory::RemoveEvidenceTest < ActiveSupport::TestCase
     assert @link.reload.verified?
   end
 
+  test "the fact counts as changed: updated_at moves and the public snapshot expires" do
+    updated_at = @link.reload.updated_at
+    generation = DirectorySnapshot.generation
+
+    travel 1.minute do
+      assert remove.ok?
+    end
+
+    assert_operator @link.reload.updated_at, :>, updated_at
+    assert_operator DirectorySnapshot.generation, :>, generation
+  end
+
   test "only a human removes evidence, with a reason" do
     agent = remove_from("FacilityRelationship", @link.id, @wrong, by: "agent:verifier/x")
     no_reason = remove(reason: " ")

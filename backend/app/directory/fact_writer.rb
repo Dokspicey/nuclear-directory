@@ -197,6 +197,9 @@ module Directory
         record.verification_reason = reason
         record.audited_changes = { "evidence" => [ removed, nil ] }
         record.log_verification_event(from_status: record.verification_status, by:)
+        # A change to the fact like any other: its updated_at moves and, on
+        # commit, the public snapshot expires (Verifiable).
+        record.touch
       end
       Result.new(kind: type.to_s.underscore.to_sym, id:, created: false, errors: [])
     rescue Invalid, ActiveRecord::RecordInvalid, ActiveRecord::RecordNotDestroyed => error
