@@ -4,7 +4,7 @@ The rules for every fact in Nuclear Directory: what each record is, what each li
 
 **The one rule:** every published fact has a public source and a quote that states it. If we can't source it, we don't publish it.
 
-Sections 1–5 say what to record. Section 6 lists every rule as a check, marked **enforced** (the database or `Directory::FactWriter` refuses a violation) or **audited** (`data_quality:audit` and the admin flag it). Section 7 lists the decisions and who made them.
+Sections 1–5 say what to record. Section 6 lists every rule as a check, marked **enforced** (the database or `Directory::FactWriter` refuses a violation) or **audited** (to be flagged by `data_quality:audit` and the admin's Live screen; both are planned, M10 and Admin v2, so today these are run by hand from the audit queries). Section 7 lists the decisions and who made them.
 
 ## 1. Records
 
@@ -14,10 +14,10 @@ Sections 1–5 say what to record. Section 6 lists every rule as a check, marked
 |---|---|---|---|
 | Company (`Organization`) | One company per brand (decision #23). Legal entities and subsidiaries named by sources become aliases, or a `subsidiary_of` link when a source states the parent | Constellation (aliases: Constellation Energy Generation, LLC) | A person, a project, a fund vehicle no source ties to the firm |
 | Plant site (`Facility`, no parent) | A place: a power plant, fuel plant, mine, mill, test reactor or fusion plant | Plant Vogtle | A single reactor at a multi-unit plant |
-| Reactor unit (`Facility` with a parent) | One licensed reactor, under its site | Vogtle 3 | A design (AP1000), or a planned project with no license |
+| Reactor unit (`Facility` with a parent) | One reactor under its site: licensed, or planned with a unit its developer identifies ("Palisades Pioneer Unit 1") | Vogtle 3 | A design (AP1000), or a project with no identified unit |
 | Plant link (`FacilityRelationship`) | A company's role at a plant | Southern Nuclear operates Vogtle 3 | A deal between two companies |
 | Company link (`Relationship`) | A deal or tie between two companies | Centrus supplies TRISO-X | A role at a plant |
-| Deal term (`DealTerm`, #264) | One award, power deal or funding round under its link, with amount and dates | A DOE award (ID, amount, start date) under "DOE funds X-energy" | The link itself |
+| Deal term (`DealTerm`, once #264 merges) | One award, power deal or funding round under its link, with amount and dates | A DOE award (ID, amount, start date) under "DOE funds X-energy" | The link itself |
 | Category (role) and technology | A tag on a company, each with its own quote | X-energy: reactor developer; SMR | A tag inferred without a quote |
 
 ### Site or unit
@@ -122,7 +122,7 @@ Not a source: anything behind a login or paywall, AI-written summaries, a page t
 
 ## 6. Checks
 
-The admin's Live screen and the nightly `data_quality:audit` read the same definitions (#238 comments), so the screen and the report never disagree.
+The admin's Live screen and the nightly `data_quality:audit` are planned (Admin v2, M10). When built, both read the same definitions (#238 comments), so the screen and the report never disagree.
 
 ### Enforced (a write that breaks them is refused)
 
@@ -132,7 +132,7 @@ The admin's Live screen and the nightly `data_quality:audit` read the same defin
 - **Publishing:** a fact is public only through its model's `.published` scope: a unit when verified under an open site; a pending site when it has such a unit; a link only when both ends are public; a deal term only with its link.
 - **Deal terms (once #264 merges):** one term per link, kind and award ID; an award needs an amount, a start date and an award ID; dates in order; no negative amounts; no automated term on a rejected or unpublished link.
 
-### Audited (flagged on the Live screen and by `data_quality:audit`)
+### Audited (planned: the Live screen and `data_quality:audit`)
 
 | Check | Severity | Rule |
 |---|---|---|
@@ -143,8 +143,11 @@ The admin's Live screen and the nightly `data_quality:audit` read the same defin
 | duplicate site | High | Two live sites share an EIA plant ID or coordinates within 50 m |
 | duplicate company | High | Two live companies share a normalized name, alias or domain |
 | `single-source` | Low | Rests on one source |
-| `no-operator`, `no-capacity`, `no-location`, `no-site` | Medium | Operating reactors missing them |
-| `no-owner`, `no-share` | Low | Operating plants without an owner, or co-owners without shares |
+| `no-operator` | Medium | An operating reactor or plant with no published operator, on it or its site |
+| `no-capacity` | Medium | An operating reactor with no capacity |
+| `no-location` | Medium | Any plant or reactor without coordinates or a state |
+| `no-site` | Medium | Any reactor with an NRC docket that isn't under a site |
+| `no-owner`, `no-share` | Low | An operating plant with no published owner, or co-owners without shares |
 | `no-category`, `no-links` | Low | Companies that don't show up anywhere useful |
 | state mismatch | High | A unit's state differs from its site's |
 
