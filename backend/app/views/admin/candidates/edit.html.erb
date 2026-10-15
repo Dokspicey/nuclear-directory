@@ -2,8 +2,8 @@
 <% source_url = safe_url(@item.source.url) %>
 
 <div class="nd-stack max-w-prose">
-  <p class="type-small m-0"><%= link_to "Back to the queue", admin_candidates_path(filters.presence || { queue: @item.status == "needs_review" ? "needs_review" : "recommended" }), class: "nd-link nd-link--muted nd-tap" %></p>
-  <h1 class="type-title-md m-0">Edit, then approve</h1>
+  <p class="type-small m-0"><%= link_to "Back to Checks", admin_checks_path(filters.slice("category", "source")), class: "nd-link nd-link--muted nd-tap" %></p>
+  <h1 class="type-admin-h1 m-0">Edit, then approve</h1>
   <p class="nd-item__claim type-body-strong"><%= @item.claim %></p>
   <% if @item.quote.present? %><blockquote class="nd-quote">“<%= @item.quote %>”</blockquote><% end %>
   <% if source_url %>
@@ -42,7 +42,7 @@
     </div>
     <div class="nd-row">
       <%= form.submit "Approve with these values", class: "nd-btn nd-btn--primary" %>
-      <%= link_to "Cancel", admin_candidates_path(filters), class: "nd-btn nd-btn--ghost" %>
+      <%= link_to "Cancel", admin_checks_path(filters.slice("category", "source")), class: "nd-btn nd-btn--outline" %>
     </div>
   <% end %>
 </div>

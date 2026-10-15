@@ -31,10 +31,11 @@ module DataQuality::Review
   # when it disagrees with a human-verified record; approving would apply the
   # source's value. found_by: the model of the run that extracted it (nil for
   # hand-made ones).
+  # category: which of the Checks screen's groups it's in (CATEGORIES).
   Item = Data.define(:candidate_id, :kind, :status, :claim, :payload, :quote, :source, :notes,
     :ai_recommendation, :ai_reason, :ai_confidence, :ai_model, :ai_checked_at, :verify_run_id,
-    :subject_type, :subject_id, :record, :differences, :found_by, :crawl_run_id)
-  Source = Data.define(:id, :url, :title)
+    :subject_type, :subject_id, :record, :differences, :found_by, :crawl_run_id, :category)
+  Source = Data.define(:id, :url, :title, :source_kind)
   EvidenceItem = Data.define(:source, :quote, :found_by, :confidence)
   PendingFact = Data.define(:type, :id, :kind, :attributes, :evidence, :created_at, :last_event)
   # One directory fact as the admin shows it. values: its stored values;
@@ -55,6 +56,13 @@ module DataQuality::Review
   NOT_EDITABLE = (LINK_ENDS + %w[id slug relationship_type parent_id]).freeze
   # What reasons() calls candidates with no notes.
   NO_REASON = "no reason"
+  # The Checks screen's groups of waiting items (#201). Pending facts with no
+  # candidate are in "facts" too.
+  CATEGORIES = %w[changed links facts duplicates].freeze
+  # A link between companies, or a company and a plant (a role or technology is a fact).
+  CHECK_LINK_KINDS = %w[relationship facility_relationship].freeze
+  # Match's notes when a name is close to a record it might be.
+  DUPLICATE_NOTES = [ "but similar:", "could be the same brand" ].freeze
   # A company's role or technology is what that fact is (a plant's
   # technology is an ordinary value).
   IDENTIFYING = { "organization_role" => %w[role], "organization_technology" => %w[technology] }.freeze
@@ -87,6 +95,21 @@ module DataQuality::Review
 
     # How many candidates wait in each queue: { recommended: 12, needs_review: 3 }.
     def counts = QUEUES.transform_values { |scope| scope.call.count }
+
+    # Waiting candidates in a Checks group ("all" or one of CATEGORIES),
+    # oldest first, optionally from one kind of source. Pending facts are
+    # listed by pending_facts.
+    def checks(category: "all", source_kind: nil, after_id: nil, limit: 50, directory: DataQuality::DirectoryClient.new)
+      scope = category_scope(category, source_kind:).includes(:source, :crawl_run).order(:id).limit(limit)
+      scope = scope.where("candidates.id > ?", after_id) if after_id
+      scope.map { |candidate| item(candidate, directory) }
+    end
+
+    # How many candidates wait in each Checks group, plus "all":
+    # { "all" => 9, "changed" => 2, … }. Pending facts aren't included.
+    def check_counts(source_kind: nil)
+      CATEGORIES.index_with { |category| category_scope(category, source_kind:).count }.then { |counts| { "all" => counts.values.sum }.merge(counts) }
+    end
 
     # Kinds of question in a queue, most common first, quoted names blanked
     # ('no exact match for "…"'), for the admin's reason filter: passing one
@@ -241,6 +264,18 @@ module DataQuality::Review
         PendingFact.new(type: fact.type, id: fact.id, kind: fact.kind, attributes: fact.attributes, created_at: fact.created_at,
           last_event: fact.last_event, evidence: fact.evidence.map { |e| EvidenceItem.new(source: sources[e.source_id], quote: e.quote,
             found_by: e.found_by, confidence: e.confidence) })
+      end
+    end
+
+    # How many facts pending_facts lists, across every kind: pending, with no
+    # open candidate (those are counted in the queues).
+    def pending_count(directory: DataQuality::DirectoryClient.new)
+      directory.fact_kinds.sum do |kind|
+        ids = directory.pending_fact_ids(kind:)
+        next 0 if ids.empty?
+
+        covered = Candidate.where(status: %w[new matched needs_review], subject_type: kind.camelize, subject_id: ids).distinct.count(:subject_id)
+        ids.size - covered
       end
     end
 
@@ -463,15 +498,47 @@ module DataQuality::Review
         differences = DataQuality::Differences.with_human_verified(candidate, record)
         Item.new(candidate_id: candidate.id, kind: candidate.kind, status: candidate.status, claim: DataQuality::Claim.describe(candidate),
           payload: candidate.payload, quote: candidate.quote, notes: candidate.notes,
-          source: Source.new(id: candidate.source.id, url: candidate.source.url, title: candidate.source.title),
+          source: Source.new(id: candidate.source.id, url: candidate.source.url, title: candidate.source.title, source_kind: candidate.source.source_kind),
           ai_recommendation: candidate.ai_recommendation, ai_reason: candidate.ai_reason, ai_confidence: candidate.ai_confidence,
           ai_model: candidate.ai_model, ai_checked_at: candidate.ai_checked_at, verify_run_id: candidate.verify_run_id,
           subject_type: candidate.subject_type, subject_id: candidate.subject_id, record:, differences:,
-          found_by: candidate.crawl_run&.model, crawl_run_id: candidate.crawl_run_id)
+          found_by: candidate.crawl_run&.model, crawl_run_id: candidate.crawl_run_id, category: category_of(candidate))
       end
 
+      # The same rules as category_scope, for one candidate.
+      def category_of(candidate)
+        notes = candidate.notes.to_s
+        if notes.match?(/\Ahuman-verified /i) then "changed"
+        elsif DUPLICATE_NOTES.any? { |note| notes.downcase.include?(note) } then "duplicates"
+        elsif CHECK_LINK_KINDS.include?(candidate.kind) then "links"
+        else "facts"
+        end
+      end
+
+      # Waiting candidates in one of the Checks screen's groups. A candidate is
+      # in exactly one: a disagreement with a human-verified value (verify's
+      # note), then a possible duplicate (match's note), then a link, else a fact.
+      def category_scope(category, source_kind: nil)
+        scope = waiting_scope
+        scope = scope.where(source_id: ::Source.where(source_kind:).select(:id)) if source_kind
+        notes = "COALESCE(candidates.notes, '')"
+        changed = "#{notes} ILIKE 'human-verified %'"
+        duplicate = "(#{DUPLICATE_NOTES.map { |note| "#{notes} ILIKE #{Candidate.connection.quote("%#{note}%")}" }.join(' OR ')})"
+        case category
+        when nil, "all" then scope
+        when "changed" then scope.where(changed)
+        when "duplicates" then scope.where("#{duplicate} AND NOT (#{changed})")
+        when "links" then scope.where(kind: CHECK_LINK_KINDS).where("NOT (#{changed}) AND NOT #{duplicate}")
+        when "facts" then scope.where.not(kind: CHECK_LINK_KINDS).where("NOT (#{changed}) AND NOT #{duplicate}")
+        else raise ArgumentError, "not a Checks group: #{category.inspect}"
+        end
+      end
+
+      # Both queues: recommended, or needing a person's look.
+      def waiting_scope = Candidate.where(id: Candidate.recommended.select(:id)).or(Candidate.status_needs_review)
+
       def sources_by_id(ids)
-        ::Source.where(id: ids.uniq).to_h { |source| [ source.id, Source.new(id: source.id, url: source.url, title: source.title) ] }
+        ::Source.where(id: ids.uniq).to_h { |source| [ source.id, Source.new(id: source.id, url: source.url, title: source.title, source_kind: source.source_kind) ] }
       end
   end
 end

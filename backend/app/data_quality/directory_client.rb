@@ -296,6 +296,12 @@ class DataQuality::DirectoryClient
   # Facts of one kind waiting for a human (Directory::PendingFactRef), oldest first.
   def pending_facts(kind:, after_id: nil, limit: 50) = lookup.pending_facts(kind:, after_id:, limit:)
 
+  # How many public facts have evidence from these sources.
+  def published_count_backed_by(source_ids:) = lookup.published_count_backed_by(source_ids:)
+
+  # Ids of every pending fact of one kind.
+  def pending_fact_ids(kind:) = lookup.pending_fact_ids(kind:)
+
   # Every verification decision on a fact, newest first (Directory::VerificationEventRef).
   def verification_history(type:, id:) = lookup.verification_history(type:, id:)
 
