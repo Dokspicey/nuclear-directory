@@ -35,6 +35,15 @@ class Directory::ExitsTest < ActiveSupport::TestCase
     assert_equal 1, Directory::Lookup.exits(since: 1.day.ago, limit: 1).size
   end
 
+  test "exits names facts without a query per fact" do
+    role = Role.create!(key: "exits_test", name: "Exits test")
+    3.times { |n| OrganizationRole.create!(organization: Organization.create!(name: "Co #{n}"), role:).reject!(by: BY, reason: "no") }
+
+    exits = assert_queries_count(4) { Directory::Lookup.exits(since: 1.day.ago) } # events, roles, their companies, their roles
+    assert_equal 3, exits.size
+    assert exits.all? { |exit| exit.name.start_with?("the fact “Co ") }
+  end
+
   test "published_counts counts what public pages show, per type" do
     before = Directory::Lookup.published_counts
     Organization.create!(name: "Shown Co", **VERIFIED)

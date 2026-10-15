@@ -47,6 +47,16 @@ class DirectoryRakeTest < ActiveSupport::TestCase
     assert_raises(SystemExit) { capture_io { backfill_merged_into(BY: "human:") } }
   end
 
+  test "backfill_merged_into counts a merge whose target is gone as skipped, not recorded" do
+    urenco = Organization.create!(name: "Urenco")
+    gone = old_event(Organization.create!(name: "Old Co"), "unpublished", "Merged into Nobody (#999999). Moved: 1 alias")
+    kept = old_event(Organization.create!(name: "Urenco USA"), "unpublished", "Merged into Urenco (##{urenco.id}). Moved: 1 alias")
+
+    assert_output(/skipped, no Organization #999999\n.*\n1 would be recorded, 1 skipped\./m) { backfill_merged_into(BY: "human:tosin") }
+    assert_output(/1 recorded, 1 skipped\./) { backfill_merged_into(BY: "human:tosin", APPLY: "1") }
+    assert_equal [ {}, urenco.id ], [ gone.reload.context, kept.reload.context.dig("merged_into", "id") ]
+  end
+
   test "the backfill keeps slugs renamed or merged before #143, and is safe to rerun" do
     atr = Facility.create!(name: "Advanced Test Reactor", slug: "advanced-test-reactor")
     VerificationEvent.create!(subject: atr, from_status: "verified", to_status: "verified", by: "human:tosin",

@@ -37,7 +37,8 @@ module Directory
     def exits(since:, limit: 50)
       events = VerificationEvent.where(to_status: %w[rejected unpublished], created_at: since..).order(created_at: :desc, id: :desc).limit(limit).to_a
       records = events.group_by(&:subject_type).to_h do |type, group|
-        [ type, type.constantize.where(id: group.map(&:subject_id)).index_by(&:id) ]
+        # With what each label names (a role's company, a link's ends), loaded in one go.
+        [ type, type.constantize.where(id: group.map(&:subject_id)).includes(*PENDING_INCLUDES.fetch(type.underscore)).index_by(&:id) ]
       end
       events.map do |event|
         record = records.dig(event.subject_type, event.subject_id)

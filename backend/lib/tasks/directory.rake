@@ -112,11 +112,15 @@ namespace :directory do
     apply = ENV["APPLY"] == "1"
     events = VerificationEvent.where(subject_type: %w[Organization Facility], to_status: "unpublished")
       .where("reason ~ ?", 'Merged into .+ \(#[0-9]+\)').where("NOT (context ? 'merged_into')").order(:id)
+    skipped = 0
     found = events.map do |event|
       into_id = event.reason[/Merged into .+? \(#(\d+)\)/, 1].to_i
       into = event.subject_type.constantize.find_by(id: into_id)
       line = "event #{event.id}: #{event.subject_type} #{event.subject_id} -> #{into&.name || 'missing'} (##{into_id})"
-      next "#{line}: skipped, no #{event.subject_type} ##{into_id}" unless into
+      unless into
+        skipped += 1
+        next "#{line}: skipped, no #{event.subject_type} ##{into_id}"
+      end
 
       if apply
         # Verification events are append-only (VerificationEvent#before_update).
@@ -128,7 +132,7 @@ namespace :directory do
       line
     end
     puts found.any? ? found : "No merge events without merged_into."
-    puts "#{found.size} #{apply ? 'recorded' : 'would be recorded'}." if found.any?
+    puts "#{found.size - skipped} #{apply ? 'recorded' : 'would be recorded'}#{", #{skipped} skipped" if skipped.positive?}." if found.any?
     puts "Dry run: nothing changed. Run again with APPLY=1 to apply." unless apply || found.empty?
   end
 end
