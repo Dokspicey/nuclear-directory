@@ -13,6 +13,11 @@ Rails.application.routes.draw do
   post "corrections" => "corrections#create", as: :corrections
   get "corrections/sent" => "corrections#sent", as: :correction_sent
 
+  # Link-preview images (#245), one per page, addressed by what they show.
+  get "cards/:kind/:digest.png" => "link_cards#show", as: :link_card_default, format: false, constraints: { kind: "default" }
+  get "cards/:kind/:key/:digest.png" => "link_cards#show", as: :link_card, format: false,
+    constraints: { kind: /plants|companies|categories/ }
+
   get "privacy" => "pages#privacy", as: :privacy
   get "disclaimer" => "pages#disclaimer", as: :disclaimer
   get "bot" => "pages#bot", as: :bot

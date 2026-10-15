@@ -111,6 +111,10 @@ jobs:
       - name: Build CSS
         run: bin/rails tailwindcss:build
 
+      # Link-preview cards are rasterized with libvips (#245), as in the Docker images.
+      - name: Install libvips
+        run: sudo apt-get update -qq && (sudo apt-get install -y --no-install-recommends libvips42t64 || sudo apt-get install -y --no-install-recommends libvips42)
+
       - name: Prepare database
         run: bin/rails db:prepare
 
