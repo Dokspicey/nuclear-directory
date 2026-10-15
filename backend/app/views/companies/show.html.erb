@@ -6,6 +6,7 @@
   record_citations = p.citations_for(p.organization)
   content_for :title, "#{p.name} · Nuclear Directory"
   content_for :og_title, p.name
+  @link_card = [ LinkCard.for_company(p), "companies", p.slug ] # its preview image (#245)
   content_for :og_description, summary || "Plants, sites and deals."
 %>
 <% content_for :head do %>
