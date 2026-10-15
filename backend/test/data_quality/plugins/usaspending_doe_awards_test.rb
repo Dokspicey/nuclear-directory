@@ -59,7 +59,7 @@ class DataQuality::Plugins::UsaspendingDoeAwardsTest < ActiveSupport::TestCase
   test "stores each recipient's awards as rows on its USAspending page, each award once" do
     stats = crawl!
 
-    assert_equal({ "api" => "ok", "awards" => 4, "recipients" => 3, "changed" => 3 }, stats)
+    assert_equal({ "api" => "ok", "awards" => 4, "recipients" => 3, "changed" => 3, "no_recipient_id" => 0 }, stats)
     centrus = CSV.parse(recipient("d527144c-7fea-82ff-aff0-e95e5fd6e488-C").content_text, headers: true)
     assert_equal [ "89303519CNE000005", "89243223CNE000030" ], centrus.map { |row| row["award_id"] }, "oldest first"
     assert_equal({ "amount_usd" => "332041412.48", "start_date" => "2022-11-30", "award_type" => "contract", "search" => "haleu_fuel_contracts",
@@ -114,6 +114,60 @@ class DataQuality::Plugins::UsaspendingDoeAwardsTest < ActiveSupport::TestCase
       plugin.extract(recipient(XENERGY["recipient_id"]), nil).last[:payload]["description"]
     assert_equal "1 award from the U.S. Department of Energy totaling $1.7 billion, 2021: DENE0009054.",
       plugin.extract(recipient(sfr["recipient_id"]), nil).last[:payload]["description"]
+  end
+
+  test "a search with more awards than the pages read stores nothing, so the snapshots stay whole" do
+    crawl!
+    before = recipient(XENERGY["recipient_id"]).content_text
+    page = { "results" => [ XENERGY.merge("Award ID" => "DENE0000001", "generated_internal_id" => "ASST_NON_DENE0000001_089") ],
+      "page_metadata" => { "hasNext" => true } }
+    (1..Plugin::MAX_PAGES).each { |n| @answers[[ "nuclear_energy_rd", n ]] = page }
+    @requests.clear
+
+    travel 1.day do
+      assert_equal({ "api" => "error" }, crawl!)
+    end
+
+    assert_equal Plugin::MAX_PAGES, @requests.size, "the page limit holds"
+    assert_equal before, recipient(XENERGY["recipient_id"]).content_text
+    assert_match(/more than 1000 awards/, Source.find_by!(url: Plugin::API_URL).status_reason)
+  end
+
+  test "an award without a recipient ID is counted and left out; the others are stored" do
+    @answers[[ "nuclear_energy_rd", 2 ]] = { "results" => [ NUSCALE.merge("recipient_id" => nil) ], "page_metadata" => { "hasNext" => false } }
+
+    stats = crawl!
+
+    assert_equal [ 2, 1 ], stats.values_at("recipients", "no_recipient_id")
+    assert_equal 2, Source.where(source_kind: "usaspending_doe_awards").count
+    assert recipient(XENERGY["recipient_id"])
+  end
+
+  test "an answer that never came is recorded without an HTTP status" do
+    stub_request(:post, Plugin::API_URL).to_timeout
+
+    assert_equal({ "api" => "error" }, crawl!)
+
+    index = Source.find_by!(url: Plugin::API_URL)
+    assert_nil index.http_status
+    assert index.status_reason.present?
+  end
+
+  test "the verifier sees the recipient's whole table, header included, however long" do
+    awards = (1..40).map do |n|
+      XENERGY.merge("Award ID" => "DENE#{n.to_s.rjust(7, '0')}", "Award Amount" => 1_000_000.0 + n, "Start Date" => "2021-01-#{(n % 28 + 1).to_s.rjust(2, '0')}",
+        "generated_internal_id" => "ASST_NON_DENE#{n}_089")
+    end
+    @answers[[ "nuclear_energy_rd", 2 ]] = { "results" => awards, "page_metadata" => { "hasNext" => false } }
+    crawl!
+    source = recipient(XENERGY["recipient_id"])
+    link = plugin.extract(source, nil).last
+    assert_operator source.content_text.length, :>, 3_000 + link[:quote].length, "longer than the default passage"
+
+    context = plugin.verification_context(source, link[:quote])
+
+    assert context.start_with?(Plugin::COLUMNS.join(","))
+    assert_equal 41, CSV.parse(context, headers: true).size
   end
 
   test "match links an existing company to DOE; the link waits for a person" do

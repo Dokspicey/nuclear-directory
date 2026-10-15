@@ -36,6 +36,8 @@ class DataQuality::Plugins::UsaspendingDoeAwards < DataQuality::Plugin
     "fusion" => { award_type_codes: ASSISTANCE, program_numbers: [ "81.049" ], keywords: [ "fusion" ] }
   }.freeze
   FIELDS = [ "Award ID", "Recipient Name", "Award Amount", "Start Date", "End Date", "Description", "generated_internal_id", "recipient_id" ].freeze
+  # USAspending's recipient hash and level, e.g. "1f4e2b…-C".
+  RECIPIENT_ID = /\A[0-9a-f-]+-[A-Z]\z/i
   COLUMNS = %w[award_id recipient_name amount_usd start_date end_date award_type assistance_listing search award_url
     generated_award_id recipient_id description].freeze
 
@@ -71,6 +73,11 @@ class DataQuality::Plugins::UsaspendingDoeAwards < DataQuality::Plugin
       "and demonstration, 81.049 is the Office of Science) or a contract."
   end
 
+  # The link's total, award count and first year come from every row, so the
+  # verifier sees the recipient's whole table, header included, rather than
+  # a passage around one award.
+  def verification_context(source, _quote) = source.content_text.to_s
+
   def extract(source, _run)
     rows = CSV.parse(source.content_text.to_s, headers: true).select { |row| row["recipient_name"].present? }
     return [] if rows.empty?
@@ -93,7 +100,10 @@ class DataQuality::Plugins::UsaspendingDoeAwards < DataQuality::Plugin
     def search_all
       rows = {}
       SEARCHES.each do |name, filters|
-        (1..MAX_PAGES).each do |page|
+        more = true
+        page = 0
+        while more && page < MAX_PAGES
+          page += 1
           response = @fetcher.post_json(API_URL, request_body(filters, page))
           return [ nil, response ] unless response.kind == :ok
 
@@ -102,14 +112,20 @@ class DataQuality::Plugins::UsaspendingDoeAwards < DataQuality::Plugin
             row = row_for(award, name)
             rows[row["generated_award_id"]] ||= row # an award two searches find is kept once
           end
-          break unless data.dig("page_metadata", "hasNext")
+          more = data.dig("page_metadata", "hasNext")
         end
+        # More remain after the last page: a partial set would understate
+        # totals, so nothing is stored and the snapshots stay as they are.
+        return [ nil, failure("the #{name} search has more than #{MAX_PAGES * PAGE_SIZE} awards; raise MAX_PAGES") ] if more
       end
       [ rows.values, nil ]
     rescue JSON::ParserError => error
-      [ nil, DataQuality::Fetcher::Response.new(url: API_URL, kind: :error, status: 200, body: nil, etag: nil, last_modified: nil,
-        reason: "USAspending answered with something that isn't JSON (#{error.message.truncate(80)})", block_reference: nil,
-        content_type: nil, truncated: false) ]
+      [ nil, failure("USAspending answered with something that isn't JSON (#{error.message.truncate(80)})", status: 200) ]
+    end
+
+    def failure(reason, status: nil)
+      DataQuality::Fetcher::Response.new(url: API_URL, kind: :error, status:, body: nil, etag: nil, last_modified: nil,
+        reason:, block_reference: nil, content_type: nil, truncated: false)
     end
 
     def request_body(filters, page)
@@ -141,7 +157,7 @@ class DataQuality::Plugins::UsaspendingDoeAwards < DataQuality::Plugin
 
     # The API's fetch recorded on the index source; :ok, or why not.
     def record(index, failure)
-      attempt = { fetched_at: Time.current, http_status: failure&.status || 200 }
+      attempt = { fetched_at: Time.current, http_status: failure ? failure.status : 200 } # nil: no answer (network, refused address)
       case failure&.kind
       when nil
         index.update!(attempt.merge(crawl_status: "ok", status_reason: nil, blocked_streak: 0))
@@ -162,9 +178,12 @@ class DataQuality::Plugins::UsaspendingDoeAwards < DataQuality::Plugin
 
     # One source per recipient: its USAspending page, holding its awards' rows.
     # Rows are sorted, so the same awards give the same content (and hash).
+    # An award without a usable recipient ID has no recipient page to cite,
+    # so it's counted and left out rather than stopping the others.
     def store_by_recipient(rows)
-      stats = { "recipients" => 0, "changed" => 0 }
-      rows.group_by { |row| row["recipient_id"].presence || row["recipient_name"] }.each do |recipient_id, awards|
+      usable, unusable = rows.partition { |row| row["recipient_id"].match?(RECIPIENT_ID) }
+      stats = { "recipients" => 0, "changed" => 0, "no_recipient_id" => unusable.size }
+      usable.group_by { |row| row["recipient_id"] }.each do |recipient_id, awards|
         awards = awards.sort_by { |row| [ row["start_date"].to_s, row["award_id"].to_s ] }
         text = CSV.generate { |csv| csv << COLUMNS; awards.each { |row| csv << row.values_at(*COLUMNS) } }
         sha = Digest::SHA256.hexdigest(text)
