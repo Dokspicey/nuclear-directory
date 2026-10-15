@@ -12,7 +12,8 @@ require "csv"
 # - nuclear energy R&D grants and cooperative agreements (Assistance
 #   Listing 81.121, which includes the ARDP demonstrations)
 # - DOE contracts mentioning HALEU or nuclear fuel
-# - fusion grants under the Office of Science (81.049, "fusion")
+# - fusion grants under the Office of Science (81.049, "fusion"), for
+#   fusion energy work only (FUSION_ENERGY)
 # The API's own fetch state (today's fetch, a block) is kept on an index
 # source that's never extracted. Awards are stored as CSV rows, one source
 # per recipient, with every field a later award table needs (#256): award
@@ -35,6 +36,12 @@ class DataQuality::Plugins::UsaspendingDoeAwards < DataQuality::Plugin
     "haleu_fuel_contracts" => { award_type_codes: CONTRACTS, keywords: [ "HALEU", "nuclear fuel" ] },
     "fusion" => { award_type_codes: ASSISTANCE, program_numbers: [ "81.049" ], keywords: [ "fusion" ] }
   }.freeze
+  # The fusion search's keyword also finds awards that only mention fusion:
+  # data fusion, plastics, and software, simulation or quantum computing run
+  # on fusion data. Only awards for fusion energy work itself are kept: its
+  # machines, magnets, lasers, plasma diagnostics and research.
+  FUSION_ENERGY = /\b(?:fusion (?:energy|reactors?|magnets?|plasmas?|pilot plants?|program|facilit(?:y|ies))|inertial fusion|tokamaks?|stellarators?|burning plasma|for fusion\b)/i
+  NOT_FUSION_ENERGY = /\b(?:data fusion|machine learning|data science|software|quantum|simulations?|meshing|computation)\b/i
   FIELDS = [ "Award ID", "Recipient Name", "Award Amount", "Start Date", "End Date", "Description", "generated_internal_id", "recipient_id" ].freeze
   # USAspending's recipient hash and level, e.g. "1f4e2b…-C".
   RECIPIENT_ID = /\A[0-9a-f-]+-[A-Z]\z/i
@@ -109,6 +116,8 @@ class DataQuality::Plugins::UsaspendingDoeAwards < DataQuality::Plugin
 
           data = JSON.parse(response.body)
           data["results"].to_a.each do |award|
+            next if name == "fusion" && !fusion_energy?(award["Description"])
+
             row = row_for(award, name)
             rows[row["generated_award_id"]] ||= row # an award two searches find is kept once
           end
@@ -121,6 +130,10 @@ class DataQuality::Plugins::UsaspendingDoeAwards < DataQuality::Plugin
       [ rows.values, nil ]
     rescue JSON::ParserError => error
       [ nil, failure("USAspending answered with something that isn't JSON (#{error.message.truncate(80)})", status: 200) ]
+    end
+
+    def fusion_energy?(description)
+      description.to_s.match?(FUSION_ENERGY) && !description.to_s.match?(NOT_FUSION_ENERGY)
     end
 
     def failure(reason, status: nil)

@@ -116,6 +116,30 @@ class DataQuality::Plugins::UsaspendingDoeAwardsTest < ActiveSupport::TestCase
       plugin.extract(recipient(sfr["recipient_id"]), nil).last[:payload]["description"]
   end
 
+  # Real descriptions from the fusion search on 15 Oct 2026.
+  FUSION_KEPT = [ "STABLE, LOW-LOSS JOINTS FOR HTS FUSION MAGNETS", "PULSED HIGH TEMPERATURE SUPERCONDUCTING CENTRAL SOLENOID FOR REVOLUTIONIZING TOKAMAKS",
+    "THE DIII-D NATIONAL FUSION PROGRAM AND ADVANCED FUSION TECHNOLOGY RESEARCH AND DEVELOPMENT", "PLASMA ELECTRODE POCKELS CELLS FOR INERTIAL FUSION FACILITIES",
+    "A BROADBAND 693 GHZ TRAVELING WAVE TUBE FOR BURNING PLASMA DIAGNOSTICS IN FUSION REACTORS", "ADDITIVE MANUFACTURE OF GRCOP WAVEGUIDES FOR FUSION" ].freeze
+  FUSION_DROPPED = [ "A FUSION MACHINE LEARNING DATA SCIENCE PLATFORM TO SUPPORT THE DESIGN AND SAFE OPERATION OF A FUSION PILOT PLANT",
+    "RECREATING FUSION PLASMA DYNAMICS ON ANINTERMEDIATE SCALE QUANTUM PROCESSOR",
+    "INTEGRATED, INTEROPERABLE SOFTWARE ENVIRONMENT FOR FUSION SIMULATION AND DATA ANALYSIS TOOLS",
+    "AUTOMATED 3D DATA FUSION SURVEYS ON SPOT ROBOT FOR NEXT GENERATION PLANT MONITORING",
+    "FUSION OF INCOMPATIBLE THERMOPLASTICS BY ADAPTING VITRIMER CONCEPT", "RESISTIVE DCON AND BEYOND" ].freeze
+
+  test "the fusion search keeps awards for fusion energy work, not ones that only mention fusion" do
+    awards = (FUSION_KEPT + FUSION_DROPPED).each_with_index.map do |description, n|
+      XENERGY.merge("Award ID" => "DESC#{n}", "Recipient Name" => "FUSION CO #{n}", "Description" => description,
+        "generated_internal_id" => "ASST_NON_DESC#{n}_089", "recipient_id" => "00000000-0000-0000-0000-#{n.to_s.rjust(12, '0')}-R")
+    end
+    @answers[[ "fusion", 1 ]] = { "results" => awards, "page_metadata" => { "hasNext" => false } }
+
+    crawl!
+
+    kept = Source.where(source_kind: "usaspending_doe_awards").flat_map { |source| CSV.parse(source.content_text, headers: true).select { |row| row["search"] == "fusion" } }
+    assert_equal FUSION_KEPT.sort, kept.map { |row| row["description"] }.sort
+    assert recipient(XENERGY["recipient_id"]), "the other searches are unaffected"
+  end
+
   test "a search with more awards than the pages read stores nothing, so the snapshots stay whole" do
     crawl!
     before = recipient(XENERGY["recipient_id"]).content_text
