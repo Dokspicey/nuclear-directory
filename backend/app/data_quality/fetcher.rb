@@ -101,6 +101,29 @@ class DataQuality::Fetcher
     response(url, :error, reason: "Network error: #{error.class}: #{error.message}")
   end
 
+  # A search an API only takes as a POST with a JSON body (USAspending's,
+  # #123), by the same rules as get: https on a public host, robots.txt,
+  # spacing between requests, the body limit, an honest user agent, no
+  # retries. A redirect isn't followed (an API that redirects a POST is
+  # reported as an error); there are no ETags.
+  def post_json(url, payload, max_bytes: MAX_BYTES)
+    uri = URI.parse(url)
+    check_url!(uri, first_host: nil)
+    verdict = robots_verdict(uri)
+    return verdict if verdict
+
+    fetched = request(uri, { "Content-Type" => "application/json", "Accept" => "application/json" }, max_bytes:, post_body: payload.to_json)
+    if fetched.http.is_a?(Net::HTTPRedirection)
+      return response(url, :error, status: fetched.http.code.to_i, reason: "HTTP #{fetched.http.code}: a redirect after a POST isn't followed")
+    end
+
+    classify(url, fetched)
+  rescue Refused, URI::InvalidURIError => error
+    response(url, :error, reason: "Not fetched: #{error.message}")
+  rescue *NETWORK_ERRORS => error
+    response(url, :error, reason: "Network error: #{error.class}: #{error.message}")
+  end
+
   private
     # Public https on the standard port, and (after a redirect) the same host.
     def check_url!(uri, first_host:)
@@ -166,9 +189,11 @@ class DataQuality::Fetcher
     # Reads the body in chunks and hangs up once it has more than max_bytes.
     # A body of exactly max_bytes is complete; only going past it means
     # there was more.
-    def request(uri, headers, max_bytes:)
+    # post_body: the body of a POST; without one, a GET.
+    def request(uri, headers, max_bytes:, post_body: nil)
       wait_for(uri.host)
-      get = Net::HTTP::Get.new(uri)
+      get = post_body ? Net::HTTP::Post.new(uri) : Net::HTTP::Get.new(uri)
+      get.body = post_body if post_body
       get["User-Agent"] = USER_AGENT
       headers.each { |name, value| get[name] = value }
 

@@ -1,0 +1,133 @@
+require "test_helper"
+require_relative "../support/dummy_plugin"
+
+# DOE awards from USAspending.gov (#123). The API's answers below are real
+# awards, as its award search returned them on 15 Oct 2026.
+class DataQuality::Plugins::UsaspendingDoeAwardsTest < ActiveSupport::TestCase
+  include ReviewHelpers
+  Plugin = DataQuality::Plugins::UsaspendingDoeAwards
+
+  XENERGY = { "Award ID" => "DENE0009040", "Recipient Name" => "X ENERGY, LLC", "Award Amount" => 921717024.0, "Start Date" => "2021-02-02",
+    "End Date" => "2027-12-31", "CFDA Number" => "81.121", "Description" => "COMPETITIVE COOPERATIVE AGREEMENT: ADVANCED REACTOR DEMONSTRATION",
+    "generated_internal_id" => "ASST_NON_DENE0009040_089", "recipient_id" => "f9fe06c2-ab7c-7749-c30e-039c19d3a4c6-R" }.freeze
+  NUSCALE = { "Award ID" => "DENE0008928", "Recipient Name" => "NUSCALE POWER LLC", "Award Amount" => 262655693.0, "Start Date" => "2019-12-20",
+    "End Date" => "2025-12-31", "CFDA Number" => "81.121", "Description" => "NUSCALE SMR FIRST-OF-A-KIND ENGINEERING",
+    "generated_internal_id" => "ASST_NON_DENE0008928_089", "recipient_id" => "0c1d2e3f-0000-0000-0000-000000000001-R" }.freeze
+  CENTRUS = [
+    { "Award ID" => "89243223CNE000030", "Recipient Name" => "AMERICAN CENTRIFUGE OPERATING, LLC", "Award Amount" => 332041412.48,
+      "Start Date" => "2022-11-30", "End Date" => "2026-10-15", "Description" => "HIGH ASSAY LOW ENRICHED URANIUM (HALEU) CASCADE DEMO",
+      "generated_internal_id" => "CONT_AWD_89243223CNE000030_8900_-NONE-_-NONE-", "recipient_id" => "d527144c-7fea-82ff-aff0-e95e5fd6e488-C" },
+    { "Award ID" => "89303519CNE000005", "Recipient Name" => "AMERICAN CENTRIFUGE OPERATING, LLC", "Award Amount" => 172974295.69,
+      "Start Date" => "2019-05-31", "End Date" => "2023-04-30", "Description" => "LETTER CONTRACT TO FACILITATE THE DEMONSTRATION OF HALEU",
+      "generated_internal_id" => "CONT_AWD_89303519CNE000005_8900_-NONE-_-NONE-", "recipient_id" => "d527144c-7fea-82ff-aff0-e95e5fd6e488-C" }
+  ].freeze
+
+  setup do
+    stub_request(:get, "https://api.usaspending.gov/robots.txt").to_return(status: 404)
+    @answers = {
+      # The R&D search has two pages; the second repeats X-energy, as another search might.
+      [ "nuclear_energy_rd", 1 ] => { "results" => [ XENERGY ], "page_metadata" => { "page" => 1, "hasNext" => true } },
+      [ "nuclear_energy_rd", 2 ] => { "results" => [ NUSCALE, XENERGY ], "page_metadata" => { "page" => 2, "hasNext" => false } },
+      [ "haleu_fuel_contracts", 1 ] => { "results" => CENTRUS, "page_metadata" => { "page" => 1, "hasNext" => false } },
+      [ "fusion", 1 ] => { "results" => [], "page_metadata" => { "page" => 1, "hasNext" => false } }
+    }
+    @requests = []
+    stub_request(:post, Plugin::API_URL).to_return do |request|
+      body = JSON.parse(request.body)
+      @requests << body
+      search = Plugin::SEARCHES.find { |_, filters| filters.slice(:program_numbers, :keywords).all? { |key, value| body["filters"][key.to_s] == value } }.first
+      { body: @answers.fetch([ search, body["page"] ]).to_json, headers: { "Content-Type" => "application/json" } }
+    end
+  end
+
+  def plugin = Plugin.new(fetcher: DataQuality::Fetcher.new(sleeper: ->(_) { }))
+  def crawl! = plugin.crawl(CrawlRun.create!(stage: "crawl", source_kind: "usaspending_doe_awards"))
+  def recipient(id) = Source.find_by!(url: "https://www.usaspending.gov/recipient/#{id}/latest")
+
+  test "asks for DOE's awards to businesses, $1M or more, active in the last five years, in each search" do
+    crawl!
+
+    first = @requests.first
+    assert_equal [ { "type" => "awarding", "tier" => "toptier", "name" => "Department of Energy" } ], first["filters"]["agencies"]
+    assert_equal [ "category_business" ], first["filters"]["recipient_type_names"]
+    assert_equal [ { "lower_bound" => 1_000_000 } ], first["filters"]["award_amounts"]
+    assert_equal 5.years.ago.to_date.iso8601, first["filters"]["time_period"].first["start_date"]
+    assert_equal [ [ "81.121" ], [ "81.121" ], nil, [ "81.049" ] ], @requests.map { |body| body["filters"]["program_numbers"] }
+    assert_includes @requests.find { |body| body["filters"]["award_type_codes"] == Plugin::CONTRACTS }["fields"], "Award Amount"
+  end
+
+  test "stores each recipient's awards as rows on its USAspending page, each award once" do
+    stats = crawl!
+
+    assert_equal({ "api" => "ok", "awards" => 4, "recipients" => 3, "changed" => 3 }, stats)
+    centrus = CSV.parse(recipient("d527144c-7fea-82ff-aff0-e95e5fd6e488-C").content_text, headers: true)
+    assert_equal [ "89303519CNE000005", "89243223CNE000030" ], centrus.map { |row| row["award_id"] }, "oldest first"
+    assert_equal({ "amount_usd" => "332041412.48", "start_date" => "2022-11-30", "award_type" => "contract", "search" => "haleu_fuel_contracts",
+      "award_url" => "https://www.usaspending.gov/award/CONT_AWD_89243223CNE000030_8900_-NONE-_-NONE-" },
+      centrus[1].to_h.slice("amount_usd", "start_date", "award_type", "search", "award_url"))
+    xenergy = CSV.parse(recipient(XENERGY["recipient_id"]).content_text, headers: true)
+    assert_equal [ "DENE0009040" ], xenergy.map { |row| row["award_id"] }, "found on two pages, stored once"
+    assert_equal [ "assistance", "81.121" ], xenergy.first.to_h.values_at("award_type", "assistance_listing")
+    assert Source.find_by!(url: Plugin::API_URL).crawl_ok?
+  end
+
+  test "asks at most once a day, and an unchanged answer changes no source" do
+    crawl!
+    assert_equal({ "api" => "skipped_recent" }, crawl!)
+
+    travel 1.day do
+      assert_equal 0, crawl!["changed"]
+    end
+  end
+
+  test "a block is recorded on the API's source and stops the crawl; nothing else changes" do
+    stub_request(:post, Plugin::API_URL).to_return(status: 403, headers: { "Server" => "AkamaiGHost" })
+
+    assert_equal({ "api" => "blocked" }, crawl!)
+
+    index = Source.find_by!(url: Plugin::API_URL)
+    assert_equal [ "blocked", 1 ], [ index.crawl_status, index.blocked_streak ]
+    assert_equal 0, Source.where(source_kind: "usaspending_doe_awards").count
+  end
+
+  test "each recipient is a company and one 'DOE funds' link, its description summing up the awards" do
+    crawl!
+    candidates = plugin.extract(recipient("d527144c-7fea-82ff-aff0-e95e5fd6e488-C"), nil)
+
+    company, link = candidates
+    assert_equal({ "name" => "AMERICAN CENTRIFUGE OPERATING, LLC" }, company[:payload])
+    assert_equal({ "from_organization" => { "name" => "U.S. Department of Energy" }, "to_organization" => { "name" => "AMERICAN CENTRIFUGE OPERATING, LLC" },
+      "relationship_type" => "funds", "started_on" => "2019-05-31",
+      "description" => "2 awards from the U.S. Department of Energy totaling $505.0 million, 2019–2022: 89243223CNE000030 and 89303519CNE000005." },
+      link[:payload])
+    assert_includes recipient("d527144c-7fea-82ff-aff0-e95e5fd6e488-C").content_text, link[:quote], "quotes its largest award's row"
+    assert plugin.quote_in_source?(recipient("d527144c-7fea-82ff-aff0-e95e5fd6e488-C"), link[:quote])
+  end
+
+  test "amounts read in millions or billions, and one award in the singular" do
+    sfr = XENERGY.merge("Award ID" => "DENE0009054", "Recipient Name" => "US SFR OWNER LLC", "Award Amount" => 1696938130.8,
+      "Start Date" => "2021-05-03", "generated_internal_id" => "ASST_NON_DENE0009054_089", "recipient_id" => "f2ee71d1-f98c-1314-b5c5-15f284a7d648-R")
+    @answers[[ "nuclear_energy_rd", 2 ]] = { "results" => [ sfr ], "page_metadata" => { "hasNext" => false } }
+    crawl!
+
+    assert_equal "1 award from the U.S. Department of Energy totaling $921.7 million, 2021: DENE0009040.",
+      plugin.extract(recipient(XENERGY["recipient_id"]), nil).last[:payload]["description"]
+    assert_equal "1 award from the U.S. Department of Energy totaling $1.7 billion, 2021: DENE0009054.",
+      plugin.extract(recipient(sfr["recipient_id"]), nil).last[:payload]["description"]
+  end
+
+  test "match links an existing company to DOE; the link waits for a person" do
+    doe = Organization.create!(name: "U.S. Department of Energy", verification_status: "verified", verified_by: "human:tosin")
+    doe.aliases.create!(alias: "U.S. Department of Energy")
+    xenergy = Organization.create!(name: "X-energy", verification_status: "verified", verified_by: "human:tosin")
+    xenergy.aliases.create!(alias: "X Energy, LLC")
+    crawl!
+
+    DataQuality::Pipeline.run("usaspending_doe_awards", plugin:, only: %w[extract match])
+
+    link = Candidate.where(kind: "relationship").find { |c| c.payload.dig("to_organization", "name") == "X ENERGY, LLC" }
+    assert link.status_matched?, link.notes
+    funds = Relationship.find(link.subject_id)
+    assert_equal [ doe, xenergy, "funds", "pending" ], [ funds.from_organization, funds.to_organization, funds.relationship_type, funds.verification_status ]
+  end
+end
