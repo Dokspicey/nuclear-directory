@@ -124,10 +124,18 @@ class LinkCard
     LABEL_TOP = PAD_TOP
     FOOTER_HEIGHT = 44 # the row under the hairline
     FOOTER_GAP = 48 # at least, between its left and right
+    MIDDLE_MARGIN = 24 # at least, above the name and above the hairline
     FOOTER_RULE_Y = HEIGHT - PAD_BOTTOM - FOOTER_HEIGHT - 20 - 2
 
     # The squares alone (26), or with the mono label beside them.
     def label_height = label ? 34 : 26
+
+    # The role line or tagline under the name, with its 20px gap; 0 without one.
+    def subline_height
+      return 0 unless subline
+
+      20 + (subline.last == :role ? ROLE : TAGLINE_FONT)[:size] * 1.32
+    end
 
     def draw_label(parts)
       center = LABEL_TOP + label_height / 2.0
@@ -149,7 +157,7 @@ class LinkCard
       size, lines = name_lines
       line_height = size * 0.9
       sub = subline && (subline.last == :role ? [ role_text, ROLE, MUTED ] : [ subline.first, TAGLINE_FONT, PAPER ])
-      sub_height = sub ? 20 + sub[1][:size] * 1.32 : 0
+      sub_height = subline_height
       block = lines.size * line_height + sub_height
       top = LABEL_TOP + label_height + (FOOTER_RULE_Y - LABEL_TOP - label_height - block) / 2.0
       lines.each_with_index do |line, i|
@@ -182,13 +190,16 @@ class LinkCard
       parts << Font.path(right, x, Font.centered_baseline(center, **FACTS), fill: PAPER, **FACTS)
     end
 
-    # The largest step at which the uppercase name fits two lines; at the
-    # smallest, the second line is cut with "…".
+    # The largest step at which the uppercase name fits two lines and the
+    # middle band (name and the line under it) keeps MIDDLE_MARGIN above and
+    # below: so a two-line name with a role line starts at 160, not 190
+    # (Design). At the smallest, the second line is cut with "…".
     def name_lines
       text = name.upcase
+      room = FOOTER_RULE_Y - LABEL_TOP - label_height - 2 * MIDDLE_MARGIN
       name_sizes.each do |size|
         lines = Font.wrap(text, TEXT_WIDTH, font: :anton, size:)
-        return [ size, lines ] if lines && lines.size <= 2
+        return [ size, lines ] if lines && lines.size <= 2 && (lines.size * size * 0.9 + subline_height <= room || size == name_sizes.last)
       end
       size = name_sizes.last
       style = { font: :anton, size: }

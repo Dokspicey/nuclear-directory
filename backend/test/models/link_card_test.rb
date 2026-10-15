@@ -20,6 +20,14 @@ class LinkCardTest < ActiveSupport::TestCase
     assert_equal [ 132, [ "SUSQUEHANNA STEAM", "ELECTRIC STATION" ] ], name_lines("Susquehanna Steam Electric Station")
   end
 
+  test "a two-line name with a role line starts at 160, keeping 24px clear above and below (Design)" do
+    roles = [ { "Operated by" => [ "Pacific Gas and Electric Company" ], "Owned by" => [] }, :role ]
+
+    assert_equal [ 190, [ "DIABLO", "CANYON" ] ], name_lines("Diablo Canyon"), "no role line: 190 fits"
+    assert_equal [ 160, [ "DIABLO CANYON" ] ], LinkCard.new(squares: [ "#fff" ], name: "Diablo Canyon", subline: roles).send(:name_lines)
+    assert_equal [ 170, [ "NUCLEAR", "DIRECTORY" ] ], LinkCard.default.send(:name_lines), "the default card's fixed size still fits"
+  end
+
   test "a name too long even at the smallest step ends its second line with '…' at a word" do
     size, lines = name_lines("A Name So Extraordinarily Long That It Cannot Possibly Fit On Two Lines At Any Of The Sizes")
 
