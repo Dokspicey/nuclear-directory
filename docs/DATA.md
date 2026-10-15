@@ -88,7 +88,7 @@ The verb is fixed (VOICE.md). Each link needs a quote that states that relations
 
 | Field | Rule |
 |---|---|
-| Capacity | **MW, net summer**, from EIA-860M's "Net Summer Capacity (MW)", stored to 0.1 MW. Shown as "MW". Nameplate is never mixed in. A site's capacity is the sum of its units, never stored. *(D2 confirms the label.)* |
+| Capacity | **MW, net summer**, from EIA-860M's "Net Summer Capacity (MW)", stored to 0.1 MW. Shown as "MW", with the note "Net summer capacity, from EIA" on plant pages (Tosin, D2). Nameplate is never mixed in. A site's capacity is the sum of its units, never stored. |
 | Plant status | `operating`, `under_construction`, `planned`, `shut_down`, `decommissioning`. Blank means not stated, shown as "Not stated". Never guessed |
 | Company status | `active`, `acquired`, `defunct`, each with a quote when it isn't `active` |
 | Dates | ISO `2026-10-09` in data. A month-only source date is stored as the 1st, with the description saying "October 2026" |
@@ -165,7 +165,4 @@ The admin's Live screen and the nightly `data_quality:audit` are planned (Admin 
 | Reactor design types: planned values, roadmap only | Tosin | #238, #263 |
 | Display names are ours; a source's spelling never renames | PM, Backend | #241 |
 | Company display name is the brand it uses; every other spelling is an alias (D1) | Tosin | #238 |
-
-### Open, for Tosin (one at a time, via PM)
-
-- **D2. Capacity label:** "MW" with a note "net summer capacity, from EIA" on plant pages. *Recommendation: yes.* It matches what we store; "MWe" alone is ambiguous.
+| Capacity is shown as "MW", noted "Net summer capacity, from EIA" on plant pages (D2) | Tosin | #238 |
