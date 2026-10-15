@@ -135,11 +135,13 @@ module DirectoryHelper
     size = [ (pluralize(units, "unit") if units.positive?), capacity ].compact.join(", ").presence
     owners = profile.current_companies_for("owns").map(&:name)
     operators = profile.current_companies_for("operates").map(&:name)
-    run_by = ->(owned) { [ (owned && "Owned by #{owned}"), (operators.any? && "operated by #{operators.to_sentence}") ].select(&:itself).join("; ").upcase_first.presence }
+    # Lists as the site writes them, without a serial comma ("A, B and C").
+    listed = ->(names) { names.to_sentence(last_word_connector: " and ") }
+    run_by = ->(owned) { [ (owned && "Owned by #{owned}"), (operators.any? && "operated by #{listed.call(operators)}") ].select(&:itself).join("; ").upcase_first.presence }
     few_owners = owners.many? ? "#{owners.first} and #{pluralize(owners.size - 1, 'other')}" : owners.first
 
     lines = [
-      [ what, size, run_by.call(owners.to_sentence.presence) ],
+      [ what, size, run_by.call(listed.call(owners).presence) ],
       [ what, size, run_by.call(few_owners) ],
       [ what, nil, run_by.call(few_owners) ],
       [ what, nil, run_by.call(nil) ],

@@ -25,6 +25,13 @@ class DirectoryHelperTest < ActionView::TestCase
     assert_operator line.length, :<=, 160
   end
 
+  test "a plant's owners are listed as the site writes lists, without a serial comma" do
+    line = plant_preview(profile(name: "Vogtle", status: nil, facility_type: nil, city: nil, state: nil, units: [], capacity_mw: nil,
+      owners: [ "Dalton Utilities", "Georgia Power", "MEAG Power" ], operators: []))
+
+    assert_equal "Vogtle: Owned by Dalton Utilities, Georgia Power and MEAG Power.", line
+  end
+
   test "a plant's preview leaves out what isn't known, and never says nothing" do
     assert_equal "Hermes: Test reactor in Oak Ridge, TN. Operated by Kairos Power.",
       plant_preview(profile(name: "Hermes", status: nil, facility_type: "research_reactor", city: "Oak Ridge", state: "TN",
