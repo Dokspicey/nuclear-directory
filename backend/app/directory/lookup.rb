@@ -35,7 +35,9 @@ module Directory
     # unpublished one, newest first, since a time. A merge says what the
     # record went into. Reads only.
     def exits(since:, limit: 50)
-      events = VerificationEvent.where(to_status: %w[rejected unpublished], created_at: since..).order(created_at: :desc, id: :desc).limit(limit).to_a
+      # The fact types the admin lists (a deal term's decisions show with its link, #256).
+      events = VerificationEvent.where(subject_type: FACT_TYPES, to_status: %w[rejected unpublished], created_at: since..)
+        .order(created_at: :desc, id: :desc).limit(limit).to_a
       records = events.group_by(&:subject_type).to_h do |type, group|
         # With what each label names (a role's company, a link's ends), loaded in one go.
         [ type, type.constantize.where(id: group.map(&:subject_id)).includes(*PENDING_INCLUDES.fetch(type.underscore)).index_by(&:id) ]
