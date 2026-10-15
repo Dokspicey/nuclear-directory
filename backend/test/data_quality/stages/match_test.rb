@@ -386,14 +386,15 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
     assert Organization.exists?(name: "Acme Power"), "proposed under its brand, since Fernhill is a plant"
   end
 
-  test "an organization listed on many rows is proposed once, then matched" do
+  test "an organization listed on many rows is proposed once; the repeat closes while the first waits" do
     rows = 2.times.map { candidate("organization", { "name" => "Entergy Nuclear Operations, Inc." }) }
 
     run = match!
 
     assert_equal 1, Organization.where(name: "Entergy Nuclear Operations, Inc.").count
     assert_equal rows.map { |c| c.reload.subject_id }.uniq.size, 1
-    assert_equal [ 1, 1 ], run.stats.values_at("proposed", "matched")
+    assert_equal [ 1, 0, 1 ], run.stats.values_at("proposed", "matched", "confirmed")
+    assert_match "Same as candidate ##{rows.first.id}, already waiting", rows.last.reload.notes, "one waits for review; the repeat closes (#240)"
   end
 
   test "a new link and its quote are written together, or not at all" do

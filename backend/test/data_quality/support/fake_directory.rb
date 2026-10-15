@@ -78,6 +78,14 @@ module FakeDirectory
 
     # The fake directory has no sites to fill.
     def fill_site_from_unit(unit_id, fields:, evidence:) = nil
+
+    # The fake directory keeps no evidence, so nothing is ever re-confirmed.
+    def confirm(kind, attributes, source_id:, rows_sha256: nil, at: Time.current)
+      Directory::FactWriter::Confirmation.new(outcome: :unsourced)
+    end
+
+    def reconfirm_source(source_id:, rows_sha256:, at: Time.current) = 0
+    def existing(kind, attributes) = nil
   end
 
   def self.client(lookup: Lookup.new, fact_writer: FactWriter.new)

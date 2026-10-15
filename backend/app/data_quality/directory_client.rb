@@ -194,6 +194,31 @@ class DataQuality::DirectoryClient
     write_result(result)
   end
 
+  # Whether the candidate's source still says exactly what the fact it's
+  # attached to records (#240; Directory::FactWriter#confirm). On a match, the
+  # source's evidence on the fact is stamped as checked; nothing else is
+  # written. fact_id: the fact to compare with, when the candidate isn't
+  # attached to it (a closed fact). Returns the FactWriter::Confirmation, or
+  # nil with no fact.
+  def confirm(candidate, fact_id: candidate.subject_id, rows_sha256: candidate.source.extracted_rows_sha256)
+    return unless fact_id
+
+    attributes = candidate.payload.except(*LINK_ENDS, *PAYLOAD_LOCKED, ENRICHMENT_KEY).symbolize_keys.merge(id: fact_id)
+    # Checked when the source was read, not when this ran.
+    fact_writer.confirm(candidate.kind, attributes, source_id: candidate.source_id, rows_sha256:,
+      at: candidate.source.fetched_at || Time.current)
+  end
+
+  # A source read again with the same rows: all its evidence was checked at:.
+  def reconfirm_source(source_id:, rows_sha256:, at:) = fact_writer.reconfirm_source(source_id:, rows_sha256:, at:)
+
+  # The existing link (or record) these attributes name, with its decision,
+  # or nil. Reads only.
+  def existing_fact(kind, attributes)
+    id = fact_writer.existing(kind, attributes) or return
+    fact(type: type_for(kind), id:)
+  end
+
   # Payload key of an enrichment candidate: how to find the existing record
   # it adds values to. Enrichment never creates records.
   ENRICHMENT_KEY = "identify"

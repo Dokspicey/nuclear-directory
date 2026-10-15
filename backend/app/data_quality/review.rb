@@ -139,6 +139,29 @@ module DataQuality::Review
       result
     end
 
+    # Closes open candidates whose source just restates a fact a person
+    # already decided (#240), the outcome match now gives them on its own,
+    # recorded as the named person. Approving them instead would add an
+    # identical "verified again" event to every fact's history. Nothing is
+    # written to the directory except the source's evidence on each fact
+    # being stamped as checked. candidate_ids: nil for every open candidate
+    # attached to a fact. dry_run: everything is rolled back. Returns one
+    # Result per candidate looked at; errors say why one stays open.
+    def confirm_identical(candidate_ids = nil, by:, dry_run: false, directory: DataQuality::DirectoryClient.new)
+      human!(by)
+      scope = Candidate.where(status: %w[new matched needs_review]).where.not(subject_id: nil).order(:id)
+      scope = scope.where(id: candidate_ids) if candidate_ids
+      results = []
+      Candidate.transaction(requires_new: true) do
+        scope.each do |candidate|
+          lock_for_decision(candidate)
+          results << confirm_one(candidate, by:, directory:)
+        end
+        raise ActiveRecord::Rollback if dry_run
+      end
+      results
+    end
+
     # Reopens rejected candidates (#228): each goes back to new, unattached
     # and with no AI verdict, so the next match and verify runs decide it
     # afresh and it comes back to the review queue. Who reopened it, when and
@@ -362,6 +385,29 @@ module DataQuality::Review
 
       # The source, then the candidate (extract's order, so no deadlock): a new
       # snapshot can't land between the lapsed? check and the write.
+      def confirm_one(candidate, by:, directory:)
+        fail_with = ->(why) { Result.new(candidate_id: candidate.id, ref: nil, errors: [ why ]) }
+        return fail_with.call(already(candidate)) unless open?(candidate)
+
+        record = directory.attached_record(candidate) or return fail_with.call("its fact no longer exists")
+        return fail_with.call("#{record.name} isn't decided yet, so a person reviews it") if record.verification_status == "pending"
+
+        confirmation = directory.confirm(candidate)
+        case confirmation&.outcome
+        when :confirmed
+          kept = confirmation.overruled.map { |name, (stored, stated)| "#{name.humanize(capitalize: false)} #{stored} (it says #{stated})" }
+          note = "Confirmed by #{by}: identical to #{record.name} as decided"
+          note += ", except where a person's decision stands: #{kept.join('; ')}" if kept.any?
+          candidate.update!(status: "confirmed", notes: note, reviewed_by: by, reviewed_at: Time.current)
+          Result.new(candidate_id: candidate.id, ref: record.ref, errors: [])
+        when :different
+          what = confirmation.differences.map { |name, (stored, stated)| "#{name.humanize(capitalize: false)} #{stored.presence || 'blank'} → #{stated}" }
+          fail_with.call("it differs: #{[ *what, *confirmation.errors ].join('; ')}")
+        when :unsourced then fail_with.call("the same values, but #{record.name} has no evidence from this source yet")
+        else fail_with.call("its fact no longer exists")
+        end
+      end
+
       def lock_for_decision(candidate)
         ::Source.lock.find(candidate.source_id)
         candidate.lock!

@@ -183,6 +183,21 @@ class DataQuality::Plugins::NrcReactorList::ExtractTest < ActiveSupport::TestCas
     assert_not @source.candidates.any? { |c| c.payload["name"] == "Nobody" }
   end
 
+  test "a page that changed only outside the table (its date stamp) isn't extracted again, and asks no model (#240)" do
+    extract
+    before = @source.candidates.reload.pluck(:id).sort
+    restamped = @source.content_text.sub("</body>", "<p>Page Last Reviewed/Updated Wednesday, October 14, 2026</p></body>")
+    @source.update_columns(content_text: restamped, content_sha256: Digest::SHA256.hexdigest(restamped))
+    model = FakeModel.new
+
+    run = extract(model)
+
+    assert_equal 1, run.stats["rows_unchanged"]
+    assert_empty model.calls
+    assert_equal before, @source.candidates.reload.pluck(:id).sort
+    assert_equal @source.reload.content_sha256, @source.extracted_sha256
+  end
+
   test "re-extracting a changed page replaces extract's own review flags, but keeps later stages' work" do
     extract(FakeModel.new { |units| units.map { |u| u["nrc_docket"] == "05200025" ? u.merge("reactor_type" => "BWR") : u } })
     assert candidates_for("05200025").all? { |c| c.status_needs_review? && c.review_origin == "extract" }
@@ -191,7 +206,7 @@ class DataQuality::Plugins::NrcReactorList::ExtractTest < ActiveSupport::TestCas
     byron.update!(status: "needs_review", notes: "Ambiguous: two similar sites")
     candidates_for("05200026").find(&:kind_facility?).update!(status: "merged", subject_type: "Facility", subject_id: 1)
 
-    @source.update!(content_sha256: "changed")
+    @source.update_columns(content_sha256: "changed", extracted_rows_sha256: nil) # the table changed too
     extract
 
     vogtle3 = candidates_for("05200025")
@@ -205,7 +220,7 @@ class DataQuality::Plugins::NrcReactorList::ExtractTest < ActiveSupport::TestCas
   test "if the model fails, the run fails, earlier candidates are untouched, and the page is extracted again next time" do
     extract
     before = @source.candidates.reload.pluck(:id).sort
-    @source.update!(content_sha256: "changed")
+    @source.update_columns(content_sha256: "changed", extracted_rows_sha256: nil) # the table changed too
     broken = Object.new
     def broken.structured(**) = raise(DataQuality::OpenRouter::Client::RetriesExhausted, "Gave up after 3 attempts")
 
@@ -275,7 +290,7 @@ class DataQuality::Plugins::NrcReactorList::ExtractTest < ActiveSupport::TestCas
 
   test "results for a snapshot that changed while the model was working are discarded" do
     extract
-    @source.update!(content_sha256: "h1")
+    @source.update_columns(content_sha256: "h1", extracted_rows_sha256: nil)
     before = @source.candidates.reload.pluck(:id).sort
     model = FakeModel.new
     # A crawl stores new content (h2) while the model is still reading h1.

@@ -306,6 +306,90 @@ module Directory
       failure(type.to_s.underscore.to_sym, error.message)
     end
 
+    # What #confirm found. outcome:
+    # - :confirmed  every stated value is the fact's, and the source's evidence
+    #               on it was stamped
+    # - :different  differences: { "status" => [stored, stated] }
+    # - :unsourced  the same values, but the fact has no evidence from this
+    #               source yet (approving it would add the source)
+    # - :missing    no such fact
+    # overruled: values the source still states that a human replaced
+    # ({ "state" => [stored, stated] }); the human's decision stands, so they
+    # aren't differences. errors: why the attributes couldn't be compared.
+    Confirmation = Data.define(:outcome, :differences, :overruled, :errors) do
+      def initialize(outcome:, differences: {}, overruled: {}, errors: []) = super
+      def confirmed? = outcome == :confirmed
+    end
+
+    def self.confirm(...) = new.confirm(...)
+
+    # Whether a source still says what a fact records (#240), the check a
+    # nightly crawl makes instead of queueing the same fact for review again.
+    # attributes: what the source states, as for #write, with id: the fact.
+    # Each stated value is compared as the model stores it (normalized, a
+    # decimal at its column's scale: EIA's 1227.4000000000001 is 1227.40); a
+    # name counts when it's the fact's name or one of its aliases; a value the
+    # source doesn't state isn't a difference. The fact's decision doesn't
+    # matter: a rejected or unpublished fact confirmed this way stays as
+    # decided. When confirmed, the evidence from source_id gets
+    # last_confirmed_at and the rows' hash; nothing else changes and nothing
+    # is audited, so a fact's history doesn't fill with nightly checks.
+    def confirm(kind, attributes, source_id:, rows_sha256: nil, at: Time.current)
+      kind = kind.to_sym
+      spec = KINDS[kind] or return Confirmation.new(outcome: :missing, errors: [ "unknown kind #{kind.inspect}" ])
+      attributes = attributes.to_h.symbolize_keys
+      unknown = attributes.keys - spec[:attributes] - [ :id ]
+      return Confirmation.new(outcome: :different, errors: [ "unknown attributes: #{unknown.join(', ')}" ]) if unknown.any?
+
+      ActiveRecord::Base.transaction(requires_new: true) do
+        record = spec[:model].lock.find_by(id: attributes[:id]) or next Confirmation.new(outcome: :missing)
+
+        differences = {}
+        overruled = {}
+        model_attributes(kind, attributes).except(*NOT_COMPARED).each do |name, stated|
+          next if stated.blank?
+
+          stored = record.public_send(name)
+          next if stored.present? && same_stored_value?(record, name, stored, stated)
+
+          pair = [ shown(stored), shown(stated) ]
+          overruled_by_human?(record, name, stated) ? overruled[name.to_s] = pair : differences[name.to_s] = pair
+        end
+        unknown_names = unknown_names(kind, record, [ attributes[:name], *Array(attributes[:aliases]) ])
+        differences["aliases"] = [ nil, unknown_names.join(", ") ] if unknown_names.any?
+        next Confirmation.new(outcome: :different, differences:, overruled:) if differences.any?
+
+        rows = Evidence.where(subject: record, source_id:)
+        next Confirmation.new(outcome: :unsourced, overruled:) unless rows.exists?
+
+        rows.update_all(last_confirmed_at: at, confirmed_sha256: rows_sha256)
+        Confirmation.new(outcome: :confirmed, overruled:)
+      end
+    rescue Invalid => e
+      Confirmation.new(outcome: :different, errors: [ e.message ])
+    end
+
+    def self.reconfirm_source(...) = new.reconfirm_source(...)
+
+    # A source read again whose rows haven't changed (#240): everything it
+    # supports is still what it said. Stamps all of its evidence; returns how
+    # many rows.
+    def reconfirm_source(source_id:, rows_sha256:, at: Time.current)
+      Evidence.where(source_id:).update_all(last_confirmed_at: at, confirmed_sha256: rows_sha256)
+    end
+
+    def self.existing(...) = new.existing(...)
+
+    # The id of the fact these attributes name (a link by its ends and type,
+    # a record by its keys), or nil. Reads only; finds closed facts too.
+    def existing(kind, attributes)
+      kind = kind.to_sym
+      spec = KINDS[kind] or return
+      find(kind, spec[:model], attributes.to_h.symbolize_keys)&.id
+    rescue Invalid
+      nil
+    end
+
     def self.fill_site_from_unit(...) = new.fill_site_from_unit(...)
 
     # Fills a site's blank fields (from fields:) with its unit's stored
@@ -503,6 +587,42 @@ module Directory
         # Compared as the model would store it ("us" is "US" once normalized).
         incoming = record.class.normalize_value_for(name.to_sym, incoming)
         stored == record.class.type_for_attribute(name.to_s).cast(incoming)
+      end
+
+      # same_value?, with a decimal compared at its column's scale.
+      def same_stored_value?(record, name, stored, stated)
+        column = record.class.columns_hash[name.to_s]
+        if column&.type == :decimal && column.scale && (number = BigDecimal(stated.to_s, exception: false))
+          return stored == number.round(column.scale)
+        end
+
+        same_value?(record, name, stored, stated)
+      end
+
+      # A value a human replaced on this fact: an audited human decision whose
+      # change to name had this value as its "before".
+      def overruled_by_human?(record, name, stated)
+        return false unless record.respond_to?(:verification_events)
+
+        record.verification_events.where("by LIKE 'human:%'").where("changed_values ? :name", name: name.to_s).any? do |event|
+          before = Array(event.changed_values[name.to_s]).first
+          before.present? && same_stored_value?(record, name, record.class.type_for_attribute(name.to_s).cast(before), stated)
+        end
+      end
+
+      # Names a source gives that the fact isn't known by: neither its name
+      # nor one of its aliases, normalized as aliases are.
+      def unknown_names(kind, record, names)
+        names = names.compact_blank.map(&:to_s)
+        case kind
+        when :organization
+          known = record.aliases.pluck(:normalized_alias).to_set << OrganizationAlias.normalize(record.name)
+          names.reject { |name| known.include?(OrganizationAlias.normalize(name)) }.uniq
+        when :facility
+          known = record.aliases.pluck(:normalized_alias).to_set << FacilityAlias.normalize(record.name)
+          names.reject { |name| known.include?(FacilityAlias.normalize(name)) }.uniq
+        else []
+        end
       end
 
       def shown(value) = value.respond_to?(:key) ? value.key : value.to_s

@@ -126,6 +126,33 @@ Directory::FactWriter.remove_evidence(type: "FacilityRelationship", id: 112, evi
 published or verified fact keeps at least one piece of evidence. The fact's audit trail
 gets an event with the reason and `changed_values: { "evidence" => ["<source url>: <quote>", nil] }`.
 
+### Re-confirming a fact (#240)
+
+A person decides a fact once. When a crawl reads the same thing again, the pipeline asks
+whether the source still says what the fact records instead of queueing it for review:
+
+```ruby
+Directory::FactWriter.confirm(:facility, { id: 12, name: "Hope Creek 1", status: "operating" },
+  source_id: 9, rows_sha256: "…", at: source.fetched_at)
+# => Confirmation(outcome: :confirmed | :different | :unsourced | :missing, differences:, overruled:, errors:)
+```
+
+- Values are compared as the model stores them: normalized, and a decimal at its column's
+  scale. A name counts if it's the fact's name or one of its aliases. A value the source
+  doesn't state isn't a difference.
+- A value a human replaced (the "before" of a human event) is reported in `overruled`, not
+  in `differences`. The person's decision stands.
+- The fact's decision doesn't matter. A rejected or unpublished fact confirmed this way
+  stays as it is.
+- When it's confirmed, the evidence from `source_id` gets `last_confirmed_at` and
+  `confirmed_sha256`. Nothing else is written, and nothing goes to the audit trail, so a
+  fact's history doesn't fill up with nightly checks. `:unsourced` means the fact has no
+  evidence from this source yet.
+
+`FactWriter.reconfirm_source(source_id:, rows_sha256:, at:)` stamps all of a source's
+evidence when its rows haven't changed. `FactWriter.existing(kind, attributes)` returns the
+id of the fact the attributes name (a link by its ends and type), or nil. It only reads.
+
 ### Verification
 
 `verification: { status: "verified", by: "human:tosin", reason: "…", context: { … } }`.

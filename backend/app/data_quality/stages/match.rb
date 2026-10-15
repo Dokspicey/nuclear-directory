@@ -11,6 +11,9 @@
 #   exists ("Vogtle 3" vs "Plant Vogtle Units 3 & 4"). The candidate goes to
 #   needs_review with the reason. Never merged automatically.
 #
+# A candidate that just restates a fact a person already decided closes as
+# confirmed instead of waiting for review again (#240; see #settle).
+#
 # Either way a matched candidate ends up with a subject. Verify then
 # recommends, and a human decides whether that fact is published. Records go first, so links (who operates
 # what) can find records proposed earlier in the same run.
@@ -57,9 +60,52 @@ class DataQuality::Stages::Match < DataQuality::Stage
         ORDER.each do |kind|
           candidates.status_new.where(kind: kind).find_each { |candidate| match(candidate) }
         end
+        sources.crawl_ok.find_each { |source| flag_dropped(source) }
       end
 
       @stats
+    end
+
+    # A published fact a complete read of its source no longer lists (#240)
+    # gets one review item; it's never unpublished automatically. Only after
+    # a complete read: the stored snapshot was extracted and every one of its
+    # candidates has been placed (a blocked fetch, a page not yet extracted,
+    # or a row still waiting or unresolved flags nothing). Only facts this
+    # source supported (a person approved them from it, or it confirmed
+    # them). A read that would drop more than a quarter of them is more
+    # likely a broken page than closures, and flags nothing.
+    def flag_dropped(source)
+      return unless source.extracted_sha256.present? && source.extracted_sha256 == source.content_sha256
+
+      from_source = source.candidates.where(review_origin: nil).or(source.candidates.where.not(review_origin: "dropped"))
+      latest = from_source.maximum(:crawl_run_id) or return
+      read = from_source.where(crawl_run_id: latest)
+      return skip_dropped_check if read.where(subject_id: nil).or(read.status_new).exists?
+
+      listed = read.distinct.pluck(:subject_type, :subject_id).to_set
+      supported = from_source.where(status: %w[merged confirmed]).where.not(subject_id: nil).distinct.pluck(:subject_type, :subject_id)
+      dropped = supported.reject { |pair| listed.include?(pair) }.select { |type, id| directory.published?(type:, id:) }
+      return if dropped.empty?
+      return skip_dropped_check if dropped.size > [ 3, supported.size / 4 ].max
+
+      dropped.each { |type, id| flag_one_dropped(source, from_source, type, id) }
+    end
+
+    def skip_dropped_check = @stats["dropped_check_skipped"] = @stats.fetch("dropped_check_skipped", 0) + 1
+
+    # Once per absence: not again while one is open, nor after a person
+    # decided one, until the source lists the fact again.
+    def flag_one_dropped(source, from_source, type, id)
+      last = from_source.where(subject_type: type, subject_id: id).order(:id).last
+      return if source.candidates.where(subject_type: type, subject_id: id, review_origin: "dropped").where("id > ?", last.id).exists?
+
+      payload, advice = plugin.dropped(last.kind) ||
+        [ last.payload, "Approve to keep it as it is; if it's no longer true, unpublish it on its page." ]
+      read_on = source.fetched_at&.to_date || Date.current
+      source.candidates.create!(kind: last.kind, payload:, quote: last.quote, status: "needs_review", review_origin: "dropped",
+        subject_type: type, subject_id: id, crawl_run: @run,
+        notes: "No longer in #{source.title.presence || source.url} as read on #{read_on}. #{advice}")
+      @stats["dropped"] = @stats.fetch("dropped", 0) + 1
     end
 
     # Match runs can race when inserting similar records even across source
@@ -89,11 +135,15 @@ class DataQuality::Stages::Match < DataQuality::Stage
     end
 
     def match_record(candidate, payload)
-      case (found = resolve(candidate.kind.to_sym, payload))
+      case (found = resolve(candidate.kind.to_sym, payload, closed: :found))
       when Review then review(candidate, found.reason)
       when Found
+        # A decided fact the source states again is confirmed, not reviewed again (#240).
+        return settle_closed(candidate, found.record, closed_reason(found)) if found.record.closed?
+
         # Attach only: nothing is written to an existing record until a human approves it.
         attach(candidate, found.record, "Matched existing #{found.record.name} (by #{found.by})")
+        settle(candidate, found.record)
       when Under
         write(candidate, payload.symbolize_keys.merge(parent_id: found.site.id), existing: false,
           note: "New pending unit under the existing site #{found.site.name}")
@@ -137,17 +187,25 @@ class DataQuality::Stages::Match < DataQuality::Stage
         end
       end
 
+      # A link a human rejected or unpublished isn't written to; the same
+      # claim again is confirmed, anything else goes to review (#240).
+      existing = directory.existing_fact(candidate.kind, attributes)
+      if existing&.closed?
+        return settle_closed(candidate, existing, "#{existing.name.upcase_first} was #{existing.decision}. The same thing again?")
+      end
+
       write(candidate, attributes, evidence: false)
     end
 
     # Found, Review or nil (nothing like it exists). A closed record, one that
     # was rejected (a retired proposal, or one a human turned down) or that a
     # human unpublished, is never attached to: the candidate goes to review.
-    def resolve(type, payload)
+    # closed: :found hands such a record back as Found, for a caller that
+    # first checks whether the source just says the same thing again.
+    def resolve(type, payload, closed: :review)
       found = type == :organization ? resolve_organization(payload) : resolve_facility(payload)
-      if found.is_a?(Found) && found.record.closed?
-        return Review.new("matches #{found.record.name} (by #{found.by}), which was #{found.record.decision}. " \
-          "The same thing again, or a new record?")
+      if found.is_a?(Found) && found.record.closed? && closed == :review
+        return Review.new(closed_reason(found))
       end
       if found.is_a?(Under) && found.site.closed?
         return Review.new("looks like a unit of #{found.site.name}, which was #{found.site.decision}. " \
@@ -155,6 +213,11 @@ class DataQuality::Stages::Match < DataQuality::Stage
       end
 
       found
+    end
+
+    def closed_reason(found)
+      "matches #{found.record.name} (by #{found.by}), which was #{found.record.decision}. " \
+        "The same thing again, or a new record?"
     end
 
     def resolve_organization(payload)
@@ -263,10 +326,11 @@ class DataQuality::Stages::Match < DataQuality::Stage
       label = "#{name} unit #{unit} (#{state})"
 
       if chosen&.rejected?
-        review(candidate, "#{label} would be NRC unit #{chosen.name}, which was rejected")
+        settle_closed(candidate, chosen, "#{label} would be NRC unit #{chosen.name}, which was rejected")
       elsif chosen
         # Attach only: the values (and their evidence) are written when verify publishes.
         attach(candidate, chosen, "#{label} is NRC unit #{chosen.name}")
+        settle(candidate, chosen)
       elsif same_number.many? || (units.many? && units.none? { |record| unit_number(record.name) })
         review(candidate, "#{label} could be #{(same_number.presence || units).map(&:name).join(' or ')}")
       else
@@ -334,9 +398,58 @@ class DataQuality::Stages::Match < DataQuality::Stage
 
       if result.success?
         @stats[existing ? "matched" : "proposed"] += 1
+        # A fact that was already there (an existing link) may be one the source just restates.
+        settle(candidate, directory.attached_record(candidate)) unless result.created
       else
         review(candidate, "Directory rejected the write: #{result.errors.join('; ')}", write_error: true)
       end
+    end
+
+    # After a candidate is attached to an existing fact (#240): a person
+    # decides a fact once; afterwards the source is only re-checked.
+    # - published (or otherwise human-decided): the same values close the
+    #   candidate as confirmed and stamp the source's evidence. Otherwise it
+    #   stays matched as before: verify sends a disagreement with a
+    #   human-verified value to review showing both, and a fact with no
+    #   evidence from this source yet gets it when a person approves.
+    # - pending: one that repeats a candidate already waiting closes as a
+    #   duplicate, so the queue holds each pending fact once.
+    def settle(candidate, record)
+      return unless record
+
+      if record.verification_status == "pending"
+        waiting = Candidate.where(source_id: candidate.source_id, subject_type: record.type, subject_id: record.id,
+          status: %w[new matched needs_review]).where.not(id: candidate.id).where("payload = ?::jsonb", candidate.payload.to_json).first
+        confirmed(candidate, record, "Same as candidate ##{waiting.id}, already waiting for review") if waiting
+        return
+      end
+
+      confirmation = directory.confirm(candidate)
+      confirmed(candidate, record, confirmed_note(record, confirmation)) if confirmation&.confirmed?
+    end
+
+    # A record or link a human rejected or unpublished: the same claim again
+    # closes as confirmed (it stays as decided); otherwise review, unattached.
+    def settle_closed(candidate, record, reason)
+      confirmation = directory.confirm(candidate, fact_id: record.id)
+      return review(candidate, reason) unless confirmation&.confirmed?
+
+      candidate.update!(subject_type: record.type, subject_id: record.id, proposed_subject: false)
+      confirmed(candidate, record, "#{confirmed_note(record, confirmation)}; it stays #{record.verification_status}")
+    end
+
+    def confirmed(candidate, record, note)
+      @stats["confirmed"] = @stats.fetch("confirmed", 0) + 1
+      @stats["matched"] -= 1 if candidate.status_matched?
+      candidate.update!(status: "confirmed", subject_type: record.type, subject_id: record.id, notes: note)
+    end
+
+    def confirmed_note(record, confirmation)
+      note = "Confirmed: the source still says what #{record.name} records"
+      return note if confirmation.overruled.empty?
+
+      kept = confirmation.overruled.map { |name, (stored, stated)| "#{name.humanize(capitalize: false)} #{stored} (it says #{stated})" }
+      "#{note}, except where a person's decision stands: #{kept.join('; ')}"
     end
 
     def review(candidate, reason, write_error: false)

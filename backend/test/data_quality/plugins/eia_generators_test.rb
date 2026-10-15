@@ -651,12 +651,14 @@ class DataQuality::Plugins::EiaGeneratorsTest < ActiveSupport::TestCase
     assert_equal "6001", Facility.find(farley.subject_id).eia_plant_id
 
     # Extract again (as for a changed file), and the plant is found by its ID.
-    source.update_columns(extracted_sha256: nil)
+    source.update_columns(extracted_sha256: nil, extracted_rows_sha256: nil)
     assert_no_difference "Facility.count" do
       DataQuality::Pipeline.run("eia_generators", plugin: plugin, only: %w[extract match])
     end
     again = Candidate.where(source: source, kind: "facility").where.not(id: farley.id).find { |c| c.payload["eia_plant_id"] == "6001" }
-    assert_equal [ farley.subject_id, "Matched existing Joseph M Farley (by EIA plant ID)" ], [ again.subject_id, again.notes ]
+    assert_equal farley.subject_id, again.subject_id, "found by its plant ID"
+    # The proposal is still waiting for a person, so the repeat closes instead of queueing twice (#240).
+    assert_equal [ "confirmed", "Same as candidate ##{farley.id}, already waiting for review" ], [ again.status, again.notes ]
   end
 
   test "generators without an NRC unit yet wait and are retried" do

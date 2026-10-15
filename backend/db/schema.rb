@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_12_200000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_14_100000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -45,7 +45,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_12_200000) do
     t.index ["subject_type", "subject_id"], name: "index_candidates_on_subject"
     t.check_constraint "ai_recommendation::text = ANY (ARRAY['recommend_publish'::character varying::text, 'needs_review'::character varying::text])", name: "candidates_ai_recommendation_check"
     t.check_constraint "kind::text = ANY (ARRAY['organization'::character varying::text, 'organization_alias'::character varying::text, 'organization_role'::character varying::text, 'organization_technology'::character varying::text, 'facility'::character varying::text, 'relationship'::character varying::text, 'facility_relationship'::character varying::text])", name: "candidates_kind_check"
-    t.check_constraint "status::text = ANY (ARRAY['new'::character varying::text, 'matched'::character varying::text, 'merged'::character varying::text, 'rejected'::character varying::text, 'needs_review'::character varying::text])", name: "candidates_status_check"
+    t.check_constraint "status::text = ANY (ARRAY['new'::character varying, 'matched'::character varying, 'merged'::character varying, 'rejected'::character varying, 'needs_review'::character varying, 'confirmed'::character varying]::text[])", name: "candidates_status_check"
   end
 
   create_table "correction_reports", force: :cascade do |t|
@@ -90,6 +90,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_12_200000) do
     t.bigint "crawl_run_id"
     t.decimal "confidence", precision: 3, scale: 2
     t.datetime "created_at", null: false
+    t.datetime "last_confirmed_at"
+    t.string "confirmed_sha256"
     t.index ["crawl_run_id"], name: "index_evidence_on_crawl_run_id"
     t.index ["source_id"], name: "index_evidence_on_source_id"
     t.index ["subject_type", "subject_id"], name: "index_evidence_on_subject"
@@ -476,6 +478,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_12_200000) do
     t.string "last_modified"
     t.string "extracted_sha256"
     t.integer "blocked_streak", default: 0, null: false
+    t.string "extracted_rows_sha256"
     t.index ["domain"], name: "index_sources_on_domain"
     t.index ["source_kind"], name: "index_sources_on_source_kind"
     t.index ["url"], name: "index_sources_on_url", unique: true
