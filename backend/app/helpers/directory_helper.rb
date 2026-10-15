@@ -133,8 +133,8 @@ module DirectoryHelper
     units = profile.units.size
     capacity = "#{number_with_precision(profile.capacity_mw, precision: 2, strip_insignificant_zeros: true, delimiter: ",")} MWe" if profile.capacity_mw
     size = [ (pluralize(units, "unit") if units.positive?), capacity ].compact.join(", ").presence
-    owners = profile.companies_for("owns").map(&:name)
-    operators = profile.companies_for("operates").map(&:name)
+    owners = profile.current_companies_for("owns").map(&:name)
+    operators = profile.current_companies_for("operates").map(&:name)
     run_by = ->(owned) { [ (owned && "Owned by #{owned}"), (operators.any? && "operated by #{operators.to_sentence}") ].select(&:itself).join("; ").upcase_first.presence }
     few_owners = owners.many? ? "#{owners.first} and #{pluralize(owners.size - 1, 'other')}" : owners.first
 

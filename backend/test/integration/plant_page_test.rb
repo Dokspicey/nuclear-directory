@@ -212,6 +212,10 @@ class PlantPageTest < ActionDispatch::IntegrationTest
     assert_select ".nd-factrow", text: /Southern Nuclear\s+operates/ do
       assert_select ".nd-factrow__detail", /\AStarts /
     end
+    # The one-line summary doesn't state a scheduled link as current (#246).
+    line = "Plant Vogtle: Operating power plant in Waynesboro, GA. 2 units, 2,228 MWe. Owned by Georgia Power."
+    assert_select "meta[property='og:description'][content=?]", line
+    assert_select "meta[name='description'][content=?]", line
   end
 
   test "an unpublished unit or link disappears from the plant page" do

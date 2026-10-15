@@ -3,7 +3,7 @@ require "test_helper"
 class DirectoryHelperTest < ActionView::TestCase
   # Stands in for PlantProfile: only what plant_preview reads.
   Profile = Struct.new(:name, :status, :facility_type, :city, :state, :units, :capacity_mw, :owners, :operators, keyword_init: true) do
-    def companies_for(type) = { "owns" => owners, "operates" => operators }.fetch(type).to_a.map { |name| Struct.new(:name).new(name) }
+    def current_companies_for(type) = { "owns" => owners, "operates" => operators }.fetch(type).to_a.map { |name| Struct.new(:name).new(name) }
   end
 
   def profile(**overrides)
