@@ -8,6 +8,55 @@ class DirectoryRakeTest < ActiveSupport::TestCase
 
   def backfill = Rake::Task["directory:backfill_former_slugs"].execute
 
+  def backfill_merged_into(**env)
+    env.each { |key, value| ENV[key.to_s] = value }
+    Rake::Task["directory:backfill_merged_into"].execute
+  ensure
+    env.each_key { |key| ENV.delete(key.to_s) }
+  end
+
+  # An event as merges wrote it before #166: the target only in the reason.
+  def old_event(subject, to_status, reason)
+    VerificationEvent.create!(subject:, from_status: "verified", to_status:, by: "human:tosin", reason:)
+  end
+
+  test "backfill_merged_into records past merges' targets from their reasons, and only merges (#166)" do
+    urenco = Organization.create!(name: "Urenco")
+    usa = Organization.create!(name: "Urenco USA")
+    plant = Facility.create!(name: "Plant Vogtle")
+    vogtle = Facility.create!(name: "Vogtle")
+    merged = old_event(usa, "unpublished", "One company per brand (decision #23): Urenco USA is part of Urenco. Merged into Urenco (##{urenco.id}). Moved: 3 aliases")
+    site = old_event(vogtle, "unpublished", "Merged into Plant Vogtle (##{plant.id}). Moved: 1 alias")
+    # Not merges into anything: a fact a merge retired, and the kept record's own event.
+    retired = old_event(OrganizationRole.create!(organization: usa, role: Role.create!(key: "enrichment_test", name: "Enrichment")), "rejected", "Merged into Urenco (##{urenco.id}); Urenco already has this")
+    winner = old_event(plant, "verified", "Vogtle (##{vogtle.id}) merged in: its eia_plant_id")
+
+    assert_output(/event #{merged.id}: Organization #{usa.id} -> Urenco \(##{urenco.id}\)\nevent #{site.id}: .*\n2 would be recorded\.\nDry run/) do
+      backfill_merged_into(BY: "human:tosin")
+    end
+    assert_nil merged.reload.context["merged_into"], "a dry run changes nothing"
+
+    assert_output(/2 recorded/) { backfill_merged_into(BY: "human:tosin", APPLY: "1") }
+    assert_equal({ "type" => "Organization", "id" => urenco.id }, merged.reload.context["merged_into"])
+    assert_equal({ "type" => "Facility", "id" => plant.id }, site.reload.context["merged_into"])
+    assert_equal "human:tosin", merged.context["merged_into_backfilled_by"]
+    assert_equal [ {}, {} ], [ retired.reload.context, winner.reload.context ]
+    assert_equal merged.reason, VerificationEvent.find(merged.id).reason, "nothing else changes"
+
+    assert_output("No merge events without merged_into.\n") { backfill_merged_into(BY: "human:tosin", APPLY: "1") }
+    assert_raises(SystemExit) { capture_io { backfill_merged_into(BY: "human:") } }
+  end
+
+  test "backfill_merged_into counts a merge whose target is gone as skipped, not recorded" do
+    urenco = Organization.create!(name: "Urenco")
+    gone = old_event(Organization.create!(name: "Old Co"), "unpublished", "Merged into Nobody (#999999). Moved: 1 alias")
+    kept = old_event(Organization.create!(name: "Urenco USA"), "unpublished", "Merged into Urenco (##{urenco.id}). Moved: 1 alias")
+
+    assert_output(/skipped, no Organization #999999\n.*\n1 would be recorded, 1 skipped\./m) { backfill_merged_into(BY: "human:tosin") }
+    assert_output(/1 recorded, 1 skipped\./) { backfill_merged_into(BY: "human:tosin", APPLY: "1") }
+    assert_equal [ {}, urenco.id ], [ gone.reload.context, kept.reload.context.dig("merged_into", "id") ]
+  end
+
   test "the backfill keeps slugs renamed or merged before #143, and is safe to rerun" do
     atr = Facility.create!(name: "Advanced Test Reactor", slug: "advanced-test-reactor")
     VerificationEvent.create!(subject: atr, from_status: "verified", to_status: "verified", by: "human:tosin",
