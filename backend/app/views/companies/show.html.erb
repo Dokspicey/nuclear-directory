@@ -6,10 +6,10 @@
   record_citations = p.citations_for(p.organization)
   content_for :title, "#{p.name} · Nuclear Directory"
   content_for :og_title, p.name
-  content_for :og_description, summary || "Plants and sites, deals and sources."
+  content_for :og_description, summary || "Plants, sites and deals."
 %>
 <% content_for :head do %>
-  <meta name="description" content="<%= sentence_join([ p.name, summary ].compact.join(": "), "Plants and sites, deals and sources.") %>">
+  <meta name="description" content="<%= sentence_join([ p.name, summary ].compact.join(": "), "Plants, sites and deals.") %>">
   <link rel="canonical" href="<%= company_url(slug: p.slug) %>">
 <% end %>
 <%= render "shared/site_header" %>

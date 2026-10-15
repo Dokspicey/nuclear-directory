@@ -11,7 +11,7 @@
                  else [ "company", "companies" ]
                  end
   content_for :title, "#{heading} · Nuclear Directory"
-  description = "#{listing.searching? ? "Companies and plants matching “#{listing.query}”" : "#{heading} in the US nuclear industry"}, with the source for every fact."
+  description = "#{listing.searching? ? "Companies and plants matching “#{listing.query}”" : "#{heading} in the US nuclear industry"}."
   # A shared category or listing previews with its own line, not the home page's (#246).
   content_for :og_description, description
 %>

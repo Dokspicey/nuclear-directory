@@ -33,17 +33,28 @@ class LinkPreviewTest < ActionDispatch::IntegrationTest
     company("Kairos Power")
     get company_path(slug: "kairos-power")
     assert_select "meta[property='og:title'][content=?]", "Kairos Power"
-    assert_select "meta[property='og:description'][content=?]", "Plants and sites, deals and sources."
+    assert_select "meta[property='og:description'][content=?]", "Plants, sites and deals."
   end
 
   test "a category and the full listing preview with their own description, not the home page's (#246)" do
     get companies_path(category: "reactor-developers")
-    line = "Reactor developers in the US nuclear industry, with the source for every fact."
+    line = "Reactor developers in the US nuclear industry."
     assert_select "meta[name='description'][content=?]", line
     assert_select "meta[property='og:description'][content=?]", line
 
     get companies_path
-    assert_select "meta[property='og:description'][content=?]", "All companies in the US nuclear industry, with the source for every fact."
+    assert_select "meta[property='og:description'][content=?]", "All companies in the US nuclear industry."
+  end
+
+  test "preview and search descriptions say what's on the page, not how it's sourced (Tosin, #249)" do
+    company("Kairos Power")
+    [ root_path, companies_path, companies_path(category: "reactor-developers"), company_path(slug: "kairos-power"),
+      plant_path(slug: "plant-vogtle") ].each do |path|
+      get path
+      css_select("meta[property='og:description'], meta[name='description']").each do |tag|
+        assert_no_match(/source/i, tag["content"], path)
+      end
+    end
   end
 
   test "a category keeps its own preview address; search and filters don't" do

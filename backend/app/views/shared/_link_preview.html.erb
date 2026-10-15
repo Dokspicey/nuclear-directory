@@ -2,7 +2,7 @@
     :og_title and :og_description; otherwise the title is the page's <title>
     and the description is the site's one line. The card image is shared,
     drawn by script/build_og_image.py. %>
-<% og_description = content_for(:og_description).presence || "Who makes the fuel, builds the reactors, runs the plants, buys the power and funds it. Every fact links to its source." %>
+<% og_description = content_for(:og_description).presence || "Who makes the fuel, builds the reactors, runs the plants, buys the power and funds it." %>
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Nuclear Directory">
 <meta property="og:title" content="<%= content_for(:og_title).presence || content_for(:title).presence || "Nuclear Directory" %>">
