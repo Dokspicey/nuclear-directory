@@ -238,6 +238,42 @@ class DataQuality::ReconfirmTest < ActiveSupport::TestCase
     assert_nil unit("05099001").evidence.find_by!(source:).last_confirmed_at
   end
 
+  test "a restated link is attached without writing to it" do
+    first_read_approved!
+    link = unit("05099001").facility_relationships.sole
+    touched = link.updated_at
+
+    read!(ROWS.reverse, on: 1.hour.ago)
+    pipeline!
+
+    assert_equal touched, link.reload.updated_at, "no save, no confidence recompute, no snapshot expiry"
+  end
+
+  test "a person's decision made while match confirms the candidate is kept" do
+    first_read_approved!
+    candidate = Candidate.where(source:, status: "merged", kind: "facility").first
+    repeat = Candidate.create!(source:, kind: "facility", quote: candidate.quote, payload: candidate.payload, status: "matched",
+      subject: candidate.subject)
+    Candidate.where(id: repeat.id).update_all(status: "rejected", notes: "Rejected by a person meanwhile")
+    match = DataQuality::Stages::Match.new(plugin: @plugin)
+    match.instance_variable_set(:@stats, { "matched" => 1 })
+
+    match.send(:confirmed, repeat, DataQuality::DirectoryClient.new.attached_record(repeat), "Confirmed")
+
+    assert_equal [ "rejected", "Rejected by a person meanwhile" ], [ repeat.reload.status, repeat.notes ]
+  end
+
+  test "a source extracted before rows were hashed gets its hash, and its evidence stamped, on the next unchanged read" do
+    first_read_approved!
+    source.update_columns(extracted_rows_sha256: nil, fetched_at: 1.hour.ago)
+
+    runs = DataQuality::Pipeline.run("units_table", plugin: @plugin, only: %w[extract])
+
+    assert_equal 1, runs.first.stats["unchanged"]
+    assert_equal @plugin.rows_sha256(source), source.reload.extracted_rows_sha256
+    assert_in_delta 1.hour.ago, unit("05099001").evidence.find_by!(source:).last_confirmed_at, 1.second
+  end
+
   test "a blocked or unread page flags nothing as dropped" do
     first_read_approved!
     read!(ROWS.first(4), on: 1.hour.ago)

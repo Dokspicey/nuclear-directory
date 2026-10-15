@@ -23,7 +23,7 @@ class DataQuality::Stages::Extract < DataQuality::Stage
 
         if source.content_sha256.present? && source.content_sha256 == source.extracted_sha256
           stats["unchanged"] += 1
-          reconfirm(source, source.extracted_rows_sha256)
+          reconfirm(source, source.extracted_rows_sha256 || remember_rows(source))
           next
         end
 
@@ -93,6 +93,19 @@ class DataQuality::Stages::Extract < DataQuality::Stage
       from_rows = source.candidates.where(crawl_run_id: last_read(source), status: %w[merged confirmed]).where.not(subject_id: nil)
       directory.reconfirm_source(source_id: source.id, facts: from_rows.distinct.pluck(:subject_type, :subject_id),
         quotes: from_rows.distinct.pluck(:quote), rows_sha256: rows, at: source.fetched_at || Time.current)
+    end
+
+    # A source extracted before rows were hashed (#240) gets its hash from the
+    # snapshot it was extracted from, while that's still the stored one.
+    def remember_rows(source)
+      rows = plugin.rows_sha256(source) or return
+      Candidate.transaction do
+        source.lock!
+        next unless source.content_sha256 == source.extracted_sha256 && source.extracted_rows_sha256.nil?
+
+        source.update!(extracted_rows_sha256: rows)
+        rows
+      end
     end
 
     # The extract run that wrote the source's current candidates.

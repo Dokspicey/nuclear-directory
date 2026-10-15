@@ -204,6 +204,13 @@ class DataQuality::Stages::Match < DataQuality::Stage
       end
       return review(candidate, closed_end.reason) if closed_end
 
+      # An existing link is attached without writing, as a record is, so a
+      # read that only restates it changes nothing in the directory.
+      if existing
+        attach(candidate, existing, "Matched existing #{existing.name}")
+        return settle(candidate, existing)
+      end
+
       write(candidate, attributes, evidence: false)
     end
 
@@ -464,10 +471,18 @@ class DataQuality::Stages::Match < DataQuality::Stage
     # Whether the candidate's source, as stored, still contains a quote.
     def in_source(candidate) = ->(quote) { plugin.quote_in_source?(candidate.source, quote) }
 
+    # Locked as Review locks a decision (the source, then the candidate): a
+    # person who approved or rejected it meanwhile keeps their decision.
     def confirmed(candidate, record, note)
-      @stats["confirmed"] = @stats.fetch("confirmed", 0) + 1
-      @stats["matched"] -= 1 if candidate.status_matched?
-      candidate.update!(status: "confirmed", subject_type: record.type, subject_id: record.id, notes: note)
+      Candidate.transaction do
+        Source.lock.find(candidate.source_id)
+        candidate.lock!
+        next unless candidate.status_new? || candidate.status_matched?
+
+        @stats["confirmed"] = @stats.fetch("confirmed", 0) + 1
+        @stats["matched"] -= 1 if candidate.status_matched?
+        candidate.update!(status: "confirmed", subject_type: record.type, subject_id: record.id, notes: note)
+      end
     end
 
     def confirmed_note(record, confirmation)
