@@ -133,8 +133,11 @@ module Directory
           from.public_send(table).each do |row|
             next if row.closed? # rejected or taken down: it stays where it was decided (#229)
 
-            same = into.public_send(table).where(Array(key).index_with { |column| row.public_send(column) })
-            next retired << row if same.exists?
+            same = into.public_send(table).find_by(Array(key).index_with { |column| row.public_send(column) })
+            if same
+              moved["deal_terms"] += move_deal_terms(row, same) if table == :facility_relationships
+              next retired << row
+            end
 
             row.update!(organization: into) && moved[table.to_s] += 1
           end
@@ -144,8 +147,11 @@ module Directory
 
           ends = { from_organization_id: row.from_organization_id, to_organization_id: row.to_organization_id }
             .transform_values { |id| id == from.id ? into.id : id }
-          duplicate = Relationship.where(**ends, relationship_type: row.relationship_type).where.not(id: row.id).exists?
-          next retired << row if ends.values.uniq.size == 1 || duplicate
+          next retired << row if ends.values.uniq.size == 1
+          if (duplicate = Relationship.where(**ends, relationship_type: row.relationship_type).where.not(id: row.id).first)
+            moved["deal_terms"] += move_deal_terms(row, duplicate)
+            next retired << row
+          end
 
           row.update!(ends) && moved["relationships"] += 1
         end
@@ -158,7 +164,8 @@ module Directory
         note = "Merged into #{into.name} (##{into.id})"
         retired.each { |row| row.reject!(by:, reason: "#{note}; #{into.name} already has this, or it would point at itself") unless row.closed? }
         summary = moved.select { |_, count| count.positive? }.map { |what, count| "#{count} #{what.tr('_', ' ').then { |label| count == 1 ? label.singularize : label }}" }
-        from.unpublish!(by:, reason: [ reason, "#{note}. Moved: #{summary.join(', ').presence || 'nothing'}" ].compact.join(". "))
+        from.unpublish!(by:, reason: [ reason, "#{note}. Moved: #{summary.join(', ').presence || 'nothing'}" ].compact.join(". "),
+          context: { "merged_into" => { "type" => into.class.name, "id" => into.id } }) # for the admin's exits (#166)
         # Its address, and any it kept from earlier renames or merges, now
         # lead straight to into's page (#143).
         FormerSlug.where(sluggable: from).find_each { |former| into.remember_slug(former.slug) }
@@ -237,7 +244,10 @@ module Directory
         retired = []
         from.facility_relationships.each do |row|
           next if row.closed? # a link someone rejected or took down stays where it was decided
-          next retired << row if into.facility_relationships.exists?(organization_id: row.organization_id, relationship_type: row.relationship_type)
+          if (same = into.facility_relationships.find_by(organization_id: row.organization_id, relationship_type: row.relationship_type))
+            moved["deal_terms"] += move_deal_terms(row, same)
+            next retired << row
+          end
 
           row.update!(facility: into) && moved["facility_relationships"] += 1
         end
@@ -250,7 +260,8 @@ module Directory
         retired.each { |row| row.reject!(by:, reason: "#{note}; #{into.name} already has this link") unless row.closed? }
         summary = moved.select { |_, count| count.positive? }.map { |what, count| "#{count} #{what.tr('_', ' ').then { |label| count == 1 ? label.singularize : label }}" }
         summary << filled.join(", ") if filled.any?
-        from.unpublish!(by:, reason: [ reason, "#{note}. Moved: #{summary.join(', ').presence || 'nothing'}" ].compact.join(". "))
+        from.unpublish!(by:, reason: [ reason, "#{note}. Moved: #{summary.join(', ').presence || 'nothing'}" ].compact.join(". "),
+          context: { "merged_into" => { "type" => into.class.name, "id" => into.id } }) # for the admin's exits (#166)
         FormerSlug.where(sluggable: from).find_each { |former| into.remember_slug(former.slug) }
         into.remember_slug(from.slug)
         into.recompute_confidence!
@@ -654,6 +665,19 @@ module Directory
 
       def failure(kind, errors)
         Result.new(kind:, id: nil, created: false, errors: Array(errors))
+      end
+
+      # A merge retires a duplicate link once the kept record has the same
+      # one; its open deal terms (#256) move to that link first, so awards
+      # aren't hidden with it. A term the kept link already has (same kind
+      # and award ID) stays and is retired with its link. Returns how many moved.
+      def move_deal_terms(retired_link, kept_link)
+        DealTerm.where(link: retired_link).where.not(verification_status: Verifiable::CLOSED_STATUSES).sum do |term|
+          next 0 if term.external_id && DealTerm.exists?(link: kept_link, term_type: term.term_type, external_id: term.external_id)
+
+          term.update!(link: kept_link)
+          1
+        end
       end
 
       # Finds the existing row for this fact, or nil.

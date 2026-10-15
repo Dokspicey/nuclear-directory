@@ -140,4 +140,42 @@ namespace :directory do
     puts "#{counts[:written]} award terms #{verb}, #{counts[:already]} already there#{", #{counts[:failed]} failed" if counts[:failed].positive?}."
     puts "Dry run: nothing changed. Run again with APPLY=1 to apply." unless apply
   end
+
+  # Merges before #166 recorded where a record went only in their reason
+  # ("… Merged into Urenco (#41). Moved: …"). This adds the same, structured,
+  # to those events' context ({ "merged_into" => { "type", "id" } }), as
+  # merges now write it. Only a merged-away record's own event counts: an
+  # Organization or Facility going to unpublished. A fact a merge retired
+  # (rejected) and the kept record's events aren't merges into anything.
+  desc "Record merged_into on past merge events from their reasons, audited: BY=human:<name> [APPLY=1] (#166)"
+  task backfill_merged_into: :environment do
+    by = ENV["BY"].to_s
+    abort "Usage: BY=human:<handle> [APPLY=1] bin/rails directory:backfill_merged_into" unless by.match?(/\Ahuman:\S+\z/)
+
+    apply = ENV["APPLY"] == "1"
+    events = VerificationEvent.where(subject_type: %w[Organization Facility], to_status: "unpublished")
+      .where("reason ~ ?", 'Merged into .+ \(#[0-9]+\)').where("NOT (context ? 'merged_into')").order(:id)
+    skipped = 0
+    found = events.map do |event|
+      into_id = event.reason[/Merged into .+? \(#(\d+)\)/, 1].to_i
+      into = event.subject_type.constantize.find_by(id: into_id)
+      line = "event #{event.id}: #{event.subject_type} #{event.subject_id} -> #{into&.name || 'missing'} (##{into_id})"
+      unless into
+        skipped += 1
+        next "#{line}: skipped, no #{event.subject_type} ##{into_id}"
+      end
+
+      if apply
+        # Verification events are append-only (VerificationEvent#before_update).
+        # This one-off adds a key to the context and changes nothing else, so
+        # it writes past the model on purpose, recording who did it.
+        added = { "merged_into" => { "type" => event.subject_type, "id" => into_id }, "merged_into_backfilled_by" => by }
+        VerificationEvent.where(id: event.id).update_all([ "context = context || ?::jsonb", added.to_json ])
+      end
+      line
+    end
+    puts found.any? ? found : "No merge events without merged_into."
+    puts "#{found.size - skipped} #{apply ? 'recorded' : 'would be recorded'}#{", #{skipped} skipped" if skipped.positive?}." if found.any?
+    puts "Dry run: nothing changed. Run again with APPLY=1 to apply." unless apply || found.empty?
+  end
 end

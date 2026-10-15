@@ -97,4 +97,37 @@ class Directory::DealTermsTest < ActiveSupport::TestCase
     assert_equal [ "award", "81.121", [ @source.url ] ], [ ref.term_type, ref.program, ref.source_urls ]
     assert_raises(ArgumentError) { Directory::Lookup.deal_terms(link_type: "Organization", link_id: 1) }
   end
+
+  test "an unknown link type on an update is a refusal, not an exception" do
+    id = write.id
+
+    result = Directory::FactWriter.write(:deal_term, { id:, link_type: "Organization" })
+
+    assert_not result.ok?
+    assert_equal "Relationship", DealTerm.find(id).link_type
+  end
+
+  test "a blank external ID is no ID: two offtakes without one are two rows" do
+    offtake = { link_type: "Relationship", link_id: @funds.id, term_type: "offtake", capacity_mw: "1121", external_id: " " }
+
+    assert write(offtake).ok?
+    assert write(offtake.merge(capacity_mw: "50")).ok?
+    assert_equal [ nil, nil ], DealTerm.where(term_type: "offtake").pluck(:external_id)
+  end
+
+  test "a merge moves a retired duplicate link's terms to the kept link, keeping what it already has" do
+    duplicate = Organization.create!(name: "X-energy LLC", verification_status: "verified", verified_by: BY)
+    other_funds = Relationship.create!(from_organization: @doe, to_organization: duplicate, relationship_type: "funds",
+      verification_status: "verified", verified_by: BY)
+    write(award(link_id: @funds.id, external_id: "ASST_SHARED"), verification: { status: "verified", by: BY })
+    write(award(link_id: other_funds.id, external_id: "ASST_SHARED"), verification: { status: "verified", by: BY })
+    write(award(link_id: other_funds.id, external_id: "ASST_ONLY_ON_DUPLICATE"), verification: { status: "verified", by: BY })
+
+    assert Directory::FactWriter.merge_organization(from_id: duplicate.id, into_id: @xenergy.id, by: BY).ok?
+
+    assert other_funds.reload.rejected?, "the duplicate link is retired"
+    assert_equal %w[ASST_ONLY_ON_DUPLICATE ASST_SHARED],
+      Directory::Lookup.deal_terms(link_type: "Relationship", link_id: @funds.id).map(&:external_id).sort
+    assert_equal [ "ASST_SHARED" ], DealTerm.where(link: other_funds).pluck(:external_id), "a term the kept link has stays behind"
+  end
 end

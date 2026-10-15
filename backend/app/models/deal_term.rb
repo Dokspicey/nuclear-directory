@@ -12,9 +12,15 @@ class DealTerm < ApplicationRecord
   enum :status, %w[announced signed active completed terminated].index_by(&:itself), validate: { allow_nil: true },
     prefix: :status
 
-  belongs_to :link, polymorphic: true
+  # Optional here so an unknown link_type is a validation error (the
+  # inclusion check below), never a NameError resolving it.
+  belongs_to :link, polymorphic: true, optional: true
+
+  # A blank ID is no ID: lookup, validation and the unique index agree.
+  normalizes :external_id, with: ->(id) { id.strip.presence }
 
   validates :link_type, inclusion: { in: LINK_TYPES }
+  validates :link, presence: true, if: -> { LINK_TYPES.include?(link_type) }
   validates :external_id, uniqueness: { scope: %i[link_type link_id term_type] }, allow_nil: true
   validates :amount_usd, :capacity_mw, numericality: { greater_than_or_equal_to: 0 }, allow_nil: true
   validates :amount_usd, :starts_on, :external_id, presence: true, if: :award?

@@ -31,6 +31,25 @@ module Directory
       OrganizationRef.from(record) if record
     end
 
+    # Facts taken out of the directory (#166): each decision that rejected or
+    # unpublished one, newest first, since a time. A merge says what the
+    # record went into. Reads only.
+    def exits(since:, limit: 50)
+      events = VerificationEvent.where(to_status: %w[rejected unpublished], created_at: since..).order(created_at: :desc, id: :desc).limit(limit).to_a
+      records = events.group_by(&:subject_type).to_h do |type, group|
+        # With what each label names (a role's company, a link's ends), loaded in one go.
+        [ type, type.constantize.where(id: group.map(&:subject_id)).includes(*PENDING_INCLUDES.fetch(type.underscore)).index_by(&:id) ]
+      end
+      events.map do |event|
+        record = records.dig(event.subject_type, event.subject_id)
+        Directory::ExitRef.new(type: event.subject_type, id: event.subject_id, name: record ? fact_label(record) : "##{event.subject_id}",
+          to_status: event.to_status, by: event.by, reason: event.reason, merged_into: event.context["merged_into"], at: event.created_at)
+      end
+    end
+
+    # How many of each fact type the public pages show: { "Organization" => 112, … }.
+    def published_counts = FACT_TYPES.index_with { |type| type.constantize.published.count }
+
     # Every change of a fact's verification, newest first, as plain values:
     # who, when, from -> to, why. type is the fact's class name ("Organization").
     # The awards, offtakes or rounds under one link (#256), oldest first.
