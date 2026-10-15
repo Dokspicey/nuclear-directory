@@ -149,7 +149,10 @@ module DataQuality::Review
     # Result per candidate looked at; errors say why one stays open.
     def confirm_identical(candidate_ids = nil, by:, dry_run: false, directory: DataQuality::DirectoryClient.new)
       human!(by)
-      scope = Candidate.where(status: %w[new matched needs_review]).where.not(subject_id: nil).order(:id)
+      # A "dropped" flag says the source no longer lists the fact; it repeats
+      # the fact's last payload, so it would always look identical.
+      scope = Candidate.where(status: %w[new matched needs_review]).where.not(subject_id: nil)
+        .where("review_origin IS DISTINCT FROM 'dropped'").order(:id)
       scope = scope.where(id: candidate_ids) if candidate_ids
       results = []
       Candidate.transaction(requires_new: true) do
@@ -392,7 +395,7 @@ module DataQuality::Review
         record = directory.attached_record(candidate) or return fail_with.call("its fact no longer exists")
         return fail_with.call("#{record.name} isn't decided yet, so a person reviews it") if record.verification_status == "pending"
 
-        confirmation = directory.confirm(candidate)
+        confirmation = directory.confirm(candidate, in_source: in_source(candidate))
         case confirmation&.outcome
         when :confirmed
           kept = confirmation.overruled.map { |name, (stored, stated)| "#{name.humanize(capitalize: false)} #{stored} (it says #{stated})" }
@@ -406,6 +409,15 @@ module DataQuality::Review
         when :unsourced then fail_with.call("the same values, but #{record.name} has no evidence from this source yet")
         else fail_with.call("its fact no longer exists")
         end
+      end
+
+      # Whether the candidate's source still contains a quote, as its plug-in
+      # checks it; nil (only the claim's own quote counts) without a plug-in.
+      def in_source(candidate)
+        plugin = DataQuality::Plugin.for(candidate.source.source_kind)
+        ->(quote) { plugin.quote_in_source?(candidate.source, quote) }
+      rescue DataQuality::Plugin::UnknownSourceKind
+        nil
       end
 
       def lock_for_decision(candidate)

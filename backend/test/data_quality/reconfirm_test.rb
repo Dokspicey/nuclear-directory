@@ -38,7 +38,8 @@ class DataQuality::ReconfirmTest < ActiveSupport::TestCase
       def rows(source) = source.content_text.to_s.lines(chomp: true).reject { |line| line.start_with?("#") }
   end
 
-  ROWS = [ "Zephyr Point 1 | 05099001 | operating | Zephyr Nuclear Co", "Zephyr Point 2 | 05099002 | operating | Zephyr Nuclear Co" ].freeze
+  # Five units, so dropping one stays within the dropped check's quarter.
+  ROWS = (1..5).map { |n| "Zephyr Point #{n} | 0509900#{n} | operating | Zephyr Nuclear Co" }.freeze
   BY = "human:tosin"
 
   setup { @plugin = TablePlugin.new }
@@ -92,7 +93,7 @@ class DataQuality::ReconfirmTest < ActiveSupport::TestCase
 
     assert_equal 2, @plugin.extracts
     assert_empty queue, "0 review items"
-    assert_equal 5, runs.second.stats["confirmed"], "2 units, the company (one claim for both rows) and 2 links"
+    assert_equal 11, runs.second.stats["confirmed"], "5 units, the company (one claim for all its rows) and 5 links"
     assert Candidate.where(source:, status: "confirmed").all? { |c| c.notes.start_with?("Confirmed: the source still says") }
     assert_equal events, VerificationEvent.count
   end
@@ -114,12 +115,16 @@ class DataQuality::ReconfirmTest < ActiveSupport::TestCase
   test "a real change goes to review with the published value next to the new one" do
     first_read_approved!
 
-    read!([ ROWS.first.sub("operating", "shut_down"), ROWS.second ], on: 1.hour.ago)
+    read!([ ROWS.first.sub("operating", "shut_down"), *ROWS.drop(1) ], on: 1.hour.ago)
     pipeline!
 
-    changed = queue.sole
+    changed = queue.find_by!(kind: "facility")
     assert changed.status_needs_review?
     assert_equal "human-verified status is operating; this source says shut_down", changed.notes
+    # The row's company and link claims now quote text the source didn't have:
+    # a person approves them, adding the current quote, rather than the old one being marked re-checked.
+    assert_equal %w[facility_relationship organization], queue.where.not(kind: "facility").pluck(:kind).sort
+    assert queue.where.not(kind: "facility").all?(&:status_matched?)
   end
 
   test "a fact a person unpublished, stated again unchanged, stays unpublished without a review item" do
@@ -138,24 +143,63 @@ class DataQuality::ReconfirmTest < ActiveSupport::TestCase
   test "a published fact a complete read no longer lists is flagged once, suggesting the plugin's change" do
     first_read_approved!
 
-    read!([ ROWS.first ], on: 1.hour.ago)
+    read!(ROWS.first(4), on: 1.hour.ago)
     pipeline!
 
     flags = queue.where(review_origin: "dropped")
-    assert_equal [ [ "Facility", unit("05099002").id ], [ "FacilityRelationship", unit("05099002").facility_relationships.sole.id ] ],
+    assert_equal [ [ "Facility", unit("05099005").id ], [ "FacilityRelationship", unit("05099005").facility_relationships.sole.id ] ],
       flags.order(:subject_type).pluck(:subject_type, :subject_id)
     flag = flags.find_by!(kind: "facility")
     assert_equal({ "status" => "shut_down" }, flag.payload)
     assert_match "No longer in", flag.notes
-    assert unit("05099002").verified?, "never unpublished automatically"
+    assert unit("05099005").verified?, "never unpublished automatically"
 
     pipeline!
     assert_equal 2, queue.where(review_origin: "dropped").count, "not flagged again"
   end
 
+  test "a read that would drop more than a quarter of what it supported flags nothing: likely a broken page" do
+    first_read_approved!
+
+    read!(ROWS.first(3), on: 1.hour.ago) # 2 units and their links: 4 of 11 facts
+    runs = pipeline!
+
+    assert_empty queue.where(review_origin: "dropped")
+    assert_equal 1, runs.second.stats["dropped_check_skipped"]
+  end
+
+  test "an unchanged read stamps only what its rows still support; a failed fetch stamps nothing" do
+    first_read_approved!
+    read!(ROWS.first(4), on: 2.hours.ago) # unit 5 dropped
+    pipeline!
+
+    read!(ROWS.first(4), on: 1.hour.ago) # the same rows again
+    pipeline!
+
+    assert_in_delta 1.hour.ago, unit("05099001").evidence.find_by!(source:).last_confirmed_at, 1.second
+    assert_nil unit("05099005").evidence.find_by!(source:).last_confirmed_at, "the rows no longer list it"
+
+    source.update!(fetched_at: Time.current, status_reason: "Timed out") # a failed fetch keeps the old content
+    pipeline!
+    assert_in_delta 1.hour.ago, unit("05099001").evidence.find_by!(source:).last_confirmed_at, 1.second
+  end
+
+  test "a link to a plant a person unpublished, stated again unchanged, is confirmed and not written" do
+    first_read_approved!
+    link = unit("05099001").facility_relationships.sole
+    DataQuality::Review.unpublish(type: "Facility", id: unit("05099001").id, by: BY, reason: "Checking it")
+
+    read!(ROWS.reverse, on: 1.hour.ago)
+    pipeline!
+
+    assert_empty queue
+    assert_match "it stays verified", Candidate.where(source:, subject: link, status: "confirmed").sole.notes
+    assert unit("05099001").unpublished?
+  end
+
   test "a blocked or unread page flags nothing as dropped" do
     first_read_approved!
-    read!([ ROWS.first ], on: 1.hour.ago)
+    read!(ROWS.first(4), on: 1.hour.ago)
     source.update!(crawl_status: "blocked")
 
     pipeline!
@@ -204,6 +248,33 @@ class DataQuality::ReconfirmTest < ActiveSupport::TestCase
     assert results.none?(&:ok?)
     assert_match "isn't decided yet", results.first.errors.join
     assert_raises(ArgumentError) { DataQuality::Review.confirm_identical(by: "agent:x") }
+  end
+
+  test "a link claim attached to another plant's link (#226) isn't confirmed, and stamps nothing" do
+    first_read_approved!
+    other_link = unit("05099002").facility_relationships.sole
+    # "Zephyr Nuclear Co operates Zephyr Point 1", attached to Zephyr Point 2's link, with that link's quote.
+    misattached = Candidate.create!(source:, kind: "facility_relationship", quote: ROWS.second, status: "matched", subject: other_link,
+      payload: { "organization" => { "name" => "Zephyr Nuclear Co" }, "facility" => { "name" => "Zephyr Point 1", "nrc_docket" => "05099001" },
+        "relationship_type" => "operates" })
+    stamped = other_link.evidence.pluck(:last_confirmed_at)
+
+    result = DataQuality::Review.confirm_identical([ misattached.id ], by: BY).sole
+
+    assert_match "it differs: facility Zephyr Point 2 → Zephyr Point 1", result.errors.join
+    assert misattached.reload.status_matched?
+    assert_equal stamped, other_link.evidence.reload.pluck(:last_confirmed_at)
+  end
+
+  test "the one-off leaves a 'no longer listed' flag for a person" do
+    first_read_approved!
+    read!(ROWS.first(4), on: 1.hour.ago)
+    pipeline!
+    flag = queue.find_by!(review_origin: "dropped", kind: "facility_relationship")
+
+    DataQuality::Review.confirm_identical(by: BY)
+
+    assert flag.reload.status_needs_review?
   end
 
   test "a company named on several rows is one claim" do

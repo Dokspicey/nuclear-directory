@@ -141,7 +141,15 @@ Directory::FactWriter.confirm(:facility, { id: 12, name: "Hope Creek 1", status:
   scale. A name counts if it's the fact's name or one of its aliases. A value the source
   doesn't state isn't a difference.
 - A value a human replaced (the "before" of a human event) is reported in `overruled`, not
-  in `differences`. The person's decision stands.
+  in `differences`. The person's decision stands. This means the value stays quiet until the
+  source says something else. If a source returns to the old value for a real reason, it
+  won't come back to review on its own.
+- A link is the same claim only between its own ends. The caller passes the ends it found
+  (`organization_id`, `facility_id`…), and a unit stands for its site's link. A claim
+  attached to another link (#226) is a difference, never a confirmation.
+- Only evidence whose quote the source still contains is stamped: this claim's `quote`, or
+  another quote the optional `in_source:` callable says is still there. If there's none, the
+  outcome is `:unsourced`, and approving adds the current quote.
 - The fact's decision doesn't matter. A rejected or unpublished fact confirmed this way
   stays as it is.
 - When it's confirmed, the evidence from `source_id` gets `last_confirmed_at` and
@@ -149,8 +157,10 @@ Directory::FactWriter.confirm(:facility, { id: 12, name: "Hope Creek 1", status:
   fact's history doesn't fill up with nightly checks. `:unsourced` means the fact has no
   evidence from this source yet.
 
-`FactWriter.reconfirm_source(source_id:, rows_sha256:, at:)` stamps all of a source's
-evidence when its rows haven't changed. `FactWriter.existing(kind, attributes)` returns the
+`FactWriter.reconfirm_source(source_id:, facts:, quotes:, rows_sha256:, at:)` runs when a
+source's rows haven't changed. It stamps only the evidence those rows still support: on the
+listed facts (type and id pairs), and with one of the listed quotes. A fact the rows dropped
+or contradict isn't stamped. `FactWriter.existing(kind, attributes)` returns the
 id of the fact the attributes name (a link by its ends and type), or nil. It only reads.
 
 ### Verification

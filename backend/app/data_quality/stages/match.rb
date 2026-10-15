@@ -86,7 +86,7 @@ class DataQuality::Stages::Match < DataQuality::Stage
       supported = from_source.where(status: %w[merged confirmed]).where.not(subject_id: nil).distinct.pluck(:subject_type, :subject_id)
       dropped = supported.reject { |pair| listed.include?(pair) }.select { |type, id| directory.published?(type:, id:) }
       return if dropped.empty?
-      return skip_dropped_check if dropped.size > [ 3, supported.size / 4 ].max
+      return skip_dropped_check if dropped.size * 4 > supported.size
 
       dropped.each { |type, id| flag_one_dropped(source, from_source, type, id) }
     end
@@ -171,6 +171,7 @@ class DataQuality::Stages::Match < DataQuality::Stage
     # like any proposal, it gets the quote as evidence.)
     def match_link(candidate, payload)
       attributes = payload.slice(*LINK_KEYS.fetch(candidate.kind)).symbolize_keys
+      closed_end = nil
 
       LINK_ENDS.fetch(candidate.kind).each do |key, type|
         unless payload.key?(key)
@@ -180,19 +181,24 @@ class DataQuality::Stages::Match < DataQuality::Stage
           return review(candidate, "payload #{key} must be an object")
         end
 
-        case (found = resolve(type, payload[key]))
+        case (found = resolve(type, payload[key], closed: :found))
         when Review then return review(candidate, "#{key}: #{found.reason}")
         when Found then attributes[:"#{key}_id"] = found.record.id
         else return review(candidate, "#{key} #{label(payload[key]).inspect} isn't in the directory yet")
         end
+        # A closed end is kept aside: an existing link to it may still be confirmed.
+        closed_end ||= Review.new("#{key}: #{closed_reason(found)}") if found.record.closed?
       end
 
-      # A link a human rejected or unpublished isn't written to; the same
-      # claim again is confirmed, anything else goes to review (#240).
+      # A link a human rejected or unpublished, or one whose company or plant
+      # was, isn't written to. The same claim again is confirmed (it stays as
+      # decided); anything else goes to review (#240).
       existing = directory.existing_fact(candidate.kind, attributes)
-      if existing&.closed?
-        return settle_closed(candidate, existing, "#{existing.name.upcase_first} was #{existing.decision}. The same thing again?")
+      if existing && (existing.closed? || closed_end)
+        reason = closed_end&.reason || "#{existing.name.upcase_first} was #{existing.decision}. The same thing again?"
+        return settle_closed(candidate, existing, reason)
       end
+      return review(candidate, closed_end.reason) if closed_end
 
       write(candidate, attributes, evidence: false)
     end
@@ -424,19 +430,22 @@ class DataQuality::Stages::Match < DataQuality::Stage
         return
       end
 
-      confirmation = directory.confirm(candidate)
+      confirmation = directory.confirm(candidate, in_source: in_source(candidate))
       confirmed(candidate, record, confirmed_note(record, confirmation)) if confirmation&.confirmed?
     end
 
     # A record or link a human rejected or unpublished: the same claim again
     # closes as confirmed (it stays as decided); otherwise review, unattached.
     def settle_closed(candidate, record, reason)
-      confirmation = directory.confirm(candidate, fact_id: record.id)
+      confirmation = directory.confirm(candidate, fact_id: record.id, in_source: in_source(candidate))
       return review(candidate, reason) unless confirmation&.confirmed?
 
       candidate.update!(subject_type: record.type, subject_id: record.id, proposed_subject: false)
       confirmed(candidate, record, "#{confirmed_note(record, confirmation)}; it stays #{record.verification_status}")
     end
+
+    # Whether the candidate's source, as stored, still contains a quote.
+    def in_source(candidate) = ->(quote) { plugin.quote_in_source?(candidate.source, quote) }
 
     def confirmed(candidate, record, note)
       @stats["confirmed"] = @stats.fetch("confirmed", 0) + 1

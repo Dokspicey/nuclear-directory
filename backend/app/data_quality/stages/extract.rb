@@ -83,12 +83,21 @@ class DataQuality::Stages::Extract < DataQuality::Stage
       stats
     end
 
-    # The source was read and still says what it said: everything it
-    # supports was checked when it was fetched (#240).
+    # The source was read and still says what it said (#240): the facts its
+    # last extracted rows support (approved or confirmed from them, with
+    # their quotes) were checked when it was fetched. Not after a failed
+    # fetch, which keeps the old content but still moves fetched_at.
     def reconfirm(source, rows)
-      return if rows.blank?
+      return if rows.blank? || source.status_reason.present?
 
-      directory.reconfirm_source(source_id: source.id, rows_sha256: rows, at: source.fetched_at || Time.current)
+      from_rows = source.candidates.where(crawl_run_id: last_read(source), status: %w[merged confirmed]).where.not(subject_id: nil)
+      directory.reconfirm_source(source_id: source.id, facts: from_rows.distinct.pluck(:subject_type, :subject_id),
+        quotes: from_rows.distinct.pluck(:quote), rows_sha256: rows, at: source.fetched_at || Time.current)
+    end
+
+    # The extract run that wrote the source's current candidates.
+    def last_read(source)
+      source.candidates.where("review_origin IS DISTINCT FROM 'dropped'").maximum(:crawl_run_id)
     end
 
     # A candidate a person reopened (#228) is kept with its reopenings.

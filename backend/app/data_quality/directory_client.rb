@@ -200,17 +200,24 @@ class DataQuality::DirectoryClient
   # written. fact_id: the fact to compare with, when the candidate isn't
   # attached to it (a closed fact). Returns the FactWriter::Confirmation, or
   # nil with no fact.
-  def confirm(candidate, fact_id: candidate.subject_id, rows_sha256: candidate.source.extracted_rows_sha256)
+  # in_source: whether the source still contains a quote (the plug-in's
+  # quote_in_source?), so the fact's other evidence from it is stamped too.
+  def confirm(candidate, fact_id: candidate.subject_id, rows_sha256: candidate.source.extracted_rows_sha256, in_source: nil)
     return unless fact_id
 
     attributes = candidate.payload.except(*LINK_ENDS, *PAYLOAD_LOCKED, ENRICHMENT_KEY).symbolize_keys.merge(id: fact_id)
+    # A link's ends as the payload names them, found afresh, so a claim
+    # attached to the wrong link (#226) doesn't pass as the same claim.
+    attributes.merge!(link_end_ids(candidate.payload)) if LINK_KINDS.include?(candidate.kind)
     # Checked when the source was read, not when this ran.
-    fact_writer.confirm(candidate.kind, attributes, source_id: candidate.source_id, rows_sha256:,
+    fact_writer.confirm(candidate.kind, attributes, source_id: candidate.source_id, quote: candidate.quote, in_source:, rows_sha256:,
       at: candidate.source.fetched_at || Time.current)
   end
 
   # A source read again with the same rows: all its evidence was checked at:.
-  def reconfirm_source(source_id:, rows_sha256:, at:) = fact_writer.reconfirm_source(source_id:, rows_sha256:, at:)
+  def reconfirm_source(source_id:, facts:, quotes:, rows_sha256:, at:)
+    fact_writer.reconfirm_source(source_id:, facts:, quotes:, rows_sha256:, at:)
+  end
 
   # The existing link (or record) these attributes name, with its decision,
   # or nil. Reads only.
@@ -325,6 +332,27 @@ class DataQuality::DirectoryClient
 
       write_result(fact_writer.write("organization", { id: company.id, aliases: [ alias_name ] }, evidence:,
         verification:, protect_human_verified: false))
+    end
+
+    # { organization_id: 12, facility_id: 40 } for the ends a link payload
+    # names: a company by name (or alias) or domain, a plant by docket, EIA
+    # plant ID or name. An end that isn't found is nil.
+    def link_end_ids(payload)
+      LINK_ENDS.each_with_object({}) do |key, ids|
+        named = payload[key]
+        next unless named.is_a?(Hash)
+
+        found =
+          if key == "facility"
+            (facility(nrc_docket: named["nrc_docket"]) if named["nrc_docket"].present?) ||
+              (facility(eia_plant_id: named["eia_plant_id"]) if named["eia_plant_id"].present?) ||
+              (facility(name: named["name"]) if named["name"].present?)
+          else
+            (organization(name: named["name"]) if named["name"].present?) ||
+              (organization(domain: named["domain"]) if named["domain"].present?)
+          end
+        ids[:"#{key}_id"] = found&.id
+      end
     end
 
     # Resolved lazily so the module has no load-time dependency on the directory.

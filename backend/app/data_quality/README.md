@@ -130,9 +130,10 @@ candidate payloads" below for match's outcomes.
 A nightly crawl doesn't put facts back in the review queue when they haven't changed.
 
 - **Extract** skips a source whose rows haven't changed (`plugin.rows_sha256`; for NRC, the
-  table's rows only, since the page has a date stamp). The source's evidence is stamped as
-  checked when it was fetched. A row that repeats a claim (a company on several rows) is
-  proposed once.
+  table's rows only, since the page has a date stamp). The facts those rows support (approved
+  or confirmed from them) get their evidence stamped as checked when the source was fetched.
+  Nothing is stamped after a failed fetch, which keeps the old content. A row that repeats a
+  claim (a company on several rows) is proposed once.
 - **Match** compares a candidate with the decided fact it's attached to
   (`Directory::FactWriter.confirm`):
   - **Same values, and the fact already has evidence from this source:** the candidate
