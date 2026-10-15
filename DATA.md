@@ -24,21 +24,21 @@ Sections 1–5 say what to record. Section 6 lists every rule as a check, marked
 
 - **A unit** has an NRC docket (or, before licensing, a unit number the developer states) and sits under its site. Two levels only: site, then unit.
 - **A site** has no parent. It holds the EIA plant ID, the location and the operator links. A single-unit plant can stand alone as one record until its EIA site exists (Columbia today).
-- Unit capacity, coordinates and state come from EIA's generator row. A unit's state always equals its site's.
+- Unit capacity, coordinates and state come from EIA's generator row. A unit's state should equal its site's (audited).
 
 ### The same record
 
-Two records are the same when they share any of these, in this order:
+The pipeline and FactWriter find an existing record by these, in this order. A record that matches none is new:
 
 | Record | Identity, strongest first |
 |---|---|
 | Unit | NRC docket |
-| Site | EIA plant ID; then the same coordinates (within 50 m); then a name or alias |
-| Company | Website domain; then a normalized name or alias (`OrganizationAlias.normalize`: case, punctuation and Inc./LLC/Co. dropped); then the same brand |
+| Site | EIA plant ID; then a site name or alias |
+| Company | A normalized name or alias (`OrganizationAlias.normalize`: case, punctuation and Inc./LLC/Co. dropped); then the website domain, unless several companies share it. A same-brand match ("Duke Energy Carolinas, LLC" → Duke Energy) is used by matching only, to propose; it never merges on its own |
 | Link | Both ends and the type |
 | Deal term | The link, the term type and the external ID (award ID) |
 
-Neighbouring plants within a kilometre (Salem and Hope Creek; Nine Mile Point and FitzPatrick) are different sites: never merge on distance alone. A duplicate is merged by a person, with `FactWriter.merge_organization` or `merge_facility`; the merged-away record keeps its history and its old address redirects.
+Coordinates are not an identity: two live sites within 50 m are flagged for a person (section 6), never matched automatically. Neighbouring plants within a kilometre (Salem and Hope Creek; Nine Mile Point and FitzPatrick) are different sites: never merge on distance alone. A duplicate is merged by a person, with `FactWriter.merge_organization` or `merge_facility`; the merged-away record keeps its history and its old address redirects.
 
 ## 2. Links
 
@@ -67,7 +67,16 @@ The verb is fixed (VOICE.md). Each link needs a quote that states that relations
 
 ## 3. Names
 
-- **Company display name: the brand as the company writes it** on its own site ("Constellation", "Duke Energy", "X-energy"). Legal names and source spellings ("Constellation Energy Generation, LLC", EIA's "Union Electric Co - (MO)") become aliases, so matching still finds them. *(Decision for Tosin, D1.)*
+- **Company display name: the brand the company uses** on its own site ("Constellation", "Duke Energy", "Ameren"). Every legal name and source spelling ("Constellation Energy Generation, LLC", EIA's "Union Electric Co - (MO)") is saved as an alias, so matching still finds it. *(Tosin, D1.)*
+- **Aliases have a kind** *(recommended; needs a small schema change, #267)*:
+
+  | Kind | Means | On the company page | Needs |
+  |---|---|---|---|
+  | `name` | Another current name: abbreviation, product brand, regional brand ("ODEC", "Ameren Missouri") | "Also known as" | Nothing beyond the alias |
+  | `legal` | A legal entity's registered name ("Southern Nuclear Operating Co., Inc.") | "Legal names" (collapsed) | Nothing beyond the alias |
+  | `former` | A name the company used before a rename ("FirstEnergy Nuclear Operating Co.") | "Formerly …, until 2020" | A quote stating the rename, and the year it took effect |
+
+  Matching treats all three the same. Only `former` changes what a page says, so only `former` needs its own source.
 - **Plant display name: the operator's name for the plant** ("Plant Vogtle", "Susquehanna Steam Electric Station"). NRC and EIA spellings ("Vogtle", "TalenEnergy Susquehanna") become aliases.
 - **Unit names follow NRC's list** ("Vogtle 3", "Hope Creek 1"). A single-unit plant may share its unit's name ("Callaway").
 - **Casing:** as the owner writes it. No all-caps unless it's an acronym (TVA, NRC). Keep accents and en dashes as published ("Global Nuclear Fuel–Americas").
@@ -117,11 +126,11 @@ The admin's Live screen and the nightly `data_quality:audit` read the same defin
 
 ### Enforced (a write that breaks them is refused)
 
-- **Identity:** unique company slug and domain; unique plant slug; unique NRC docket; one site per EIA plant ID; aliases globally unique; a plant alias is never another plant's name.
+- **Identity:** unique company slug and domain; unique plant slug; unique NRC docket; one site per EIA plant ID; company aliases unique among companies, and plant aliases among plants; a plant alias is never another plant's name.
 - **Links:** unique per ends and type; no self-links; both ends required (#226, #231); no automated link to a rejected or unpublished company or plant, or under a closed site; `ownership_pct` only on `owns`, 0–100.
-- **Decisions:** only a person rejects, unpublishes, reopens or merges. A human-verified value is never overwritten; a disagreement becomes a conflict for review. Every decision is an append-only history event; merges record `merged_into`.
-- **Publishing:** a fact is public only through its model's `.published` scope: a unit under an open site, a link only when both ends are public, a deal term only with its link.
-- **Deal terms:** an award needs an amount, a start date and an award ID; dates in order; no negative amounts.
+- **Decisions:** only a person unpublishes, merges, or changes a fact that's already rejected or unpublished. The pipeline may reject only what it proposed itself. A human-verified value is never overwritten; a disagreement becomes a conflict for review. Every decision is an append-only history event; merges record `merged_into`.
+- **Publishing:** a fact is public only through its model's `.published` scope: a unit when verified under an open site; a pending site when it has such a unit; a link only when both ends are public; a deal term only with its link.
+- **Deal terms (once #264 merges):** one term per link, kind and award ID; an award needs an amount, a start date and an award ID; dates in order; no negative amounts; no automated term on a rejected or unpublished link.
 
 ### Audited (flagged on the Live screen and by `data_quality:audit`)
 
@@ -152,8 +161,8 @@ The admin's Live screen and the nightly `data_quality:audit` read the same defin
 | "Not re-checked" windows: 14 days (NRC, EIA), 365 days (others) | PM | #238 |
 | Reactor design types: planned values, roadmap only | Tosin | #238, #263 |
 | Display names are ours; a source's spelling never renames | PM, Backend | #241 |
+| Company display name is the brand it uses; every other spelling is an alias (D1) | Tosin | #238 |
 
 ### Open, for Tosin (one at a time, via PM)
 
-- **D1. Company display name:** the brand as the company writes it, with legal names as aliases. *Recommendation: yes.* Operators the crawlers created still show NRC or EIA spellings, such as "Union Electric Co - (MO)" and "Wolf Creek Nuclear Operating Corp." (#230).
 - **D2. Capacity label:** "MW" with a note "net summer capacity, from EIA" on plant pages. *Recommendation: yes.* It matches what we store; "MWe" alone is ambiguous.
