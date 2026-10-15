@@ -3,9 +3,6 @@
   owners, operators, vendors, buyers = PlantProfile::LINK_ORDER.map { |type| p.companies_for(type) }
   where = place(p.city, p.state)
   tags = [ facility_type_label(p.facility_type), facility_status_label(p.status), *p.technologies ].compact
-  # "Operating power plant in Waynesboro, GA", from whatever is known.
-  kind = [ facility_status_label(p.status), (p.status ? facility_type_label(p.facility_type)&.downcase : facility_type_label(p.facility_type)) ].compact.join(" ").presence
-  summary = kind ? [ kind, (where && "in #{where}") ].compact.join(" ") : where
   company_links = ->(orgs) { safe_join(orgs.map { |o| link_to(o.name, company_url_for(o), class: "nd-link") }, ", ") if orgs.any? }
   cited = ->(type) { p.links.select { |l| l.relationship_type == type }.flat_map { |l| p.citations_for(l) }.uniq(&:first) }
   # Technology, reactor type and capacity come from the site and its units.
@@ -13,10 +10,12 @@
   capacity = "#{number_with_precision(p.capacity_mw, precision: 2, strip_insignificant_zeros: true, delimiter: ",")} MWe" if p.capacity_mw
   content_for :title, "#{p.name} · Nuclear Directory"
   content_for :og_title, p.name
-  content_for :og_description, summary || "Owners, operator, units and sources."
+  # One line for link previews and search results (#246).
+  preview = plant_preview(p)
+  content_for :og_description, preview
 %>
 <% content_for :head do %>
-  <meta name="description" content="<%= [ p.name, summary ].compact.join(": ") %>. Owners, operator, units and sources.">
+  <meta name="description" content="<%= preview %>">
   <link rel="canonical" href="<%= plant_url(slug: p.slug) %>">
 <% end %>
 <%= render "shared/site_header" %>

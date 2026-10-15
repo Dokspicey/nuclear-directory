@@ -11,9 +11,12 @@
                  else [ "company", "companies" ]
                  end
   content_for :title, "#{heading} · Nuclear Directory"
+  description = "#{listing.searching? ? "Companies and plants matching “#{listing.query}”" : "#{heading} in the US nuclear industry"}, with the source for every fact."
+  # A shared category or listing previews with its own line, not the home page's (#246).
+  content_for :og_description, description
 %>
 <% content_for :head do %>
-  <meta name="description" content="<%= listing.searching? ? "Companies and plants matching “#{listing.query}”" : "#{heading} in the US nuclear industry" %>, with the source for every fact.">
+  <meta name="description" content="<%= description %>">
   <% if listing.searching? || listing.filtered? %><meta name="robots" content="noindex"><% end %>
   <%# Search and filters point back to the plain list or category. %>
   <link rel="canonical" href="<%= listing.category ? companies_url(category: listing.category.to_param) : companies_url %>">

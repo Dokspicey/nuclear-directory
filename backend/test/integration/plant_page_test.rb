@@ -238,7 +238,9 @@ class PlantPageTest < ActionDispatch::IntegrationTest
     get plant_path(slug: "plant-vogtle")
 
     assert_select "meta[property='og:title'][content='Plant Vogtle']"
-    assert_select "meta[property='og:description'][content='Operating power plant in Waynesboro, GA']"
+    line = "Plant Vogtle: Operating power plant in Waynesboro, GA. 2 units, 2,228 MWe. Owned by Georgia Power; operated by Southern Nuclear."
+    assert_select "meta[property='og:description'][content=?]", line
+    assert_select "meta[name='description'][content=?]", line # the same line for search results (#246)
     assert_select "link[rel=canonical][href=?]", "http://www.example.com/plants/plant-vogtle"
   end
 
