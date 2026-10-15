@@ -160,7 +160,7 @@ services:
       # age public key. Only its private half, kept in Tosin's password
       # manager, can decrypt the backups.
       - key: BACKUP_AGE_RECIPIENT
-        value: age1lht4cs0audrr4m2fq3ktp2m9yx9qvutffmrq6y898p4an37f4enssk6ctd
+        value: age160huv36mvxec0v3jjdvd238anktgzrsplrjkd53q2e0l2slslyfqzlu9cu
       - key: BACKUP_REPO
         value: tosinoladokun/nuclear-directory-backups
       # Two weeks of daily backups.
