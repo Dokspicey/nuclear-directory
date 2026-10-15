@@ -7,7 +7,13 @@ class Admin::FactsController < Admin::BaseController
   end
 
   def unpublish
-    result = DataQuality::Review.unpublish(type: params[:type], id: params[:id].to_i, by: actor, reason: params[:reason].presence)
+    # Taking a fact off needs a reason (#201): it's kept in the history.
+    if params[:reason].blank?
+      flash[:alert] = "Say why it's taken off."
+      return redirect_to admin_fact_path(type: params[:type], id: params[:id])
+    end
+
+    result = DataQuality::Review.unpublish(type: params[:type], id: params[:id].to_i, by: actor, reason: params[:reason].strip)
     flash_results([ result ], "Unpublished")
     redirect_to admin_fact_path(type: params[:type], id: params[:id])
   end

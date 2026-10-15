@@ -89,6 +89,10 @@ class Admin::FactsControllerTest < ActionDispatch::IntegrationTest
       assert_select "button", "Take off"
     end
 
+    post admin_fact_unpublish_path(type: "Organization", id: terrapower.id), params: { reason: "   " }
+    assert_equal "Say why it's taken off.", flash[:alert]
+    assert terrapower.reload.verified?, "no reason, nothing taken off"
+
     post admin_fact_unpublish_path(type: "Organization", id: terrapower.id), params: { reason: "Merged into another company" }
     assert_redirected_to admin_fact_path(type: "Organization", id: terrapower.id)
     assert terrapower.reload.unpublished?
