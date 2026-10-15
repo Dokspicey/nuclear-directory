@@ -1,0 +1,159 @@
+# DATA.md: what the directory records, and how
+
+The rules for every fact in Nuclear Directory: what each record is, what each link means, how things are named, which units we use, what counts as a source, and which checks hold it all together. The seed files, the data quality pipeline (`DataQuality::`), the admin and every hand-researched addition follow it.
+
+**The one rule:** every published fact has a public source and a quote that states it. If we can't source it, we don't publish it.
+
+Sections 1–5 say what to record. Section 6 lists every rule as a check, marked **enforced** (the database or `Directory::FactWriter` refuses a violation) or **audited** (`data_quality:audit` and the admin flag it). Section 7 lists the decisions and who made them.
+
+## 1. Records
+
+### What each record is
+
+| Record | What it is | Example | Not this |
+|---|---|---|---|
+| Company (`Organization`) | One company per brand (decision #23). Legal entities and subsidiaries named by sources become aliases, or a `subsidiary_of` link when a source states the parent | Constellation (aliases: Constellation Energy Generation, LLC) | A person, a project, a fund vehicle no source ties to the firm |
+| Plant site (`Facility`, no parent) | A place: a power plant, fuel plant, mine, mill, test reactor or fusion plant | Plant Vogtle | A single reactor at a multi-unit plant |
+| Reactor unit (`Facility` with a parent) | One licensed reactor, under its site | Vogtle 3 | A design (AP1000), or a planned project with no license |
+| Plant link (`FacilityRelationship`) | A company's role at a plant | Southern Nuclear operates Vogtle 3 | A deal between two companies |
+| Company link (`Relationship`) | A deal or tie between two companies | Centrus supplies TRISO-X | A role at a plant |
+| Deal term (`DealTerm`, #264) | One award, power deal or funding round under its link, with amount and dates | A DOE award (ID, amount, start date) under "DOE funds X-energy" | The link itself |
+| Category (role) and technology | A tag on a company, each with its own quote | X-energy: reactor developer; SMR | A tag inferred without a quote |
+
+### Site or unit
+
+- **A unit** has an NRC docket (or, before licensing, a unit number the developer states) and sits under its site. Two levels only: site, then unit.
+- **A site** has no parent. It holds the EIA plant ID, the location and the operator links. A single-unit plant can stand alone as one record until its EIA site exists (Columbia today).
+- Unit capacity, coordinates and state come from EIA's generator row. A unit's state always equals its site's.
+
+### The same record
+
+Two records are the same when they share any of these, in this order:
+
+| Record | Identity, strongest first |
+|---|---|
+| Unit | NRC docket |
+| Site | EIA plant ID; then the same coordinates (within 50 m); then a name or alias |
+| Company | Website domain; then a normalized name or alias (`OrganizationAlias.normalize`: case, punctuation and Inc./LLC/Co. dropped); then the same brand |
+| Link | Both ends and the type |
+| Deal term | The link, the term type and the external ID (award ID) |
+
+Neighbouring plants within a kilometre (Salem and Hope Creek; Nine Mile Point and FitzPatrick) are different sites: never merge on distance alone. A duplicate is merged by a person, with `FactWriter.merge_organization` or `merge_facility`; the merged-away record keeps its history and its old address redirects.
+
+## 2. Links
+
+The verb is fixed (VOICE.md). Each link needs a quote that states that relationship, not just that the two names appear together.
+
+### Plant links
+
+| Type | On screen | Means | Example | Not this | Authoritative source |
+|---|---|---|---|---|---|
+| `operates` | operates | Holds the NRC operating license and runs the plant | Southern Nuclear operates Hatch 1 | The utility that reports the plant to EIA (EIA's Entity Name is not the operator, #227) | NRC reactor list |
+| `owns` | owns | Holds an ownership share; `ownership_pct` only when the source states it | Oglethorpe Power owns Plant Vogtle (30%) | Leasing a site (state the lease in the description instead) | Owner filings, press releases, the operator's plant page |
+| `vendor_for` | is the reactor developer for | Designed or supplies the reactor | Westinghouse is the reactor developer for Plant Vogtle | Supplying parts or services (use `supplies` to the operator) | Developer or operator press release, NRC docket |
+| `offtakes_from` | offtakes from | Has agreed to buy the plant's power | Amazon offtakes from Susquehanna | A power deal with the company, not tied to a plant (use `offtake_with`) | The buyer's or seller's press release, SEC 8-K, utility commission filing |
+
+### Company links
+
+| Type | On screen | Means | Example | Not this |
+|---|---|---|---|---|
+| `supplies` | supplies | Provides fuel, equipment or services under a stated agreement | Centrus supplies TRISO-X (HALEU) | A memorandum with no supply (say "MOU" in the description, or wait) |
+| `invests_in` | invests in | Takes equity | Amazon invests in X-energy | A grant or award (`funds`), or an investment only a LinkedIn post claims |
+| `funds` | funds | Grants, awards, cost-shared programs | DOE funds X-energy (ARDP) | Equity |
+| `offtake_with` | offtakes from | Agreed to buy power from the company's existing or future fleet | Meta offtakes from Constellation | A power deal tied to one plant (use the plant link `offtakes_from`) |
+| `subsidiary_of` | is a subsidiary of | Points from the child to its parent | Georgia Power is a subsidiary of Southern Company | A partnership or joint venture |
+
+**Deal stage** (announced, MOU, signed, terminated) goes in the description and in the deal term's `status`. Deal amounts and dates are deal terms (#264), never free text alone.
+
+## 3. Names
+
+- **Company display name: the brand as the company writes it** on its own site ("Constellation", "Duke Energy", "X-energy"). Legal names and source spellings ("Constellation Energy Generation, LLC", EIA's "Union Electric Co - (MO)") become aliases, so matching still finds them. *(Decision for Tosin, D1.)*
+- **Plant display name: the operator's name for the plant** ("Plant Vogtle", "Susquehanna Steam Electric Station"). NRC and EIA spellings ("Vogtle", "TalenEnergy Susquehanna") become aliases.
+- **Unit names follow NRC's list** ("Vogtle 3", "Hope Creek 1"). A single-unit plant may share its unit's name ("Callaway").
+- **Casing:** as the owner writes it. No all-caps unless it's an acronym (TVA, NRC). Keep accents and en dashes as published ("Global Nuclear Fuel–Americas").
+- **Abbreviations** are aliases, not display names: "NCP", "INL", "GNF-A".
+- **Slugs** come from the display name, lowercase with hyphens. A rename or merge keeps the old slug as a redirect (#143). Never reuse a slug.
+- **The source's spelling never renames a record.** A new spelling is shown to a person ("the source calls it …") to add as an alias or rename on purpose.
+
+## 4. Values and units
+
+| Field | Rule |
+|---|---|
+| Capacity | **MW, net summer**, from EIA-860M's "Net Summer Capacity (MW)", stored to 0.1 MW. Shown as "MW". Nameplate is never mixed in. A site's capacity is the sum of its units, never stored. *(D2 confirms the label.)* |
+| Plant status | `operating`, `under_construction`, `planned`, `shut_down`, `decommissioning`. Blank means not stated, shown as "Not stated". Never guessed |
+| Company status | `active`, `acquired`, `defunct`, each with a quote when it isn't `active` |
+| Dates | ISO `2026-10-09` in data. A month-only source date is stored as the 1st, with the description saying "October 2026" |
+| State | Two-letter USPS code, from EIA for plants (not NRC's "nearest city", which put Salem in Delaware, #197) |
+| Location | "City, ST" when a source names the city (#225). Coordinates from EIA, 6 decimal places |
+| Country | ISO 3166 alpha-2, only when a source states where the company is based. Blank otherwise |
+| Ownership | Percent, 0–100, only on `owns`, only as stated. Co-owners' shares should sum to 100 or less |
+| Money | US dollars in deal terms (`amount_usd`). Other currencies are converted only if the source gives the figure |
+| Category (role) | One quote per category, saying what the company does. A company with no quotable category has none, and shows up through its links instead |
+| Technology | `fission`, `fusion`, `smr` today. Planned design types (roadmap, #263): `molten_salt_reactor`, `htgr`, `sodium_fast`, `microreactor`, `light_water_smr`, tagged only from a source that states the design |
+
+## 5. Sources and quotes
+
+### What counts as a source
+
+| Tier | What | Use |
+|---|---|---|
+| 1. Official record | NRC, EIA, DOE and other agency pages and data; SEC filings; state utility commission filings | Cite. Preferred for operators, licenses, capacity, awards |
+| 2. The party itself | A company's own site, press release or annual report | Cite. Preferred for deals, products and descriptions |
+| 3. Named reporting | Trade press or news that names both parties and the terms | Cite when tiers 1–2 don't state it; replace it with a primary source when one appears |
+| Leads only | Aggregators and directories: SMR Intel, ANS Buyers Guide, GAIN directory, GEM tracker, WNA, LinkedIn | Never cite. Trace each lead to tiers 1–3 (#257–#259) |
+
+Not a source: anything behind a login or paywall, AI-written summaries, a page that only lists names together, and personal data of any kind.
+
+### Quotes
+
+- **The quote states the value.** "Oglethorpe Power (30%)" supports `owns 30%`; a page that only lists Oglethorpe as a partner doesn't.
+- **Copied exactly** from the page's text, not from a summarizer. Short is fine; it has to contain the fact.
+- **Derived values** (a site's total capacity, counts) aren't stored as facts. They're computed from sourced facts and shown as computed.
+- **Every quote keeps its source's URL** and the date it was read. A source re-read nightly is stamped `last_confirmed_at` when it still says the same thing (#240). A person's decision always wins over a later source: a source that disagrees with a human-verified value goes to review, never overwrites it.
+
+## 6. Checks
+
+The admin's Live screen and the nightly `data_quality:audit` read the same definitions (#238 comments), so the screen and the report never disagree.
+
+### Enforced (a write that breaks them is refused)
+
+- **Identity:** unique company slug and domain; unique plant slug; unique NRC docket; one site per EIA plant ID; aliases globally unique; a plant alias is never another plant's name.
+- **Links:** unique per ends and type; no self-links; both ends required (#226, #231); no automated link to a rejected or unpublished company or plant, or under a closed site; `ownership_pct` only on `owns`, 0–100.
+- **Decisions:** only a person rejects, unpublishes, reopens or merges. A human-verified value is never overwritten; a disagreement becomes a conflict for review. Every decision is an append-only history event; merges record `merged_into`.
+- **Publishing:** a fact is public only through its model's `.published` scope: a unit under an open site, a link only when both ends are public, a deal term only with its link.
+- **Deal terms:** an award needs an amount, a start date and an award ID; dates in order; no negative amounts.
+
+### Audited (flagged on the Live screen and by `data_quality:audit`)
+
+| Check | Severity | Rule |
+|---|---|---|
+| `no-quote` | Highest | A public fact with no quoted evidence |
+| `source-disagrees` | High | A source now states a different value, or a person's decision overrides one |
+| `dropped-by-source` | High | A complete read of its source no longer lists it |
+| `stale` | Medium | Not re-confirmed in 14 days (NRC, EIA) or 365 days (web, hand research) |
+| duplicate site | High | Two live sites share an EIA plant ID or coordinates within 50 m |
+| duplicate company | High | Two live companies share a normalized name, alias or domain |
+| `single-source` | Low | Rests on one source |
+| `no-operator`, `no-capacity`, `no-location`, `no-site` | Medium | Operating reactors missing them |
+| `no-owner`, `no-share` | Low | Operating plants without an owner, or co-owners without shares |
+| `no-category`, `no-links` | Low | Companies that don't show up anywhere useful |
+| state mismatch | High | A unit's state differs from its site's |
+
+## 7. Decisions
+
+### Made
+
+| Decision | By | Where |
+|---|---|---|
+| One company per brand | Project decision | #23 |
+| If we can't source it, we don't publish it | PM | #180 |
+| Operators come from NRC, never from EIA's Entity Name | PM, Backend | #227 |
+| A state comes from EIA, not NRC's nearest city | Tosin | #197 |
+| "Not re-checked" windows: 14 days (NRC, EIA), 365 days (others) | PM | #238 |
+| Reactor design types: planned values, roadmap only | Tosin | #238, #263 |
+| Display names are ours; a source's spelling never renames | PM, Backend | #241 |
+
+### Open, for Tosin (one at a time, via PM)
+
+- **D1. Company display name:** the brand as the company writes it, with legal names as aliases. *Recommendation: yes.* Operators the crawlers created still show NRC or EIA spellings, such as "Union Electric Co - (MO)" and "Wolf Creek Nuclear Operating Corp." (#230).
+- **D2. Capacity label:** "MW" with a note "net summer capacity, from EIA" on plant pages. *Recommendation: yes.* It matches what we store; "MWe" alone is ambiguous.
