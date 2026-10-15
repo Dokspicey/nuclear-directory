@@ -33,6 +33,16 @@ module Directory
 
     # Every change of a fact's verification, newest first, as plain values:
     # who, when, from -> to, why. type is the fact's class name ("Organization").
+    # The awards, offtakes or rounds under one link (#256), oldest first.
+    # published: true (the default) gives only what public pages may show.
+    def deal_terms(link_type:, link_id:, published: true)
+      raise ArgumentError, "not a link type: #{link_type.inspect}" unless DealTerm::LINK_TYPES.include?(link_type.to_s)
+
+      scope = published ? DealTerm.published : DealTerm.where.not(verification_status: Verifiable::CLOSED_STATUSES)
+      scope.where(link_type: link_type.to_s, link_id:).includes(evidence: :source)
+        .order(Arel.sql("COALESCE(starts_on, signed_on) ASC NULLS LAST"), :id).map { |term| DealTermRef.from(term) }
+    end
+
     def verification_history(type:, id:)
       raise ArgumentError, "not a fact type: #{type.inspect}" unless FACT_TYPES.include?(type.to_s)
 

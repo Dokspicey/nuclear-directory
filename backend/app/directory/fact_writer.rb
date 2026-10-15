@@ -65,6 +65,12 @@ module Directory
       facility_relationship: {
         model: FacilityRelationship,
         attributes: %i[organization_id facility_id relationship_type ownership_pct description started_on ended_on]
+      },
+      # One award, offtake or funding round under its link (#256).
+      deal_term: {
+        model: DealTerm,
+        attributes: %i[link_type link_id term_type external_id amount_usd capacity_mw signed_on starts_on ends_on status
+          program round lead_investor_ids]
       }
     }.freeze
 
@@ -633,12 +639,13 @@ module Directory
       # by the caller); a unit stands for its site. Not a link: {}.
       def different_ends(kind, record, attributes)
         LINK_ENDS.fetch(kind, {}).each_with_object({}) do |(key, model), found|
+          model = end_model(model, attributes, record)
           stored = record.public_send(key)
           stated = attributes[key]
           next if stated.present? && stated.to_i == stored
           next if stated.present? && model == Facility && Facility.exists?(id: stated, parent_id: stored)
 
-          label = ->(id) { id.present? ? model.find_by(id:)&.name || "##{id}" : "not in the directory" }
+          label = ->(id) { id.present? ? model.find_by(id:).try(:name) || "##{id}" : "not in the directory" }
           found[key.to_s.delete_suffix("_id")] = [ label.call(stored), label.call(stated) ]
         end
       end
@@ -684,6 +691,13 @@ module Directory
           model.find_by(attrs.slice(:from_organization_id, :to_organization_id, :relationship_type))
         when :facility_relationship
           model.find_by(attrs.slice(:organization_id, :facility_id, :relationship_type))
+        when :deal_term
+          # A term is the same one only under the same link, of the same kind,
+          # with the same source id (an award ID); without one it's always new.
+          raise Invalid, "a deal term needs its link's type (#{DealTerm::LINK_TYPES.join(' or ')})" unless DealTerm::LINK_TYPES.include?(attrs[:link_type].to_s)
+          raise Invalid, "a deal term needs a term type" if attrs[:term_type].blank?
+
+          model.find_by(attrs.slice(:link_type, :link_id, :term_type, :external_id)) if attrs[:external_id].present?
         end
       end
 
@@ -805,8 +819,19 @@ module Directory
       LINK_ENDS = {
         organization_role: { organization_id: Organization }, organization_technology: { organization_id: Organization },
         relationship: { from_organization_id: Organization, to_organization_id: Organization },
-        facility_relationship: { organization_id: Organization, facility_id: Facility }
+        facility_relationship: { organization_id: Organization, facility_id: Facility },
+        # Its one end is its link, a Relationship or a FacilityRelationship (link_type).
+        deal_term: { link_id: :link }
       }.freeze
+
+      # The model an end points at: fixed for most kinds, and for a deal term
+      # the link named by link_type.
+      def end_model(model, attributes, record)
+        return model unless model == :link
+
+        type = (attributes[:link_type] || record&.link_type).to_s
+        DealTerm::LINK_TYPES.include?(type) ? type.constantize : raise(Invalid, "a deal term needs its link's type")
+      end
 
       # An automated link write needs both ends open: each is locked and
       # checked, so a company or plant closed after match isn't linked to.
@@ -816,14 +841,15 @@ module Directory
       def check_link_ends(kind, attributes, record)
         ends = LINK_ENDS.fetch(kind, {}).filter_map do |key, model|
           id = attributes.key?(key) ? attributes[key] : record.public_send(key)
-          [ model, id ] if id
+          [ end_model(model, attributes, record), id ] if id
         end
         sites = ends.filter_map { |model, id| [ Facility, model.where(id:).pick(:parent_id) ] if model == Facility }.select(&:last)
         (ends + sites).uniq.sort_by { |model, id| [ model.table_name, id.to_i ] }.each do |model, id|
           finish = model.lock.find_by(id:) or next
           next unless finish.closed?
 
-          raise Invalid, "#{finish.name} was #{finish.verification_status} by #{finish.verified_by || 'review'}; not linked"
+          label = finish.try(:name) || "#{model.model_name.human} ##{finish.id}" # a link (a deal term's end) has no name
+          raise Invalid, "#{label} was #{finish.verification_status} by #{finish.verified_by || 'review'}; not linked"
         end
       end
 

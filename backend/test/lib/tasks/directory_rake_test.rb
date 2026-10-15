@@ -123,4 +123,52 @@ class DirectoryRakeTest < ActiveSupport::TestCase
     assert kept.reload.verified?
     assert_raises(SystemExit) { capture_io { retire_eia_operators(SKIP: "Perry") } }
   end
+
+  def backfill_award_terms(**env)
+    env.each { |key, value| ENV[key.to_s] = value }
+    Rake::Task["directory:backfill_award_terms"].execute
+  ensure
+    env.each_key { |key| ENV.delete(key.to_s) }
+  end
+
+  test "award terms are written from a funds link's own USAspending rows, verified only with a verified link (#256)" do
+    by = "human:tosin"
+    doe = Organization.create!(name: "U.S. Department of Energy", verification_status: "verified", verified_by: by)
+    xenergy = Organization.create!(name: "X-energy", verification_status: "verified", verified_by: by)
+    other = Organization.create!(name: "Kairos Power")
+    verified = Relationship.create!(from_organization: doe, to_organization: xenergy, relationship_type: "funds",
+      verification_status: "verified", verified_by: by)
+    pending = Relationship.create!(from_organization: doe, to_organization: other, relationship_type: "funds")
+    columns = %w[award_id recipient_name amount_usd start_date end_date award_type assistance_listing search award_url
+      generated_award_id recipient_id description]
+    page = ->(url, rows) do
+      Source.create!(url:, source_kind: "usaspending_doe_awards", crawl_status: "ok",
+        content_text: CSV.generate { |csv| csv << columns; rows.each { |row| csv << row } })
+    end
+    xenergy_page = page.("https://www.usaspending.gov/recipient/x-energy/latest", [
+      [ "DE-NE0009040", "X ENERGY, LLC", "80000000.00", "2020-10-13", "2027-09-30", "assistance", "81.121", "nuclear",
+        "https://www.usaspending.gov/award/ASST_A", "ASST_A", "x-C", "ARDP" ],
+      [ "89243223CNE000030", "X ENERGY, LLC", "1200000.00", "2023-01-05", "", "contract", "", "fuel",
+        "https://www.usaspending.gov/award/CONT_B", "CONT_B", "x-C", "HALEU" ]
+    ])
+    kairos_page = page.("https://www.usaspending.gov/recipient/kairos/latest", [
+      [ "DE-NE0009300", "KAIROS POWER LLC", "303000000.00", "2020-12-16", "", "assistance", "81.121", "nuclear",
+        "https://www.usaspending.gov/award/ASST_C", "ASST_C", "k-C", "Hermes" ]
+    ])
+    verified.evidence.create!(source: xenergy_page, quote: "row", found_by: "crawler", confidence: 1)
+    pending.evidence.create!(source: kairos_page, quote: "row", found_by: "crawler", confidence: 1)
+
+    assert_output(/3 award terms would be written, 0 already there.\nDry run/) { backfill_award_terms(BY: by) }
+    assert_equal 0, DealTerm.count
+
+    assert_output(/3 award terms written, 0 already there/) { backfill_award_terms(BY: by, APPLY: "1") }
+    assert_equal %w[ASST_A CONT_B], DealTerm.where(link: verified).order(:external_id).pluck(:external_id)
+    assert DealTerm.where(link: verified).all?(&:verified?), "a verified link's terms are verified"
+    assert DealTerm.find_by!(external_id: "ASST_C").pending?, "a pending link's terms wait with it"
+    assert_equal "contract", DealTerm.find_by!(external_id: "CONT_B").program
+    assert_equal [ xenergy_page.id ], DealTerm.find_by!(external_id: "ASST_A").evidence.pluck(:source_id)
+
+    assert_output(/0 award terms written, 3 already there/) { backfill_award_terms(BY: by, APPLY: "1") }
+    assert_raises(SystemExit) { capture_io { backfill_award_terms(BY: "agent:x") } }
+  end
 end

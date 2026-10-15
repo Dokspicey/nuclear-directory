@@ -97,4 +97,47 @@ namespace :directory do
     end
     puts found.any? ? found : "No published operates links rest on EIA alone."
   end
+
+  # Awards #260 stored before deal terms existed (#256): each DOE "funds"
+  # link sums its awards in its description; this writes one award term per
+  # award, from the rows on that link's own sources (the recipient pages), never
+  # by name. A term is verified only if a human verified its link; otherwise it
+  # waits with the link. Re-running finds each term by its award ID.
+  desc "Write award deal terms from stored USAspending rows, audited: BY=human:<name> [APPLY=1] (#256)"
+  task backfill_award_terms: :environment do
+    by = ENV["BY"].to_s
+    abort "Usage: BY=human:<handle> [APPLY=1] bin/rails directory:backfill_award_terms" unless by.match?(/\Ahuman:\S+\z/)
+
+    apply = ENV["APPLY"] == "1"
+    counts = Hash.new(0)
+    Relationship.where(relationship_type: "funds").where.not(verification_status: Verifiable::CLOSED_STATUSES).order(:id).each do |link|
+      sources = Source.where(id: link.evidence.select(:source_id)).select { |source| source.content_text.to_s.start_with?("award_id,") }
+      sources.each do |source|
+        CSV.parse(source.content_text, headers: true).each do |row|
+          next if row["generated_award_id"].blank?
+
+          existing = DealTerm.find_by(link:, term_type: "award", external_id: row["generated_award_id"])
+          next counts[:already] += 1 if existing
+
+          counts[:written] += 1
+          next unless apply
+
+          verification = { status: "verified", by:, reason: "Backfilled from its link's USAspending rows (#256)" } if link.human_verified?
+          result = Directory::FactWriter.write(:deal_term, {
+            link_type: "Relationship", link_id: link.id, term_type: "award", external_id: row["generated_award_id"],
+            amount_usd: row["amount_usd"], starts_on: row["start_date"], ends_on: row["end_date"].presence,
+            program: row["assistance_listing"].presence || row["award_type"]
+          }, evidence: [ { source_id: source.id, quote: row.to_csv.chomp, found_by: "crawler", confidence: 1 } ], verification:)
+          next if result.ok?
+
+          counts[:written] -= 1
+          counts[:failed] += 1
+          puts "link #{link.id}, award #{row["generated_award_id"]}: #{result.errors.join('; ')}"
+        end
+      end
+    end
+    verb = apply ? "written" : "would be written"
+    puts "#{counts[:written]} award terms #{verb}, #{counts[:already]} already there#{", #{counts[:failed]} failed" if counts[:failed].positive?}."
+    puts "Dry run: nothing changed. Run again with APPLY=1 to apply." unless apply
+  end
 end
