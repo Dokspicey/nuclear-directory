@@ -48,9 +48,14 @@ class LinkPreviewTest < ActionDispatch::IntegrationTest
 
   test "preview and search descriptions say what's on the page, not how it's sourced (Tosin, #249)" do
     company("Kairos Power")
+    cite!(plant("Zephyr Point", facility_type: "power_reactor", status: "operating", city: "Somewhere", state: "TX"))
     [ root_path, companies_path, companies_path(category: "reactor-developers"), company_path(slug: "kairos-power"),
-      plant_path(slug: "plant-vogtle") ].each do |path|
+      plant_path(slug: "zephyr-point") ].each do |path|
       get path
+
+      assert_response :success, path
+      assert_select "meta[property='og:description']", 1
+      assert_select "meta[name='description']", 1
       css_select("meta[property='og:description'], meta[name='description']").each do |tag|
         assert_no_match(/source/i, tag["content"], path)
       end
