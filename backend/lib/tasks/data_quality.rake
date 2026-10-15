@@ -98,6 +98,23 @@ namespace :data_quality do
     abort "Some items were skipped; see above." if counts.key?(:skipped)
   end
 
+  # #240: open candidates that only restate a decided fact are closed as
+  # "confirmed", not approved again. Dry run unless APPLY=1.
+  desc "Close open candidates identical to decided facts, audited: BY=human:tosin [APPLY=1] [IDS=1,2] bin/rails data_quality:confirm_identical"
+  task confirm_identical: :environment do
+    by = ENV["BY"].to_s
+    ids = ENV["IDS"].to_s.split(",").map(&:strip)
+    abort "Usage: BY=human:<handle> [APPLY=1] [IDS=1,2] bin/rails data_quality:confirm_identical" unless
+      by.match?(/\Ahuman:\S+\z/) && ids.all? { |id| id.match?(/\A\d+\z/) }
+
+    apply = ENV["APPLY"] == "1"
+    results = DataQuality::Review.confirm_identical(ids.presence&.map(&:to_i), by:, dry_run: !apply)
+    results.reject(&:ok?).each { |result| puts "candidate #{result.candidate_id.to_s.ljust(5)} stays open: #{result.errors.to_sentence}" }
+    confirmed, open = results.partition(&:ok?)
+    puts "#{confirmed.size} #{apply ? 'confirmed' : 'would be confirmed'}, #{open.size} stay open"
+    puts "Dry run: nothing changed. Run again with APPLY=1 to apply." unless apply
+  end
+
   desc "Check the OpenRouter key works, without a model call: bin/rails data_quality:check_key"
   task check_key: :environment do
     key = DataQuality::OpenRouter::Client.new.check_key

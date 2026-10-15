@@ -88,4 +88,33 @@ class DataQualityRakeTest < ActiveSupport::TestCase
     assert_raises(SystemExit) { capture_io { reopen(BY: "human:tosin", IDS: rejected.id.to_s) } }
     assert_raises(SystemExit) { capture_io { reopen(BY: "tosin", REASON: "why", IDS: rejected.id.to_s) } }
   end
+
+  def confirm_identical(**env)
+    env.each { |key, value| ENV[key.to_s] = value }
+    Rake::Task["data_quality:confirm_identical"].execute
+  ensure
+    env.each_key { |key| ENV.delete(key.to_s) }
+  end
+
+  test "confirm_identical is a dry run until APPLY=1, and says why each one it leaves stays open (#240)" do
+    # A kind with no plug-in: only each claim's own quote counts as still in the source.
+    source = Source.create!(url: "https://example.com/test/units", source_kind: "units_by_hand", crawl_status: "ok")
+    unit = Facility.create!(name: "Zephyr Point 1", nrc_docket: "05099001", status: "operating", verification_status: "verified",
+      verified_by: "human:tosin")
+    Evidence.create!(subject: unit, source:, quote: "row", found_by: "crawler")
+    same = Candidate.create!(source:, kind: "facility", quote: "row", status: "matched", subject: unit,
+      payload: { "name" => "Zephyr Point 1", "nrc_docket" => "05099001", "status" => "operating" })
+    changed = Candidate.create!(source:, kind: "facility", quote: "row", status: "matched", subject: unit,
+      payload: { "name" => "Zephyr Point 1", "nrc_docket" => "05099001", "status" => "shut_down" })
+
+    assert_output(/candidate #{changed.id}\s+stays open: it differs: status operating → shut_down\n1 would be confirmed, 1 stay open\nDry run/) do
+      confirm_identical(BY: "human:tosin")
+    end
+    assert same.reload.status_matched?
+
+    assert_output(/1 confirmed, 1 stay open/) { confirm_identical(BY: "human:tosin", APPLY: "1") }
+    assert same.reload.status_confirmed?
+    assert_raises(SystemExit) { capture_io { confirm_identical(BY: "human:") } }
+    assert_raises(SystemExit) { capture_io { confirm_identical(BY: "human:tosin", IDS: "x") } }
+  end
 end

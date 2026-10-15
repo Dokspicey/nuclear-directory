@@ -6,7 +6,10 @@ class Candidate < ApplicationRecord
 
   enum :kind, KINDS.index_by(&:itself), validate: true, prefix: true
   # Prefixed because "new" would clash with Candidate.new.
-  enum :status, %w[new matched merged rejected needs_review].index_by(&:itself), default: "new", validate: true,
+  # confirmed (#240): closed by the pipeline without a review item, because
+  # its source still says exactly what a decided fact records (or it repeats
+  # a candidate already waiting). Nothing was written to the directory.
+  enum :status, %w[new matched merged rejected needs_review confirmed].index_by(&:itself), default: "new", validate: true,
     prefix: true
 
   # The verifier agent's view (#15): it recommends, a human decides.

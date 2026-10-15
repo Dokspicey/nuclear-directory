@@ -99,6 +99,20 @@ class DataQuality::Plugins::NrcReactorList < DataQuality::Plugin
     operator_candidates(units, lines) + units.flat_map { |unit, review| unit_candidates(unit, lines[unit.nrc_docket], review) }
   end
 
+  # The table's rows only (#240): the page around them changes daily, so its
+  # hash alone made every night look like new data.
+  def rows_sha256(source)
+    lines = table_lines(source)
+    Digest::SHA256.hexdigest(lines.join("\n")) if lines.size > 1
+  end
+
+  # A unit gone from NRC's operating list has usually shut down for good.
+  def dropped(kind)
+    return unless kind == "facility"
+
+    [ { "status" => "shut_down" }, "Approve to mark it shut down. Reject if it's still operating (it may have been renamed)." ]
+  end
+
   # Verify (#15): NRC quotes are whole table rows as Page.lines renders
   # them, so that's what they're checked against, and what the verifier
   # reads is the header plus that row.

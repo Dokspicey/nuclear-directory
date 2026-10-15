@@ -27,6 +27,19 @@ class DataQuality::Plugin
     raise NotImplementedError, "#{self.class} must implement #extract"
   end
 
+  # A hash of the rows extract reads from this snapshot (#240). When it's
+  # the same as last time, the source says nothing new and isn't extracted
+  # again. Default: the stored content's hash, for sources stored as just
+  # their rows. A plug-in that stores a whole page (with a date stamp, say)
+  # hashes only its table.
+  def rows_sha256(source) = source.content_sha256
+
+  # When a complete read of this source no longer lists a fact it
+  # supported (#240): the payload a review item proposes (e.g. NRC's
+  # operating list dropping a unit suggests it shut down) and why, or nil to
+  # keep the fact's last payload and just ask. Returns [payload, note] or nil.
+  def dropped(_kind) = nil
+
   # Verify (#15) asks these two questions of the plug-in, because only it
   # knows how its quotes were taken from the source.
 

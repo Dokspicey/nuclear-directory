@@ -125,6 +125,39 @@ the plug-in flagged them). Match links the ones it can to directory records (`ma
 recommends or sends to review; a human publishes (`merged`) from the admin. See "Matching and
 candidate payloads" below for match's outcomes.
 
+## A fact is decided once (#240)
+
+A nightly crawl doesn't put facts back in the review queue when they haven't changed.
+
+- **Extract** skips a source whose rows haven't changed (`plugin.rows_sha256`; for NRC, the
+  table's rows only, since the page has a date stamp). The facts those rows support (approved
+  or confirmed from them) get their evidence stamped as checked when the source was fetched.
+  Nothing is stamped after a failed fetch, which keeps the old content. A row that repeats a
+  claim (a company on several rows) is proposed once.
+- **Match** compares a candidate with the decided fact it's attached to
+  (`Directory::FactWriter.confirm`):
+  - **Same values, and the fact already has evidence from this source:** the candidate
+    closes as `confirmed` and the evidence is stamped. There's no review item and no
+    history event. This also covers a fact a person rejected or unpublished, which stays as
+    decided.
+  - **A value a person overruled** (Tosin corrected a state and the source still says the
+    old one) doesn't count as a difference. The note says the person's decision stands.
+  - **Anything else** stays `matched`, and verify sends a disagreement to review with both
+    values, as before.
+  - **A pending fact a candidate is already waiting for:** the repeat closes as
+    `confirmed`, so the queue holds it once.
+- **Dropped:** a published fact that a complete read no longer lists gets one
+  `needs_review` item (`review_origin: "dropped"`), never an automatic unpublish.
+  - It only runs after a complete read: the snapshot was extracted, and every row was
+    placed. A blocked fetch flags nothing.
+  - It only covers facts approved or confirmed from that source.
+  - A read that would drop more than a quarter of them flags nothing.
+  - `plugin.dropped(kind)` suggests the change. For NRC, a unit gone from the operating
+    list is suggested as shut down.
+
+`bin/rails data_quality:confirm_identical` (`BY=human:…`, a dry run unless `APPLY=1`) closes
+open candidates the same way. It covers the ones from before this change.
+
 ## Verify recommends; a human publishes
 
 Tosin approves everything that goes public. Verify (`stages/verify.rb`) never writes to the directory.

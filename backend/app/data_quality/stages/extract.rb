@@ -23,14 +23,35 @@ class DataQuality::Stages::Extract < DataQuality::Stage
 
         if source.content_sha256.present? && source.content_sha256 == source.extracted_sha256
           stats["unchanged"] += 1
+          reconfirm(source, source.extracted_rows_sha256 || remember_rows(source))
           next
+        end
+
+        # The page changed but its rows didn't (NRC's list carries a date
+        # stamp, #240): nothing new to propose, so the plug-in, and any model
+        # it calls, isn't run.
+        snapshot = source.content_sha256
+        rows = plugin.rows_sha256(source)
+        if rows.present? && rows == source.extracted_rows_sha256
+          same_rows = Candidate.transaction do
+            source.lock!
+            next false unless source.crawl_ok? && source.content_sha256 == snapshot
+
+            source.update!(extracted_sha256: snapshot)
+          end
+          if same_rows
+            stats["rows_unchanged"] = stats.fetch("rows_unchanged", 0) + 1
+            reconfirm(source, rows)
+            next
+          end
         end
 
         # The plug-in may take minutes (model calls with retries), so it runs
         # before the transaction: no locks held meanwhile, and if it fails
         # the source's existing candidates are untouched.
-        snapshot = source.content_sha256
-        extracted = plugin.extract(source, run).map do |attrs|
+        # One candidate per claim: a row that repeats one (a company named on
+        # several rows) isn't proposed twice.
+        extracted = plugin.extract(source, run).uniq { |attrs| [ attrs[:kind].to_s, attrs[:payload].to_h ] }.map do |attrs|
           attrs = attrs.slice(:kind, :payload, :quote, :status, :notes)
           attrs[:review_origin] = "extract" if attrs[:status].to_s == "needs_review"
           attrs.merge(crawl_run: run)
@@ -47,7 +68,7 @@ class DataQuality::Stages::Extract < DataQuality::Stage
 
           stale(source).delete_all
           extracted.each { |attrs| source.candidates.create!(attrs) }
-          source.update!(extracted_sha256: snapshot)
+          source.update!(extracted_sha256: snapshot, extracted_rows_sha256: rows)
           true
         end
 
@@ -60,6 +81,36 @@ class DataQuality::Stages::Extract < DataQuality::Stage
       end
 
       stats
+    end
+
+    # The source was read and still says what it said (#240): the facts its
+    # last extracted rows support (approved or confirmed from them, with
+    # their quotes) were checked when it was fetched. Not after a failed
+    # fetch, which keeps the old content but still moves fetched_at.
+    def reconfirm(source, rows)
+      return if rows.blank? || source.status_reason.present?
+
+      from_rows = source.candidates.where(crawl_run_id: last_read(source), status: %w[merged confirmed]).where.not(subject_id: nil)
+      directory.reconfirm_source(source_id: source.id, facts: from_rows.distinct.pluck(:subject_type, :subject_id),
+        quotes: from_rows.distinct.pluck(:quote), rows_sha256: rows, at: source.fetched_at || Time.current)
+    end
+
+    # A source extracted before rows were hashed (#240) gets its hash from the
+    # snapshot it was extracted from, while that's still the stored one.
+    def remember_rows(source)
+      rows = plugin.rows_sha256(source) or return
+      Candidate.transaction do
+        source.lock!
+        next unless source.content_sha256 == source.extracted_sha256 && source.extracted_rows_sha256.nil?
+
+        source.update!(extracted_rows_sha256: rows)
+        rows
+      end
+    end
+
+    # The extract run that wrote the source's current candidates.
+    def last_read(source)
+      source.candidates.where("review_origin IS DISTINCT FROM 'dropped'").maximum(:crawl_run_id)
     end
 
     # A candidate a person reopened (#228) is kept with its reopenings.

@@ -306,6 +306,108 @@ module Directory
       failure(type.to_s.underscore.to_sym, error.message)
     end
 
+    # What #confirm found. outcome:
+    # - :confirmed  every stated value is the fact's, and the source's evidence
+    #               on it was stamped
+    # - :different  differences: { "status" => [stored, stated] }
+    # - :unsourced  the same values, but the fact has no evidence from this
+    #               source yet (approving it would add the source)
+    # - :missing    no such fact
+    # overruled: values the source still states that a human replaced
+    # ({ "state" => [stored, stated] }); the human's decision stands, so they
+    # aren't differences. errors: why the attributes couldn't be compared.
+    Confirmation = Data.define(:outcome, :differences, :overruled, :errors) do
+      def initialize(outcome:, differences: {}, overruled: {}, errors: []) = super
+      def confirmed? = outcome == :confirmed
+    end
+
+    def self.confirm(...) = new.confirm(...)
+
+    # Whether a source still says what a fact records (#240), the check a
+    # nightly crawl makes instead of queueing the same fact for review again.
+    # attributes: what the source states, as for #write, with id: the fact;
+    # a link's ends as ids (organization_id, facility_id…), which must be the
+    # link's own (a unit stands for its site's link). quote: the source's row
+    # as it reads now. in_source: optional, whether the source still contains
+    # a quote; given, only evidence it accepts is stamped (this claim's quote
+    # included), else only evidence with this quote.
+    # Each stated value is compared as the model stores it (normalized, a
+    # decimal at its column's scale: EIA's 1227.4000000000001 is 1227.40); a
+    # value the source doesn't state isn't a difference. Names aren't
+    # compared, as verify doesn't compare them: spelling variants are
+    # expected, and which fact it is was settled by its docket, plant ID,
+    # domain or an alias (a link: by its ends). The fact's decision doesn't
+    # matter: a rejected or unpublished fact confirmed this way stays as
+    # decided. When confirmed, the evidence from source_id gets
+    # last_confirmed_at and the rows' hash; nothing else changes and nothing
+    # is audited, so a fact's history doesn't fill with nightly checks.
+    def confirm(kind, attributes, source_id:, quote:, in_source: nil, rows_sha256: nil, at: Time.current)
+      kind = kind.to_sym
+      spec = KINDS[kind] or return Confirmation.new(outcome: :missing, errors: [ "unknown kind #{kind.inspect}" ])
+      attributes = attributes.to_h.symbolize_keys
+      unknown = attributes.keys - spec[:attributes] - [ :id ]
+      return Confirmation.new(outcome: :different, errors: [ "unknown attributes: #{unknown.join(', ')}" ]) if unknown.any?
+
+      ActiveRecord::Base.transaction(requires_new: true) do
+        record = spec[:model].lock.find_by(id: attributes[:id]) or next Confirmation.new(outcome: :missing)
+
+        # A link is the same claim only between the same company and plant: a
+        # claim attached to another plant's link (#226) is never confirmed.
+        differences = different_ends(kind, record, attributes)
+        overruled = {}
+        model_attributes(kind, attributes).except(*NOT_COMPARED, *LINK_ENDS.fetch(kind, {}).keys).each do |name, stated|
+          next if stated.blank?
+
+          stored = record.public_send(name)
+          next if stored.present? && same_stored_value?(record, name, stored, stated)
+
+          pair = [ shown(stored), shown(stated) ]
+          overruled_by_human?(record, name, stated) ? overruled[name.to_s] = pair : differences[name.to_s] = pair
+        end
+        next Confirmation.new(outcome: :different, differences:, overruled:) if differences.any?
+
+        # Only quotes the source still contains are re-checked: this claim's,
+        # or another of this fact's it still has (a company quoted from another
+        # of its rows). A quote it no longer contains isn't; with none, a
+        # person approves and the current quote is added.
+        still_there = in_source || ->(text) { text == quote }
+        current = Evidence.where(subject: record, source_id:).select { |row| still_there.call(row.quote) }
+        next Confirmation.new(outcome: :unsourced, overruled:) if current.empty?
+
+        Evidence.where(id: current.map(&:id)).update_all(last_confirmed_at: at, confirmed_sha256: rows_sha256)
+        Confirmation.new(outcome: :confirmed, overruled:)
+      end
+    rescue Invalid => e
+      Confirmation.new(outcome: :different, errors: [ e.message ])
+    end
+
+    def self.reconfirm_source(...) = new.reconfirm_source(...)
+
+    # A source read again whose rows haven't changed (#240). Stamps only the
+    # evidence its current rows still support: on facts (pairs of type and
+    # id) a person approved or the pipeline confirmed from those rows, and
+    # with one of their quotes. A fact the rows dropped, or one they
+    # contradict, isn't stamped. Returns how many rows were stamped.
+    def reconfirm_source(source_id:, facts:, quotes:, rows_sha256:, at: Time.current)
+      by_type = Array(facts).group_by(&:first).transform_values { |pairs| pairs.map(&:last) }
+      return 0 if by_type.empty? || Array(quotes).empty?
+
+      supported = by_type.map { |type, ids| Evidence.where(subject_type: type, subject_id: ids) }.reduce(:or)
+      Evidence.where(source_id:, quote: quotes).and(supported).update_all(last_confirmed_at: at, confirmed_sha256: rows_sha256)
+    end
+
+    def self.existing(...) = new.existing(...)
+
+    # The id of the fact these attributes name (a link by its ends and type,
+    # a record by its keys), or nil. Reads only; finds closed facts too.
+    def existing(kind, attributes)
+      kind = kind.to_sym
+      spec = KINDS[kind] or return
+      find(kind, spec[:model], attributes.to_h.symbolize_keys)&.id
+    rescue Invalid
+      nil
+    end
+
     def self.fill_site_from_unit(...) = new.fill_site_from_unit(...)
 
     # Fills a site's blank fields (from fields:) with its unit's stored
@@ -503,6 +605,42 @@ module Directory
         # Compared as the model would store it ("us" is "US" once normalized).
         incoming = record.class.normalize_value_for(name.to_sym, incoming)
         stored == record.class.type_for_attribute(name.to_s).cast(incoming)
+      end
+
+      # same_value?, with a decimal compared at its column's scale.
+      def same_stored_value?(record, name, stored, stated)
+        column = record.class.columns_hash[name.to_s]
+        if column&.type == :decimal && column.scale && (number = BigDecimal(stated.to_s, exception: false))
+          return stored == number.round(column.scale)
+        end
+
+        same_value?(record, name, stored, stated)
+      end
+
+      # A value a human replaced on this fact: an audited human decision whose
+      # change to name had this value as its "before".
+      def overruled_by_human?(record, name, stated)
+        return false unless record.respond_to?(:verification_events)
+
+        record.verification_events.where("by LIKE 'human:%'").where("changed_values ? :name", name: name.to_s).any? do |event|
+          before = Array(event.changed_values[name.to_s]).first
+          before.present? && same_stored_value?(record, name, record.class.type_for_attribute(name.to_s).cast(before), stated)
+        end
+      end
+
+      # A link's ends the source names that aren't the link's own:
+      # { "facility" => [stored, stated] }. Both must be stated (as ids, found
+      # by the caller); a unit stands for its site. Not a link: {}.
+      def different_ends(kind, record, attributes)
+        LINK_ENDS.fetch(kind, {}).each_with_object({}) do |(key, model), found|
+          stored = record.public_send(key)
+          stated = attributes[key]
+          next if stated.present? && stated.to_i == stored
+          next if stated.present? && model == Facility && Facility.exists?(id: stated, parent_id: stored)
+
+          label = ->(id) { id.present? ? model.find_by(id:)&.name || "##{id}" : "not in the directory" }
+          found[key.to_s.delete_suffix("_id")] = [ label.call(stored), label.call(stated) ]
+        end
       end
 
       def shown(value) = value.respond_to?(:key) ? value.key : value.to_s

@@ -78,16 +78,19 @@ class DataQuality::CatchUpJobTest < ActiveSupport::TestCase
   test "the daily job marks each source started and finished, failures included" do
     travel_to(AT_3AM) { daily("nrc_reactor_list" => RuntimeError.new("OpenRouter rejected the API key")) }
 
-    %w[nrc_reactor_list eia_generators].each do |kind|
-      assert Job.marked?(:started, kind, AT_3AM.to_date), kind
-      assert Job.marked?(:finished, kind, AT_3AM.to_date), "#{kind}: an ordinary failure counts as finished"
+    # Read at the same moment: the marks expire two days after they're written.
+    travel_to(AT_3AM) do
+      %w[nrc_reactor_list eia_generators].each do |kind|
+        assert Job.marked?(:started, kind, AT_3AM.to_date), kind
+        assert Job.marked?(:finished, kind, AT_3AM.to_date), "#{kind}: an ordinary failure counts as finished"
+      end
     end
   end
 
   test "a source the daily job found busy isn't marked started, since it requeues itself" do
     travel_to(AT_3AM) { daily("nrc_reactor_list" => DataQuality::Pipeline::AlreadyRunning.new) }
 
-    assert_not Job.marked?(:started, "nrc_reactor_list", AT_3AM.to_date)
+    travel_to(AT_3AM) { assert_not Job.marked?(:started, "nrc_reactor_list", AT_3AM.to_date) }
   end
 
   test "waits while a daily source is really mid-run, so EIA never starts alongside NRC" do
