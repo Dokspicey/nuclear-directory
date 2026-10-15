@@ -97,7 +97,8 @@ class DataQualityRakeTest < ActiveSupport::TestCase
   end
 
   test "confirm_identical is a dry run until APPLY=1, and says why each one it leaves stays open (#240)" do
-    source = Source.create!(url: "https://www.nrc.gov/test/units", source_kind: "nrc_reactor_list", crawl_status: "ok")
+    # A kind with no plug-in: only each claim's own quote counts as still in the source.
+    source = Source.create!(url: "https://example.com/test/units", source_kind: "units_by_hand", crawl_status: "ok")
     unit = Facility.create!(name: "Zephyr Point 1", nrc_docket: "05099001", status: "operating", verification_status: "verified",
       verified_by: "human:tosin")
     Evidence.create!(subject: unit, source:, quote: "row", found_by: "crawler")

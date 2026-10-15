@@ -27,11 +27,11 @@ class Directory::ConfirmTest < ActiveSupport::TestCase
     assert_equal [ at, "rows-1" ], [ @evidence.reload.last_confirmed_at, @evidence.confirmed_sha256 ]
   end
 
-  test "a different value, or a name the fact isn't known by, is a difference" do
+  test "a different value is a difference; a name isn't compared, as verify doesn't" do
     assert_equal({ "state" => [ "NJ", "DE" ] }, confirm({ state: "DE" }).differences)
-    assert_equal({ "aliases" => [ nil, "Hope Creek Unit One" ] }, confirm({ name: "Hope Creek Unit One" }).differences)
     assert_equal({ "capacity_mw" => [ "1227.4", "1230" ] }, confirm({ capacity_mw: "1230" }).differences)
-    assert_nil @evidence.reload.last_confirmed_at
+    assert_nil @evidence.reload.last_confirmed_at, "a difference stamps nothing"
+    assert confirm({ name: "Hope Creek Unit One" }).confirmed?, "which unit it is was settled by its docket"
   end
 
   test "a value the fact doesn't have yet is a difference; one the source doesn't state isn't" do
@@ -65,6 +65,13 @@ class Directory::ConfirmTest < ActiveSupport::TestCase
     assert confirm_link.call(company.id, other_unit.id).confirmed?, "Monticello 1 is the site's unit"
     assert_equal({ "facility" => [ "Monticello", "Hope Creek 1" ] }, confirm_link.call(company.id, @unit.id).differences)
     assert_equal({ "organization" => [ "Northern States Power", "not in the directory" ] }, confirm_link.call(nil, site.id).differences)
+  end
+
+  test "given a check of the source, even the claim's own quote is stamped only if the source still has it" do
+    result = confirm({ state: "NJ" }, in_source: ->(_quote) { false })
+
+    assert_equal :unsourced, result.outcome
+    assert_nil @evidence.reload.last_confirmed_at
   end
 
   test "a company is known by any of its aliases" do

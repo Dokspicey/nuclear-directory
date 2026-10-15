@@ -394,6 +394,9 @@ module DataQuality::Review
 
         record = directory.attached_record(candidate) or return fail_with.call("its fact no longer exists")
         return fail_with.call("#{record.name} isn't decided yet, so a person reviews it") if record.verification_status == "pending"
+        if candidate.source.status_reason.present?
+          return fail_with.call("its source's last fetch failed (#{candidate.source.status_reason}); run this after a good read")
+        end
 
         confirmation = directory.confirm(candidate, in_source: in_source(candidate))
         case confirmation&.outcome

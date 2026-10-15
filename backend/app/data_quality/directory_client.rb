@@ -202,8 +202,11 @@ class DataQuality::DirectoryClient
   # nil with no fact.
   # in_source: whether the source still contains a quote (the plug-in's
   # quote_in_source?), so the fact's other evidence from it is stamped too.
+  # nil too when the source's last fetch failed (it keeps its old content but
+  # moves fetched_at): that's no fresh check.
   def confirm(candidate, fact_id: candidate.subject_id, rows_sha256: candidate.source.extracted_rows_sha256, in_source: nil)
     return unless fact_id
+    return if candidate.source.status_reason.present?
 
     attributes = candidate.payload.except(*LINK_ENDS, *PAYLOAD_LOCKED, ENRICHMENT_KEY).symbolize_keys.merge(id: fact_id)
     # A link's ends as the payload names them, found afresh, so a claim

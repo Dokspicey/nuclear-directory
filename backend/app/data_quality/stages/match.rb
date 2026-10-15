@@ -75,7 +75,7 @@ class DataQuality::Stages::Match < DataQuality::Stage
     # them). A read that would drop more than a quarter of them is more
     # likely a broken page than closures, and flags nothing.
     def flag_dropped(source)
-      return unless source.extracted_sha256.present? && source.extracted_sha256 == source.content_sha256
+      return unless source.extracted_sha256.present? && source.extracted_sha256 == source.content_sha256 && source.status_reason.blank?
 
       from_source = source.candidates.where(review_origin: nil).or(source.candidates.where.not(review_origin: "dropped"))
       latest = from_source.maximum(:crawl_run_id) or return
@@ -186,8 +186,12 @@ class DataQuality::Stages::Match < DataQuality::Stage
         when Found then attributes[:"#{key}_id"] = found.record.id
         else return review(candidate, "#{key} #{label(payload[key]).inspect} isn't in the directory yet")
         end
-        # A closed end is kept aside: an existing link to it may still be confirmed.
+        # A closed end, or a unit under a closed site, is kept aside: an
+        # existing link to it may still be confirmed, but nothing is written.
         closed_end ||= Review.new("#{key}: #{closed_reason(found)}") if found.record.closed?
+        if !closed_end && found.record.parent_id && (site = directory.facility(id: found.record.parent_id))&.closed?
+          closed_end = Review.new("#{key}: its site #{site.name} was #{site.decision}. The same thing again?")
+        end
       end
 
       # A link a human rejected or unpublished, or one whose company or plant
@@ -426,7 +430,20 @@ class DataQuality::Stages::Match < DataQuality::Stage
       if record.verification_status == "pending"
         waiting = Candidate.where(source_id: candidate.source_id, subject_type: record.type, subject_id: record.id,
           status: %w[new matched needs_review]).where.not(id: candidate.id).where("payload = ?::jsonb", candidate.payload.to_json).first
-        confirmed(candidate, record, "Same as candidate ##{waiting.id}, already waiting for review") if waiting
+        return unless waiting
+
+        # The one that quotes the source as it reads now is the one kept.
+        if waiting.quote == candidate.quote || plugin.quote_in_source?(candidate.source, waiting.quote)
+          confirmed(candidate, record, "Same as candidate ##{waiting.id}, already waiting for review")
+        else
+          # Locked, so a person deciding it meanwhile is never overwritten.
+          waiting.with_lock do
+            next unless %w[new matched needs_review].include?(waiting.status)
+
+            waiting.update!(status: "confirmed", notes: "Replaced by candidate ##{candidate.id}: the source's row now reads differently")
+            @stats["confirmed"] = @stats.fetch("confirmed", 0) + 1
+          end
+        end
         return
       end
 

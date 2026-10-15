@@ -329,12 +329,14 @@ module Directory
     # a link's ends as ids (organization_id, facility_id…), which must be the
     # link's own (a unit stands for its site's link). quote: the source's row
     # as it reads now. in_source: optional, whether the source still contains
-    # a quote; only evidence with this quote or one it still contains is
-    # stamped.
+    # a quote; given, only evidence it accepts is stamped (this claim's quote
+    # included), else only evidence with this quote.
     # Each stated value is compared as the model stores it (normalized, a
     # decimal at its column's scale: EIA's 1227.4000000000001 is 1227.40); a
-    # name counts when it's the fact's name or one of its aliases; a value the
-    # source doesn't state isn't a difference. The fact's decision doesn't
+    # value the source doesn't state isn't a difference. Names aren't
+    # compared, as verify doesn't compare them: spelling variants are
+    # expected, and which fact it is was settled by its docket, plant ID,
+    # domain or an alias (a link: by its ends). The fact's decision doesn't
     # matter: a rejected or unpublished fact confirmed this way stays as
     # decided. When confirmed, the evidence from source_id gets
     # last_confirmed_at and the rows' hash; nothing else changes and nothing
@@ -362,15 +364,14 @@ module Directory
           pair = [ shown(stored), shown(stated) ]
           overruled_by_human?(record, name, stated) ? overruled[name.to_s] = pair : differences[name.to_s] = pair
         end
-        unknown_names = unknown_names(kind, record, [ attributes[:name], *Array(attributes[:aliases]) ])
-        differences["aliases"] = [ nil, unknown_names.join(", ") ] if unknown_names.any?
         next Confirmation.new(outcome: :different, differences:, overruled:) if differences.any?
 
         # Only quotes the source still contains are re-checked: this claim's,
         # or another of this fact's it still has (a company quoted from another
         # of its rows). A quote it no longer contains isn't; with none, a
         # person approves and the current quote is added.
-        current = Evidence.where(subject: record, source_id:).select { |row| row.quote == quote || in_source&.call(row.quote) }
+        still_there = in_source || ->(text) { text == quote }
+        current = Evidence.where(subject: record, source_id:).select { |row| still_there.call(row.quote) }
         next Confirmation.new(outcome: :unsourced, overruled:) if current.empty?
 
         Evidence.where(id: current.map(&:id)).update_all(last_confirmed_at: at, confirmed_sha256: rows_sha256)
@@ -639,21 +640,6 @@ module Directory
 
           label = ->(id) { id.present? ? model.find_by(id:)&.name || "##{id}" : "not in the directory" }
           found[key.to_s.delete_suffix("_id")] = [ label.call(stored), label.call(stated) ]
-        end
-      end
-
-      # Names a source gives that the fact isn't known by: neither its name
-      # nor one of its aliases, normalized as aliases are.
-      def unknown_names(kind, record, names)
-        names = names.compact_blank.map(&:to_s)
-        case kind
-        when :organization
-          known = record.aliases.pluck(:normalized_alias).to_set << OrganizationAlias.normalize(record.name)
-          names.reject { |name| known.include?(OrganizationAlias.normalize(name)) }.uniq
-        when :facility
-          known = record.aliases.pluck(:normalized_alias).to_set << FacilityAlias.normalize(record.name)
-          names.reject { |name| known.include?(FacilityAlias.normalize(name)) }.uniq
-        else []
         end
       end
 

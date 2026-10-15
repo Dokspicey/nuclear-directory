@@ -197,6 +197,47 @@ class DataQuality::ReconfirmTest < ActiveSupport::TestCase
     assert unit("05099001").unpublished?
   end
 
+  test "a link to a unit whose site a person unpublished, stated again unchanged, is confirmed and not written" do
+    first_read_approved!
+    site = Facility.create!(name: "Zephyr Point", verification_status: "verified", verified_by: BY)
+    unit("05099001").update!(parent: site)
+    DataQuality::Review.unpublish(type: "Facility", id: site.id, by: BY, reason: "Checking it")
+    link = unit("05099001").facility_relationships.sole
+
+    read!(ROWS.reverse, on: 1.hour.ago)
+    pipeline!
+
+    assert_empty queue
+    assert_equal "confirmed", Candidate.where(source:, subject: link).order(:id).last.status
+  end
+
+  test "a repeat of a pending claim whose row now reads differently replaces the waiting one" do
+    read!(on: 2.hours.ago)
+    pipeline!
+    waiting = queue.where(kind: "facility").find { |c| c.payload["nrc_docket"] == "05099001" }
+
+    # The same values, but the row now carries another column (NRC's license field, say).
+    read!([ "#{ROWS.first} | NPF-1", *ROWS.drop(1) ], on: 1.hour.ago)
+    pipeline!
+
+    assert_equal "confirmed", waiting.reload.status
+    assert_match "the source's row now reads differently", waiting.notes
+    current = queue.where(kind: "facility").find { |c| c.payload["nrc_docket"] == "05099001" }
+    assert_equal "#{ROWS.first} | NPF-1", current.quote, "the one quoting the source as it reads now waits"
+  end
+
+  test "nothing is confirmed against a page whose last fetch failed" do
+    first_read_approved!
+    read!(ROWS.reverse, on: 1.hour.ago)
+    DataQuality::Pipeline.run("units_table", plugin: @plugin, only: %w[extract])
+    source.update!(status_reason: "Timed out", fetched_at: Time.current) # the next fetch failed; the old content stays
+
+    DataQuality::Pipeline.run("units_table", plugin: @plugin, only: %w[match])
+
+    assert_equal 0, Candidate.where(source:, status: "confirmed").count
+    assert_nil unit("05099001").evidence.find_by!(source:).last_confirmed_at
+  end
+
   test "a blocked or unread page flags nothing as dropped" do
     first_read_approved!
     read!(ROWS.first(4), on: 1.hour.ago)
