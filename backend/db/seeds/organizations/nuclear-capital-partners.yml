@@ -4,7 +4,7 @@ aliases:
 - NCP
 website: https://www.nuclearcp.com
 hq: null
-country_code: US
+country_code: null
 status: active
 roles:
 - key: venture_capital
@@ -14,7 +14,7 @@ roles:
 technologies: []
 relationships: []
 facilities: []
-notes: 'Founded 2026 (quoted below; the loader has no founded_year field). HQ not stated on the site, so not set. No investments, deals or partners are named on the site or in any public source found (searched 15 Oct: firm site, SEC EDGAR, trade press). SEC EDGAR lists Nuclear Capital Partners SPV I LLC (CIK 2130182, Austin TX, Form D 2026-05-04, venture capital fund, $250,000 sold) and SPV II LLC (CIK 2137255, Chaska MN, Form D 2026-06-02). Neither filing names nuclearcp.com or a portfolio company, so they are not cited as this firm''s facts. Not to be confused with Nuclear Capital Partners (UK, nuclear-capital.com), nuclearcapitalpartners.com, or Nucleation Capital. The role is a judgment call for Tosin: the site says "independent investment platform" and "placing private capital", not "venture capital".'
+notes: 'Country not set: no cited source states where the firm is based (the site describes a US investment focus only). Founded 2026 (quoted below; the loader has no founded_year field). HQ not stated on the site, so not set. No investments, deals or partners are named on the site or in any public source found (searched 15 Oct: firm site, SEC EDGAR, trade press). SEC EDGAR lists Nuclear Capital Partners SPV I LLC (CIK 2130182, Austin TX, Form D 2026-05-04, venture capital fund, $250,000 sold) and SPV II LLC (CIK 2137255, Chaska MN, Form D 2026-06-02). Neither filing names nuclearcp.com or a portfolio company, so they are not cited as this firm''s facts. Not to be confused with Nuclear Capital Partners (UK, nuclear-capital.com), nuclearcapitalpartners.com, or Nucleation Capital. The role is a judgment call for Tosin: the site says "independent investment platform" and "placing private capital", not "venture capital".'
 description:
   text: Investment firm focused on nuclear energy, from advanced reactors and fuel to supply chain.
   source_url: https://www.nuclearcp.com/about
