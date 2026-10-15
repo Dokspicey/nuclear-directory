@@ -1,7 +1,8 @@
 <%# Link previews on every public page (#90). A page may set content_for
     :og_title and :og_description; otherwise the title is the page's <title>
-    and the description is the site's one line. The card image is shared,
-    drawn by script/build_og_image.py. %>
+    and the description is the site's one line. A plant, company or category
+    page sets @link_card ([LinkCard, kind, key]) to its own card (#245); any
+    other page shows the default card. %>
 <% og_description = content_for(:og_description).presence || "Who makes the fuel, builds the reactors, runs the plants, buys the power and funds it." %>
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Nuclear Directory">
@@ -11,9 +12,10 @@
     ?category=; other query strings (search, filters) are dropped. %>
 <% category = Category.find(params[:category].to_s) if request.path == companies_path && params[:category].present? %>
 <meta property="og:url" content="<%= request.base_url + request.path + (category ? "?#{ { category: category.to_param }.to_query }" : "") %>">
-<meta property="og:image" content="<%= image_url("og-default.png") %>">
+<% card, card_kind, card_key = @link_card || [ LinkCard.default, "default", nil ] %>
+<meta property="og:image" content="<%= request.base_url + LinkCardsController.url_for_card(card, card_kind, card_key) %>">
 <meta property="og:image:type" content="image/png">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Nuclear Directory: who makes the fuel, builds the reactors, runs the plants, buys the power and funds it.">
+<meta property="og:image:width" content="<%= LinkCard::WIDTH %>">
+<meta property="og:image:height" content="<%= LinkCard::HEIGHT %>">
+<meta property="og:image:alt" content="<%= card.alt %>">
 <meta name="twitter:card" content="summary_large_image">

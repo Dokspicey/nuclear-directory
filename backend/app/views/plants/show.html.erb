@@ -10,6 +10,7 @@
   capacity = "#{number_with_precision(p.capacity_mw, precision: 2, strip_insignificant_zeros: true, delimiter: ",")} MWe" if p.capacity_mw
   content_for :title, "#{p.name} · Nuclear Directory"
   content_for :og_title, p.name
+  @link_card = [ LinkCard.for_plant(p), "plants", p.slug ] # its preview image (#245)
   # One line for link previews and search results (#246).
   preview = plant_preview(p)
   content_for :og_description, preview
