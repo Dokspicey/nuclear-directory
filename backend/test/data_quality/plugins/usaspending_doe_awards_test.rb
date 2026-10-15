@@ -157,6 +157,28 @@ class DataQuality::Plugins::UsaspendingDoeAwardsTest < ActiveSupport::TestCase
     assert_match(/more than 1000 awards/, Source.find_by!(url: Plugin::API_URL).status_reason)
   end
 
+  test "a crawl that stops while storing records nothing, so a rerun the same day stores every recipient" do
+    stored = 0
+    original = Source.instance_method(:update!)
+    failing = lambda do |*args, **kwargs|
+      raise ActiveRecord::StatementInvalid, "worker stopped" if url.include?("/recipient/") && (stored += 1) == 2
+
+      original.bind_call(self, *args, **kwargs)
+    end
+    Source.define_method(:update!, failing)
+    begin
+      assert_raises(ActiveRecord::StatementInvalid) { crawl! }
+    ensure
+      Source.define_method(:update!, original)
+    end
+
+    assert_nil Source.find_by(url: Plugin::API_URL)&.fetched_at, "the day's fetch isn't recorded"
+    assert_equal 0, Source.where(source_kind: "usaspending_doe_awards").where.not(content_text: nil).count, "nor half the recipients"
+
+    assert_equal [ "ok", 3 ], crawl!.values_at("api", "recipients")
+    assert_equal 3, Source.where(source_kind: "usaspending_doe_awards").where.not(content_text: nil).count
+  end
+
   test "an award without a recipient ID is counted and left out; the others are stored" do
     @answers[[ "nuclear_energy_rd", 2 ]] = { "results" => [ NUSCALE.merge("recipient_id" => nil) ], "page_metadata" => { "hasNext" => false } }
 

@@ -57,17 +57,24 @@ class DataQuality::Plugins::UsaspendingDoeAwards < DataQuality::Plugin
       source.source_kind = INDEX_SOURCE_KIND
       source.title = "USAspending.gov award search API"
     end
-    rows = nil
-    # At most once a day, recorded on the index source under its lock, as Snapshot does for a page.
+    stats = nil
+    # At most once a day, recorded on the index source under its lock, as
+    # Snapshot does for a page. The recipients and the fetch are written in
+    # one savepoint (claim commits its lock even when the block raises): if
+    # storing stops partway, nothing is kept and the day's fetch isn't
+    # recorded, so a rerun fetches and stores them all.
     result = DataQuality::Snapshot.claim(index) do
       next :skipped_recent if index.fetched_at&.to_date == Date.current
 
       rows, failure = search_all
-      record(index, failure)
+      Source.transaction(requires_new: true) do
+        stats = { "awards" => rows.size }.merge(store_by_recipient(rows)) unless failure
+        record(index, failure)
+      end
     end
     return { "api" => result.to_s } unless result == :ok
 
-    { "api" => "ok", "awards" => rows.size }.merge(store_by_recipient(rows))
+    { "api" => "ok" }.merge(stats)
   end
 
   # The facts every row's source states, which a single row doesn't repeat.
