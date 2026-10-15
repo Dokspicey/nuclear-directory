@@ -85,6 +85,7 @@ class LinkPreviewTest < ActionDispatch::IntegrationTest
       companies_path(category: "reactor-developers") => %r{/cards/categories/reactor-developers/\h{16}\.png\z},
       companies_path => %r{/cards/default/\h{16}\.png\z},
       companies_path(category: "reactor-developers", q: "kairos") => %r{/cards/default/\h{16}\.png\z},
+      companies_path(category: "plants", state: "GA") => %r{/cards/default/\h{16}\.png\z}, # filtered: not the category's count
       privacy_path => %r{/cards/default/\h{16}\.png\z}
     }.each do |path, image|
       get path

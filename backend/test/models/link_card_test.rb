@@ -56,17 +56,66 @@ class LinkCardTest < ActiveSupport::TestCase
     assert_equal "Plant Vogtle. 1 unit.", bare.alt
   end
 
+  # Stands in for CompanyProfile: only what for_company reads.
+  Company = Struct.new(:name, :hq_city, :hq_state, :shown_roles, :plant_links, :deals, :category, keyword_init: true)
+  Link = Struct.new(:relationship_type, :facility, :started_on, :ended_on)
+
+  def link(type, started_on: nil, ended_on: nil) = Link.new(type, Facility.new(name: "Site #{rand}"), started_on, ended_on)
+
+  def kairos(**overrides)
+    # Its roles sorted by name put "Molten salt coolant" first; the label still leads with the category's role (Design's QA).
+    Company.new(name: "Kairos Power", hq_city: "Alameda", hq_state: "CA",
+      shown_roles: [ Role.new(key: "molten_salt_coolant", name: "Molten salt coolant"), Role.new(key: "reactor_vendor", name: "Reactor vendor") ]
+        .map { |role| Struct.new(:role).new(role) },
+      plant_links: [ link("operates"), link("owns"), link("owns") ], deals: Array.new(3), category: Category.find("reactor-developers"), **overrides)
+  end
+
   test "a company card: role and HQ, then up to two facts in order" do
-    profile = Struct.new(:organization, :shown_roles, :plant_links, :deals, :category).new(
-      Organization.new(name: "Kairos Power", hq_city: "Alameda", hq_state: "CA"),
-      [ Struct.new(:role).new(Role.new(key: "reactor_vendor", name: "Reactor vendor")) ],
-      [ "operates", "owns", "owns" ].map { |type| Struct.new(:relationship_type, :facility).new(type, Facility.new(name: "Site #{type}")) },
-      Array.new(3), Category.find("reactor-developers"))
+    profile = kairos
 
     card = LinkCard.for_company(profile)
 
     assert_equal [ "Reactor developer · Alameda, CA", "Operates 1 plant · Owns stakes in 2 plants" ], [ card.label, card.footer_right ]
     assert_equal [ LinkCard::CATEGORY_COLORS["reactor-developers"] ], card.squares
+
+    profile.category = nil
+    assert_equal "Molten salt coolant · Alameda, CA", LinkCard.for_company(profile).label, "no category: its first role"
+  end
+
+  test "a company's HQ shows only when its page shows it (a source backs it)" do
+    assert_equal "Reactor developer", LinkCard.for_company(kairos(hq_city: nil, hq_state: nil)).label
+  end
+
+  test "a company's plant counts are in the present tense: only links in effect today" do
+    links = [ link("operates", started_on: 1.year.from_now.to_date), link("operates", ended_on: Date.current), link("owns", ended_on: 1.day.from_now.to_date),
+      link("owns", started_on: Date.current) ]
+
+    assert_equal "Owns stakes in 2 plants · 3 deals", LinkCard.for_company(kairos(plant_links: links)).footer_right
+  end
+
+  test "a name that's one word too wide for a line is cut, with no empty second line" do
+    size, lines = name_lines("A" * 40)
+
+    assert_equal [ 92, 1 ], [ size, lines.size ]
+    assert lines.first.end_with?("…")
+    assert_operator LinkCard::Font.width(lines.first, font: :anton, size: 92), :<=, LinkCard::TEXT_WIDTH
+  end
+
+  test "a role line with long names on both sides shortens them in turn and keeps both counts" do
+    card = LinkCard.for_plant(vogtle(operators: [ "GE Vernova Hitachi Nuclear Energy", "Another Operator" ],
+      owners: [ "Old Dominion Electric Cooperative", "Another Owner" ]))
+
+    assert_match(/\AOperated by .+ \+ 1 · Owned by .+ \+ 1\z/, card.role_text)
+    assert_operator LinkCard::Font.width(card.role_text, font: :mono, size: 28), :<=, LinkCard::TEXT_WIDTH
+  end
+
+  test "the default card's footer keeps 48px between its two sides, its left at 26px (Design's QA)" do
+    left, right = LinkCard.default.footer_left, LinkCard.default.footer_right
+    at30 = LinkCard::Font.width(left, font: :mono, size: 30) + 48 + LinkCard::Font.width(right, font: :mono, size: 30)
+    at26 = LinkCard::Font.width(left, font: :mono, size: 26) + 48 + LinkCard::Font.width(right, font: :mono, size: 30)
+
+    assert_operator at30, :>, LinkCard::TEXT_WIDTH, "too tight at 30px, so it steps down"
+    assert_operator at26, :<=, LinkCard::TEXT_WIDTH
   end
 
   test "a category card counts what the category lists" do

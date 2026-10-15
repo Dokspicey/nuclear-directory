@@ -51,16 +51,21 @@ class LinkCard
   end
 
   def self.for_company(profile)
-    org = profile.organization
-    role = profile.shown_roles.first&.role
-    place = [ org.hq_city.presence, org.hq_state.presence ].compact.join(", ").presence
+    # The role behind its category ("Reactor developer", not "Molten salt
+    # coolant", which maps to none); with no such role, its first.
+    keys = profile.category&.role_keys.to_a
+    role = profile.shown_roles.map(&:role).find { |r| ([ r.key, r.parent&.key ] & keys).any? } || profile.shown_roles.first&.role
+    # Only what the page shows: HQ when a source backs the company (CompanyProfile).
+    place = [ profile.hq_city.presence, profile.hq_state.presence ].compact.join(", ").presence
     label = [ (helpers.role_label(role) if role), place ].compact.join(" · ").presence
-    sites = ->(type) { profile.plant_links.select { |link| link.relationship_type == type }.map { |link| link.facility.parent || link.facility }.uniq.size }
+    # Present tense, so only links in effect today (as on a plant's card).
+    current = ->(link) { (link.started_on.nil? || link.started_on <= Date.current) && (link.ended_on.nil? || link.ended_on > Date.current) }
+    sites = ->(type) { profile.plant_links.select { |link| link.relationship_type == type && current.call(link) }.map { |link| link.facility.parent || link.facility }.uniq.size }
     operates, owns, deals = sites.call("operates"), sites.call("owns"), profile.deals.size
     facts = [ ("Operates #{helpers.pluralize(operates, 'plant')}" if operates.positive?),
               ("Owns stakes in #{helpers.pluralize(owns, 'plant')}" if owns.positive?),
               (helpers.pluralize(deals, "deal") if deals.positive?) ].compact.first(2).join(" · ").presence
-    new(squares: [ CATEGORY_COLORS[profile.category&.key] || PAPER ], label:, name: org.name, footer_right: facts)
+    new(squares: [ CATEGORY_COLORS[profile.category&.key] || PAPER ], label:, name: profile.name, footer_right: facts)
   end
 
   def self.for_category(category, count)
@@ -118,6 +123,7 @@ class LinkCard
     FACTS = { font: :mono, size: 30 }.freeze
     LABEL_TOP = PAD_TOP
     FOOTER_HEIGHT = 44 # the row under the hairline
+    FOOTER_GAP = 48 # at least, between its left and right
     FOOTER_RULE_Y = HEIGHT - PAD_BOTTOM - FOOTER_HEIGHT - 20 - 2
 
     # The squares alone (26), or with the mono label beside them.
@@ -162,11 +168,16 @@ class LinkCard
       center = HEIGHT - PAD_BOTTOM - FOOTER_HEIGHT / 2.0
       left_style = footer_left == :wordmark ? WORDMARK : FACTS
       left = footer_left == :wordmark ? "NUCLEAR DIRECTORY" : footer_left
+      # Text on both sides keeps 48px between them, the left at 26px if need be (Design).
+      if footer_left != :wordmark && footer_right &&
+          Font.width(left, **FACTS) + FOOTER_GAP + Font.width(footer_right, **FACTS) > TEXT_WIDTH
+        left_style = FACTS.merge(size: 26)
+      end
       left_width = Font.width(left, **left_style)
       parts << Font.path(left, PAD_SIDE, Font.centered_baseline(center, **left_style), fill: PAPER, **left_style)
       return unless footer_right
 
-      right = Font.fit(footer_right, TEXT_WIDTH - left_width - 24, **FACTS)
+      right = Font.fit(footer_right, TEXT_WIDTH - left_width - FOOTER_GAP, **FACTS)
       x = PAD_SIDE + TEXT_WIDTH - Font.width(right, **FACTS)
       parts << Font.path(right, x, Font.centered_baseline(center, **FACTS), fill: PAPER, **FACTS)
     end
@@ -180,8 +191,13 @@ class LinkCard
         return [ size, lines ] if lines && lines.size <= 2
       end
       size = name_sizes.last
-      lines = Font.wrap(text, TEXT_WIDTH, font: :anton, size:, hard: true)
-      [ size, [ lines[0], Font.fit("#{lines[1..].join(' ')}", TEXT_WIDTH, font: :anton, size:, force_ellipsis: lines.size > 2) ] ]
+      style = { font: :anton, size: }
+      lines = Font.wrap(text, TEXT_WIDTH, hard: true, **style)
+      # A word wider than a line is cut too; a single word has no second line.
+      first = Font.fit(lines[0], TEXT_WIDTH, **style)
+      return [ size, [ first ] ] if lines.size == 1
+
+      [ size, [ first, Font.fit(lines[1..].join(" "), TEXT_WIDTH, force_ellipsis: lines.size > 2, **style) ] ]
     end
 
     # "Operated by Southern Nuclear · Owned by Georgia Power + 3": every
@@ -190,16 +206,22 @@ class LinkCard
     def fit_roles(roles)
       roles = roles.select { |_, names| names.any? }.transform_values(&:dup)
       shown = roles.transform_values(&:size)
+      done = []
       line = -> { roles.map { |role, names| [ "#{role} #{names.first(shown[role]).join(', ')}", ("+ #{names.size - shown[role]}" if shown[role] < names.size) ].compact.join(" ") }.join(" · ") }
       until Font.width(line.call, **ROLE) <= TEXT_WIDTH
         role = shown.select { |_, count| count > 1 }.max_by { |_, count| count }&.first
         if role
           shown[role] -= 1
         else
-          longest = roles.keys.max_by { |key| roles[key].first.length }
-          over = Font.width(line.call, **ROLE) - TEXT_WIDTH
-          roles[longest][0] = Font.fit(roles[longest].first, Font.width(roles[longest].first, **ROLE) - over, **ROLE)
-          break
+          # A word at a time from whichever name is longest now, each kept to
+          # its first word at the least, until the whole line fits.
+          longest = roles.keys.reject { |key| done.include?(key) }.max_by { |key| Font.width(roles[key].first, **ROLE) }
+          break unless longest
+
+          words = roles[longest].first.delete_suffix(Font::ELLIPSIS).split
+          next done << longest if words.size < 2
+
+          roles[longest][0] = "#{words[0...-1].join(' ').sub(/[[:punct:]]+\z/, '')}#{Font::ELLIPSIS}"
         end
       end
       line.call
