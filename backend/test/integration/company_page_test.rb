@@ -241,7 +241,7 @@ class CompanyPageTest < ActionDispatch::IntegrationTest
 
     assert_select "meta[property='og:title'][content='Kairos Power']"
     assert_select "meta[property='og:description'][content='Develops salt-cooled reactors.']"
-    assert_select "meta[name=description][content=?]", "Kairos Power: Develops salt-cooled reactors. Plants and sites, deals and sources."
+    assert_select "meta[name=description][content=?]", "Kairos Power: Develops salt-cooled reactors. Plants, sites and deals."
     assert_select "link[rel=canonical][href=?]", "http://www.example.com/companies/kairos-power"
   end
 

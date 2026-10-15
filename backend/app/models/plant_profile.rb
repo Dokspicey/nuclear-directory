@@ -54,6 +54,13 @@ class PlantProfile
 
   def companies_for(type) = links.select { |link| link.relationship_type == type }.map(&:organization).uniq
 
+  # Only links already in effect: the page shows a scheduled one as "Starts …",
+  # but a one-line summary would state it as current (#246).
+  def current_companies_for(type)
+    links.select { |link| link.relationship_type == type && (link.started_on.nil? || link.started_on <= Date.current) }
+      .map(&:organization).uniq
+  end
+
   def technologies
     [ (site.technology if site_facts?), *units.map(&:technology) ].compact.uniq.map(&:name)
   end

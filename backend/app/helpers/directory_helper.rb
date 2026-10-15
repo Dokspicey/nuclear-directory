@@ -117,6 +117,42 @@ module DirectoryHelper
   end
 
   # Two sentences, with a full stop between them unless the first has one.
+  # A plant's link preview and meta description (#246), from published facts
+  # only, each left out when it isn't known:
+  #   "Plant Vogtle: Operating power plant in Waynesboro, GA. 4 units, 4,536 MWe.
+  #    Owned by Georgia Power and 3 others; operated by Southern Nuclear."
+  # Kept under PREVIEW_LIMIT characters: a long owner list becomes "<first>
+  # and <n> others", then the units and capacity go, then owners.
+  PREVIEW_LIMIT = 160
+
+  def plant_preview(profile)
+    kind = [ facility_status_label(profile.status), (profile.status ? facility_type_label(profile.facility_type)&.downcase : facility_type_label(profile.facility_type)) ]
+      .compact.join(" ").presence
+    where = place(profile.city, profile.state)
+    what = kind ? [ kind, (where && "in #{where}") ].compact.join(" ") : (where && "In #{where}")
+    units = profile.units.size
+    capacity = "#{number_with_precision(profile.capacity_mw, precision: 2, strip_insignificant_zeros: true, delimiter: ",")} MWe" if profile.capacity_mw
+    size = [ (pluralize(units, "unit") if units.positive?), capacity ].compact.join(", ").presence
+    owners = profile.current_companies_for("owns").map(&:name)
+    operators = profile.current_companies_for("operates").map(&:name)
+    # Lists as the site writes them, without a serial comma ("A, B and C").
+    listed = ->(names) { names.to_sentence(last_word_connector: " and ") }
+    run_by = ->(owned) { [ (owned && "Owned by #{owned}"), (operators.any? && "operated by #{listed.call(operators)}") ].select(&:itself).join("; ").upcase_first.presence }
+    few_owners = owners.many? ? "#{owners.first} and #{pluralize(owners.size - 1, 'other')}" : owners.first
+
+    lines = [
+      [ what, size, run_by.call(listed.call(owners).presence) ],
+      [ what, size, run_by.call(few_owners) ],
+      [ what, nil, run_by.call(few_owners) ],
+      [ what, nil, run_by.call(nil) ],
+      [ what, nil, nil ]
+    ].map do |parts|
+      body = parts.compact.map { |part| part.end_with?(".") ? part : "#{part}." }.join(" ")
+      body.present? ? "#{profile.name}: #{body}" : profile.name
+    end
+    lines.find { |line| line.length <= PREVIEW_LIMIT } || lines.last.truncate(PREVIEW_LIMIT, separator: " ")
+  end
+
   def sentence_join(first, second)
     first = first.to_s.strip
     first.match?(/[.!?]\z/) ? "#{first} #{second}" : "#{first}. #{second}"

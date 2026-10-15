@@ -1,6 +1,56 @@
 require "test_helper"
 
 class DirectoryHelperTest < ActionView::TestCase
+  # Stands in for PlantProfile: only what plant_preview reads.
+  Profile = Struct.new(:name, :status, :facility_type, :city, :state, :units, :capacity_mw, :owners, :operators, keyword_init: true) do
+    def current_companies_for(type) = { "owns" => owners, "operates" => operators }.fetch(type).to_a.map { |name| Struct.new(:name).new(name) }
+  end
+
+  def profile(**overrides)
+    Profile.new(name: "Plant Vogtle", status: "operating", facility_type: "power_reactor", city: "Waynesboro", state: "GA",
+      units: Array.new(4), capacity_mw: BigDecimal("4536"), owners: [ "Georgia Power" ], operators: [ "Southern Nuclear" ], **overrides)
+  end
+
+  test "a plant's preview says what it is, where, how big, and who owns and runs it (#246)" do
+    assert_equal "Plant Vogtle: Operating power plant in Waynesboro, GA. 4 units, 4,536 MWe. Owned by Georgia Power; operated by Southern Nuclear.",
+      plant_preview(profile)
+  end
+
+  test "a plant's preview stays under 160 characters: a long owner list becomes the first and a count" do
+    owners = [ "Georgia Power", "Oglethorpe Power", "MEAG Power", "Dalton Utilities" ]
+    line = plant_preview(profile(owners:))
+
+    assert_equal "Plant Vogtle: Operating power plant in Waynesboro, GA. 4 units, 4,536 MWe. " \
+      "Owned by Georgia Power and 3 others; operated by Southern Nuclear.", line
+    assert_operator line.length, :<=, 160
+  end
+
+  test "a plant's owners are listed as the site writes lists, without a serial comma" do
+    line = plant_preview(profile(name: "Vogtle", status: nil, facility_type: nil, city: nil, state: nil, units: [], capacity_mw: nil,
+      owners: [ "Dalton Utilities", "Georgia Power", "MEAG Power" ], operators: []))
+
+    assert_equal "Vogtle: Owned by Dalton Utilities, Georgia Power and MEAG Power.", line
+  end
+
+  test "a plant's preview leaves out what isn't known, and never says nothing" do
+    assert_equal "Hermes: Test reactor in Oak Ridge, TN. Operated by Kairos Power.",
+      plant_preview(profile(name: "Hermes", status: nil, facility_type: "research_reactor", city: "Oak Ridge", state: "TN",
+        units: [], capacity_mw: nil, owners: [], operators: [ "Kairos Power" ]))
+    assert_equal "Blank Site", plant_preview(profile(name: "Blank Site", status: nil, facility_type: nil, city: nil, state: nil,
+      units: [], capacity_mw: nil, owners: [], operators: []))
+    assert_equal "Gone Plant: In Somewhere, TX. 1 unit.", plant_preview(profile(name: "Gone Plant", status: nil, facility_type: nil,
+      city: "Somewhere", state: "TX", units: [ 1 ], capacity_mw: nil, owners: [], operators: []))
+  end
+
+  test "a plant's preview drops the size, then owners, before it would run long" do
+    owners = [ "A Very Long Utility Company Name Incorporated", "Another" ]
+    operators = [ "An Exceptionally Long Operating Company Name, LLC" ]
+    line = plant_preview(profile(name: "Some Generating Station With A Long Name", owners:, operators:))
+
+    assert_operator line.length, :<=, 160
+    assert_match "Operated by An Exceptionally Long Operating Company Name, LLC", line, "the operator outlasts the owners"
+    assert_no_match "MWe", line
+  end
   test "relationship verbs read left to right in visitors' words" do
     assert_equal "offtakes from", relationship_verb("offtake_with")
     assert_equal "invests in", relationship_verb(:invests_in)
