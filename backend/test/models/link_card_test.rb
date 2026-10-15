@@ -90,6 +90,14 @@ class LinkCardTest < ActiveSupport::TestCase
     assert_equal "Molten salt coolant · Alameda, CA", LinkCard.for_company(profile).label, "no category: its first role"
   end
 
+  test "the footer drops a whole fact rather than cut one, as drawn" do
+    card = LinkCard.for_company(kairos)
+
+    assert_equal "Operates 1 plant · Owns stakes in 2 plants", card.footer_right, "both facts, for the alt text"
+    assert_equal "Operates 1 plant", card.send(:footer_drawn).last, "the second doesn't fit beside the wordmark"
+    assert_equal "4 reactors · 4,530 MWe", LinkCard.for_plant(vogtle).send(:footer_drawn).last
+  end
+
   test "a company's HQ shows only when its page shows it (a source backs it)" do
     assert_equal "Reactor developer", LinkCard.for_company(kairos(hq_city: nil, hq_state: nil)).label
   end
@@ -114,6 +122,12 @@ class LinkCardTest < ActiveSupport::TestCase
       owners: [ "Old Dominion Electric Cooperative", "Another Owner" ]))
 
     assert_match(/\AOperated by .+ \+ 1 · Owned by .+ \+ 1\z/, card.role_text)
+    assert_operator LinkCard::Font.width(card.role_text, font: :mono, size: 28), :<=, LinkCard::TEXT_WIDTH
+
+    # Both down to one long word and still too wide: letters go, the counts stay.
+    card = LinkCard.for_plant(vogtle(operators: [ "EnergySolutions Government Group", "Another Operator" ],
+      owners: [ "EnergySolutions Waste Management", "Another Owner" ]))
+    assert_match(/\AOperated by Energy\S*… \+ 1 · Owned by Energy\S*… \+ 1\z/, card.role_text)
     assert_operator LinkCard::Font.width(card.role_text, font: :mono, size: 28), :<=, LinkCard::TEXT_WIDTH
   end
 

@@ -174,20 +174,31 @@ class LinkCard
     def draw_footer(parts)
       parts << %(<rect x="#{PAD_SIDE}" y="#{FOOTER_RULE_Y}" width="#{TEXT_WIDTH}" height="2" fill="#{PAPER}"/>)
       center = HEIGHT - PAD_BOTTOM - FOOTER_HEIGHT / 2.0
+      left, left_style, right = footer_drawn
+      parts << Font.path(left, PAD_SIDE, Font.centered_baseline(center, **left_style), fill: PAPER, **left_style)
+      return unless right
+
+      x = PAD_SIDE + TEXT_WIDTH - Font.width(right, **FACTS)
+      parts << Font.path(right, x, Font.centered_baseline(center, **FACTS), fill: PAPER, **FACTS)
+    end
+
+    # [left text, its style, the facts as drawn]. Text on both sides keeps
+    # 48px between them, the left at 26px if need be (Design). Whole facts
+    # are dropped from the end before one is cut ("Operates 1 plant", not
+    # "Operates 1 plant · Owns stakes in 2…").
+    def footer_drawn
       left_style = footer_left == :wordmark ? WORDMARK : FACTS
       left = footer_left == :wordmark ? "NUCLEAR DIRECTORY" : footer_left
-      # Text on both sides keeps 48px between them, the left at 26px if need be (Design).
       if footer_left != :wordmark && footer_right &&
           Font.width(left, **FACTS) + FOOTER_GAP + Font.width(footer_right, **FACTS) > TEXT_WIDTH
         left_style = FACTS.merge(size: 26)
       end
-      left_width = Font.width(left, **left_style)
-      parts << Font.path(left, PAD_SIDE, Font.centered_baseline(center, **left_style), fill: PAPER, **left_style)
-      return unless footer_right
+      return [ left, left_style, nil ] unless footer_right
 
-      right = Font.fit(footer_right, TEXT_WIDTH - left_width - FOOTER_GAP, **FACTS)
-      x = PAD_SIDE + TEXT_WIDTH - Font.width(right, **FACTS)
-      parts << Font.path(right, x, Font.centered_baseline(center, **FACTS), fill: PAPER, **FACTS)
+      room = TEXT_WIDTH - Font.width(left, **left_style) - FOOTER_GAP
+      facts = footer_right.split(" · ")
+      facts.pop while facts.size > 1 && Font.width(facts.join(" · "), **FACTS) > room
+      [ left, left_style, Font.fit(facts.join(" · "), room, **FACTS) ]
     end
 
     # The largest step at which the uppercase name fits two lines and the
@@ -227,7 +238,16 @@ class LinkCard
           # A word at a time from whichever name is longest now, each kept to
           # its first word at the least, until the whole line fits.
           longest = roles.keys.reject { |key| done.include?(key) }.max_by { |key| Font.width(roles[key].first, **ROLE) }
-          break unless longest
+          # Each name down to one word and still too long: letters go,
+          # from the widest name, down to one letter each.
+          unless longest
+            widest = roles.keys.max_by { |key| Font.width(roles[key].first, **ROLE) }
+            letters = roles[widest].first.delete_suffix(Font::ELLIPSIS)
+            break if letters.length <= 1
+
+            roles[widest][0] = "#{letters[0...-1].rstrip}#{Font::ELLIPSIS}"
+            next
+          end
 
           words = roles[longest].first.delete_suffix(Font::ELLIPSIS).split
           next done << longest if words.size < 2
