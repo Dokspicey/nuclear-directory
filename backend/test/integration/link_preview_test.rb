@@ -4,13 +4,15 @@ require_relative "../support/directory_builders"
 class LinkPreviewTest < ActionDispatch::IntegrationTest
   include DirectoryBuilders
 
-  test "every public page carries the shared preview image, once" do
+  def og_image = css_select("meta[property='og:image']").sole["content"]
+
+  test "every public page carries one preview image" do
     company("Kairos Power")
     [ root_path, companies_path, company_path(slug: "kairos-power"), privacy_path ].each do |path|
       get path
 
       assert_select "meta[property='og:image']", 1
-      assert_select "meta[property='og:image'][content^='http://www.example.com/assets/og-default-'][content$='.png']"
+      assert_match %r{\Ahttp://www\.example\.com/cards/.+/\h{16}\.png\z}, og_image
       assert_select "meta[property='og:image:width'][content='1200']"
       assert_select "meta[property='og:image:height'][content='630']"
       assert_select "meta[property='og:image:alt']"
@@ -74,9 +76,46 @@ class LinkPreviewTest < ActionDispatch::IntegrationTest
     assert_select "meta[property='og:url'][content=?]", "http://www.example.com/companies/kairos-power"
   end
 
-  test "the preview image is served" do
-    get ActionController::Base.helpers.image_path("og-default.png")
+  test "a plant, a company and a category show their own card; other pages the default (#245)" do
+    cite!(company("Kairos Power", roles: [ role("reactor_vendor") ]))
+    cite!(plant("Plant Vogtle", facility_type: "power_reactor", status: "operating", state: "GA"))
+    {
+      plant_path(slug: "plant-vogtle") => %r{/cards/plants/plant-vogtle/\h{16}\.png\z},
+      company_path(slug: "kairos-power") => %r{/cards/companies/kairos-power/\h{16}\.png\z},
+      companies_path(category: "reactor-developers") => %r{/cards/categories/reactor-developers/\h{16}\.png\z},
+      companies_path => %r{/cards/default/\h{16}\.png\z},
+      companies_path(category: "reactor-developers", q: "kairos") => %r{/cards/default/\h{16}\.png\z},
+      companies_path(category: "plants", state: "GA") => %r{/cards/default/\h{16}\.png\z}, # filtered: not the category's count
+      privacy_path => %r{/cards/default/\h{16}\.png\z}
+    }.each do |path, image|
+      get path
+      assert_match image, og_image, path
+    end
+
+    get plant_path(slug: "plant-vogtle")
+    assert_select "meta[property='og:image:alt'][content^='Plant Vogtle: Power plant']"
+  end
+
+  test "a card is a PNG cached for a year; an old address moves to the current card; a hidden page's is not found" do
+    cite!(plant("Plant Vogtle", facility_type: "power_reactor", status: "operating", state: "GA"))
+    get plant_path(slug: "plant-vogtle")
+    path = URI(og_image).path
+
+    get path
     assert_response :success
     assert_equal "image/png", response.media_type
+    assert_equal "\x89PNG".b, response.body.b[0, 4]
+    assert_match "max-age=#{1.year.to_i}", response.headers["Cache-Control"]
+    assert_match "immutable", response.headers["Cache-Control"]
+    assert_match "public", response.headers["Cache-Control"]
+
+    get path.sub(/\h{16}\.png\z/, "0000000000000000.png")
+    assert_redirected_to path
+
+    plant("Hidden Plant", verified: false)
+    get "/cards/plants/hidden-plant/0000000000000000.png"
+    assert_response :not_found
+    get "/cards/categories/not-a-category/0000000000000000.png"
+    assert_response :not_found
   end
 end

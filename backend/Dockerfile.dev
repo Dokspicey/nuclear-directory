@@ -4,7 +4,7 @@ FROM docker.io/library/ruby:$RUBY_VERSION-slim
 
 RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y \
-      build-essential git libpq-dev libyaml-dev pkg-config postgresql-client curl && \
+      build-essential git libpq-dev libyaml-dev pkg-config postgresql-client curl libvips && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
 
 WORKDIR /rails
