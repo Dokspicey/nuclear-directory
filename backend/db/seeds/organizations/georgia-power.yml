@@ -27,6 +27,7 @@ relationships:
 facilities:
 - name: Plant Vogtle
   type: owns
+  ownership_pct: 45.7
   source_url: https://www.georgiapower.com/news-hub/company-news/special-announcement-plant-vogtle-unit-4-has-officially-entered-commercial-operation.html
   quote: As we mark the completion of the expansion, we’re grateful for the leadership and foresight of the Georgia Public Service Commission, as well as the steadfast dedication from all the project’s co-owners (Oglethorpe Power, MEAG Power and Dalton Utilities) along the way.
   confidence: 1.0
