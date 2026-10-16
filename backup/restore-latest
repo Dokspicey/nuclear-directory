@@ -12,7 +12,8 @@
 # By default it restores into a fresh local database,
 # nuclear_directory_restore_test (the restore test). To restore into an empty
 # Render database instead, set RESTORE_TARGET_URL to that database's External
-# Database URL (see "Restore into production" in docs/backups.md).
+# Database URL (see "Restore into production" in the backups runbook, in the
+# private backups repo).
 set -euo pipefail
 
 repo="tosinoladokun/nuclear-directory-backups"
