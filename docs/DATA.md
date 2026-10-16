@@ -63,7 +63,7 @@ The verb is fixed (VOICE.md). Each link needs a quote that states that relations
 | `offtake_with` | offtakes from | Agreed to buy power from the company's existing or future fleet | Meta offtakes from Constellation | A power deal tied to one plant (use the plant link `offtakes_from`) |
 | `subsidiary_of` | is a subsidiary of | Points from the child to its parent | Georgia Power is a subsidiary of Southern Company | A partnership or joint venture |
 
-**Deal stage** (announced, MOU, signed, terminated) goes in the description and in the deal term's `status`. Deal amounts and dates are deal terms (#264), never free text alone.
+**Deal stage** goes in the link's description ("MOU", "framework", "signed PPA") and, once #264 merges, in the deal term's `status`: `announced`, `signed`, `active`, `completed` or `terminated`. An MOU or framework is `announced`, with "MOU" or "framework" in the description. Deal amounts and dates are deal terms (#264), never free text alone.
 
 **Counting deals (Tosin, 15 Oct: "just facts, not opinions"):**
 - A **deal** in counts and data pieces is a **signed** power deal: a PPA, a supply agreement or a tariff subscription.
