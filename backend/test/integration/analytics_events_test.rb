@@ -67,11 +67,14 @@ class AnalyticsEventsTest < ActionDispatch::IntegrationTest
   end
 
   test "a correction sent sends correction_submitted with only what it's about" do
-    post corrections_path, params: { subject: "Plant Vogtle", page_path: "/plants/plant-vogtle", message: "Unit 4 started in 2024.",
+    post corrections_path, params: { subject: "Plant Vogtle", page_path: "/plants/vogtle", message: "Unit 4 started in 2024.",
       contact: "a@example.com" }, headers: { "User-Agent" => BROWSER }
 
     event = posthog.events.sole
     assert_equal [ "correction_submitted", "plant" ], [ event[:event], event[:properties]["subject_type"] ]
+    assert_equal [ "/plants/vogtle", "Facility", facilities(:vogtle).id ],
+      event[:properties].values_at("page_path", "record_type", "record_id"), "the page, and the company or plant on it"
+    assert_nil event[:properties]["$ip"], "no IP"
     assert_not event[:properties].values.any? { |value| value.to_s.include?("Unit 4") || value.to_s.include?("a@example.com") },
       "never the message or contact"
   end
