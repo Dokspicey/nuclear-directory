@@ -108,46 +108,46 @@ The verb is fixed (VOICE.md). Each link needs a quote that states that relations
 
 ### Buckets and tags (Tosin, 15 Oct; #263, #267)
 
-**Every company gets one bucket: the plain answer to "what kind of company is this?"** It's what navigation and the pill on a company show. **Everything else a company does is a tag:** many per company, used to filter and to explain. A bucket is never stored as a fact. It's worked out from the company's sourced categories and links, so it can't drift from them.
+**A company sits in every bucket its sourced categories and links support.** Westinghouse is in Reactor developers, Fuel and materials, and Services and engineering; Amazon is in Power buyers and Investors. A bucket is never stored and never chosen by a person: it's computed from facts that already have sources, so it can't drift from them. **Tags** carry the finer detail (venture capital, SMR, molten salt, fuel-cycle stage) for filters and explanations.
 
-**The 9 buckets** (each with today's count; a bucket with no companies stays hidden):
+**The 9 buckets** (a bucket with no companies stays hidden; counts from 15 Oct):
 
-| Bucket | Means | From | Today |
+| Bucket | Means | A company is in it when it has | Today |
 |---|---|---|---|
-| Utilities and operators | Owns or runs nuclear plants, or sells their power | `utility`, `operator`, or a published owns/operates link | 32 |
+| Utilities and operators | Owns or runs nuclear power plants | `utility` or `operator`, or a published owns/operates link to an **operating power plant** | 33 |
 | Reactor developers | Designs or sells reactors, fission or fusion | `reactor_vendor` | 11 |
-| Fuel and materials | Mines, converts, enriches or fabricates fuel, or supplies materials such as coolant | `fuel` and its stages | 9 |
-| Components and manufacturing | Makes plant equipment: pumps, valves, forgings, steam generators, instrumentation and control | `components` (new key) | 0 (grows with #257, #258) |
-| Waste, decommissioning and storage | Stores spent fuel, decommissions plants, handles nuclear waste | `waste_decommissioning` (new key) | 0 (e.g. EnergySolutions, NAC once researched) |
-| Services and engineering | Maintains, builds, licenses or advises | `reactor_services`, `regulatory_consultant` | 4 |
-| Power buyers | Buys nuclear power, mostly hyperscalers and data centers | `data_center_offtaker`, or a published power deal as buyer | 4 |
-| Investors | Puts money into nuclear companies | `venture_capital` | 4 (5 with #250) |
+| Fuel and materials | Mines, converts, enriches or fabricates fuel, or supplies materials such as coolant | `fuel` or its stages, `coolant` or its kinds | 11 |
+| Components and manufacturing | Makes plant equipment: pumps, valves, forgings, steam generators, instrumentation and control | `components` (new key) | 0 |
+| Waste, decommissioning and storage | Stores spent fuel, decommissions plants, handles nuclear waste | `waste_decommissioning` (new key) | 0 |
+| Services and engineering | Maintains, builds, licenses or advises | `reactor_services`, `regulatory_consultant` | 6 |
+| Power buyers | Buys nuclear power, mostly hyperscalers and data centers | `data_center_offtaker`, or a published power deal as the buyer, **unless the buyer is a utility** (TVA buying from Kairos is a utility deal) | 4 |
+| Investors | Puts money into nuclear companies | `venture_capital`, or a published `invests_in` link | 6 |
 | Government and research | Regulators, agencies, national labs | `government_agency`, `national_lab` | 4 |
 
-**When a company fits more than one bucket**, it gets the first that applies in this order: Government and research, Reactor developers, Fuel and materials, Components and manufacturing, Waste, decommissioning and storage, Utilities and operators, Power buyers, Services and engineering, Investors. The two new buckets sit after fuel and before utilities: a company that makes equipment or decommissions plants is mainly that, even when it also owns a plant (a decommissioning company owns the plant it's taking apart). So Westinghouse is a reactor developer (also tagged fuel and services), Amazon is a power buyer (also tagged investor), and Holtec is a reactor developer (also tagged operator). A person can override this only if the order gives a wrong answer; none does today.
+**Counting:** buckets overlap (6 of 81 companies are in two or more today). The total is always the number of companies ("81 companies"), never the sum of buckets. A bucket count is labelled "companies that develop reactors", "companies that buy nuclear power", and so on. Charts of buckets are bars, never a pie or a 100% stack.
+
+**One label, where only one fits:** cramped spots (link-preview cards, search results) show the company's first bucket in this display order: Reactor developers, Fuel and materials, Components and manufacturing, Waste, decommissioning and storage, Utilities and operators, Power buyers, Services and engineering, Investors, Government and research. It's for display only: never stored, counted or exported. The company's page and the dataset list all its buckets.
 
 **Tags, by group** (filters and explanations, never navigation):
 
 | Group | Tags |
 |---|---|
-| Also does | Every other category the company holds: utility, operator, reactor services, investor… |
 | Investor type | Venture capital (corporate fund and private equity later, each from a quote) |
 | Fuel-cycle stage | Mining, conversion, enrichment, fabrication |
 | Technology | Fission, fusion, SMR (design types are on the roadmap, #263). Fusion is a tag under Reactor developers, never its own bucket |
 | Coolant | Molten salt, water, helium, sodium, lead, heavy water |
 | From its links (computed) | Operates a plant, owns a plant, buys power, invests, has deals |
 
-**How today's categories map:** utility and operator → Utilities and operators; reactor vendor → Reactor developers; fuel, mining, conversion, enrichment and fabrication → Fuel and materials, with the stages as tags; reactor services and regulatory consultant → Services and engineering; data-center offtaker → Power buyers; venture capital → Investors, with "venture capital" as a tag; government agency and national lab → Government and research; coolant and its kinds → tags only (Kairos stays a reactor developer).
-
-**New category keys:** `components` and `waste_decommissioning` join the roles list, each given to a company only from a quote that states it. Holtec gets `waste_decommissioning` as a tag once a quote for its storage business is added; it stays a reactor developer by the order. Industry groups become a tenth bucket later (#162).
+**New category keys:** `components` and `waste_decommissioning` join the roles list, each given to a company only from a quote that states it (e.g. Holtec's storage business, once quoted). Industry groups become a bucket later (#162).
 
 **What changes on the site:**
-- Navigation and company pills show the buckets that have companies (7 today) instead of 11 categories.
-- Company pages show the bucket plus its tags.
-- Public filters (#263) become "Type" (one bucket) plus the tag groups.
-- 20 operators the crawlers created, which have no category, appear under Utilities and operators through their sourced plant links.
-- The remaining 13 uncategorized companies (duplicates and raw names, #230, #267) stay out of navigation until they're cleaned up.
-- No database change: the bucket is a fixed mapping in code from the category keys and links.
+- Navigation shows the buckets that have companies (7 today) instead of 11 categories; a company appears under each of its buckets.
+- Company pages show all of a company's buckets, then its tags.
+- Public filters (#263) become "Type" (buckets, multi-select) plus the tag groups.
+- 20 operators the crawlers created, which have no category, appear under Utilities and operators through their sourced links to operating power plants.
+- The 13 companies in no bucket (duplicates and raw names, #230, #267) stay out of navigation until they're cleaned up.
+- No database change beyond the two new category keys: buckets are a fixed mapping in code from category keys and links.
+- The open dataset (#254) exports each company's buckets and categories as lists, each category with its source.
 
 ## 5. Sources and quotes
 
@@ -217,4 +217,4 @@ The admin's Live screen and the nightly `data_quality:audit` are planned (Admin 
 | Capacity is shown as "MW", noted "Net summer capacity, from EIA" on plant pages (D2) | Tosin | #238 |
 | A counted deal is a signed power deal; frameworks and MOUs are listed separately by stage | Tosin | #253, #255 |
 | Nuclear Capital Partners is venture capital (#250) | Tosin | #250 |
-| 9 company buckets, one per company, with a fixed order; everything else is a tag | Tosin, PM | #266 |
+| 9 company buckets; a company is in every bucket its facts support, with no stored main bucket; tags for detail | Tosin | #266 |
