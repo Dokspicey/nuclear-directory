@@ -13,6 +13,7 @@
     <%= hidden_field_tag :back, request.fullpath, id: nil %>
     <div class="nd-wait__what">
       <p class="type-kicker text-ink-muted"><%= check_kicker(item) %></p>
+      <% if item.held %><p class="m-0"><span class="nd-tag">Waiting for Data Quality</span></p><% end %>
       <p class="type-subject">
         <% if item.subject_id %>
           <%= link_to check_subject(item), admin_fact_path(type: item.subject_type, id: item.subject_id, from: "checks", back: request.fullpath, claim: item.candidate_id), class: "nd-link" %>
@@ -33,6 +34,7 @@
             <% end %>
             · <span class="nd-num">Claim <%= item.candidate_id %></span>
           </p>
+          <% if item.held %><p class="type-body"><strong>Not in Approve all:</strong> <%= item.held %>.</p><% end %>
           <% if item.ai_recommendation == "recommend_publish" %>
             <p class="type-body"><strong>Verifier recommends publishing</strong><% if item.ai_confidence %> (<%= percent(item.ai_confidence) %> sure)<% end %>: <%= item.ai_reason %></p>
           <% elsif item.notes.present? %>
