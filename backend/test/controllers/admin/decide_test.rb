@@ -78,6 +78,28 @@ class Admin::DecideTest < ActionDispatch::IntegrationTest
     assert_select ".nd-decide__result", /Rejected by tosin/
   end
 
+  test "Take off and Put back come back to the claim the page was opened for" do
+    unit = Facility.create!(name: "Catawba 2", nrc_docket: "05000414", verification_status: "verified", verified_by: "human:tosin")
+    Evidence.create!(subject: unit, source: @nrc, quote: "Catawba 2", found_by: "crawler")
+    eia = Source.create!(url: "https://www.eia.gov/decide3.xlsx", source_kind: "eia_generators", crawl_status: "ok")
+    Candidate.create!(source: @nrc, kind: "facility", quote: "q", status: "needs_review", notes: "unsure",
+      subject_type: "Facility", subject_id: unit.id, payload: { "name" => "Catawba 2", "state" => "SC" })
+    from_eia = Candidate.create!(source: eia, kind: "facility", quote: "q", status: "needs_review", notes: "unsure",
+      subject_type: "Facility", subject_id: unit.id, payload: { "identify" => { "name" => "Catawba", "unit" => "2" }, "capacity_mw" => "1150.1" })
+    here = { from: "checks", back: admin_checks_path(source: "eia_generators"), claim: from_eia.id }
+
+    get admin_fact_path(type: "Facility", id: unit.id, **here)
+    assert_select "form[action=?]", admin_fact_unpublish_path(type: "Facility", id: unit.id, **here)
+
+    post admin_fact_unpublish_path(type: "Facility", id: unit.id, **here), params: { reason: "Test" }
+    assert_redirected_to admin_fact_path(type: "Facility", id: unit.id, **here)
+    follow_redirect!
+    assert_select ".nd-decide button[value=?]", from_eia.id.to_s, minimum: 1
+
+    post admin_fact_republish_path(type: "Facility", id: unit.id, **here)
+    assert_redirected_to admin_fact_path(type: "Facility", id: unit.id, **here)
+  end
+
   test "the bar decides the claim that was opened, when two sources have one on the same fact" do
     unit = Facility.create!(name: "Catawba 2", nrc_docket: "05000414", verification_status: "verified", verified_by: "human:tosin")
     eia = Source.create!(url: "https://www.eia.gov/decide.xlsx", source_kind: "eia_generators", crawl_status: "ok")

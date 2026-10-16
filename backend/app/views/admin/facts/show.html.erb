@@ -49,7 +49,7 @@
     <% if status == "verified" %>
       <details class="nd-takeoff">
         <summary class="nd-btn nd-btn--danger type-ui">Take off</summary>
-        <%= form_with url: admin_fact_unpublish_path(type: @fact.type, id: @fact.id, **context), class: "nd-panel nd-takeoff__form" do %>
+        <%= form_with url: admin_fact_unpublish_path(type: @fact.type, id: @fact.id, **context, claim: params[:claim].presence), class: "nd-panel nd-takeoff__form" do %>
           <button type="submit" disabled hidden aria-hidden="true" tabindex="-1"></button>
           <div class="nd-field">
             <label for="reason" class="type-body-strong">Reason</label>
@@ -59,7 +59,7 @@
         <% end %>
       </details>
     <% elsif status == "unpublished" %>
-      <%= form_with url: admin_fact_republish_path(type: @fact.type, id: @fact.id, **context) do %>
+      <%= form_with url: admin_fact_republish_path(type: @fact.type, id: @fact.id, **context, claim: params[:claim].presence) do %>
         <button type="submit" class="nd-btn nd-btn--primary type-ui">Put back</button>
       <% end %>
     <% end %>
