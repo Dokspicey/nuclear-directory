@@ -1,0 +1,21 @@
+# Seed research for #253 (hyperscaler power deals) - 2026-10-15. Quotes copied from raw page text fetched this session.
+# Created by the NRC/EIA crawlers on 12 Oct; this file lets the seed name it as a deal party.
+name: NextEra Energy
+aliases:
+- NextEra Energy Point Beach, LLC
+- NextEra Energy Seabrook, LLC
+website: https://www.nexteraenergy.com
+hq: null
+country_code: US
+status: active
+roles: []
+technologies: []
+relationships: []
+facilities: []
+notes: 'HQ not set: the company page fetched does not state it. Google power deal (Duane Arnold) is recorded in google.yml (#253).'
+description:
+  text: Energy company building generation of all kinds, including nuclear.
+  source_url: https://www.nexteraenergy.com/company.html
+  quote: NextEra Energy is committed to meeting America’s increasing energy demand with an all forms of energy approach.
+  also:
+  - quote: 'NextEra Energy completed the largest multi-state nuclear uprate project in U.S. history.'

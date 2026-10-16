@@ -31,6 +31,13 @@ relationships:
   quote: The power purchase agreement between the Tennessee Valley Authority (TVA) and Kairos Power will deliver up to 50 MW of "reliable, 24/7 energy" to the TVA grid that powers Google data centres in Tennessee and Alabama, the companies said.
   published: '2025-08-18'
   confidence: 0.8
+- type: offtake_with
+  to: Kairos Power
+  description: 'Signed PPA: TVA buys up to 50 MW from Kairos Power''s Hermes 2 reactor (first US utility PPA with a Gen IV reactor). Announced Aug 2025.'
+  source_url: https://www.kairospower.com/updates/google-kairos-power-tva-collaborate-to-meet-americas-growing-energy-needs
+  quote: 'Through a new power purchase agreement (PPA) between Kairos Power and TVA, Kairos Power’s Hermes 2 Plant in Oak Ridge, Tenn., will deliver up to 50 megawatts (MW) of reliable, 24/7 energy to the TVA grid that powers Google data centers'
+  published: '2025-08-18'
+  confidence: 1.0
 facilities:
 - name: Clinch River Nuclear Site Unit 1
   type: owns
@@ -52,6 +59,12 @@ facilities:
   published: '2025-09-19'
   confidence: 1.0
   note: "TVA owns the site. The plant is covered only by a non-binding letter of intent, and final decisions need TVA Board approval."
+- name: Hermes 2
+  type: offtakes_from
+  source_url: https://www.kairospower.com/updates/google-kairos-power-tva-collaborate-to-meet-americas-growing-energy-needs
+  quote: 'Through a new power purchase agreement (PPA) between Kairos Power and TVA, Kairos Power’s Hermes 2 Plant in Oak Ridge, Tenn., will deliver up to 50 megawatts (MW) of reliable, 24/7 energy to the TVA grid that powers Google data centers'
+  published: '2025-08-18'
+  confidence: 1.0
 notes: 'TVA is a federal corporation (''a corporate agency of the United States'' per its boilerplate on Type One''s page) but tagged utility, not government_agency. TVA role quote is TVA boilerplate hosted on Type One Energy''s site (0.8). HQ not verified in this session. TVA-Type One LOI is non-binding; recorded only as a facility link, not an org-org relationship. #63: tva.com and tva.gov return 403 (blocked). Source is the 2002-03 U.S. Government Manual on govinfo.gov (dated; facts used are stable). Wholesale wording from same page: "The Authority is the wholesale power supplier for 158 local municipal and cooperative electric systems". Worth re-sourcing from tva.com when reachable.'
 description:
   text: Federally owned corporation, created in 1933, that supplies wholesale electric power in the Tennessee Valley region.

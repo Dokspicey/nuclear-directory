@@ -90,7 +90,7 @@ in the background and `docker compose down` to stop it.
 `db:prepare` creates the database, runs migrations and, on first setup, loads
 the seed data. Rerun it after pulling new migrations.
 
-The seed data is the roles and technologies lists plus 51 hand-checked
+The seed data is the roles and technologies lists plus 53 hand-checked
 organizations, one YAML file each in `backend/db/seeds/organizations/`, and
 plant details in `backend/db/seeds/facilities.yml`. Every fact in them is
 loaded with its source and quote as evidence, and is verified (public) unless
