@@ -234,10 +234,44 @@ class Admin::LiveTest < ActionDispatch::IntegrationTest
 
     get edit
     assert_select ".nd-itemnav", 0, "no Previous and Next through Checks"
-    assert_select ".nd-crumbs li a[href=?]", back, "Live"
+    assert_select ".nd-crumbs a[href=?]", fact
 
     patch admin_candidate_path(claim.id, back:, next: fact), params: { values: { state: "TX" } }
     assert_redirected_to fact
+  end
+
+  test "editing a claim from a Record's waiting link comes back to that fact page too" do
+    c = company("Waiting Co")
+    claim = Candidate.create!(source: @web, kind: "organization", quote: "q", status: "needs_review", notes: "unsure",
+      subject_type: "Organization", subject_id: c.id, payload: { "name" => "Waiting Co", "hq_city" => "Austin" })
+    record = admin_record_path(type: "Organization", id: c.id)
+    fact = admin_fact_path(type: "Organization", id: c.id, claim: claim.id, back: record)
+
+    get fact
+    assert_equal edit_admin_candidate_path(claim.id, back: record, next: fact), css_select("a.nd-decide__edit").first["href"]
+  end
+
+  test "a site not public yet shows its own capacity, reactor type and technology" do
+    site = Facility.create!(name: "Draft Plant", capacity_mw: 1100, reactor_type: "PWR", verification_status: "pending")
+
+    get admin_record_path(type: "Facility", id: site.id)
+
+    assert_select ".nd-factcard", /1,100 MW/
+    assert_select ".nd-factcard", /PWR/
+  end
+
+  test "Take off and Put back on a pending site public through its unit leaves it pending, its units public again" do
+    site = Facility.create!(name: "Round Trip Site", verification_status: "pending")
+    unit = Facility.create!(name: "Round Trip 1", parent: site, **VERIFIED)
+    Evidence.create!(subject: unit, source: @web, quote: "Round Trip 1", found_by: "human")
+
+    post admin_fact_unpublish_path(type: "Facility", id: site.id), params: { reason: "Test" }
+    assert_not Facility.published.exists?(unit.id)
+
+    post admin_fact_republish_path(type: "Facility", id: site.id)
+
+    assert_equal "pending", site.reload.verification_status, "its own fields stay unapproved"
+    assert Facility.published.exists?(unit.id)
   end
 
   test "a unit has no Record page; its fact page opened from Live says Live" do

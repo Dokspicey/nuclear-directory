@@ -3,7 +3,7 @@
 
 <div class="nd-stack max-w-prose">
   <div class="nd-shell__head">
-    <%= render "admin/crumbs", parent_label: from_fact ? "Live" : "Checks", parent_path: back_path(admin_checks_path(filters.slice("category", "source"))), current: "Edit, then approve" %>
+    <%= render "admin/crumbs", parent_label: from_fact ? "Back" : "Checks", parent_path: from_fact || back_path(admin_checks_path(filters.slice("category", "source"))), current: "Edit, then approve" %>
     <%= render "admin/itemnav", list: @list if @list %>
   </div>
   <h1 class="type-admin-h1 m-0">Edit, then approve</h1>

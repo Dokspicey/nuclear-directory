@@ -103,14 +103,18 @@ module Directory::Checks
       end
 
       def gap_tags
-        links = ->(type) { FacilityRelationship.published.where(relationship_type: type) }
+        # Only links in effect today: an ended owner or operator, or one not
+        # started yet, doesn't fill the gap, and successive owners aren't co-owners.
+        current = -> { FacilityRelationship.published.where("facility_relationships.ended_on IS NULL OR facility_relationships.ended_on > :today", today: Date.current)
+          .where("facility_relationships.started_on IS NULL OR facility_relationships.started_on <= :today", today: Date.current) }
+        links = ->(type) { current.call.where(relationship_type: type) }
         # No live link of this type on the facility, its site or its units.
         without = lambda do |type|
           linked = links.call(type).select(:facility_id)
           Facility.where.not(id: linked).where("facilities.parent_id IS NULL OR facilities.parent_id NOT IN (?)", linked)
             .where.not(id: Facility.where(id: linked).where.not(parent_id: nil).select(:parent_id))
         end
-        co_owned = FacilityRelationship.published.where(relationship_type: "owns").group(:facility_id).having("COUNT(*) >= 2").select(:facility_id)
+        co_owned = current.call.where(relationship_type: "owns").group(:facility_id).having("COUNT(*) >= 2").select(:facility_id)
         [
           Tag.new("no-operator", "No operator", "gaps", nil, "An operating plant or reactor with no live operator",
             { "Facility" => -> { without.call("operates").operating } }),

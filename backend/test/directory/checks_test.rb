@@ -85,6 +85,17 @@ class Directory::ChecksTest < ActiveSupport::TestCase
     assert_not Directory::Checks.find("no-operator").applies_to?(Organization)
   end
 
+  test "gaps count only links in effect today: an ended operator leaves the gap, successive owners aren't co-owners" do
+    plant = Facility.create!(name: "Handed Over Plant", status: "operating", **VERIFIED)
+    old, new = Organization.create!(name: "Old Op", **VERIFIED), Organization.create!(name: "New Owner", **VERIFIED)
+    FacilityRelationship.create!(organization: old, facility: plant, relationship_type: "operates", ended_on: 1.year.ago, **VERIFIED)
+    FacilityRelationship.create!(organization: old, facility: plant, relationship_type: "owns", ended_on: 1.year.ago, **VERIFIED)
+    current = FacilityRelationship.create!(organization: new, facility: plant, relationship_type: "owns", **VERIFIED)
+
+    assert_includes ids("no-operator", Facility), plant.id
+    assert_not_includes ids("no-share", FacilityRelationship), current.id
+  end
+
   test "source disagrees: an open disagreement, or a source's latest reading that a person's decision overrules" do
     source = Source.create!(url: "https://www.nrc.gov/disagree", source_kind: "nrc_reactor_list", domain: "nrc.gov")
     overruled = Facility.create!(name: "Overruled 1", **VERIFIED)

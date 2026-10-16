@@ -42,7 +42,7 @@ class Admin::FactsController < Admin::BaseController
   end
 
   def republish
-    result = DataQuality::Review.approve_fact(type: params[:type], id: params[:id].to_i, by: actor, reason: params[:reason].presence)
+    result = DataQuality::Review.republish(type: params[:type], id: params[:id].to_i, by: actor, reason: params[:reason].presence)
     flash_results([ result ], "Republished")
     redirect_after next_or(fact_path_here)
   end
