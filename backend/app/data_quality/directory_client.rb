@@ -325,7 +325,9 @@ class DataQuality::DirectoryClient
       # The claims on both records are locked first, in the order an approval
       # takes (source, claim, then the fact), so a merge and an approval of
       # one of those claims never wait on each other.
-      claims = ::Candidate.where(subject_type: type, subject_id: [ from_id, into_id ])
+      # A site's units too: approving a unit's claim locks the unit, then its site.
+      units = type == "Facility" ? lookup.unit_ids(site_ids: [ from_id, into_id ]) : []
+      claims = ::Candidate.where(subject_type: type, subject_id: [ from_id, into_id, *units ])
       ::Source.where(id: claims.select(:source_id)).order(:id).lock.to_a
       claims.order(:id).lock.to_a
       result = write_result(fact_writer.public_send(method, from_id:, into_id:, by:, reason:))

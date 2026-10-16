@@ -80,6 +80,15 @@ class Admin::MergeTest < ActionDispatch::IntegrationTest
     assert_select "p", /\ANothing else moves\. KEPT CO is then taken off/
   end
 
+  test "merging into a company not approved yet warns that neither page is public until it is" do
+    live = sourced(Organization.create!(name: "Live Brand Co", **VERIFIED))
+    pending = Organization.create!(name: "Pending Brand Co")
+
+    get admin_record_merge_path(type: "Organization", id: live.id, into: pending.id)
+
+    assert_select "p", /Pending Brand Co isn't approved yet,\s+so neither page is public until it is/
+  end
+
   test "a removed record isn't merged from here, nor merged into" do
     gone = sourced(Organization.create!(name: "Gone Co", **VERIFIED))
     gone.unpublish!(by: "human:tosin", reason: "Test")
