@@ -44,6 +44,27 @@ relationships:
   quote: Under the agreement Amazon would have the right to purchase electricity from the first phase, while Energy Northwest will have the option to build the eight extra modules, with the additional power being available to Amazon and utilities in the area.
   published: '2024-10-16'
   confidence: 0.8
+- type: offtake_with
+  to: Vistra Corporation
+  description: 'Signed 20-year PPA for up to 1,200 MW from the Comanche Peak plant (buyer named as AWS in Vistra''s Feb 2026 results).'
+  source_url: https://investor.vistracorp.com/2026-02-26-Vistra-Reports-Fourth-Quarter-and-Full-Year-2025-Results
+  quote: 'a 20-year power purchase agreement with AWS for up to 1,200 MW of carbon-free power at our Comanche Peak Nuclear Power Plant'
+  published: '2026-02-26'
+  confidence: 1.0
+- type: offtake_with
+  to: Constellation
+  description: 'Signed 20-year agreement (Sept 2026) for 690 MW from Calvert Cliffs, including a 190 MW uprate.'
+  source_url: https://www.constellationenergy.com/news/2026/09/constellation-and-amazon-announce-20-year-power-purchase-agreement-at-calvert-cliffs.html
+  quote: 'a 20-year agreement, which includes 690 megawatts of power, including the 190 megawatt uprate'
+  published: '2026-09-30'
+  confidence: 1.0
+- type: offtake_with
+  to: Energy Northwest
+  description: 'Agreement (Oct 2024): Amazon funds the initial feasibility phase of the Cascade SMR project and has the right to buy electricity from the first phase.'
+  source_url: https://www.energy-northwest.com/whoweare/news-and-info/Pages/Amazon-and-Energy-Northwest-announce-plans-to-develop--advanced-nuclear-technology-in-Washington.aspx
+  quote: 'Under the agreement, Amazon will have the right to purchase electricity from the first project (4 modules), which is expected to generate 320 megawatts (MW) of energy capacity.'
+  published: '2024-10-16'
+  confidence: 1.0
 facilities:
 - name: Susquehanna Steam Electric Station
   type: offtakes_from
@@ -57,6 +78,24 @@ facilities:
   quote: Under the agreement Amazon would have the right to purchase electricity from the first phase, while Energy Northwest will have the option to build the eight extra modules, with the additional power being available to Amazon and utilities in the area.
   published: '2024-10-16'
   confidence: 0.8
+- name: Comanche Peak
+  type: offtakes_from
+  source_url: https://investor.vistracorp.com/2026-02-26-Vistra-Reports-Fourth-Quarter-and-Full-Year-2025-Results
+  quote: 'a 20-year power purchase agreement with AWS for up to 1,200 MW of carbon-free power at our Comanche Peak Nuclear Power Plant'
+  published: '2026-02-26'
+  confidence: 1.0
+- name: Calvert Cliffs Nuclear Power Plant
+  type: offtakes_from
+  source_url: https://www.constellationenergy.com/news/2026/09/constellation-and-amazon-announce-20-year-power-purchase-agreement-at-calvert-cliffs.html
+  quote: 'a 20-year agreement, which includes 690 megawatts of power, including the 190 megawatt uprate'
+  published: '2026-09-30'
+  confidence: 1.0
+- name: Cascade Advanced Energy Facility
+  type: offtakes_from
+  source_url: https://www.energy-northwest.com/whoweare/news-and-info/Pages/Amazon-and-Energy-Northwest-announce-plans-to-develop--advanced-nuclear-technology-in-Washington.aspx
+  quote: 'Under the agreement, Amazon will have the right to purchase electricity from the first project (4 modules), which is expected to generate 320 megawatts (MW) of energy capacity.'
+  published: '2024-10-16'
+  confidence: 1.0
 notes: 'Amazon-Dominion SMR MOU at North Anna (non-binding) noted under Dominion. Search summaries conflicted on whether Amazon alone provided $500M to X-energy; X-energy''s release says the ~$500M round was anchored by Amazon with other investors. Talen quotes obtained via WebFetch summarizer (SEC blocked curl). HQ not verified. #63: HQ not added: aboutamazon.com says only "The Puget Sound region is home to our first global headquarters" (no city) and names Arlington, VA as second headquarters. SEC filings blocked (403).'
 description:
   text: Company offering online shopping, cloud computing, streaming, devices, advertising and AI services.
