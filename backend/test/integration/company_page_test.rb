@@ -35,7 +35,7 @@ class CompanyPageTest < ActionDispatch::IntegrationTest
     get company_path(slug: "kairos-power")
 
     assert_response :success
-    assert_select "title", "Kairos Power · Nuclear Directory"
+    assert_select "title", "Kairos Power: reactor developer, plants and deals · Nuclear Directory"
     assert_select "main", 1
     assert_select "h1#profile-name", "Kairos Power"
     assert_select ".nd-profile__desc", /Develops salt-cooled reactors./
@@ -240,8 +240,9 @@ class CompanyPageTest < ActionDispatch::IntegrationTest
     get company_path(slug: "kairos-power")
 
     assert_select "meta[property='og:title'][content='Kairos Power']"
-    assert_select "meta[property='og:description'][content='Develops salt-cooled reactors.']"
-    assert_select "meta[name=description][content=?]", "Kairos Power: Develops salt-cooled reactors. Plants, sites and deals."
+    line = "Kairos Power: Develops salt-cooled reactors. Owns Hermes."
+    assert_select "meta[property='og:description'][content=?]", line
+    assert_select "meta[name=description][content=?]", line
     assert_select "link[rel=canonical][href=?]", "http://www.example.com/companies/kairos-power"
   end
 

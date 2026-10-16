@@ -1,0 +1,32 @@
+# Seed research for #253 batch 2 (hyperscaler power deals) - 2026-10-15. Quotes copied from raw page text fetched this session.
+name: Prometheus Hyperscale
+aliases:
+- Wyoming Hyperscale
+- Wyoming Hyperscale White Box LLC
+website: https://prometheushyperscale.com
+hq: null
+country_code: null
+status: active
+roles:
+- key: data_center_offtaker
+  source_url: https://prometheushyperscale.com/about-us
+  quote: we will integrate advanced fission technology to power our data centers
+  confidence: 1.0
+technologies:
+- key: fission
+  source_url: https://prometheushyperscale.com/about-us
+  quote: we will integrate advanced fission technology to power our data centers
+  confidence: 1.0
+relationships:
+- type: offtake_with
+  to: Oklo
+  description: 'Non-binding letter of intent (reported Nov 2024): Oklo to supply 100 MW to a Prometheus Hyperscale data center campus through a 20-year PPA.'
+  source_url: https://www.sec.gov/Archives/edgar/data/1849056/000162828024047882/oklo_shareholder-letterx.htm
+  quote: Oklo has received a non-binding LOI with Prometheus Hyperscale (formerly known as Wyoming Hyperscale) to supply 100 MW of clean power to a state-of-the- art data center campus through a 20-year Power Purchase Agreement (PPA).
+  confidence: 0.9
+facilities: []
+notes: 'Deal quote is from Oklo''s Q3 2024 shareholder letter (SEC exhibit, not char-verified live; matched against a copy fetched earlier this session); "state-of-the- art" is as it appears in the filing text. Aliases from the same letter and Oklo''s 10-Q (June 2026), which calls it "Prometheus Hyperscale (formerly Wyoming Hyperscale White Box LLC)". Flagship project is in Evanston, Wyoming; HQ not stated.'
+description:
+  text: Developer of hyperscale data centers, starting with a flagship project in Evanston, Wyoming.
+  source_url: https://prometheushyperscale.com/about-us
+  quote: Prometheus Hyperscale is bringing scalable, sustainable data center solutions to key locations across the U.S., starting with our flagship project in Evanston, Wyoming.
