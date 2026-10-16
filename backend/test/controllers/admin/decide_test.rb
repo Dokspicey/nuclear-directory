@@ -80,6 +80,16 @@ class Admin::DecideTest < ActionDispatch::IntegrationTest
     assert_select ".nd-decide__result", /Approved by tosin · \d+ \w+ \d\d:\d\d/
   end
 
+  test "a rejected fact's status reads who and when, short: 'Rejected by tosin · 16 Oct 14:02'" do
+    travel_to Time.zone.parse("2026-10-16 14:02")
+    link = FacilityRelationship.create!(organization: organizations(:westinghouse), facility: facilities(:vogtle), relationship_type: "owns")
+    post reject_admin_pending_facts_path, params: { type: "FacilityRelationship", id: link.id }
+
+    get admin_fact_path(type: "FacilityRelationship", id: link.id)
+
+    assert_select ".nd-panel p", "Rejected by tosin · 16 Oct 14:02"
+  end
+
   test "Edit, then approve has Reject too, and it moves on to the next claim" do
     a, b = waiting("Alpha Co"), waiting("Beta Co")
 

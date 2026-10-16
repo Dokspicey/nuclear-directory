@@ -39,7 +39,7 @@
       <p class="type-kicker text-ink-muted">Status</p>
       <p class="type-admin-h2"><%= status_word %></p>
       <% if @fact.verified_by %>
-        <p class="type-small text-ink-muted">by <%= who(@fact.verified_by) %><% if @fact.verified_at %> · <span class="nd-num"><%= data_date(@fact.verified_at) %></span><% end %></p>
+        <p class="type-small text-ink-muted"><%= { "verified" => "Approved", "rejected" => "Rejected", "unpublished" => "Taken off" }.fetch(@fact.verification_status, "Decided") %> by <%= who(@fact.verified_by) %><% if @fact.verified_at %> · <span class="type-data"><%= @fact.verified_at.strftime("%-d %b %H:%M") %></span><% end %></p>
       <% end %>
     </div>
 
