@@ -332,4 +332,27 @@ class DeployData::RunTest < ActiveSupport::TestCase
     assert_equal :applied, run_step, "the next deploy runs it all again"
     assert_equal "Fixed", organizations(:westinghouse).reload.name
   end
+
+  test "a seed error's details go in the report, not just its first line" do
+    seeder = -> { raise Seed::OrganizationLoader::Error, "Seed failed, nothing was written:\n  organization \"X\": name can't be blank" }
+    assert_equal :failed, run_step(seeder:)
+    report = @github.posts.sole[:body]
+    assert_includes report, "failed: Error: Seed failed, nothing was written:"
+    assert_includes report, "Note: organization \"X\": name can't be blank"
+  end
+
+  test "a timeout during the GitHub lookup stops the run before the backup" do
+    github = DeployData::GitHub.new(token: "test-token")
+    stub_request(:get, %r{api.github.com/repos/.+/commits/.+/pulls}).to_raise(DeployData::Run::TimedOut.new("took longer than bin/deploy-data allows"))
+    stub_request(:post, %r{api.github.com/repos/.+/issues}).to_return(status: 201, body: { html_url: "https://github.com/x" }.to_json)
+    run = DeployData::Run.new(commit: "abc1234def", mode: "on", backup: @backup, github:, lock: FakeLock.new, root: @root,
+      migrations: DeployData::Migrations.new(@root.join("db/data")), seeder: @seeder, checker: -> { [] })
+
+    status = nil
+    capture_io { status = run.call }
+    assert_equal :failed, status
+    assert_equal 0, @backup.taken
+    assert_equal 0, @seeds
+    assert_includes DataDeploy.sole.error, "TimedOut"
+  end
 end

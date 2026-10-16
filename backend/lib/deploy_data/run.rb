@@ -26,7 +26,9 @@ module DeployData
   # rolled back; no backup, record or post, whatever the mode.
   class Run
     class Stop < StandardError; end
-    class TimedOut < StandardError; end
+    # Not a StandardError, so no recoverable-error rescue (a GitHub lookup, a
+    # migration) can swallow it and let the run go on past its deadline.
+    class TimedOut < Interrupt; end
     class MigrationFailed < StandardError; end
 
     MODES = %w[on report].freeze
@@ -83,7 +85,10 @@ module DeployData
     rescue TimedOut, StandardError, ScriptError => error
       @report ||= Report.new(commit: @commit, pull_request: nil, label:)
       @status = :failed
-      @report.outcome = "failed: #{error.class.name.demodulize}: #{error.message.lines.first&.strip}"
+      first, *rest = error.message.lines.map(&:strip).compact_blank
+      @report.outcome = "failed: #{error.class.name.demodulize}: #{first}"
+      # The loader lists the failing facts after its first line.
+      @report.notes.concat(rest)
       @error = error.full_message(highlight: false)
       finish
     end
