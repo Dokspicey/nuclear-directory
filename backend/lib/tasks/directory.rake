@@ -165,6 +165,8 @@ namespace :directory do
     ActiveRecord::Base.transaction(requires_new: true) do
       ids.each do |id|
         facility = facilities.fetch(id)
+        next puts("#{facility.name} (##{id}) is already #{status}; nothing to change") if facility.status == status
+
         result = Directory::FactWriter.write(:facility, { id:, status: },
           evidence: [ { source_id: source.id, quote:, found_by: "human" } ], verification: { status: "verified", by:, reason: })
         abort "#{facility.name} (##{id}): #{result.errors.to_sentence}" unless result.ok?

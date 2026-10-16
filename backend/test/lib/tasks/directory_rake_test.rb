@@ -199,6 +199,9 @@ class DirectoryRakeTest < ActiveSupport::TestCase
       assert facility.human_verified?
       assert_equal [ "10/14/2026 12:00:00 AM|Palisades|0" ], facility.evidence.where(source: status_file).pluck(:quote)
     end
+    assert_output(/Palisades \(##{unit.id}\) is already not_operating; nothing to change/) do
+      assert_no_difference(-> { VerificationEvent.count }) { set_status("not_operating", ids, BY: "human:tosin", APPLY: "1") }
+    end
     assert_not_includes Facility.operating.ids, unit.id, "operating counts leave it out"
     assert_equal "Not operating", ApplicationController.helpers.facility_status_label(unit.status)
 
