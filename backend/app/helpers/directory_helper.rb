@@ -116,10 +116,26 @@ module DirectoryHelper
     [ city.presence, state.presence ].compact.join(", ").presence
   end
 
+  # "Waynesboro, Georgia": the same, with the state's full name, for
+  # descriptions people read in search results.
+  def full_place(city, state)
+    place(city, LinkCard::US_STATES[state.to_s] || state)
+  end
+
+  # A plant's <title>, in the words of plant-and-place searches (#291):
+  #   "Plant Vogtle, Waynesboro, GA: owners and operator"
+  # The place and each of owners and operator only when published.
+  def plant_title(profile)
+    owners = profile.current_companies_for("owns").any?
+    operators = profile.current_companies_for("operates").any?
+    who = [ ("owners" if owners), ("operator" if operators) ].compact.join(" and ").presence
+    [ [ profile.name, place(profile.city, profile.state) ].compact.join(", "), who ].compact.join(": ")
+  end
+
   # Two sentences, with a full stop between them unless the first has one.
   # A plant's link preview and meta description (#246), from published facts
   # only, each left out when it isn't known:
-  #   "Plant Vogtle: Operating power plant in Waynesboro, GA. 4 units, 4,536 MWe.
+  #   "Plant Vogtle: Operating power plant in Waynesboro, Georgia. 4 units, 4,536 MWe.
   #    Owned by Georgia Power and 3 others; operated by Southern Nuclear."
   # Kept under PREVIEW_LIMIT characters: a long owner list becomes "<first>
   # and <n> others", then the units and capacity go, then owners.
@@ -128,7 +144,7 @@ module DirectoryHelper
   def plant_preview(profile)
     kind = [ facility_status_label(profile.status), (profile.status ? facility_type_label(profile.facility_type)&.downcase : facility_type_label(profile.facility_type)) ]
       .compact.join(" ").presence
-    where = place(profile.city, profile.state)
+    where = full_place(profile.city, profile.state)
     what = kind ? [ kind, (where && "in #{where}") ].compact.join(" ") : (where && "In #{where}")
     units = profile.units.size
     capacity = "#{number_with_precision(profile.capacity_mw, precision: 2, strip_insignificant_zeros: true, delimiter: ",")} MWe" if profile.capacity_mw
@@ -151,6 +167,70 @@ module DirectoryHelper
       body.present? ? "#{profile.name}: #{body}" : profile.name
     end
     lines.find { |line| line.length <= PREVIEW_LIMIT } || lines.last.truncate(PREVIEW_LIMIT, separator: " ")
+  end
+
+  # A company's role as a noun for its <title> (#292): "Energy Fuels:
+  # uranium miner, plants and deals". Roles not listed use their label.
+  TITLE_ROLES = {
+    "fuel" => "fuel supplier", "mining" => "uranium miner", "conversion" => "uranium converter",
+    "enrichment" => "enrichment company", "fabrication" => "fuel fabricator",
+    "reactor_vendor" => "reactor developer", "reactor_services" => "nuclear services company",
+    "utility" => "utility", "operator" => "plant operator", "data_center_offtaker" => "power buyer",
+    "venture_capital" => "investor"
+  }.freeze
+  TITLE_LIMIT = 60
+
+  # "Helion Energy: fusion developer, investors and deals", from the roles
+  # shown and the sections the page has, shortened to fit TITLE_LIMIT.
+  def company_title(profile)
+    keys = profile.shown_roles.map { |r| r.role.key }
+    fusion = profile.technologies.any? { |t| [ t.technology.key, t.technology.parent&.key ].include?("fusion") }
+    key = keys.first
+    role = if fusion && keys.include?("reactor_vendor")
+      "fusion developer"
+    elsif key
+      TITLE_ROLES[key] || role_label(key).downcase
+    end
+    holds = [ ("plants" if profile.plant_links.any?), ("investors" if investors_of(profile).any?), ("deals" if profile.deals.any?) ].compact
+    candidates = holds.size.downto(0).map { |n| [ role, holds.first(n).to_sentence(last_word_connector: " and ").presence ].compact.join(", ").presence }
+    [ *candidates.map { |about| [ profile.name, about ].compact.join(": ") }, profile.name ]
+      .find { |title| title.length <= TITLE_LIMIT } || profile.name
+  end
+
+  # A company's meta and link-preview description (#292, #247), within
+  # PREVIEW_LIMIT: its one-line description when published, then facts from
+  # its plants and deals, each left out when it isn't known or doesn't fit.
+  #   "Southern Nuclear: Operates Plant Vogtle and 2 other plants. Legal name:
+  #    Southern Nuclear Operating Company, Inc."
+  def company_description(profile)
+    listed = ->(names, noun = nil) { names.many? ? "#{names.first} and #{pluralize(names.size - 1, [ "other", noun ].compact.join(" "))}" : names.first }
+    sites = ->(type) { profile.plant_links.select { |l| l.relationship_type == type }.map { |l| (l.facility.parent || l.facility).name }.uniq }
+    deals_out = ->(type) { profile.deals.select { |d| d.relationship_type == type && d.from_organization_id == profile.organization.id }.map { |d| d.to_organization.name }.uniq }
+    facts = [
+      ("Owns #{listed.call(sites.call('owns'), 'plant')}" if sites.call("owns").any?),
+      ("Operates #{listed.call(sites.call('operates'), 'plant')}" if sites.call("operates").any?),
+      ("Investors include #{listed.call(investors_of(profile))}" if investors_of(profile).any?),
+      ("Invests in #{listed.call(deals_out.call('invests_in'))}" if deals_out.call("invests_in").any?),
+      ("Supplies #{listed.call(deals_out.call('supplies'))}" if deals_out.call("supplies").any?),
+      ("Offtakes from #{listed.call(deals_out.call('offtake_with'))}" if deals_out.call("offtake_with").any?),
+      ("Legal name: #{profile.legal_name}" if profile.legal_name.present? && profile.legal_name != profile.name)
+    ].compact.map { |fact| fact.end_with?(".") ? fact : "#{fact}." }
+    role = profile.shown_roles.first && role_label(profile.shown_roles.first.role)
+    lead = profile.description.presence || [ role, place(profile.hq_city, profile.hq_state) ].compact.join(" in ").presence
+    # With nothing published yet, still a plain line about the company.
+    text = lead ? "#{profile.name}: #{lead.end_with?('.') ? lead : "#{lead}."}" : "#{profile.name}, a company in the US nuclear industry."
+    text = text.truncate(PREVIEW_LIMIT, separator: " ") if text.length > PREVIEW_LIMIT
+    facts.each do |fact|
+      joined = "#{text} #{fact}"
+      text = joined if joined.length <= PREVIEW_LIMIT
+    end
+    text
+  end
+
+  # Companies that invest in or fund this one, from the deals the page shows.
+  def investors_of(profile)
+    profile.deals.select { |d| %w[invests_in funds].include?(d.relationship_type) && d.to_organization_id == profile.organization.id }
+      .map { |d| d.from_organization.name }.uniq
   end
 
   def sentence_join(first, second)
