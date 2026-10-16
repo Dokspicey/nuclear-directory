@@ -132,6 +132,8 @@ class DataQuality::Plugins::NrcDecommissioningTest < ActiveSupport::TestCase
     assert_equal [ "San Onofre 2", "San Onofre 3" ], by_docket.values_at("05000361", "05000362").map { |c| c[:payload]["name"] }
     assert_nil by_docket["05000361"][:payload]["aliases"], "a name for two units is neither's alias"
     assert_equal [ "Crane 1", [ "Christopher M. Crane Clean Energy Center" ] ], by_docket["05000289"][:payload].values_at("name", "aliases")
+    assert_equal [ "Duane Arnold 1", [ "Duane Arnold" ] ], by_docket["05000331"][:payload].values_at("name", "aliases")
+    assert_equal [ "Three Mile Island 2", [ "Three Mile Island – Unit 2" ] ], by_docket["05000320"][:payload].values_at("name", "aliases")
     assert_equal [ "Kewaunee", nil ], by_docket["05000305"][:payload].values_at("name", "aliases")
   end
 
@@ -188,14 +190,17 @@ class DataQuality::Plugins::NrcDecommissioningTest < ActiveSupport::TestCase
     assert_not_equal plugin.rows_sha256(page), plugin.rows_sha256(edited)
   end
 
-  test "holds units with a restart plan for a person, and nothing else" do
+  test "holds units with a restart plan, and TMI-2, for a person, and nothing else" do
     crane = Candidate.new(kind: "facility", payload: { "name" => "Crane 1", "nrc_docket" => "05000289" })
-    duane = Candidate.new(kind: "facility", payload: { "name" => "Duane Arnold", "nrc_docket" => "05000331" })
+    duane = Candidate.new(kind: "facility", payload: { "name" => "Duane Arnold 1", "nrc_docket" => "05000331" })
+    tmi2 = Candidate.new(kind: "facility", payload: { "name" => "Three Mile Island 2", "nrc_docket" => "05000320" })
     cr3 = Candidate.new(kind: "facility", payload: { "name" => "Crystal River 3", "nrc_docket" => "05000302" })
     link = Candidate.new(kind: "facility_relationship", payload: { "nrc_docket" => "05000289" })
 
     assert_match "Constellation plans to restart", plugin.hold_for_review(crane)
     assert_match "a restart plan is a note, never a status", plugin.hold_for_review(duane)
+    assert_match "approving it shows its site as Decommissioning", plugin.hold_for_review(duane)
+    assert_match "never under Crane", plugin.hold_for_review(tmi2)
     assert_nil plugin.hold_for_review(cr3)
     assert_nil plugin.hold_for_review(link)
   end
@@ -213,11 +218,16 @@ class DataQuality::Plugins::NrcDecommissioningTest < ActiveSupport::TestCase
     assert_nil plugin.source_facts(Source.new(url: CR3_URL))
   end
 
-  test "end to end: units under known sites, Crane held for a person, licensees linked" do
+  test "end to end: units under known sites, Crane, Duane Arnold and TMI-2 held, licensees linked" do
     Role.find_or_create_by!(key: "waste_decommissioning") { |role| role.name = "Waste and decommissioning" }
     dresden = Facility.create!(name: "Dresden Generating Station", facility_type: "power_reactor", country_code: "US",
       verification_status: "verified", verified_by: "human:test")
-    crane_site = Facility.create!(name: "Crane Clean Energy Center", country_code: "US", verification_status: "verified", verified_by: "human:test")
+    # As the seed has them: Crane is TMI-1 renamed, and goes by its old names.
+    crane_site = Facility.create!(name: "Crane Clean Energy Center", eia_plant_id: "8011", country_code: "US",
+      verification_status: "verified", verified_by: "human:test")
+    [ "Crane Clean Energy Center (Three Mile Island Unit 1)", "Three Mile Island Unit 1", "TMI-1" ].each { |name| crane_site.aliases.create!(alias: name) }
+    duane_site = Facility.create!(name: "Duane Arnold Energy Center", facility_type: "power_reactor", state: "IA",
+      country_code: "US", verification_status: "verified", verified_by: "human:test")
     licensees = FakeLicensees.new([ answer(ADP, "operates", ADP_QUOTE.sub("ADP-CR3 became", "#{ADP} became")) ])
     page_text = cr3_html.sub("ADP-CR3 became", "#{ADP} became")
     stub_request(:get, SITE_PAGES).to_return(body: page_text)
@@ -233,6 +243,16 @@ class DataQuality::Plugins::NrcDecommissioningTest < ActiveSupport::TestCase
     assert_equal crane_site.id, Facility.find(crane.subject_id).parent_id
     assert crane.status_needs_review?
     assert_match "Constellation plans to restart", crane.notes
+    duane = Facility.find(units["05000331"].subject_id)
+    assert_equal [ "Duane Arnold 1", "05000331", duane_site.id ], [ duane.name, duane.nrc_docket, duane.parent_id ],
+      "a unit under the site, never the site itself"
+    assert_nil duane_site.reload.nrc_docket
+    assert units["05000331"].status_needs_review?
+    tmi2 = Facility.find(units["05000320"].subject_id)
+    assert_not_equal crane_site.id, tmi2.parent_id, "TMI-2 is not part of Crane"
+    assert_nil tmi2.parent_id
+    assert units["05000320"].status_needs_review?
+    assert_match "never under Crane", units["05000320"].notes
     assert_equal "recommend_publish", units["05000302"].ai_recommendation
     link = Candidate.where(kind: "facility_relationship").find { |c| c.payload.dig("facility", "nrc_docket") == "05000302" }
     assert link.subject_id, "the link to Crystal River 3 found both ends"

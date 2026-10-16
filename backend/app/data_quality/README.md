@@ -236,7 +236,11 @@ then NRC's page for each site it links to (about 20), each at most once a day. A
   the page says it took over the license to decommission the site, the `waste_decommissioning` category.
 - **Restart plans:** Crane and Duane Arnold are on the list while their owners plan a restart. They're
   proposed as decommissioning and held for a person, with the owner's announcement in the note
-  (`RESTART_PLANS`). A restart plan is a note, never a status.
+  (`RESTART_PLANS`). A restart plan is a note, never a status. Approving one also shows its site as
+  Decommissioning. They come in as units under their sites ("Crane 1", "Duane Arnold 1"); a site never
+  takes a unit's docket.
+- **TMI-2** is held too (`PLACE_BY_HAND`): Crane is TMI-1 renamed, so TMI-2 is its own record, never
+  under Crane.
 - A unit gone from the list is suggested as shut down. The list's rows, and each page's text without its
   date stamp, are what's hashed (#240).
 

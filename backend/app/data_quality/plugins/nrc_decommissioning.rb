@@ -19,22 +19,33 @@
 # Match, verify and a human's approval are shared. Units NRC lists as
 # decommissioning whose owners plan a restart (RESTART_PLANS) are proposed
 # as NRC states them, and verify holds them for a person with a note
-# (Tosin: a restart plan is a note, never a status).
+# (Tosin: a restart plan is a note, never a status). So is TMI-2
+# (PLACE_BY_HAND), which must never go under Crane.
 class DataQuality::Plugins::NrcDecommissioning < DataQuality::Plugin
   LIST_URL = "https://www.nrc.gov/facilities-safety/facility-finder/decommissioning/power-reactor"
   TABLE_MISSING = "Couldn't find the decommissioning table; the page layout may have changed"
   ROLE = "waste_decommissioning"
   # NRC's spelling where it doesn't name the unit the way its operating list
-  # does. Crane is the site's name in the directory, so "Crane 1" goes
-  # under it; NRC's spelling stays as an alias.
-  UNIT_NAMES = { "05000289" => "Crane 1" }.freeze
+  # does. Crane and Duane Arnold Energy Center are sites in the directory, so
+  # "Crane 1" and "Duane Arnold 1" go under them as units (the site never
+  # takes a unit's docket); NRC's spelling stays as an alias.
+  UNIT_NAMES = { "05000289" => "Crane 1", "05000331" => "Duane Arnold 1" }.freeze
   # Units on the list that their owners plan to restart, with the owner's
   # own announcement. Proposed as decommissioning, held for a person.
+  # Approving one fills its site's blank status, so the site shows
+  # Decommissioning too, as NRC says.
   RESTART_PLANS = {
     "05000289" => [ "Constellation plans to restart this unit as the Crane Clean Energy Center",
       "https://www.constellationenergy.com/news/2024/Constellation-to-Launch-Crane-Clean-Energy-Center-Restoring-Jobs-and-Carbon-Free-Power-to-The-Grid.html" ],
     "05000331" => [ "NextEra Energy plans to restart Duane Arnold",
       "https://www.investor.nexteraenergy.com/news-and-events/news-releases/2025/10-27-2025-203948689" ]
+  }.freeze
+  # Units a person places, with why. TMI-2 is not part of Crane: Crane is
+  # TMI-1 renamed for its restart, and TMI-2 is the 1979 unit, being
+  # decommissioned by others.
+  PLACE_BY_HAND = {
+    "05000320" => "Three Mile Island Unit 2 is not part of the Crane Clean Energy Center, which is Unit 1 renamed " \
+      "for its restart. Approve it as its own record, never under Crane."
   }.freeze
   # A date stamp at the foot of every page, which changes without the facts.
   PAGE_STAMP = /Page Last Reviewed\/Updated [A-Za-z]+, [A-Za-z]+ \d{1,2}, \d{4}/
@@ -112,12 +123,17 @@ class DataQuality::Plugins::NrcDecommissioning < DataQuality::Plugin
 
   # A unit whose owner plans a restart: NRC's status is proposed, and a
   # person decides with the owner's announcement in front of them.
+  # TMI-2 too, so a person confirms it isn't put under Crane.
   def hold_for_review(candidate)
-    return unless candidate.kind == "facility" && (plan = RESTART_PLANS[candidate.payload["nrc_docket"]])
+    return unless candidate.kind == "facility"
+
+    docket = candidate.payload["nrc_docket"]
+    return PLACE_BY_HAND[docket] if PLACE_BY_HAND.key?(docket)
+    return unless (plan = RESTART_PLANS[docket])
 
     note, url = plan
-    "NRC lists this unit as decommissioning, so that's the status proposed. #{note} (#{url}); " \
-      "a restart plan is a note, never a status."
+    "NRC lists this unit as decommissioning, so that's the status proposed, and approving it shows its site as " \
+      "Decommissioning. #{note} (#{url}); a restart plan is a note, never a status."
   end
 
   # A site page's main text as one line of text, pieces joined by spaces as
