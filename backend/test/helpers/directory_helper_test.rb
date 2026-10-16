@@ -20,7 +20,7 @@ class DirectoryHelperTest < ActionView::TestCase
     palisades = profile(name: "Palisades", status: "not_operating", city: "Covert", state: "MI", units: Array.new(1), capacity_mw: nil,
       owners: [ "Holtec" ], operators: [ "Holtec" ])
 
-    assert_equal "Palisades: Power plant in Covert, MI, not operating. 1 unit. Owned by Holtec; operated by Holtec.", plant_preview(palisades)
+    assert_equal "Palisades: Power plant in Covert, Michigan, not operating. 1 unit. Owned by Holtec; operated by Holtec.", plant_preview(palisades)
     assert_equal "Palisades: Not operating.", plant_preview(profile(name: "Palisades", status: "not_operating", facility_type: nil, city: nil, state: nil,
       units: [], capacity_mw: nil, owners: [], operators: []))
   end
