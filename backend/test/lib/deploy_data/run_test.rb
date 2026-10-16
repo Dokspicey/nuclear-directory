@@ -369,4 +369,28 @@ class DeployData::RunTest < ActiveSupport::TestCase
     assert DataDeploy.sole.applied?
     assert_includes err, "couldn't post the report to GitHub"
   end
+
+  class LockThatTimesOutOnRelease
+    def hold
+      yield
+      raise DeployData::Run::TimedOut, "took longer than bin/deploy-data allows"
+    end
+  end
+
+  test "a timeout while releasing the locks, after the commit, keeps the outcome applied" do
+    assert_equal :applied, run_step(lock: LockThatTimesOutOnRelease.new)
+    assert DataDeploy.sole.applied?
+    report = @github.posts.sole[:body]
+    assert_includes report, "Data deploy abc1234 (PR #298): applied"
+    assert_includes report, "Error after the data committed (it stands): TimedOut"
+    assert_includes report, "**Needs a look:**"
+    assert_equal :nothing, run_step, "the next deploy doesn't repeat it"
+  end
+
+  test "an after-commit callback that raises keeps the outcome applied" do
+    seeder = -> { ActiveRecord::Base.current_transaction.after_commit { raise "snapshot expiry failed" } }
+    assert_equal :applied, run_step(seeder:)
+    assert DataDeploy.sole.applied?
+    assert_includes @github.posts.sole[:body], "Error after the data committed (it stands): RuntimeError: snapshot expiry failed"
+  end
 end

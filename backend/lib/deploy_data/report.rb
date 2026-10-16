@@ -6,6 +6,8 @@ module DeployData
     attr_accessor :outcome, :backup, :seed_check, :seed, :seed_counts, :rows_before, :rows_after,
       :seed_events, :migration_events, :totals_before, :totals_after, :migrations, :flags, :notes
     attr_reader :pull_request
+    # An error after the data committed: the outcome stands, but it alerts.
+    attr_accessor :after_commit_error
 
     # label: "Data deploy", "Report mode (…)" or "Dry run (…)".
     def initialize(commit:, pull_request:, label:)
@@ -17,7 +19,7 @@ module DeployData
       @notes = []
     end
 
-    def alert? = outcome.to_s.start_with?("stopped", "failed") || flags.any?
+    def alert? = outcome.to_s.start_with?("stopped", "failed") || flags.any? || after_commit_error.present?
 
     def title = "#{@label} #{@commit.to_s[0, 7].presence || 'unknown commit'}: #{outcome}"
 
@@ -54,6 +56,7 @@ module DeployData
         lines << "Flag: events for records whose files didn't change (#{flags.size}):"
         flags.each { |flag| lines << "  #{flag}" }
       end
+      lines << "Error after the data committed (it stands): #{after_commit_error}" if after_commit_error
       notes.each { |note| lines << "Note: #{note}" }
       lines.join("\n")
     end

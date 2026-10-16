@@ -84,6 +84,14 @@ module DeployData
       finish
     rescue TimedOut, StandardError, ScriptError => error
       @report ||= Report.new(commit: @commit, pull_request: nil, label:)
+      # After the commit (releasing the crawl's locks, an after_commit
+      # callback), the data and its applied record are already in: say so,
+      # rather than report a failure for writes that stand.
+      if committed?
+        @report.after_commit_error = "#{error.class.name.demodulize}: #{error.message.lines.first&.strip}"
+        return finish
+      end
+
       @status = :failed
       first, *rest = error.message.lines.map(&:strip).compact_blank
       @report.outcome = "failed: #{error.class.name.demodulize}: #{first}"
@@ -219,11 +227,18 @@ module DeployData
 
       def create_record!
         backup_tag = @report.backup if @report.backup.to_s.start_with?("backup-")
-        DataDeploy.create!(commit: @commit, status: @status, backup_tag:,
+        record = DataDeploy.create!(commit: @commit, status: @status, backup_tag:,
           seed_digest: @fingerprint&.digest, files: @fingerprint&.files || {},
           report: { text: @report.to_s, migrations: @report.migrations.map(&:version) },
           error: @error, started_at: @started_at || Time.current, finished_at: Time.current)
+        @record_id = record.id
         @recorded = true
+      end
+
+      # Whether this run's applied record is in the database: read back, not
+      # assumed, since it's created before the transaction commits.
+      def committed?
+        @record_id.present? && !rolled_back? && DataDeploy.applied.exists?(id: @record_id)
       end
 
       # Stopped, failed and report-mode runs: nothing they record is a baseline
