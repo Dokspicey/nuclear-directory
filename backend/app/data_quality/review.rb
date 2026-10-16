@@ -126,6 +126,12 @@ module DataQuality::Review
       candidate && { status: candidate.status, by: candidate.reviewed_by, at: candidate.reviewed_at }
     end
 
+    # How one claim was decided, for its page's result line: { status:, by:, at: }, or nil.
+    def decision_of(candidate_id)
+      candidate = Candidate.where(id: candidate_id, status: %w[merged rejected]).where.not(reviewed_at: nil).first
+      candidate && { status: candidate.status, by: candidate.reviewed_by, at: candidate.reviewed_at }
+    end
+
     # Whether a fact has any source, so it can be approved.
     def sourced?(type:, id:, directory: DataQuality::DirectoryClient.new) = directory.sourced?(type: type.to_s, id:)
 

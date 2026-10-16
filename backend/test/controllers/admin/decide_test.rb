@@ -53,6 +53,31 @@ class Admin::DecideTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "a changed value worked out from the claim (a website's domain) still shows old → new" do
+    company = Organization.create!(name: "Kairos Power", domain: "kairospower.com", verification_status: "verified", verified_by: "human:tosin")
+    claim = Candidate.create!(source: @nrc, kind: "organization", quote: "q", status: "needs_review", notes: "unsure",
+      subject_type: "Organization", subject_id: company.id, payload: { "name" => "Kairos Power", "website" => "https://kairos-power.example" })
+
+    open(claim)
+
+    assert_select "#proposed dd", /kairospower\.com → kairos-power\.example/
+  end
+
+  test "reopening a decided claim shows its own result, not another claim's buttons" do
+    unit = Facility.create!(name: "Catawba 2", nrc_docket: "05000414", verification_status: "verified", verified_by: "human:tosin")
+    eia = Source.create!(url: "https://www.eia.gov/decide2.xlsx", source_kind: "eia_generators", crawl_status: "ok")
+    Candidate.create!(source: @nrc, kind: "facility", quote: "q", status: "needs_review", notes: "unsure",
+      subject_type: "Facility", subject_id: unit.id, payload: { "name" => "Catawba 2", "state" => "SC" })
+    from_eia = Candidate.create!(source: eia, kind: "facility", quote: "q", status: "needs_review", notes: "unsure",
+      subject_type: "Facility", subject_id: unit.id, payload: { "identify" => { "name" => "Catawba", "unit" => "2" }, "capacity_mw" => "1150.1" })
+    post reject_admin_candidates_path, params: { candidate_id: from_eia.id, reasons: { from_eia.id.to_s => "Wrong unit" } }
+
+    get admin_fact_path(type: "Facility", id: unit.id, from: "checks", back: admin_checks_path(source: "eia_generators"), claim: from_eia.id)
+
+    assert_select ".nd-decide", 0
+    assert_select ".nd-decide__result", /Rejected by tosin/
+  end
+
   test "the bar decides the claim that was opened, when two sources have one on the same fact" do
     unit = Facility.create!(name: "Catawba 2", nrc_docket: "05000414", verification_status: "verified", verified_by: "human:tosin")
     eia = Source.create!(url: "https://www.eia.gov/decide.xlsx", source_kind: "eia_generators", crawl_status: "ok")

@@ -3,7 +3,9 @@
     muted, new in strong). A new link or fact: all its values. Then the
     quote and source behind it. Locals: item (DataQuality::Review::Item). %>
 <% source_url = safe_url(item.source.url) %>
-<% shown = item.differences.any? ? item.payload.slice(*item.differences.keys) : item.payload.except(*DataQuality::Review::LINK_ENDS, "identify").compact_blank %>
+<%# A changed value's rows come from its differences, which can name a field
+    worked out from the claim (a website's domain) rather than one it carries. %>
+<% shown = item.differences.any? ? item.differences : item.payload.except(*DataQuality::Review::LINK_ENDS, "identify").compact_blank %>
 <section class="nd-panel" id="proposed" aria-label="Proposed by this claim">
   <p class="type-kicker text-ink-muted"><%= check_kicker(item) %></p>
   <p class="type-body"><%= item.claim %></p>

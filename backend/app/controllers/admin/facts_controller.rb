@@ -7,11 +7,18 @@ class Admin::FactsController < Admin::BaseController
   def show
     @fact = DataQuality::Review.fact(type: params[:type], id: params[:id].to_i) or raise ActiveRecord::RecordNotFound
     @list = list_position if params[:from] == "checks"
-    # Decide here (#269): the claims waiting on this fact, or the fact itself
-    # when it's pending with none.
-    # The claim this page was opened for (a Checks row is one claim), else the oldest waiting.
+    # Decide here (#269): the claim this page was opened for (a Checks row is
+    # one claim), else the oldest waiting on it, or the fact itself when it's
+    # pending with none.
     waiting = DataQuality::Review.waiting_for(type: @fact.type, id: @fact.id)
-    @claim = waiting.find { |item| item.candidate_id == params[:claim].to_i } || waiting.first
+    # A named claim that's no longer waiting shows its own result, never another claim's buttons.
+    asked = params[:claim].presence&.to_i
+    @claim = asked ? waiting.find { |item| item.candidate_id == asked } : waiting.first
+    if asked && @claim.nil?
+      @decided = DataQuality::Review.decision_of(asked)
+      @following = @list&.dig(:next)
+      return
+    end
     # The fact's own buttons only when no claim on it is open at all (a lapsed
     # recommendation is still open, and is decided through its claim).
     @pending = @fact.verification_status == "pending" && @claim.nil? && !DataQuality::Review.open_claims?(type: @fact.type, id: @fact.id)
