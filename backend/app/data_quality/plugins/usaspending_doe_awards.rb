@@ -128,8 +128,9 @@ class DataQuality::Plugins::UsaspendingDoeAwards < DataQuality::Plugin
           end
         end
         note = "Reworded for #302 by #{by}#{'; sent back to verify' if reverify}"
+        # Back to verify: as matched when attached, else as new (matched needs a record).
         candidate.update!({ payload: candidate.payload.merge(changes), notes: [ candidate.notes, note ].compact_blank.join(" · ") }
-          .merge(reverify ? { status: "matched", ai_recommendation: nil, ai_reason: nil, ai_confidence: nil, ai_model: nil, ai_checked_at: nil } : {}))
+          .merge(reverify ? { status: candidate.subject_id ? "matched" : "new", ai_recommendation: nil, ai_reason: nil, ai_confidence: nil, ai_model: nil, ai_checked_at: nil } : {}))
         { candidate:, changes:, reverify: }
       end
     end

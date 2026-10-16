@@ -279,6 +279,15 @@ class DataQuality::Plugins::UsaspendingDoeAwardsTest < ActiveSupport::TestCase
     assert_equal "old, 2021: X.", claim.reload.payload["description"]
   end
 
+  test "a disputed link not attached to a record goes back to verify as new, without stopping the crawl" do
+    crawl!
+    claim = Candidate.create!(source: recipient(XENERGY["recipient_id"]), kind: "relationship", quote: "q", status: "needs_review",
+      ai_recommendation: "needs_review", payload: { "description" => "1 award from the U.S. Department of Energy totaling $921.7 million, 2021: DENE0009040." })
+
+    assert_nothing_raised { plugin.crawl(nil) }
+    assert_equal [ "new", nil ], [ claim.reload.status, claim.ai_recommendation ]
+  end
+
   test "a company's readable name: title case, no legal suffix, acronyms kept; a mixed-case name is its own" do
     {
       "BROOKHAVEN TECHNOLOGY GROUP INC" => "Brookhaven Technology Group", "BWXT NUCLEAR ENERGY, INC." => "BWXT Nuclear Energy",
