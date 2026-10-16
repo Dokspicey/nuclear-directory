@@ -80,6 +80,22 @@ module Directory
     # an array of Directory::PendingFactRef. Page with after_id: the last id seen.
     #
     #   Directory::Lookup.pending_facts(kind: "facility_relationship", limit: 50)
+    # How many public facts (any type) have evidence from these sources.
+    def published_count_backed_by(source_ids:)
+      return 0 if source_ids.empty?
+
+      FACT_TYPES.sum do |type|
+        type.constantize.published.where(id: Evidence.where(subject_type: type, source_id: source_ids).select(:subject_id)).count
+      end
+    end
+
+    # Ids of every fact of one kind waiting for a decision, for counting.
+    def pending_fact_ids(kind:)
+      raise ArgumentError, "not a fact kind: #{kind.inspect}" unless FACT_KINDS.include?(kind.to_s)
+
+      kind.to_s.camelize.constantize.pending.pluck(:id)
+    end
+
     def pending_facts(kind:, after_id: nil, limit: 50)
       kind = kind.to_s
       raise ArgumentError, "not a fact kind: #{kind.inspect}" unless FACT_KINDS.include?(kind)

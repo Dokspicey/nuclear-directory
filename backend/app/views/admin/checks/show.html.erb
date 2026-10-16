@@ -1,0 +1,48 @@
+<% content_for :title, "Checks" %>
+
+<h1 class="type-admin-h1">Checks</h1>
+
+<section class="nd-tiles" aria-label="Last read">
+  <div class="nd-tile nd-tile--sm"><span class="type-kicker text-ink-muted">Read</span> <span class="type-tile-sm"><%= number_with_delimiter(@read) %></span></div>
+  <div class="nd-tile nd-tile--sm"><span class="type-kicker text-ink-muted">Same</span> <span class="type-tile-sm"><%= number_with_delimiter(@same) %></span></div>
+  <div class="nd-tile nd-tile--sm nd-tile--ink"><span class="type-kicker text-on-inverse opacity-70">Waiting</span> <span class="type-tile-sm"><%= number_with_delimiter(@counts["all"]) %></span></div>
+</section>
+
+<div class="nd-shell__head nd-shell__head--section">
+  <h2 class="type-admin-h2">Waiting <span class="type-count"><%= number_with_delimiter(@counts[@category]) %></span></h2>
+  <% if @safe.positive? %>
+    <%# Today's Approve all: every recommended claim, checked again as each is approved. %>
+    <%= button_to "Approve #{number_with_delimiter(@safe)} safe", approve_all_admin_candidates_path(filters), params: { shown: @shown },
+      class: "nd-btn nd-btn--primary",
+      form: { data: { turbo_confirm: "Approve and publish all #{pluralize(@safe, 'recommended claim')}? Each is checked again as it's approved." } } %>
+  <% end %>
+</div>
+
+<nav class="nd-fchips type-ui" aria-label="Filter">
+  <% AdminHelper::CHECK_CHIPS.each do |category, label| %>
+    <%= link_to admin_checks_path({ category: (category unless category == "all"), source: @source_kind }.compact), class: "nd-fchip",
+      aria: { current: ("page" if category == @category) } do %><%= label %> <span class="type-data nd-num"><%= number_with_delimiter(@counts[category]) %></span><% end %>
+  <% end %>
+  <% if @source_kind %>
+    <%= link_to admin_checks_path(filters.except(:source)), class: "nd-fchip", aria: { current: "page" } do %><%= source_kind_label(@source_kind) %> <span aria-hidden="true">×</span><span class="sr-only">(show every source)</span><% end %>
+  <% end %>
+</nav>
+
+<% if @items.empty? && @facts.empty? %>
+  <p class="type-body text-ink-muted">Nothing waiting.</p>
+<% else %>
+  <ol class="nd-waits">
+    <%# After a decision the list comes back at the row that followed (or the one before the last). %>
+    <% rows = @items.map { |item| "claim-#{item.candidate_id}" } + @facts.map { |fact| "fact-#{fact.type}-#{fact.id}" } %>
+    <% anchor_after = ->(i) { rows[i + 1] || (rows[i - 1] if i.positive?) } %>
+    <% @items.each_with_index do |item, i| %>
+      <%= render "claim", item:, anchor: anchor_after.(i) %>
+    <% end %>
+    <% @facts.each_with_index do |fact, i| %>
+      <%= render "pending_fact", fact:, anchor: anchor_after.(@items.size + i) %>
+    <% end %>
+  </ol>
+  <% if @next %>
+    <div><%= link_to "Next #{Admin::ChecksController::PAGE}", admin_checks_path(filters.merge(@next)), class: "nd-btn nd-btn--outline type-ui" %></div>
+  <% end %>
+<% end %>

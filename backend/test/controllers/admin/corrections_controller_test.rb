@@ -20,13 +20,17 @@ class Admin::CorrectionsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select "#report-#{r.id}" do
-      assert_select ".nd-item__claim", "TerraPower"
+      assert_select ".type-subject", "TerraPower"
+      assert_select ".type-kicker", /New/
+      assert_select "button", "Fix"
       assert_select ".nd-quote", /headquarters moved to Everett/
       assert_select "a[href=?]", r.page_path
       assert_select "a[href=?]", admin_fact_path(type: "Organization", id: organizations(:terrapower).id), text: "Open record"
       assert_select "a[href^=?][href*=?]", "mailto:reader@example.com?", "subject=Your%20correction%20on%20Nuclear%20Directory", text: "Reply to reader@example.com"
     end
-    assert_select ".nd-pill[aria-current=page]", /Open\s+1/
+    assert_select ".nd-fchip[aria-current=page]", /Open\s+1/
+    assert_select "h1", /Correction requests\s+1/
+    assert_select ".nd-shell__nav a[title=?]", "From visitors", /Correction requests\s+1/
   end
 
   test "close as fixed, dismiss, mark as being looked at, reopen: each records who decided" do
@@ -45,8 +49,8 @@ class Admin::CorrectionsControllerTest < ActionDispatch::IntegrationTest
     assert fixed.decided_at
 
     get admin_corrections_path(tab: "closed")
-    assert_select "#report-#{fixed.id} .nd-item__why", /Fixed by tosin on/
-    assert_select "#report-#{fixed.id} button", "Reopen report"
+    assert_select "#report-#{fixed.id} .type-kicker", /Fixed · tosin ·/
+    assert_select "#report-#{fixed.id} button", "Reopen"
 
     post reopen_admin_correction_path(fixed, tab: "closed")
     assert_equal [ "open", nil, nil ], [ fixed.reload.status, fixed.resolution, fixed.decided_by ]
@@ -83,11 +87,11 @@ class Admin::CorrectionsControllerTest < ActionDispatch::IntegrationTest
     sign_in_as users(:admin)
 
     get admin_corrections_path
-    assert_select ".nd-item", Admin::CorrectionsController::PAGE
+    assert_select ".nd-wait", Admin::CorrectionsController::PAGE
     assert_select "a[href=?]", admin_corrections_path(tab: "open", page: 2)
 
     get admin_corrections_path(tab: "open", page: 2)
-    assert_select ".nd-item", 1
+    assert_select ".nd-wait", 1
   end
 
   test "a report from a page that isn't a record has no record link; a stale id is an error, not a crash" do

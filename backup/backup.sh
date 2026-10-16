@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Dumps the database, encrypts it with age and uploads it as a release asset
 # to a private GitHub repo, keeping the newest BACKUP_KEEP releases.
-# See "Backups" in README.md.
+# Runbook: "Backups" in the private backups repo.
 #
 # Env:
 #   DATABASE_URL          database to dump
@@ -80,7 +80,7 @@ api "${releases}?per_page=100" \
 # Create as a draft, upload, then publish, so a failed upload never leaves an
 # empty release as the newest backup.
 release_id="$(api -X POST "$releases" \
-  -d "$(jq -n --arg tag "$tag" '{tag_name: $tag, name: $tag, draft: true, body: "Encrypted pg_dump (custom format). Decrypt with the age key in the password manager; see README \"Backups\"."}')" \
+  -d "$(jq -n --arg tag "$tag" '{tag_name: $tag, name: $tag, draft: true, body: "Encrypted pg_dump (custom format). Decrypt with the age key in the password manager; see the backups runbook."}')" \
   | jq -r .id)"
 api -X POST -H "Content-Type: application/octet-stream" --data-binary @"$file" \
   "https://uploads.github.com/repos/${BACKUP_REPO}/releases/${release_id}/assets?name=${name}" > /dev/null

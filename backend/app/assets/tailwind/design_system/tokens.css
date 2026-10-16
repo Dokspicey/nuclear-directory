@@ -135,6 +135,55 @@
   letter-spacing: 0.01em;
   @media (max-width: 560px) { font-size: min(44vh, 56vw); }
 }
+/* Admin (#201, canvas A): stage headings, Anton counts, mono kickers and
+   values. Only behind sign-in. */
+@utility type-admin-h1 {
+  font: 600 32px/40px var(--font-text);
+  @media (max-width: 767px) { font-size: 26px; line-height: 32px; }
+}
+@utility type-admin-h2 {
+  font: 600 22px/28px var(--font-text);
+}
+/* A count beside a heading: Anton at the heading's size. */
+@utility type-count {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+/* Colour comes from the markup (text-ink-muted, or text-on-inverse on ink). */
+@utility type-kicker {
+  font: 400 12px/16px var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+/* A stage tile's name: a kicker on desktop, a row label on phones. */
+@utility type-stage {
+  font: 400 12px/16px var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  @media (max-width: 767px) { font: 400 18px/24px var(--font-text); letter-spacing: normal; text-transform: none; }
+}
+@utility type-tile {
+  font: 400 64px/1 var(--font-display);
+  letter-spacing: 0.01em;
+  @media (max-width: 767px) { font-size: 40px; }
+}
+@utility type-tile-sm {
+  font: 400 48px/1 var(--font-display);
+  letter-spacing: 0.01em;
+}
+@utility type-subject {
+  font: 600 18px/24px var(--font-text);
+}
+@utility type-change {
+  font: 500 26px/32px var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  @media (max-width: 767px) { font-size: 20px; line-height: 28px; }
+}
+@utility type-cell-num {
+  font: 500 18px/24px var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
 @utility type-title-md {
   font: 600 20px/28px var(--font-text);
 }

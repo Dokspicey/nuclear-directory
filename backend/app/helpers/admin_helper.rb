@@ -15,6 +15,47 @@ module AdminHelper
 
   CRAWL_STATUS_LABELS = { "ok" => "OK", "blocked" => "Blocked", "needs_human" => "Needs a human check", "pending" => "Not fetched yet" }.freeze
 
+  # Sources by kind, in the names the admin uses (canvas A).
+  SOURCE_KIND_LABELS = {
+    "nrc_reactor_list" => "NRC", "nrc_power_status" => "NRC", "eia_generators" => "EIA", "eia_860m_index" => "EIA",
+    "usaspending_doe_awards" => "USAspending", "usaspending_api" => "USAspending", "web_page" => "Research"
+  }.freeze
+
+  def source_kind_label(kind) = SOURCE_KIND_LABELS.fetch(kind.to_s) { kind.to_s.humanize }
+
+  # The left nav (#201): each stage with its count, then Correction requests
+  # after a gap. A stage whose screen isn't built yet is listed, greyed, as
+  # "Soon" (soon: true), with no link.
+  def admin_nav_items
+    counts = admin_nav_counts
+    [
+      { label: "Overview", path: admin_root_path, current: controller_name == "overview" },
+      { label: "Sources", path: admin_sources_path, count: counts[:sources], current: controller_name == "status" },
+      { label: "Checks", path: admin_checks_path, count: counts[:checks], current: %w[checks candidates pending_facts].include?(controller_name) },
+      { label: "Live", soon: true },
+      { label: "Removed", soon: true },
+      { label: "Where it appears", soon: true },
+      { label: "Correction requests", path: admin_corrections_path, count: counts[:corrections], title: "From visitors", gap: true,
+        current: controller_name == "corrections" }
+    ]
+  end
+
+  # The flash after a decision made on an item page, on the next one:
+  # "Approved. 4 of 6." (the count as the list is now).
+  def admin_notice
+    list = controller.instance_variable_get(:@list)
+    flash[:decided] && list ? "#{notice} #{list[:index]} of #{list[:total]}." : notice
+  end
+
+  # Counts for the nav and the Overview tiles, once per request.
+  def admin_nav_counts
+    @admin_nav_counts ||= {
+      sources: DataQuality::Status.kinds.size,
+      checks: DataQuality::Review.counts.values.sum + DataQuality::Review.pending_count,
+      corrections: CorrectionReport.where(status: %w[open reviewed]).count
+    }
+  end
+
   # A source's crawl status in one wording, wherever it's shown.
   def crawl_status_label(status) = CRAWL_STATUS_LABELS.fetch(status.to_s, status.to_s.humanize)
 
@@ -66,6 +107,64 @@ module AdminHelper
     end
   end
   def type_label(type) = TYPE_LABELS.fetch(type.to_s, type.to_s.titleize)
+
+  # Checks' filter chips, in order (#201).
+  CHECK_CHIPS = { "all" => "All", "changed" => "Changed", "links" => "Links", "facts" => "Facts", "duplicates" => "Duplicates" }.freeze
+  CHECK_WORDS = { "changed" => "Changed", "links" => "New link", "duplicates" => "Duplicate" }.freeze
+
+  # A waiting claim's label: what it is, then where it's from ("Changed · EIA").
+  def check_kicker(item)
+    what = CHECK_WORDS[item.category] || (unit_update?(item) ? "Update" : "New #{type_label(item.kind.camelize).downcase_first}")
+    from = SOURCE_KIND_LABELS[item.source.source_kind] || source_host(item.source.url)
+    "#{what} · #{from}"
+  end
+
+  # What the claim is about, in a few words: "Vogtle 1 · Capacity" for a
+  # change, "Amazon buys from Talen Energy" for a link, else its name.
+  def check_subject(item)
+    payload = item.payload
+    name = ->(value) { value.is_a?(Hash) ? value.values_at("name", "nrc_docket", "domain").compact.first : value }
+    verb = DataQuality::Claim::RELATIONSHIP_VERBS.fetch(payload["relationship_type"].to_s, payload["relationship_type"].to_s.humanize(capitalize: false))
+    if item.category == "changed" && item.record && item.differences.any?
+      "#{item.record.name} · #{field_label(item.differences.keys.first)}"
+    else
+      case item.kind
+      when "relationship" then "#{name.(payload['from_organization'])} #{verb} #{name.(payload['to_organization'])}"
+      when "facility_relationship" then "#{name.(payload['organization'])} #{verb} #{name.(payload['facility'])}"
+      when "organization", "facility"
+        if unit_update?(item)
+          identify = payload["identify"]
+          item.record&.name || [ identify["name"], ("unit #{identify['unit']}" if identify["unit"].present?) ].compact.join(" ")
+        else
+          payload["name"].presence || item.claim
+        end
+      else item.claim.delete_suffix(".")
+      end
+    end
+  end
+
+  # The value to compare at a glance: old → new for a change, the record a
+  # duplicate may be. nil when there's nothing to compare.
+  # Any claim that would replace a human-verified value shows it, whatever
+  # its group: its notes may predate the value being decided.
+  def check_value(item)
+    if (difference = item.differences.first)
+      _, (stored, incoming) = difference
+      return "#{stored.presence || "Not set"} → #{incoming.presence || "Not set"}"
+    end
+
+    case item.category
+    when "duplicates"
+      similar = item.notes.to_s[/but similar: (.+?)\. Same record/, 1] || item.notes.to_s[/the same brand as (.+?)(?:\.|,| \(| Which)/, 1]
+      "→ #{similar.split('; ').first}" if similar
+    else
+      capacity = item.payload["capacity_mw"].presence
+      "#{number_with_precision(capacity, precision: 2, strip_insignificant_zeros: true, delimiter: ",")} MWe" if capacity && unit_update?(item)
+    end
+  end
+
+  # An enrichment claim (EIA): values for a unit already in the directory.
+  def unit_update?(item) = item.kind == "facility" && item.payload["identify"].is_a?(Hash)
 
   # Status in words and shape (DESIGN.md): verified solid, pending dashed,
   # rejected struck through in critical, unpublished dashed with its word.

@@ -1,0 +1,16 @@
+<%# Previous and Next through the list an item page was opened from (#269),
+    with "3 of 6". At either end the step is drawn muted, so the row keeps its
+    shape. Locals: list ({ index:, total:, previous:, next: }). %>
+<nav class="nd-itemnav type-ui" aria-label="Previous and next">
+  <% if list[:previous] %>
+    <%= link_to "‹ Previous", list[:previous], class: "nd-btn nd-btn--ghost nd-btn--sm", rel: "prev" %>
+  <% else %>
+    <span class="nd-btn nd-btn--ghost nd-btn--sm text-ink-muted">‹ Previous</span>
+  <% end %>
+  <span class="type-data text-ink-muted"><%= list[:index] %> of <%= list[:total] %></span>
+  <% if list[:next] %>
+    <%= link_to "Next ›", list[:next], class: "nd-btn nd-btn--ghost nd-btn--sm", rel: "next" %>
+  <% else %>
+    <span class="nd-btn nd-btn--ghost nd-btn--sm text-ink-muted">Next ›</span>
+  <% end %>
+</nav>
