@@ -215,4 +215,13 @@ class DirectoryRakeTest < ActiveSupport::TestCase
     assert_raises(SystemExit) { capture_io { set_status("not_operating", "1") } }
     assert_raises(SystemExit) { capture_io { set_status("resting", "1", BY: "human:tosin") } }
   end
+
+  test "set_status refuses malformed ids, and records that aren't one plant" do
+    site = Facility.create!(name: "Palisades", status: "operating", verification_status: "verified", verified_by: "human:tosin")
+    other = Facility.create!(name: "Other Plant", status: "operating", verification_status: "verified", verified_by: "human:tosin")
+
+    assert_raises(SystemExit) { capture_io { set_status("not_operating", "#{site.id}a", BY: "human:tosin", APPLY: "1") } }
+    assert_raises(SystemExit) { capture_io { set_status("not_operating", "#{site.id} #{other.id}", BY: "human:tosin", APPLY: "1") } }
+    assert other.reload.operating?
+  end
 end

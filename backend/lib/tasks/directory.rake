@@ -147,12 +147,16 @@ namespace :directory do
     by = ENV["BY"].to_s
     apply = ENV["APPLY"] == "1"
     status = args[:status].to_s
-    ids = args[:ids].to_s.split.map(&:to_i)
+    tokens = args[:ids].to_s.split
     abort "Usage: BY=human:<handle> [APPLY=1] [QUOTE=…] bin/rails \"directory:set_status[status,id id …]\"" unless
-      by.match?(/\Ahuman:\S+\z/) && Facility.statuses.key?(status) && ids.any? && ids.all?(&:positive?)
+      by.match?(/\Ahuman:\S+\z/) && Facility.statuses.key?(status) && tokens.any? && tokens.all? { |token| token.match?(/\A[1-9]\d*\z/) }
 
+    ids = tokens.map(&:to_i).uniq
     facilities = Facility.where(id: ids).index_by(&:id)
     abort "No facility #{(ids - facilities.keys).join(', ')}" if (ids - facilities.keys).any?
+    # One quote backs them all, so they must be one plant: a site and its units.
+    sites = facilities.values.map { |facility| facility.parent_id || facility.id }.uniq
+    abort "These aren't one plant (a site and its units), so one quote can't back them all: #{ids.join(', ')}" if sites.many?
     source = Source.where(source_kind: "nrc_power_status").order(fetched_at: :desc).first or abort "NRC's status file hasn't been fetched"
     text = source.content_text.to_s
     first = facilities.fetch(ids.first)
