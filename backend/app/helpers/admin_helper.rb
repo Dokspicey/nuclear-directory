@@ -52,7 +52,7 @@ module AdminHelper
       end
     end
     status = Array(chosen["status"]).first
-    admin_live_path({ tab: (tab unless tab == "all"), q: list.query, status: (status unless status == Directory::LiveList::DEFAULT_STATUS) }
+    admin_live_path({ tab: (tab unless tab == "all"), q: (list.query unless clear), status: (status unless status == Directory::LiveList::DEFAULT_STATUS) }
       .merge(Directory::Checks::GROUPS.keys.excluding("status").to_h { |group| [ group.to_sym, Array(chosen[group]).join(",").presence ] }).compact)
   end
 

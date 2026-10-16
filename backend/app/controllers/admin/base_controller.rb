@@ -61,17 +61,19 @@ class Admin::BaseController < ApplicationController
       return unless back.start_with?("/admin/live")
 
       query = Rack::Utils.parse_query(URI.parse(back).query.to_s)
-      position = Admin::LiveController.list_for(ActionController::Parameters.new(query)).neighbours(type, id) or return
-      path = ->(key) { key && live_item_path(key, back) }
+      list = Admin::LiveController.list_for(ActionController::Parameters.new(query))
+      position = list.neighbours(type, id) or return
+      path = ->(key) { key && live_item_path(key, back, list.tab) }
       position.merge(previous: path.(position[:previous]), next: path.(position[:next]))
     rescue URI::InvalidURIError
       nil
     end
 
     # A Live list item's page: a company's or site's Record, else its fact page.
-    def live_item_path(key, back)
+    def live_item_path(key, back, tab = nil)
       type, id = key
-      if type == "Organization" || (type == "Facility" && Facility.where(id:, parent_id: nil).exists?)
+      # As its row opens it: in the Reactors tab a reactor (even one without a site) opens its fact page.
+      if type == "Organization" || (type == "Facility" && tab != "reactors" && Facility.where(id:, parent_id: nil).exists?)
         admin_record_path(type:, id:, back:)
       else
         admin_fact_path(type:, id:, from: "live", back:)

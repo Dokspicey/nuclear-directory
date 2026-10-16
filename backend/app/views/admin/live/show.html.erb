@@ -12,7 +12,7 @@
       <%= link_to live_path_for(list, tab:), class: "nd-fchip nd-fchip--tab", aria: { current: ("page" if tab == list.tab) } do %><%= label %> <span class="type-data nd-num"><%= number_with_delimiter(@tab_counts[tab]) %></span><% end %>
     <% end %>
   </nav>
-  <%= form_with url: admin_live_path, method: :get, class: "nd-live__search", role: "search", data: { turbo_action: "replace" } do %>
+  <%= form_with url: admin_live_path, method: :get, class: "nd-live__search", role: "search" do %>
     <%= hidden_field_tag :tab, list.tab, id: nil unless list.tab == "all" %>
     <% list.chosen.each do |group, keys| %>
       <% next if keys.empty? || (group == "status" && keys == [ Directory::LiveList::DEFAULT_STATUS ]) %>

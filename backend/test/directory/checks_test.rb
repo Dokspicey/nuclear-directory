@@ -82,6 +82,29 @@ class Directory::ChecksTest < ActiveSupport::TestCase
     assert_not Directory::Checks.find("no-operator").applies_to?(Organization)
   end
 
+  test "source disagrees: an open disagreement, or a source's latest reading that a person's decision overrules" do
+    source = Source.create!(url: "https://www.nrc.gov/disagree", source_kind: "nrc_reactor_list", domain: "nrc.gov")
+    overruled = Facility.create!(name: "Overruled 1", **VERIFIED)
+    settled = Facility.create!(name: "Settled 1", **VERIFIED)
+    claim = ->(subject, notes, status = "confirmed") { Candidate.create!(source:, kind: "facility", payload: {}, quote: "q", status:, notes:, subject_type: "Facility", subject_id: subject.id) }
+    claim.(overruled, "Confirmed by human:tosin: identical, except where a person's decision stands: status shut_down (it says operating)")
+    claim.(settled, "Confirmed: except where a person's decision stands: status shut_down (it says operating)")
+    claim.(settled, "Confirmed by human:tosin: identical to Settled 1 as decided") # the source now agrees
+
+    ids = ids("source-disagrees", Facility)
+
+    assert_includes ids, overruled.id
+    assert_not_includes ids, settled.id, "only each source's latest reading counts"
+  end
+
+  test "low confidence is the fact's own confidence, not one source's" do
+    low = Organization.create!(name: "Unsure Co", verification_status: "pending", confidence: 0.6)
+    combined = Organization.create!(name: "Two Sources Co", verification_status: "pending", confidence: 0.7)
+
+    assert_includes ids("low-confidence", Organization), low.id
+    assert_not_includes ids("low-confidence", Organization), combined.id
+  end
+
   test "decided by: a person, and edited by a person" do
     org = Organization.create!(name: "Edited Co", **VERIFIED)
     VerificationEvent.create!(subject: org, from_status: "verified", to_status: "verified", by: "human:tosin", changed_values: { "hq_state" => [ "DE", "WA" ] })

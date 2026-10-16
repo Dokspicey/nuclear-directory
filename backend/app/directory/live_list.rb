@@ -61,10 +61,12 @@ class Directory::LiveList
     rows_for(slice)
   end
 
-  # How many records the list would show with this tag chosen as well.
+  # How many records the list would show with this tag chosen as well: with
+  # the group's other chosen tags (OR), or instead of the status (Status is one choice).
   def count(key)
     tag = Directory::Checks.find(key) or return 0
-    filtered(tag.group).sum { |type, ids| (ids & tag_ids(tag, type)).size }
+    together = Directory::Checks::SINGLE.include?(tag.group) ? [ tag ] : (chosen[tag.group] | [ key ]).map { |chosen_key| Directory::Checks.find(chosen_key) }
+    filtered(tag.group).sum { |type, ids| (ids & together.map { |each_tag| tag_ids(each_tag, type) }.reduce(:|)).size }
   end
 
   # Where a record sits in the list, for Previous and Next on its page.
@@ -74,7 +76,7 @@ class Directory::LiveList
   end
 
   def chosen?(key) = chosen.values.flatten.include?(key)
-  def filtered? = chosen.any? { |group, keys| group == "status" ? keys != [ DEFAULT_STATUS ] : keys.any? }
+  def filtered? = query.present? || chosen.any? { |group, keys| group == "status" ? keys != [ DEFAULT_STATUS ] : keys.any? }
 
   private
     # Each model's ids in this tab and search.

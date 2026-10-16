@@ -134,6 +134,69 @@ class Admin::LiveTest < ActionDispatch::IntegrationTest
     assert_match "Put it back first", flash[:alert]
   end
 
+  test "a chip's count includes the group's chips already chosen; Status replaces" do
+    a = company("Count A Co")
+    b = company("Count B Co")
+    Evidence.create!(subject: b, source: Source.create!(url: "https://www.nrc.gov/count", source_kind: "nrc_reactor_list", domain: "nrc.gov"), quote: "x", found_by: "crawler")
+    list = Directory::LiveList.new(tab: "companies", query: "Count", chosen: { "source" => [ "nrc" ] })
+
+    assert_equal 1, list.total
+    assert_equal 2, list.count("hand-research"), "NRC or research: both companies"
+    assert_equal 1, list.count("nrc")
+    assert a
+  end
+
+  test "Clear all drops the search too, and shows when only a search is active" do
+    company("Search Only Co")
+
+    get admin_live_path(q: "Search Only")
+
+    assert_select "a[href=?]", admin_live_path, "Clear all"
+    assert_select "form.nd-live__search[data-turbo-action]", 0, "a search is a new entry in the history"
+  end
+
+  test "Previous and Next through the Reactors tab open fact pages, as its rows do" do
+    a = Facility.create!(name: "Lone Reactor A", nrc_docket: "05099101", **VERIFIED)
+    b = Facility.create!(name: "Lone Reactor B", nrc_docket: "05099102", **VERIFIED)
+    back = admin_live_path(tab: "reactors", q: "Lone Reactor")
+
+    get admin_fact_path(type: "Facility", id: b.id, from: "live", back:)
+
+    assert_select ".nd-itemnav a[rel=next][href=?]", admin_fact_path(type: "Facility", id: a.id, from: "live", back:)
+  end
+
+  test "a pending record is approved by Save and approve with nothing changed; Edit leaves out display-only names" do
+    site = Facility.create!(name: "Pending Site", verification_status: "pending")
+    Evidence.create!(subject: site, source: @web, quote: "Pending Site", found_by: "human")
+
+    get admin_record_edit_path(type: "Facility", id: site.id)
+    assert_select "input[name=?]", "values[parent_name]", 0
+    assert_select "input[type=submit][value=?]", "Save and approve"
+
+    patch admin_record_path(type: "Facility", id: site.id), params: { values: { name: "Pending Site" } }
+
+    assert site.reload.verified?
+  end
+
+  test "an edit that races with a Take off doesn't put the record back" do
+    c = company("Race Co")
+    stale = DataQuality::Review.fact(type: "Organization", id: c.id) # what the page loaded: live
+    c.unpublish!(by: "human:tosin", reason: "Taken off meanwhile")
+
+    real = DataQuality::Review.method(:fact)
+    DataQuality::Review.define_singleton_method(:fact) { |**| stale }
+    begin
+      patch admin_record_path(type: "Organization", id: c.id), params: { values: { hq_city: "Everett" } }
+    ensure
+      DataQuality::Review.define_singleton_method(:fact, real)
+    end
+
+    assert_redirected_to admin_record_path(type: "Organization", id: c.id)
+    assert_match "Put it back first", flash[:alert]
+    assert c.reload.unpublished?
+    assert_nil c.hq_city
+  end
+
   test "a unit has no Record page; its fact page opened from Live says Live" do
     site = Facility.create!(name: "Unit Site", **VERIFIED)
     unit = Facility.create!(name: "Unit 1", parent: site, **VERIFIED)

@@ -69,11 +69,20 @@ module Directory::Checks
           ).select(:subject_id)
         end
         domains = ->(model) { evidence(model).joins(:source).group(:subject_id).having("COUNT(DISTINCT COALESCE(sources.domain, sources.url)) = 1").select(:subject_id) }
+        # A source's latest reading of a fact that kept a person's overruling
+        # value (#240: "a person's decision stands"), so it still disagrees.
+        # Only each source's latest claim counts, so an old conflict since
+        # settled doesn't linger.
+        overruled = lambda do |model|
+          latest = Candidate.where(subject_type: model.name).where.not(subject_id: nil)
+            .select("DISTINCT ON (candidates.source_id, candidates.subject_id) candidates.id").order("candidates.source_id, candidates.subject_id, candidates.id DESC")
+          Candidate.where(id: latest, status: "confirmed").where("candidates.notes ILIKE ?", "%a person's decision stands%").select(:subject_id)
+        end
         [
           Tag.new("no-quote", "No quote", "flags", 1, "Live, with no quote",
             each_model { |model| model.published.where.not(id: quoted.call(model)) }),
           Tag.new("source-disagrees", "Source disagrees", "flags", 2, "A source says something else than a person decided",
-            each_model { |model| model.where(id: open_claims(model).where("candidates.notes ILIKE 'human-verified %'").select(:subject_id)) }),
+            each_model { |model| model.where(id: open_claims(model).where("candidates.notes ILIKE 'human-verified %'").select(:subject_id)).or(model.where(id: overruled.call(model))) }),
           Tag.new("dropped-by-source", "Dropped by source", "flags", 3, "Its source no longer lists it",
             each_model { |model| model.where(id: open_claims(model).where(review_origin: "dropped").select(:subject_id)) }),
           Tag.new("stale", "Not re-checked", "flags", 4, "No source re-confirmed it in 14 days (NRC, EIA) or a year (web, research)",
@@ -82,10 +91,12 @@ module Directory::Checks
             each_model { |model| model.where(id: domains.call(model)) }),
           Tag.new("in-review", "In review", "flags", 6, "A claim on it is waiting in Checks",
             each_model { |model| model.where(id: open_claims(model).select(:subject_id)) }),
+          # The fact's own confidence, worked out from all its evidence (two
+          # sources at 0.6 and 0.5 make 0.7), not any one source's.
           Tag.new("low-confidence", "Low confidence", "flags", 7, "Machine confidence under 0.7, not checked by a person",
             each_model do |model|
               model.where("#{model.table_name}.verified_by IS NULL OR #{model.table_name}.verified_by NOT LIKE 'human:%'")
-                .where(id: evidence(model).group(:subject_id).having("MAX(evidence.confidence) < 0.7").select(:subject_id))
+                .where("#{model.table_name}.confidence < 0.7")
             end)
         ]
       end
