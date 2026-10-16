@@ -183,6 +183,8 @@ The verb is fixed (VOICE.md). Each link needs a quote that states that relations
 | 3. Named reporting | Trade press or news that names both parties and the terms | Cite when tiers 1–2 don't state it; replace it with a primary source when one appears |
 | Leads only | Aggregators and directories: SMR Intel, ANS Buyers Guide, GAIN directory, GEM tracker, WNA, LinkedIn | Never cite. Trace each lead to tiers 1–3 (#257–#259) |
 
+**Which sources feed which bucket**, with what's live, planned or missing: the "Sources by bucket" table on the sources roadmap, #133 (https://github.com/tosinoladokun/nuclear-directory/issues/133#issuecomment-6206324347).
+
 Not a source: anything behind a login or paywall, AI-written summaries, a page that only lists names together, and personal data of any kind.
 
 ### Quotes
