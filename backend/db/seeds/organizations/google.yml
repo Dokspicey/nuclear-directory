@@ -80,6 +80,27 @@ relationships:
   quote: 'the companies entered into a 15-year energy supply agreement for an additional 2,700 MWs in PJM''s fleet'
   published: '2026-10-06'
   confidence: 1.0
+- type: offtake_with
+  to: NextEra Energy
+  description: 'Signed 25-year agreement (Oct 2025) to buy power from the 615 MW Duane Arnold plant once restarted (online by Q1 2029, pending approvals); CIPCO buys the rest.'
+  source_url: https://www.investor.nexteraenergy.com/news-and-events/news-releases/2025/10-27-2025-203948689
+  quote: '25-year agreement to purchase carbon-free nuclear energy from the Duane Arnold plant, one of the plant''s current minority owners, Central Iowa Power Cooperative (CIPCO), will purchase the remaining portion'
+  published: '2025-10-27'
+  confidence: 1.0
+- type: offtake_with
+  to: NextEra Energy
+  description: 'Signed 25-year agreement (Oct 2025) to buy power from the 615 MW Duane Arnold plant once restarted (online by Q1 2029, pending approvals); CIPCO buys the rest.'
+  source_url: https://www.investor.nexteraenergy.com/news-and-events/news-releases/2025/10-27-2025-203948689
+  quote: 'expected to be online and delivering electricity onto the grid by the first quarter of 2029, pending regulatory approvals'
+  published: '2025-10-27'
+  confidence: 1.0
+- type: offtake_with
+  to: Constellation
+  description: 'Signed agreements (Oct 2026): a 20-year PPA supporting 890 MW of uprates at 11 Constellation units in Illinois, Pennsylvania and New Jersey, and a 15-year energy supply agreement for 2,700 MW from Constellation''s PJM fleet.'
+  source_url: https://www.constellationenergy.com/news/2026/10/google-and-constellation-announce-landmark-agreement-to-bring-890-mw-of-new-nuclear-capacity-to-pjm-grid.html
+  quote: 'to bring 890 megawatts (MW) of new, reliable nuclear capacity onto the PJM Interconnection grid'
+  published: '2026-10-06'
+  confidence: 1.0
 facilities:
 - name: Fall Line Fusion Power Station
   type: offtakes_from

@@ -48,6 +48,20 @@ relationships:
   quote: 'TerraPower, a nuclear innovation company, and Meta announced today an agreement to develop up to 8 Natrium reactor'
   published: '2026-01-09'
   confidence: 1.0
+- type: offtake_with
+  to: Vistra Corporation
+  description: 'Signed 20-year agreements (Jan 2026) for more than 2.1 GW from Perry and Davis-Besse, plus 433 MW of uprates at Perry, Davis-Besse and Beaver Valley.'
+  source_url: https://about.fb.com/news/2026/01/meta-nuclear-energy-projects-power-american-ai-leadership/
+  quote: 'in addition to the energy from expansions (uprates) at these two Ohio plants and a third Vistra nuclear plant in Pennsylvania (Beaver Valley)'
+  published: '2026-01-09'
+  confidence: 1.0
+- type: offtake_with
+  to: Vistra Corporation
+  description: 'Signed 20-year agreements (Jan 2026) for more than 2.1 GW from Perry and Davis-Besse, plus 433 MW of uprates at Perry, Davis-Besse and Beaver Valley.'
+  source_url: https://about.fb.com/news/2026/01/meta-nuclear-energy-projects-power-american-ai-leadership/
+  quote: 'The new additional uprate capacity at each of them, totaling 433 MW, is expected to come online in the early 2030s'
+  published: '2026-01-09'
+  confidence: 1.0
 facilities:
 - name: Clinton Clean Energy Center
   type: offtakes_from
@@ -70,7 +84,7 @@ facilities:
 - name: Beaver Valley
   type: offtakes_from
   source_url: https://about.fb.com/news/2026/01/meta-nuclear-energy-projects-power-american-ai-leadership/
-  quote: 'increasing energy production at the Perry and Davis-Besse plants in Ohio and the Beaver Valley plant in Pennsylvania'
+  quote: 'in addition to the energy from expansions (uprates) at these two Ohio plants and a third Vistra nuclear plant in Pennsylvania (Beaver Valley)'
   published: '2026-01-09'
   confidence: 1.0
 notes: 'Meta also signed PPAs with Vistra (Perry, Davis-Besse, Beaver Valley uprates) and an agreement with Oklo (Pike County, OH) in Jan 2026; those counterparties are not in this seed. HQ not verified. #63: Clinton is an operating (fission) nuclear plant. Meta also ran a nuclear RFP (https://sustainability.atmeta.com/blog/2024/12/03/accelerating-the-next-wave-of-nuclear-to-power-ai-innovation/). HQ (Menlo Park) stated only in SEC 10-K (blocked, 403).'
