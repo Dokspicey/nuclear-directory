@@ -74,7 +74,10 @@ class Admin::RecordsController < Admin::BaseController
     NOT_EDITED = %w[id slug parent_id parent_name technology aliases created_at updated_at verification_status verified_by verified_at confidence
       organization_name facility_name from_organization_name to_organization_name].freeze
 
+    # A site's capacity is the sum of its units, never stored (DATA.md), so a
+    # site with units has none to edit; a standalone reactor keeps its own.
     def editable_fields
-      @fact.values.reject { |name, value| NOT_EDITED.include?(name) || value.is_a?(Array) || value.is_a?(Hash) }.keys
+      fields = @fact.values.reject { |name, value| NOT_EDITED.include?(name) || value.is_a?(Array) || value.is_a?(Hash) }.keys
+      @fact.type == "Facility" && Facility.exists?(parent_id: @fact.id) ? fields - %w[capacity_mw] : fields
     end
 end

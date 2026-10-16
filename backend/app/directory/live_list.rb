@@ -40,7 +40,8 @@ class Directory::LiveList
     @chosen["status"] = [ DEFAULT_STATUS ] if @chosen["status"].empty?
   end
 
-  def total = keys.size
+  # Counted from the filtered ids, without ordering them (each tab's count needs only this).
+  def total = @keys ? @keys.size : filtered(nil).values.sum(&:size)
 
   # This tab's records with the chosen status only (its count on the tab).
   def self.tab_count(tab, status: DEFAULT_STATUS) = new(tab:, chosen: { "status" => [ status ] }).total

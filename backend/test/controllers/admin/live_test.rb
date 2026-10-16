@@ -178,6 +178,20 @@ class Admin::LiveTest < ActionDispatch::IntegrationTest
     assert site.reload.verified?
   end
 
+  test "a site with units has no capacity to edit (it's the sum of its units); a standalone reactor keeps its own" do
+    site = Facility.create!(name: "Summed Site", capacity_mw: 900, **VERIFIED)
+    Facility.create!(name: "Summed 1", parent: site, capacity_mw: 1000, **VERIFIED)
+    lone = Facility.create!(name: "Lone Plant", capacity_mw: 500, **VERIFIED)
+
+    get admin_record_edit_path(type: "Facility", id: site.id)
+    assert_select "input[name=?]", "values[capacity_mw]", 0
+    patch admin_record_path(type: "Facility", id: site.id), params: { values: { capacity_mw: "2000", name: "Summed Site" } }
+    assert_equal 900, site.reload.capacity_mw
+
+    get admin_record_edit_path(type: "Facility", id: lone.id)
+    assert_select "input[name=?]", "values[capacity_mw]"
+  end
+
   test "an edit that races with a Take off doesn't put the record back" do
     c = company("Race Co")
     stale = DataQuality::Review.fact(type: "Organization", id: c.id) # what the page loaded: live
