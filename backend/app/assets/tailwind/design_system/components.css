@@ -465,6 +465,39 @@
   .nd-fchips { display: flex; flex-wrap: wrap; gap: var(--nd-space-2); }
   .nd-fchip { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 var(--nd-space-3); border: var(--nd-hairline) solid var(--nd-rule); background: var(--nd-paper-raised); color: var(--nd-ink); text-decoration: none; }
   .nd-fchip:hover, .nd-fchip[aria-current="page"] { border-color: var(--nd-ink); }
+  .nd-fchip[aria-current="true"] { border-color: var(--nd-ink); box-shadow: inset 0 0 0 1px var(--nd-ink); }
+  .nd-fchip--zero .nd-num { color: var(--nd-ink-muted); }
+  .nd-fchip--tab { min-height: 44px; padding: 0 var(--nd-space-4); }
+  .nd-fchip--tab[aria-current="page"] { background: var(--nd-inverse); border-color: var(--nd-inverse); color: var(--nd-on-inverse); }
+
+  /* Live (#201 part 2): tabs and search, then the tag groups (Data Quality's
+     #238), one row per group; on phones they fold behind "Filters (N)". */
+  .nd-live__bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--nd-space-2); }
+  .nd-live__search { flex: 1 1 200px; display: flex; }
+  .nd-live__search .nd-input { width: 100%; min-height: 44px; border-radius: 0; }
+  .nd-live__filters > summary { display: none; }
+  .nd-live__groups { padding: var(--nd-space-1) var(--nd-space-4) 6px; gap: 0; }
+  .nd-live__group { display: grid; grid-template-columns: 7rem minmax(0, 1fr); gap: var(--nd-space-2) var(--nd-space-3); align-items: start; padding: 10px 0; border-top: var(--nd-hairline) solid var(--nd-rule); }
+  .nd-live__group:first-child { border-top: 0; }
+  .nd-live__group > .type-kicker { padding-top: 9px; }
+  .nd-live__group .nd-fchip { min-height: 34px; padding: 0 10px; }
+  .nd-live__foot { display: flex; justify-content: space-between; align-items: center; padding: var(--nd-space-2) 0 var(--nd-space-1); border-top: var(--nd-hairline) solid var(--nd-rule); }
+  .nd-live__table td:first-child { white-space: normal; }
+  .nd-live__table td { text-align: left; }
+  .nd-live__table th { text-align: left; }
+  @media (max-width: 560px) {
+    .nd-live__filters > summary { display: inline-flex; list-style: none; }
+    .nd-live__filters > summary::-webkit-details-marker { display: none; }
+    .nd-live__filters[open] > summary { margin-bottom: var(--nd-space-2); }
+    .nd-live__group { grid-template-columns: minmax(0, 1fr); }
+    .nd-live__group > .type-kicker { padding-top: 0; }
+    .nd-live__group .nd-fchip { min-height: 44px; }
+    .nd-live__table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    .nd-live__table, .nd-live__table tbody { display: block; }
+    .nd-live__table tr { display: flex; flex-wrap: wrap; gap: var(--nd-space-1) var(--nd-space-3); padding: var(--nd-space-3) 14px; border-top: var(--nd-hairline) solid var(--nd-rule); }
+    .nd-live__table td { display: block; padding: 0; border: 0; white-space: normal; }
+    .nd-live__table td:first-child { flex-basis: 100%; }
+  }
 
   /* One waiting item: what it is, its value, its buttons. */
   .nd-waits { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--nd-space-2); }
@@ -493,6 +526,8 @@
   .nd-fold__row { display: flex; justify-content: space-between; gap: var(--nd-space-3); padding: 9px 0; border-top: var(--nd-hairline) solid var(--nd-rule); }
   .nd-fold__row > * { margin: 0; min-width: 0; overflow-wrap: anywhere; }
   .nd-fold__body { padding-bottom: var(--nd-space-2); }
+  .nd-record__tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; }
+  .nd-split__side span.nd-btn[aria-disabled] { cursor: default; justify-content: space-between; }
   .nd-takeoff > summary { list-style: none; }
   .nd-takeoff > summary::-webkit-details-marker { display: none; }
   .nd-takeoff__form { margin-top: var(--nd-space-2); }

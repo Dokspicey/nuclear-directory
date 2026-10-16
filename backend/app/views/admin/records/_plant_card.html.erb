@@ -1,0 +1,22 @@
+<%# A plant as its public page shows it (#201): name, type and status, the
+    key facts, and how many units and companies it has. Values come from
+    the site itself, so a record that isn't public yet still reads; links
+    count only when published, as on the site. Locals: p (PlantProfile), record (Facility). %>
+<% capacity = "#{number_with_precision(p.capacity_mw, precision: 2, strip_insignificant_zeros: true, delimiter: ",")} MW" if p.capacity_mw %>
+<% names = ->(type) { p.companies_for(type).map(&:name).join(", ").presence } %>
+<div class="nd-factcard">
+  <h1 class="type-admin-h1"><%= record.name %></h1>
+  <p class="nd-record__tags">
+    <% [ facility_type_label(record.facility_type), facility_status_label(record.status), *p.technologies ].compact.each do |tag| %><span class="nd-tag"><%= tag %></span><% end %>
+  </p>
+  <dl class="nd-kv type-body">
+    <% [ [ "Location", place(record.city, record.state) ], [ p.companies_for("owns").size > 1 ? "Owners" : "Owner", names.("owns") ],
+         [ "Operator", names.("operates") ], [ "Reactor type", p.reactor_types.join(", ").presence ], [ "Capacity", capacity ],
+         [ "NRC docket", record.nrc_docket ] ].each do |label, value| %>
+      <% next if value.blank? %>
+      <dt class="type-label"><%= label %></dt><dd><%= value %></dd>
+    <% end %>
+  </dl>
+  <div class="nd-fold__row type-body"><span>Units</span><span class="type-data"><%= p.units.size %></span></div>
+  <div class="nd-fold__row type-body"><span>Companies</span><span class="type-data"><%= p.links.map(&:organization_id).uniq.size %></span></div>
+</div>

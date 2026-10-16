@@ -32,12 +32,38 @@ module AdminHelper
       { label: "Overview", path: admin_root_path, current: controller_name == "overview" },
       { label: "Sources", path: admin_sources_path, count: counts[:sources], current: controller_name == "status" },
       { label: "Checks", path: admin_checks_path, count: counts[:checks], current: %w[checks candidates pending_facts].include?(controller_name) },
-      { label: "Live", soon: true },
+      { label: "Live", path: admin_live_path, count: counts[:live], current: %w[live records].include?(controller_name) },
       { label: "Removed", soon: true },
       { label: "Where it appears", soon: true },
       { label: "Correction requests", path: admin_corrections_path, count: counts[:corrections], title: "From visitors", gap: true,
         current: controller_name == "corrections" }
     ]
+  end
+
+  # A Live URL for the list as it is, with a tab, a chip toggled (a Status
+  # chip replaces the status; others add or drop), or everything cleared.
+  def live_path_for(list, tab: list.tab, toggle: nil, clear: false)
+    chosen = clear ? { "status" => [ Directory::LiveList::DEFAULT_STATUS ] } : list.chosen.transform_values(&:dup)
+    if (tag = toggle && Directory::Checks.find(toggle))
+      keys = chosen[tag.group] ||= []
+      if Directory::Checks::SINGLE.include?(tag.group) then chosen[tag.group] = [ tag.key ]
+      elsif keys.include?(tag.key) then keys.delete(tag.key)
+      else keys << tag.key
+      end
+    end
+    status = Array(chosen["status"]).first
+    admin_live_path({ tab: (tab unless tab == "all"), q: list.query, status: (status unless status == Directory::LiveList::DEFAULT_STATUS) }
+      .merge(Directory::Checks::GROUPS.keys.excluding("status").to_h { |group| [ group.to_sym, Array(chosen[group]).join(",").presence ] }).compact)
+  end
+
+  # Where a Live row opens: a company's or plant's Record page, else the
+  # fact page; either with a way back to this list.
+  def live_row_path(row, back)
+    if row.type == "Organization" || (row.type == "Facility" && row.kind == "Plant")
+      admin_record_path(type: row.type, id: row.id, back:)
+    else
+      admin_fact_path(type: row.type, id: row.id, from: "live", back:)
+    end
   end
 
   # The flash after a decision made on an item page, on the next one:
@@ -52,6 +78,7 @@ module AdminHelper
     @admin_nav_counts ||= {
       sources: DataQuality::Status.kinds.size,
       checks: DataQuality::Review.counts.values.sum + DataQuality::Review.pending_count,
+      live: Organization.published.count + Facility.published.where(parent_id: nil).count,
       corrections: CorrectionReport.where(status: %w[open reviewed]).count
     }
   end

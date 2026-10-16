@@ -54,6 +54,30 @@ class Admin::BaseController < ApplicationController
       anchor.match?(/\A(?:claim|fact)-[\w-]+\z/) ? "#{path.split('#').first}##{anchor}" : path
     end
 
+    # Where a record sits in the Live list it was opened from (back), with
+    # paths for Previous and Next, or nil when it wasn't opened from Live.
+    def live_position(type, id)
+      back = back_path(nil) or return
+      return unless back.start_with?("/admin/live")
+
+      query = Rack::Utils.parse_query(URI.parse(back).query.to_s)
+      position = Admin::LiveController.list_for(ActionController::Parameters.new(query)).neighbours(type, id) or return
+      path = ->(key) { key && live_item_path(key, back) }
+      position.merge(previous: path.(position[:previous]), next: path.(position[:next]))
+    rescue URI::InvalidURIError
+      nil
+    end
+
+    # A Live list item's page: a company's or site's Record, else its fact page.
+    def live_item_path(key, back)
+      type, id = key
+      if type == "Organization" || (type == "Facility" && Facility.where(id:, parent_id: nil).exists?)
+        admin_record_path(type:, id:, back:)
+      else
+        admin_fact_path(type:, id:, from: "live", back:)
+      end
+    end
+
     # Every decision redirects with 303, so Back never resubmits it.
     def redirect_after(path) = redirect_to(path, status: :see_other)
 

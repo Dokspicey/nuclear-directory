@@ -68,6 +68,17 @@ module Directory
     # an array of Directory::PendingFactRef. Page with after_id: the last id seen.
     #
     #   Directory::Lookup.pending_facts(kind: "facility_relationship", limit: 50)
+    # The sources behind a fact, once each, latest checked first:
+    # [{ title:, url:, source_kind:, checked_at: }].
+    def evidence_sources(type:, id:)
+      raise ArgumentError, "not a fact type: #{type.inspect}" unless FACT_TYPES.include?(type.to_s)
+
+      Evidence.where(subject_type: type.to_s, subject_id: id).includes(:source).group_by(&:source).map do |source, rows|
+        { title: source.title, url: source.url, source_kind: source.source_kind,
+          checked_at: rows.map { |row| row.last_confirmed_at || row.created_at }.max }
+      end.sort_by { |row| -row[:checked_at].to_f }
+    end
+
     # How many public facts (any type) have evidence from these sources.
     def published_count_backed_by(source_ids:)
       return 0 if source_ids.empty?

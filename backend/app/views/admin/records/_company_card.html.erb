@@ -1,0 +1,20 @@
+<%# A company as its public page shows it (#201): name, roles and
+    technologies, its one-line description, the key facts, and how many
+    deals and plants it has. Locals: p (CompanyProfile), record (Organization). %>
+<div class="nd-factcard">
+  <h1 class="type-admin-h1"><%= record.name %></h1>
+  <% tags = p.shown_roles.map { |r| role_label(r.role) } + p.technologies.map { |t| t.technology.name } %>
+  <% if tags.any? %>
+    <p class="nd-record__tags"><% tags.each do |tag| %><span class="nd-tag"><%= tag %></span><% end %></p>
+  <% end %>
+  <% if record.description.present? %><p class="type-body"><%= record.description %></p><% end %>
+  <dl class="nd-kv type-body">
+    <% [ [ "Website", record.website ], [ "Also known as", p.aliases.join(", ").presence ], [ "Legal name", record.legal_name ],
+         [ "Headquarters", place(record.hq_city, record.hq_state) ], [ "Founded", record.founded_year ] ].each do |label, value| %>
+      <% next if value.blank? %>
+      <dt class="type-label"><%= label %></dt><dd class="wrap-anywhere"><%= value %></dd>
+    <% end %>
+  </dl>
+  <div class="nd-fold__row type-body"><span>Deals and links</span><span class="type-data"><%= p.deals.size %></span></div>
+  <div class="nd-fold__row type-body"><span>Plants and sites</span><span class="type-data"><%= p.plant_links.size %></span></div>
+</div>

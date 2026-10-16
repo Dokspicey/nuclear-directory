@@ -44,6 +44,14 @@ Rails.application.routes.draw do
     get "sources" => "status#show", as: :sources
     get "status", to: redirect("/admin/sources")
     get "checks" => "checks#show", as: :checks
+    # Live (#201 part 2): every record with Data Quality's tag filters, and
+    # a company's or plant's Record page.
+    get "live" => "live#show", as: :live
+    scope "records/:type/:id", as: :record, constraints: { type: /Organization|Facility/, id: /\d+/ } do
+      get "/" => "records#show"
+      get "edit" => "records#edit", as: :edit
+      patch "/" => "records#update"
+    end
     resources :candidates, only: %i[index edit update] do
       collection do
         post :approve

@@ -1,0 +1,92 @@
+require "test_helper"
+
+# Data Quality's tags (#238), one definition for the admin's Live list and
+# the coming audit report.
+class Directory::ChecksTest < ActiveSupport::TestCase
+  VERIFIED = { verification_status: "verified", verified_by: "human:tosin" }.freeze
+
+  def ids(key, model) = Directory::Checks.find(key).ids(model)
+
+  def source(url, kind: "web_page", domain: URI(url).host) = Source.create!(url:, source_kind: kind, domain:)
+
+  test "every tag has a key, a label and a group; flags are ordered by severity" do
+    assert Directory::Checks.all.all? { |tag| tag.key.present? && tag.label.present? && Directory::Checks::GROUPS.key?(tag.group) }
+    assert_equal %w[no-quote source-disagrees dropped-by-source stale single-source in-review low-confidence],
+      Directory::Checks.in_group("flags").map(&:key)
+  end
+
+  test "status: live, hidden, merged" do
+    live = Organization.create!(name: "Live Co", **VERIFIED)
+    merged = Organization.create!(name: "Merged Co", **VERIFIED)
+    Directory::FactWriter.merge_organization(from_id: merged.id, into_id: live.id, by: "human:tosin")
+    site = Facility.create!(name: "Down Site", **VERIFIED)
+    hidden = Facility.create!(name: "Down 1", parent: site, **VERIFIED)
+    site.unpublish!(by: "human:tosin", reason: "Test")
+
+    assert_includes ids("live", Organization), live.id
+    assert_includes ids("merged", Organization), merged.id
+    assert_not_includes ids("merged", Organization), live.id
+    assert_includes ids("hidden", Facility), hidden.id
+  end
+
+  test "flags: no quote, one source, two or more sources" do
+    a = source("https://www.nrc.gov/a", kind: "nrc_reactor_list")
+    b = source("https://www.energy.gov/b")
+    quoted_once = Organization.create!(name: "Once Co", **VERIFIED)
+    Evidence.create!(subject: quoted_once, source: a, quote: "Once Co", found_by: "crawler")
+    twice = Organization.create!(name: "Twice Co", **VERIFIED)
+    Evidence.create!(subject: twice, source: a, quote: "Twice", found_by: "crawler")
+    Evidence.create!(subject: twice, source: b, quote: "Twice", found_by: "human")
+    unquoted = Organization.create!(name: "Bare Co", **VERIFIED)
+    Evidence.create!(subject: unquoted, source: b, quote: "", found_by: "human")
+
+    assert_equal [ unquoted.id ], ids("no-quote", Organization) & [ quoted_once.id, twice.id, unquoted.id ]
+    assert_includes ids("single-source", Organization), quoted_once.id
+    assert_not_includes ids("single-source", Organization), twice.id
+    assert_includes ids("multi-source", Organization), twice.id
+    assert_includes ids("nrc", Organization), twice.id
+    assert_includes ids("hand-research", Organization), twice.id
+  end
+
+  test "flags: stale after 14 days for NRC, a year for web research" do
+    nrc = source("https://www.nrc.gov/list", kind: "nrc_reactor_list")
+    web = source("https://www.example.com/news")
+    old_nrc = Facility.create!(name: "Old NRC 1", **VERIFIED)
+    old_web = Organization.create!(name: "Old Web Co", **VERIFIED)
+    travel_to(20.days.ago) do
+      Evidence.create!(subject: old_nrc, source: nrc, quote: "x", found_by: "crawler")
+      Evidence.create!(subject: old_web, source: web, quote: "x", found_by: "human")
+    end
+
+    assert_includes ids("stale", Facility), old_nrc.id
+    assert_not_includes ids("stale", Organization), old_web.id
+  end
+
+  test "gaps: no operator, no category, no links, no share" do
+    plant = Facility.create!(name: "Lonely Plant", status: "operating", **VERIFIED)
+    operated = Facility.create!(name: "Run Plant", status: "operating", **VERIFIED)
+    unit = Facility.create!(name: "Run 1", parent: operated, status: "operating", **VERIFIED)
+    company = Organization.create!(name: "Operator Co", **VERIFIED)
+    FacilityRelationship.create!(organization: company, facility: unit, relationship_type: "operates", **VERIFIED)
+    alone = Organization.create!(name: "Alone Co", **VERIFIED)
+    a, b = Organization.create!(name: "Owner A", **VERIFIED), Organization.create!(name: "Owner B", **VERIFIED)
+    shareless = FacilityRelationship.create!(organization: a, facility: plant, relationship_type: "owns", **VERIFIED)
+    FacilityRelationship.create!(organization: b, facility: plant, relationship_type: "owns", ownership_pct: 50, **VERIFIED)
+
+    assert_includes ids("no-operator", Facility), plant.id
+    assert_not_includes ids("no-operator", Facility), operated.id, "its unit's operator counts for the site"
+    assert_includes ids("no-category", Organization), alone.id
+    assert_includes ids("no-links", Organization), alone.id
+    assert_not_includes ids("no-links", Organization), company.id
+    assert_equal [ shareless.id ], ids("no-share", FacilityRelationship) & [ shareless.id ]
+    assert_not Directory::Checks.find("no-operator").applies_to?(Organization)
+  end
+
+  test "decided by: a person, and edited by a person" do
+    org = Organization.create!(name: "Edited Co", **VERIFIED)
+    VerificationEvent.create!(subject: org, from_status: "verified", to_status: "verified", by: "human:tosin", changed_values: { "hq_state" => [ "DE", "WA" ] })
+
+    assert_includes ids("human-verified", Organization), org.id
+    assert_includes ids("human-edited", Organization), org.id
+  end
+end

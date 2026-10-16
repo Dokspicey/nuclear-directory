@@ -6,7 +6,7 @@ class Admin::FactsController < Admin::BaseController
 
   def show
     @fact = DataQuality::Review.fact(type: params[:type], id: params[:id].to_i) or raise ActiveRecord::RecordNotFound
-    @list = list_position if params[:from] == "checks"
+    @list = params[:from] == "live" ? live_position(@fact.type, @fact.id) : (list_position if params[:from] == "checks")
     # Decide here (#269): the claim this page was opened for (a Checks row is
     # one claim), else the oldest waiting on it, or the fact itself when it's
     # pending with none.
@@ -33,18 +33,18 @@ class Admin::FactsController < Admin::BaseController
     # Taking a fact off needs a reason (#201): it's kept in the history.
     if params[:reason].blank?
       flash[:alert] = "Say why it's taken off."
-      return redirect_after fact_path_here
+      return redirect_after next_or(fact_path_here)
     end
 
     result = DataQuality::Review.unpublish(type: params[:type], id: params[:id].to_i, by: actor, reason: params[:reason].strip)
     flash_results([ result ], "Unpublished")
-    redirect_after fact_path_here
+    redirect_after next_or(fact_path_here)
   end
 
   def republish
     result = DataQuality::Review.approve_fact(type: params[:type], id: params[:id].to_i, by: actor, reason: params[:reason].presence)
     flash_results([ result ], "Republished")
-    redirect_after fact_path_here
+    redirect_after next_or(fact_path_here)
   end
 
   private
