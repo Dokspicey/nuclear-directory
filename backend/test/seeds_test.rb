@@ -41,7 +41,7 @@ class SeedsTest < ActiveSupport::TestCase
     load_seeds
 
     assert_equal 68, Organization.verified.count
-    assert_equal 80, OrganizationRole.verified.count
+    assert_equal 79, OrganizationRole.verified.count
     assert_equal 57, OrganizationTechnology.verified.count
     assert_equal 70, Relationship.verified.count
     assert_equal 35, Facility.verified.count

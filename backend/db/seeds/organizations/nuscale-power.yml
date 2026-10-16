@@ -23,9 +23,16 @@ technologies:
   source_url: https://www.nuscalepower.com/about
   quote: What started as a university research project in 2002 is now a mission to bring small modular reactor (SMR) technology to the global energy market.
   confidence: 1.0
-relationships: []
+relationships:
+- type: supplies
+  to: Standard Power
+  description: 'Announced plan (Oct 2023): NuScale to provide 24 of its 77 MWe modules (1,848 MWe in total) for planned SMR plants at sites in Ohio and Pennsylvania.'
+  source_url: https://www.sec.gov/Archives/edgar/data/1822966/000182296623000242/a2023-10x06xstandardpowe.htm
+  quote: NuScale will end up providing 24 units of 77 MWe modules collectively producing 1,848 MWe of clean energy from both the Ohio and Pennsylvania sites.
+  published: '2023-10-06'
+  confidence: 0.9
 facilities: []
-notes: 'HQ quote is from the Oct 2023 NuScale 8-K Exhibit 99.1 boilerplate (SEC, not char-verified live; matched against a copy fetched earlier this session). The about page gives 2025 NRC Standard Design Approval for the 77 MWe module. ENTRA1 Energy is NuScale''s exclusive global commercialization partner (same exhibit). The Standard Power plan is recorded in standard-power.yml (#253).'
+notes: 'HQ quote is from the Oct 2023 NuScale 8-K Exhibit 99.1 boilerplate (SEC, not char-verified live; matched against a copy fetched earlier this session). The about page gives 2025 NRC Standard Design Approval for the 77 MWe module. ENTRA1 Energy is NuScale''s exclusive global commercialization partner (same exhibit). The Standard Power plan is recorded here as a supplies link, labelled announced plan (#253).'
 description:
   text: Small modular reactor company whose NuScale Power Module was the first SMR design approved by the NRC.
   source_url: https://www.nuscalepower.com/about

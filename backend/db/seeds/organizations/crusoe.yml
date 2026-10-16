@@ -16,7 +16,7 @@ technologies: []
 relationships:
 - type: offtake_with
   to: Blue Energy
-  description: 'Strategic partnership (Oct 2025): Blue Energy to build a nuclear plant of up to 1.5 GW at the Port of Victoria, Texas, to power a nearby Crusoe AI campus, with gas power first (as early as 2028) and nuclear expected by 2031.'
+  description: 'Strategic partnership (Oct 2025): Blue Energy to design, develop and operate a nuclear plant of up to 1.5 GW at the Port of Victoria, Texas, to power a nearby Crusoe-developed AI campus.'
   source_url: https://www.crusoe.ai/resources/newsroom/blue-energy-and-crusoe-partner-to-develop-nuclear-powered-ai-data-center
   quote: Blue Energy secured a site to design, develop, and operate an advanced nuclear power plant of up to 1.5 gigawatts (GW), delivering affordable, reliable power to Crusoe-developed artificial intelligence (AI) factories on a nearby secured site.
   published: '2025-10-30'

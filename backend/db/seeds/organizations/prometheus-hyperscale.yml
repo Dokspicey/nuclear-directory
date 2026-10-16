@@ -27,6 +27,6 @@ relationships:
 facilities: []
 notes: 'Deal quote is from Oklo''s Q3 2024 shareholder letter (SEC exhibit, not char-verified live; matched against a copy fetched earlier this session); "state-of-the- art" is as it appears in the filing text. Aliases from the same letter and Oklo''s 10-Q (June 2026), which calls it "Prometheus Hyperscale (formerly Wyoming Hyperscale White Box LLC)". Flagship project is in Evanston, Wyoming; HQ not stated.'
 description:
-  text: Developer of liquid-cooled hyperscale data centers, starting with a flagship project in Evanston, Wyoming.
+  text: Developer of hyperscale data centers, starting with a flagship project in Evanston, Wyoming.
   source_url: https://prometheushyperscale.com/about-us
   quote: Prometheus Hyperscale is bringing scalable, sustainable data center solutions to key locations across the U.S., starting with our flagship project in Evanston, Wyoming.
