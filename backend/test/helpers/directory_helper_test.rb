@@ -12,7 +12,7 @@ class DirectoryHelperTest < ActionView::TestCase
   end
 
   test "a plant's preview says what it is, where, how big, and who owns and runs it (#246)" do
-    assert_equal "Plant Vogtle: Operating power plant in Waynesboro, Georgia. 4 units, 4,536 MWe. Owned by Georgia Power; operated by Southern Nuclear.",
+    assert_equal "Plant Vogtle: Operating power plant in Waynesboro, Georgia. 4 units, 4,536 MW. Owned by Georgia Power; operated by Southern Nuclear.",
       plant_preview(profile)
   end
 
@@ -20,7 +20,7 @@ class DirectoryHelperTest < ActionView::TestCase
     owners = [ "Georgia Power", "Oglethorpe Power", "MEAG Power", "Dalton Utilities" ]
     line = plant_preview(profile(owners:))
 
-    assert_equal "Plant Vogtle: Operating power plant in Waynesboro, Georgia. 4 units, 4,536 MWe. " \
+    assert_equal "Plant Vogtle: Operating power plant in Waynesboro, Georgia. 4 units, 4,536 MW. " \
       "Owned by Georgia Power and 3 others; operated by Southern Nuclear.", line
     assert_operator line.length, :<=, 160
   end
@@ -49,7 +49,7 @@ class DirectoryHelperTest < ActionView::TestCase
 
     assert_operator line.length, :<=, 160
     assert_match "Operated by An Exceptionally Long Operating Company Name, LLC", line, "the operator outlasts the owners"
-    assert_no_match "MWe", line
+    assert_no_match "MW", line
   end
   test "relationship verbs read left to right in visitors' words" do
     assert_equal "offtakes from", relationship_verb("offtake_with")

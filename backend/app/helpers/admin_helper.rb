@@ -186,7 +186,7 @@ module AdminHelper
       "→ #{similar.split('; ').first}" if similar
     else
       capacity = item.payload["capacity_mw"].presence
-      "#{number_with_precision(capacity, precision: 2, strip_insignificant_zeros: true, delimiter: ",")} MWe" if capacity && unit_update?(item)
+      "#{number_with_precision(capacity, precision: 2, strip_insignificant_zeros: true, delimiter: ",")} MW" if capacity && unit_update?(item)
     end
   end
 
