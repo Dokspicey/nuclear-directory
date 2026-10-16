@@ -61,7 +61,7 @@ relationships:
   confidence: 1.0
 - type: offtake_with
   to: Constellation
-  description: 'Signed 20-year PPA (Oct 2026) supporting 890 MW of uprates at 11 Constellation units in Illinois, Pennsylvania and New Jersey.'
+  description: 'Signed agreements (Oct 2026): a 20-year PPA supporting 890 MW of uprates at 11 Constellation units in Illinois, Pennsylvania and New Jersey, and a 15-year energy supply agreement for 2,700 MW from Constellation''s PJM fleet.'
   source_url: https://www.constellationenergy.com/news/2026/10/google-and-constellation-announce-landmark-agreement-to-bring-890-mw-of-new-nuclear-capacity-to-pjm-grid.html
   quote: 'The 20-year power purchase agreement will enable investments in new equipment and technology at 11 Constellation-owned nuclear units in Illinois, Pennsylvania, and New Jersey'
   published: '2026-10-06'
@@ -72,6 +72,13 @@ relationships:
   source_url: https://www.kairospower.com/updates/google-kairos-power-tva-collaborate-to-meet-americas-growing-energy-needs
   quote: 'Through a new power purchase agreement (PPA) between Kairos Power and TVA, Kairos Power’s Hermes 2 Plant in Oak Ridge, Tenn., will deliver up to 50 megawatts (MW) of reliable, 24/7 energy to the TVA grid that powers Google data centers'
   published: '2025-08-18'
+  confidence: 1.0
+- type: offtake_with
+  to: Constellation
+  description: 'Signed agreements (Oct 2026): a 20-year PPA supporting 890 MW of uprates at 11 Constellation units in Illinois, Pennsylvania and New Jersey, and a 15-year energy supply agreement for 2,700 MW from Constellation''s PJM fleet.'
+  source_url: https://www.constellationenergy.com/news/2026/10/google-and-constellation-announce-landmark-agreement-to-bring-890-mw-of-new-nuclear-capacity-to-pjm-grid.html
+  quote: 'the companies entered into a 15-year energy supply agreement for an additional 2,700 MWs in PJM''s fleet'
+  published: '2026-10-06'
   confidence: 1.0
 facilities:
 - name: Fall Line Fusion Power Station
