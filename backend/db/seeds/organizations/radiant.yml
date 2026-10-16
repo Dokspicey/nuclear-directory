@@ -1,0 +1,22 @@
+# Seed research for #253 batch 2 (hyperscaler power deals) - 2026-10-15. Quotes copied from raw page text fetched this session.
+name: Radiant
+aliases:
+- Radiant Industries
+website: https://www.radiantnuclear.com
+hq: null
+country_code: null
+status: active
+roles:
+- key: reactor_vendor
+  source_url: https://www.energy.gov/ne/articles/radiant-completes-study-first-kaleidos-microreactor-experiment
+  quote: Radiant Industries has completed the front-end engineering and experiment design (FEEED) phase to test a prototype of its Kaleidos microreactor at Idaho National Laboratory (INL).
+  published: '2024-11-14'
+  confidence: 1.0
+technologies: []
+relationships: []
+facilities: []
+notes: 'radiantnuclear.com returned a Cloudflare challenge ("Just a moment...") to curl, so the company site was not used; quotes are from DOE Office of Nuclear Energy. No fission/smr tag: no fetched quote says "fission" or "SMR" (Kaleidos is called a microreactor). HQ not verified. The Equinix preorder is recorded in equinix.yml (#253).'
+description:
+  text: Developer of the Kaleidos microreactor, which is set to be tested at Idaho National Laboratory.
+  source_url: https://www.energy.gov/ne/articles/radiant-completes-study-first-kaleidos-microreactor-experiment
+  quote: The Kaleidos microreactor is one of the designs on track to potentially test at the lab in the world’s first microreactor test bed as early as mid-2026.

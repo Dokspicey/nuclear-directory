@@ -1,0 +1,35 @@
+# Seed research for #253 batch 2 (hyperscaler power deals) - 2026-10-15. Quotes copied from raw page text fetched this session.
+name: New Era Energy & Digital
+aliases:
+- New Era Energy & Digital, Inc.
+- New Era Energy and Digital
+- New Era
+- NUAI
+website: https://newerainfra.ai
+hq: null
+country_code: US
+status: active
+roles:
+- key: data_center_offtaker
+  source_url: https://newerainfra.ai/
+  quote: Multi-source energy architecture powers workloads with lower carbon intensity across natural gas, nuclear, and battery storage.
+  confidence: 0.8
+technologies:
+- key: smr
+  source_url: https://www.sec.gov/Archives/edgar/data/2028336/000121390026029087/ea028197201ex99-1.htm
+  quote: Partnership with Last Energy for 1+ GW SMR development
+  confidence: 0.9
+relationships:
+- type: offtake_with
+  to: Last Energy
+  description: 'Partnership, early development (reported Mar 2026): Last Energy to develop 1+ GW of SMRs for New Era''s Texas Critical Data Centers campus outside Odessa, Texas (Ector County).'
+  source_url: https://www.sec.gov/Archives/edgar/data/2028336/000121390026029087/ea028197201ex99-1.htm
+  quote: Partnership with Last Energy for 1+ GW SMR development • Feasibility engineering underway • Early stage tenant planning underway • Natural gas power STATUS Location Outside City of Odessa, TX Ector County
+  published: '2026-03-17'
+  confidence: 0.8
+facilities: []
+notes: 'Deal quotes are from New Era''s Q4 FY2025 investor presentation (8-K Exhibit 99.1, March 17, 2026; SEC, not char-verified live; matched against a copy fetched earlier this session). It is a slide, so the quote runs across bullets. No primary press release for the partnership was found on lastenergy.com''s press page or New Era''s site; the slide gives no terms beyond "1+ GW". Judgement: offtake_with fits loosely (power for New Era''s campus). Role quote is from the homepage, which says New Era delivers data centers on multi-source power including nuclear; nuclear is planned, not yet buying. country_code US: site footer gives "200 N. Loraine Street, Suite 1324, Midland, TX 79701" (an address, not a stated HQ, so hq left null); the presentation calls it "a Nevada corporation".'
+description:
+  text: Developer of modular data centers powered by a mix of natural gas, nuclear and battery storage.
+  source_url: https://newerainfra.ai/
+  quote: New Era's modular platform delivers enterprise-grade data centers — backed by multi-source energy, built for tomorrow, and invested in the communities we call home.

@@ -1,0 +1,32 @@
+# Seed research for #253 batch 2 (hyperscaler power deals) - 2026-10-15. Quotes copied from raw page text fetched this session.
+name: Standard Power
+aliases: []
+website: null
+hq: null
+country_code: null
+status: active
+roles:
+- key: data_center_offtaker
+  source_url: https://www.sec.gov/Archives/edgar/data/1822966/000182296623000242/a2023-10x06xstandardpowe.htm
+  quote: Standard Power aims to use the carbon-free energy to power nearby data centers.
+  published: '2023-10-06'
+  confidence: 0.9
+technologies:
+- key: smr
+  source_url: https://www.sec.gov/Archives/edgar/data/1822966/000182296623000242/a2023-10x06xstandardpowe.htm
+  quote: announced its plans to develop two small modular reactor (SMR)-powered facilities that will together produce nearly 2GW of clean, carbon free energy
+  confidence: 0.9
+relationships:
+- type: offtake_with
+  to: NuScale Power
+  description: 'Announced plan (Oct 2023), possibly dormant: two SMR plants in Ohio and Pennsylvania using 24 NuScale 77 MWe modules (1,848 MWe in total) to power nearby data centers, developed with ENTRA1 Energy.'
+  source_url: https://www.sec.gov/Archives/edgar/data/1822966/000182296623000242/a2023-10x06xstandardpowe.htm
+  quote: NuScale will end up providing 24 units of 77 MWe modules collectively producing 1,848 MWe of clean energy from both the Ohio and Pennsylvania sites.
+  published: '2023-10-06'
+  confidence: 0.9
+facilities: []
+notes: 'All quotes are from the Standard Power/NuScale/ENTRA1 press release filed as NuScale 8-K Exhibit 99.1 (SEC, not char-verified live; matched against a copy fetched earlier this session). Possibly dormant: no update found since Oct 2023; the release targeted operation by 2029. Website not added: the release links "Standard Power’s website" without a URL, and standardpower.com is a different company (an energy broker in Bedford, NH). ENTRA1 is the project developer; no Standard Power–ENTRA1 link recorded. HQ not stated (release dateline New York, N.Y.).'
+description:
+  text: Hosting provider for high-performance computing companies that develops modular data centers.
+  source_url: https://www.sec.gov/Archives/edgar/data/1822966/000182296623000242/a2023-10x06xstandardpowe.htm
+  quote: Standard Power leverages its infrastructure management expertise to develop modular data centers.

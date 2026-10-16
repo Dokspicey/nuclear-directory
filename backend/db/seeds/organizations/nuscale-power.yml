@@ -1,0 +1,32 @@
+# Seed research for #253 batch 2 (hyperscaler power deals) - 2026-10-15. Quotes copied from raw page text fetched this session.
+name: NuScale Power
+aliases:
+- NuScale Power Corporation
+- NuScale Power, LLC
+- NuScale
+website: https://www.nuscalepower.com
+hq:
+  city: Portland
+  state: OR
+  source_url: https://www.sec.gov/Archives/edgar/data/1822966/000182296623000242/a2023-10x06xstandardpowe.htm
+  quote: Founded in 2007, NuScale is headquartered in Portland, Ore.
+  confidence: 0.9
+country_code: US
+status: active
+roles:
+- key: reactor_vendor
+  source_url: https://www.nuscalepower.com/about
+  quote: What started as a university research project in 2002 is now a mission to bring small modular reactor (SMR) technology to the global energy market.
+  confidence: 1.0
+technologies:
+- key: smr
+  source_url: https://www.nuscalepower.com/about
+  quote: What started as a university research project in 2002 is now a mission to bring small modular reactor (SMR) technology to the global energy market.
+  confidence: 1.0
+relationships: []
+facilities: []
+notes: 'HQ quote is from the Oct 2023 NuScale 8-K Exhibit 99.1 boilerplate (SEC, not char-verified live; matched against a copy fetched earlier this session). The about page gives 2025 NRC Standard Design Approval for the 77 MWe module. ENTRA1 Energy is NuScale''s exclusive global commercialization partner (same exhibit). The Standard Power plan is recorded in standard-power.yml (#253).'
+description:
+  text: Small modular reactor company whose NuScale Power Module was the first SMR design approved by the NRC.
+  source_url: https://www.nuscalepower.com/about
+  quote: We made history in 2020 as the first SMR to receive U.S. Nuclear Regulatory Commission (NRC) design approval

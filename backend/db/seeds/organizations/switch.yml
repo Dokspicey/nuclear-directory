@@ -1,0 +1,34 @@
+# Seed research for #253 batch 2 (hyperscaler power deals) - 2026-10-15. Quotes copied from raw page text fetched this session.
+name: Switch
+aliases:
+- Switch, Ltd.
+website: https://www.switch.com
+hq:
+  city: Las Vegas
+  state: NV
+  source_url: https://www.switch.com/about/
+  quote: Founded in 2000 and headquartered in Las Vegas, Nevada
+  confidence: 1.0
+country_code: US
+status: active
+roles:
+- key: data_center_offtaker
+  source_url: https://www.switch.com/?p=33894
+  quote: Oklo’s Aurora powerhouses will provide reliable, clean energy for Switch’s cutting-edge AI, cloud, and enterprise data center infrastructure.
+  published: '2024-12-18'
+  confidence: 1.0
+technologies: []
+relationships:
+- type: offtake_with
+  to: Oklo
+  description: 'Non-binding master power agreement (Dec 2024): Oklo to deploy 12 GW of Aurora powerhouse projects through 2044 to power Switch data centers, through a series of PPAs.'
+  source_url: https://www.switch.com/?p=33894
+  quote: have signed a non-binding Master Power Agreement (“Master Agreement”) to deploy 12 gigawatts of Oklo Aurora powerhouse projects through 2044.
+  published: '2024-12-18'
+  confidence: 1.0
+facilities: []
+notes: 'Alias "Switch, Ltd." is how Oklo''s 10-Q (June 2026) names the company. The ?p=33894 URL is the Switch press release page for the Oklo deal.'
+description:
+  text: Company that designs, builds and runs data centers, headquartered in Las Vegas.
+  source_url: https://www.switch.com/about/
+  quote: Switch is a technology infrastructure ecosystem company whose core business is the design, construction and operation of the most advanced data centers

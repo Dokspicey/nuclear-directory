@@ -1,0 +1,29 @@
+# Seed research for #253 batch 2 (hyperscaler power deals) - 2026-10-15. Quotes copied from raw page text fetched this session.
+name: Crusoe
+aliases:
+- Crusoe, Inc.
+website: https://www.crusoe.ai
+hq: null
+country_code: null
+status: active
+roles:
+- key: data_center_offtaker
+  source_url: https://www.crusoe.ai/resources/newsroom/blue-energy-and-crusoe-partner-to-develop-nuclear-powered-ai-data-center
+  quote: Blue Energy and Crusoe today announced a strategic partnership to develop a nuclear-powered data center campus located in the Port of Victoria, Texas.
+  published: '2025-10-30'
+  confidence: 1.0
+technologies: []
+relationships:
+- type: offtake_with
+  to: Blue Energy
+  description: 'Strategic partnership (Oct 2025): Blue Energy to build a nuclear plant of up to 1.5 GW at the Port of Victoria, Texas, to power a nearby Crusoe AI campus, with gas power first (as early as 2028) and nuclear expected by 2031.'
+  source_url: https://www.crusoe.ai/resources/newsroom/blue-energy-and-crusoe-partner-to-develop-nuclear-powered-ai-data-center
+  quote: Blue Energy secured a site to design, develop, and operate an advanced nuclear power plant of up to 1.5 gigawatts (GW), delivering affordable, reliable power to Crusoe-developed artificial intelligence (AI) factories on a nearby secured site.
+  published: '2025-10-30'
+  confidence: 1.0
+facilities: []
+notes: 'Release is dated October 30, 2025 (page also shows August 18, 2026, likely an update date; it carries a correction that the Crusoe campus is in Calhoun County). Crusoe''s company page also lists a 2026 strategic partnership with Aalo Atomics for a nuclear-powered AI factory (not researched; Aalo not in the seed). HQ not verified.'
+description:
+  text: AI infrastructure company that builds AI data centers and runs an AI cloud.
+  source_url: https://www.crusoe.ai/resources/newsroom/blue-energy-and-crusoe-partner-to-develop-nuclear-powered-ai-data-center
+  quote: By harnessing large-scale clean energy, building AI-optimized data centers, and delivering an AI cloud platform, Crusoe empowers its customers to build the future faster.
