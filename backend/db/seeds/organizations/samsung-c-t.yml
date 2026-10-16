@@ -1,0 +1,32 @@
+# Seed research for #253 (requested by PM after launch feedback, 2026-10-16). Quotes copied from the raw page text fetched this session.
+name: Samsung C&T
+legal_name: Samsung C&T Corporation
+aliases:
+- Samsung C&T Engineering & Construction Group
+website: https://www.samsungcnt.com
+hq: null
+country_code: null
+status: active
+roles: []
+technologies: []
+relationships:
+- type: invests_in
+  to: Kairos Power
+  description: 'Binding term sheet (Sept 2026): up to $100M in direct investment and in-kind engineering services for the Hermes 2 Demonstration Plant, subject to regulatory approvals.'
+  source_url: https://www.kairospower.com/updates/kairos-power-and-samsung-c-t-agree-to-pursue-strategic-investment-and-collaboration-for-kp-fhr-deployment
+  quote: today announced the signing of a binding term sheet for Samsung C&T to make a strategic investment in Kairos Power
+  published: '2026-09-21'
+  confidence: 1.0
+- type: invests_in
+  to: Kairos Power
+  description: 'Binding term sheet (Sept 2026): up to $100M in direct investment and in-kind engineering services for the Hermes 2 Demonstration Plant, subject to regulatory approvals.'
+  source_url: https://www.kairospower.com/updates/kairos-power-and-samsung-c-t-agree-to-pursue-strategic-investment-and-collaboration-for-kp-fhr-deployment
+  quote: Samsung C&T has agreed to provide up to $100 million through a combination of direct investment and in-kind engineering services, subject to regulatory approvals, to enable the successful delivery of the Hermes 2 Demonstration Plant in Oak Ridge, Tennessee.
+  published: '2026-09-21'
+  confidence: 1.0
+facilities: []
+notes: 'The release also says Samsung C&T agreed to join Kairos Power''s EPC team; not recorded as a link (a term sheet, and no supply link kind for EPC work yet). Country and HQ not set: the Kairos release does not say where Samsung C&T is based. No category: the release supports an EPC (construction) activity tag once activity tags exist (DATA.md section 5); the investment link already places it under Investors. Kairos''s $643M package reported 14 Oct 2026 (Bloomberg: $368M private incl. GV, DCVC and $70M from Samsung C&T, plus $275M DOE financing) has no primary source yet (no Kairos, DOE or GV release as of 16 Oct), so it is not recorded; DATA.md excludes deals sourced only to trade press. Add it when Kairos or DOE publishes.'
+description:
+  text: Engineering and construction company that has built nuclear plants, including Barakah in the UAE.
+  source_url: https://www.kairospower.com/updates/kairos-power-and-samsung-c-t-agree-to-pursue-strategic-investment-and-collaboration-for-kp-fhr-deployment
+  quote: Samsung C&T has delivered 12 gigawatts across 10 nuclear units, including the Barakah Nuclear Power Plant in the United Arab Emirates and Uljin Units 5 and 6 in South Korea.

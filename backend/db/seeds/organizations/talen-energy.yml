@@ -28,6 +28,7 @@ relationships: []
 facilities:
 - name: Susquehanna Steam Electric Station
   type: owns
+  ownership_pct: 90.0
   source_url: https://www.sec.gov/Archives/edgar/data/1622536/000162828025030559/a20250611pressreleasebusin.htm
   quote: to provide carbon-free energy from Talen’s Susquehanna nuclear power plant to Amazon Web Services
   published: '2025-06-11'
