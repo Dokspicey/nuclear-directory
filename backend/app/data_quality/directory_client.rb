@@ -305,6 +305,26 @@ class DataQuality::DirectoryClient
   # Every verification decision on a fact, newest first (Directory::VerificationEventRef).
   def verification_history(type:, id:) = lookup.verification_history(type:, id:)
 
+  MERGES = { "Organization" => :merge_organization, "Facility" => :merge_facility }.freeze
+
+  # A person's merge of one company or plant site into another (#142), as the
+  # merge rake tasks do it: everything moves to into, from is unpublished
+  # with a reason saying what moved, and its address redirects. With
+  # dry_run it's done and rolled back, to say what it would move. Returns
+  # [WriteResult, what moved ("3 aliases, 2 evidence") or nil].
+  def merge(type, from_id:, into_id:, by:, reason: nil, dry_run: false)
+    method = MERGES.fetch(type)
+    result = moved = nil
+    ActiveRecord::Base.transaction(requires_new: true) do
+      result = write_result(fact_writer.public_send(method, from_id:, into_id:, by:, reason:))
+      # In the admin's words: candidates are claims.
+      moved = verification_history(type:, id: from_id).first&.reason.to_s[/Moved: (.*)\z/, 1]&.gsub(/\bcandidate(s?)\b/, "claim\\1") if result.errors.empty?
+      raise ActiveRecord::Rollback if dry_run
+    end
+    @plant_names = nil unless dry_run
+    [ result, moved ]
+  end
+
   # A human's decision on a directory fact: status "verified" (approve or
   # republish, optionally with edited attributes), "rejected" or
   # "unpublished". Human writes aren't protected; the reason and context go

@@ -1,0 +1,77 @@
+require "test_helper"
+
+# Merge into… on a Record (#142): pick the record it's the same as, see what
+# would move, give a reason, then the same audited merge as the rake tasks.
+class Admin::MergeTest < ActionDispatch::IntegrationTest
+  VERIFIED = { verification_status: "verified", verified_by: "human:tosin" }.freeze
+
+  setup do
+    @web = Source.create!(url: "https://www.example.com/merge", source_kind: "web_page", domain: "example.com")
+    sign_in_as users(:admin)
+  end
+
+  def sourced(fact) = fact.tap { Evidence.create!(subject: fact, source: @web, quote: fact.name, found_by: "human") }
+
+  test "a company: find the one kept by another name, see what moves, then merge with a reason" do
+    kept = sourced(Organization.create!(name: "BWXT", **VERIFIED))
+    kept.aliases.create!(alias: "BWX Technologies")
+    duplicate = sourced(Organization.create!(name: "BWXT Nuclear Energy"))
+    duplicate.aliases.create!(alias: "BWXT NUCLEAR ENERGY, INC.")
+    page = ->(**params) { admin_record_merge_path(type: "Organization", id: duplicate.id, **params) }
+
+    get admin_record_path(type: "Organization", id: duplicate.id)
+    assert_select "a[href=?]", page.(), "Merge into…"
+
+    get page.(q: "BWX Tech")
+    assert_select "a[href=?]", page.(into: kept.id), "BWXT"
+    assert_select ".nd-panel a", { text: "BWXT Nuclear Energy", count: 0 }, "not itself"
+
+    get page.(into: kept.id)
+    assert_select "p", /Moves to BWXT: .*alias.*evidence/
+    assert duplicate.reload.pending?, "seeing what moves changes nothing"
+
+    post page.(), params: { into: kept.id, reason: "" }
+    assert_response :unprocessable_content
+    assert_select ".nd-alert", /say why they're the same/
+    assert duplicate.reload.pending?
+
+    post page.(), params: { into: kept.id, reason: "BWXT's nuclear energy unit (DOE award)" }
+    assert_response :see_other
+    assert_redirected_to admin_record_path(type: "Organization", id: kept.id)
+    assert_match(/\AMerged into BWXT\. Moved: /, flash[:notice])
+    assert duplicate.reload.unpublished?
+    assert_match "BWXT's nuclear energy unit", duplicate.verification_events.order(:id).last.reason
+    assert_equal({ "type" => "Organization", "id" => kept.id }, duplicate.verification_events.order(:id).last.context["merged_into"])
+    assert_includes kept.former_slugs.pluck(:slug), duplicate.slug, "its address leads to the one kept"
+    assert_equal kept.id, Directory::Lookup.organization(name: "BWXT NUCLEAR ENERGY, INC.")&.id
+  end
+
+  test "a plant site merges into another site, found by a unit's docket" do
+    kept = sourced(Facility.create!(name: "Plant Vogtle", **VERIFIED))
+    Facility.create!(name: "Vogtle 1", parent: kept, nrc_docket: "05000424", **VERIFIED)
+    duplicate = sourced(Facility.create!(name: "Vogtle"))
+
+    get admin_record_merge_path(type: "Facility", id: duplicate.id, q: "05000424")
+    assert_select "a", "Plant Vogtle"
+
+    post admin_record_merge_path(type: "Facility", id: duplicate.id), params: { into: kept.id, reason: "Same plant" }
+    assert_redirected_to admin_record_path(type: "Facility", id: kept.id)
+    assert duplicate.reload.unpublished?
+  end
+
+  test "a removed record isn't merged from here, nor merged into" do
+    gone = sourced(Organization.create!(name: "Gone Co", **VERIFIED))
+    gone.unpublish!(by: "human:tosin", reason: "Test")
+    live = sourced(Organization.create!(name: "Live Co", **VERIFIED))
+
+    get admin_record_merge_path(type: "Organization", id: gone.id)
+    assert_redirected_to admin_record_path(type: "Organization", id: gone.id)
+    assert_match "Put it back first", flash[:alert]
+
+    get admin_record_merge_path(type: "Organization", id: live.id, q: "Gone")
+    assert_select "p", /No company matches/
+    post admin_record_merge_path(type: "Organization", id: live.id), params: { into: gone.id, reason: "x" }
+    assert_redirected_to admin_record_merge_path(type: "Organization", id: live.id)
+    assert live.reload.verified?
+  end
+end

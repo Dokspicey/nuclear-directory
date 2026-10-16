@@ -108,7 +108,7 @@ class Admin::LiveTest < ActionDispatch::IntegrationTest
     assert_select ".nd-itemnav", /2 of 2/
     assert_select ".nd-itemnav a[rel=prev][href=?]", admin_record_path(type: "Organization", id: b.id, back:)
     assert_select "a", text: "Edit"
-    assert_select "span[aria-disabled]", /Merge/
+    assert_select "a[href=?]", admin_record_merge_path(type: "Organization", id: a.id, back:), "Merge into…"
     assert_select "details summary", /Sources\s+1/
   end
 
