@@ -122,12 +122,14 @@ namespace :directory do
       found
     end
     Relationship.where(relationship_type: "funds").where.not(verification_status: Verifiable::CLOSED_STATUSES).order(:id).each do |link|
-      # Its own sources, and those of the same funds link to a company merged
-      # into its company, but only a link the merge itself retired: its last
+      # Its own sources, and those of a funds link between companies merged
+      # into either end (funder or recipient), but only a link the merge itself retired: its last
       # decision is the merge's rejection ("Merged into …", #229). A link a
       # person closed before the merge stays closed, and its rows aren't read.
-      retired = Relationship.where(from_organization_id: link.from_organization_id, to_organization_id: merged_into.(link.to_organization_id),
-        relationship_type: "funds", verification_status: "rejected").select do |other|
+      funders = [ link.from_organization_id, *merged_into.(link.from_organization_id) ]
+      recipients = [ link.to_organization_id, *merged_into.(link.to_organization_id) ]
+      retired = Relationship.where(from_organization_id: funders, to_organization_id: recipients,
+        relationship_type: "funds", verification_status: "rejected").where.not(id: link.id).select do |other|
         other.verification_events.order(:id).last&.reason.to_s.match?(/Merged into .+ \(#\d+\)/)
       end
       links = [ link, *retired ]

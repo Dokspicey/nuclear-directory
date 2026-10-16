@@ -269,6 +269,17 @@ class DirectoryRakeTest < ActiveSupport::TestCase
     assert_nil DealTerm.find_by(external_id: "ASST_CLOSED"), "a link a person closed before the merge stays closed"
     assert_equal 1, DealTerm.where(external_id: "ASST_E").count, "a rejected term isn't written again"
     assert DealTerm.find_by!(external_id: "ASST_E").rejected?
+
+    # A duplicate DOE record merged into DOE: its link to X-energy was retired, and its award lands on DOE's.
+    doe_dup = Organization.create!(name: "DOE Duplicate", verification_status: "verified", verified_by: by)
+    dup_link = Relationship.create!(from_organization: doe_dup, to_organization: xenergy, relationship_type: "funds",
+      verification_status: "verified", verified_by: by)
+    dup_link.evidence.create!(source: page.("https://www.usaspending.gov/recipient/x-energy-doe-dup/latest", [ award_row.("ASST_F", "X") ]),
+      quote: "row", found_by: "crawler")
+    assert Directory::FactWriter.merge_organization(from_id: doe_dup.id, into_id: doe.id, by:).ok?
+    assert dup_link.reload.rejected?
+    capture_io { backfill_award_terms(BY: by, APPLY: "1") }
+    assert_equal verified, DealTerm.find_by!(external_id: "ASST_F").link, "a funder-side merge"
     assert_raises(SystemExit) { capture_io { backfill_award_terms(BY: "agent:x") } }
   end
 end
