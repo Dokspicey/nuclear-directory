@@ -139,6 +139,19 @@ namespace :data_quality do
     puts "Dry run: nothing changed. The next DOE crawl makes these changes itself." unless apply
   end
 
+  # The DOE crawl runs this repair itself (once); this shows what it would
+  # change, for Data Quality's rehearsal on a restored backup.
+  desc "Show (or with APPLY=1 make) the one-time repair of the 16 Oct approve-all: bin/rails data_quality:repair_approve_all"
+  task repair_approve_all: :environment do
+    apply = ENV["APPLY"] == "1"
+    changes = DataQuality::Repairs::ApproveAll20261016.call(dry_run: !apply)
+    changes.each { |change| puts "#{change.kind} #{change.id.to_s.ljust(4)} #{change.note}: #{change.attributes.inspect}" }
+    puts changes.empty? ? "Nothing to repair: already done." : "#{changes.size} changes #{apply ? 'made' : 'would be made'}."
+    puts "Dry run: nothing changed. The next DOE crawl makes these changes itself." unless apply || changes.empty?
+  rescue DataQuality::Repairs::ApproveAll20261016::Mismatch => error
+    abort "Stopped, nothing changed: #{error.message}"
+  end
+
   desc "Check the OpenRouter key works, without a model call: bin/rails data_quality:check_key"
   task check_key: :environment do
     key = DataQuality::OpenRouter::Client.new.check_key

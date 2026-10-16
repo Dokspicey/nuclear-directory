@@ -59,7 +59,7 @@ class DataQuality::Plugins::UsaspendingDoeAwards < DataQuality::Plugin
   end
 
   def crawl(_run)
-    reworded = { "reworded" => refresh_open_claims.size }.reject { |_, count| count.zero? }
+    reworded = { "reworded" => refresh_open_claims.size, "repaired" => repair_approve_all }.reject { |_, count| count.to_s == "0" }
     index = Source.find_or_create_by!(url: API_URL) do |source|
       source.source_kind = INDEX_SOURCE_KIND
       source.title = "USAspending.gov award search API"
@@ -196,6 +196,16 @@ class DataQuality::Plugins::UsaspendingDoeAwards < DataQuality::Plugin
   end
 
   private
+    # The one-time repair of the 16 Oct approve-all (DataQuality::Repairs::
+    # ApproveAll20261016), run here so it needs no shell. A value it doesn't
+    # expect stops it, changing nothing, and is reported; the crawl goes on.
+    def repair_approve_all
+      DataQuality::Repairs::ApproveAll20261016.call(plugin: self).size
+    rescue DataQuality::Repairs::ApproveAll20261016::Mismatch => error
+      Rails.error.report(error, handled: true, context: { repair: "approve_all_2026_10_16" })
+      "stopped: #{error.message.truncate(200)}"
+    end
+
     # One name for claims that share a company: theirs when they agree, else
     # the words they all start with, without a trailing "and" or legal word;
     # nil when they share none (the record keeps its name).
