@@ -1,0 +1,218 @@
+# NRC's list of power reactor sites undergoing decommissioning (#274), for
+# the Waste and decommissioning bucket and the plants that no longer run.
+#
+# Crawl fetches the list page, then NRC's page for each site it links to
+# (about 20), under the shared Fetcher's rules: once a day per URL,
+# conditional requests, honest user agent, robots.txt, no retries. A block
+# is recorded and stops the crawl; nothing is worked around.
+#
+# Extract, from the list: one unit per row (docket, `power_reactor`, status
+# `decommissioning` as the list states, city and state from its Location),
+# quoting the row. No model is asked.
+# From each site page: the companies NRC says hold the license, read by the
+# extractor model (Licensees) and checked here: a quote that isn't on the
+# page, or doesn't name the company, sends the claim to review. Each
+# licensee gives a company, an operates or owns link to every unit the page
+# covers, and, only where the page says it took over the license to
+# decommission the site, the waste_decommissioning category with that quote.
+#
+# Match, verify and a human's approval are shared. Units NRC lists as
+# decommissioning whose owners plan a restart (RESTART_PLANS) are proposed
+# as NRC states them, and verify holds them for a person with a note
+# (Tosin: a restart plan is a note, never a status).
+class DataQuality::Plugins::NrcDecommissioning < DataQuality::Plugin
+  LIST_URL = "https://www.nrc.gov/facilities-safety/facility-finder/decommissioning/power-reactor"
+  TABLE_MISSING = "Couldn't find the decommissioning table; the page layout may have changed"
+  ROLE = "waste_decommissioning"
+  # NRC's spelling where it doesn't name the unit the way its operating list
+  # does. Crane is the site's name in the directory, so "Crane 1" goes
+  # under it; NRC's spelling stays as an alias.
+  UNIT_NAMES = { "05000289" => "Crane 1" }.freeze
+  # Units on the list that their owners plan to restart, with the owner's
+  # own announcement. Proposed as decommissioning, held for a person.
+  RESTART_PLANS = {
+    "05000289" => [ "Constellation plans to restart this unit as the Crane Clean Energy Center",
+      "https://www.constellationenergy.com/news/2024/Constellation-to-Launch-Crane-Clean-Energy-Center-Restoring-Jobs-and-Carbon-Free-Power-to-The-Grid.html" ],
+    "05000331" => [ "NextEra Energy plans to restart Duane Arnold",
+      "https://www.investor.nexteraenergy.com/news-and-events/news-releases/2025/10-27-2025-203948689" ]
+  }.freeze
+  # A date stamp at the foot of every page, which changes without the facts.
+  PAGE_STAMP = /Page Last Reviewed\/Updated [A-Za-z]+, [A-Za-z]+ \d{1,2}, \d{4}/
+
+  # The stored list has no table to extract from.
+  class TableMissing < StandardError; end
+
+  def initialize(fetcher: DataQuality::Fetcher.new, licensees: Licensees.new)
+    @fetcher = fetcher
+    @licensees = licensees
+  end
+
+  def crawl(_run)
+    list = source(LIST_URL, title: "NRC: power reactor sites undergoing decommissioning")
+    stats = { "list" => DataQuality::Snapshot.take(list, fetcher: @fetcher).to_s }
+    return stats.merge("stopped" => "list page blocked") if stats["list"] == "blocked"
+    return stats unless list.crawl_ok? && list.content_text.present?
+
+    rows = List.rows(list.content_text)
+    if rows.empty?
+      list.update!(crawl_status: "needs_human", status_reason: TABLE_MISSING)
+      return stats.merge("units" => 0)
+    end
+
+    stats.merge!("units" => rows.size, "site_pages" => Hash.new(0))
+    rows.filter_map(&:page_url).uniq.each do |url|
+      result = DataQuality::Snapshot.take(source(url, title: "NRC: #{rows.find { |row| row.page_url == url }.name}"), fetcher: @fetcher).to_s
+      stats["site_pages"][result] += 1
+      return stats.merge("stopped" => "site page blocked") if result == "blocked"
+    end
+    stats
+  end
+
+  def extract(source, run)
+    source.url == LIST_URL ? list_candidates(source) : site_candidates(source, run)
+  end
+
+  # The list's table rows, or a site page's text without its date stamp
+  # (#240): neither changes when only the stamp does.
+  def rows_sha256(source)
+    text = source.url == LIST_URL ? List.lines(source.content_text).join("\n") : page_text(source.content_text).gsub(PAGE_STAMP, "")
+    Digest::SHA256.hexdigest(text) if text.present?
+  end
+
+  # A unit gone from the list has usually finished decommissioning (its
+  # license ended); one that restarted is on NRC's operating list instead.
+  def dropped(kind)
+    return unless kind == "facility"
+
+    [ { "status" => "shut_down" }, "Approve to mark it shut down: NRC no longer lists it as decommissioning. " \
+      "Reject if it restarted (check NRC's operating list)." ]
+  end
+
+  # List quotes are whole table rows, as List.lines renders them; a site
+  # page's are sentences in its text (the default check).
+  def quote_in_source?(source, quote)
+    return super unless source.url == LIST_URL
+
+    List.lines(source.content_text).include?(quote)
+  end
+
+  def verification_context(source, quote)
+    return super unless source.url == LIST_URL
+
+    [ List.lines(source.content_text).first, quote ].compact.join("\n")
+  end
+
+  def source_facts(source)
+    return unless source.url == LIST_URL
+
+    "This is the NRC's list of power reactor sites undergoing decommissioning in the United States. Every row " \
+      "is a nuclear power reactor (plant type: power reactor) in the US (country code US) whose status is " \
+      "decommissioning. Location is the city and state where the reactor is."
+  end
+
+  # A unit whose owner plans a restart: NRC's status is proposed, and a
+  # person decides with the owner's announcement in front of them.
+  def hold_for_review(candidate)
+    return unless candidate.kind == "facility" && (plan = RESTART_PLANS[candidate.payload["nrc_docket"]])
+
+    note, url = plan
+    "NRC lists this unit as decommissioning, so that's the status proposed. #{note} (#{url}); " \
+      "a restart plan is a note, never a status."
+  end
+
+  # A site page's main text as one line of text, pieces joined by spaces as
+  # the shared quote check reads a page, without NRC's menus and footer.
+  def page_text(html)
+    doc = Nokogiri::HTML(html.to_s)
+    main = doc.at_css("main") || doc.at_css("body") or return ""
+    main.css("script, style, template, noscript, nav, header, footer").remove
+    main.xpath(".//text()").map(&:text).join(" ").squish
+  end
+
+  private
+    def source(url, title:)
+      Source.find_or_create_by!(url:) do |new_source|
+        new_source.source_kind = source_kind
+        new_source.title = title
+      end
+    end
+
+    def list_candidates(source)
+      rows = List.rows(source.content_text)
+      raise TableMissing, "#{TABLE_MISSING} (#{source.url})" if rows.empty?
+
+      rows.map do |row|
+        name = unit_name(row)
+        { kind: "facility", quote: row.line, payload: {
+          "name" => name, "nrc_docket" => row.nrc_docket, "facility_type" => "power_reactor",
+          "status" => "decommissioning", "country_code" => "US", "city" => row.city, "state" => row.state,
+          "aliases" => ([ row.name ] if name != row.name && single_unit?(row.name))
+        }.compact }
+      end
+    end
+
+    # "Crystal River – Unit 3" => "Crystal River 3", as NRC's operating list
+    # names units. "San Onofre – Units 2 & 3" is two rows; each takes its
+    # number from its acronym (SONGS2). Anything else keeps NRC's name.
+    def unit_name(row)
+      return UNIT_NAMES[row.nrc_docket] if UNIT_NAMES.key?(row.nrc_docket)
+
+      match = row.name.match(/\A(.+?)\s+[–-]\s+Units?\s+(\d+)(?:\s*&\s*(\d+))?\z/)
+      return row.name unless match
+
+      site, *numbers = match.captures.compact
+      number = numbers.one? ? numbers.first : numbers.find { |n| row.acronym.end_with?(n) }
+      number ? "#{site} #{number}" : row.name
+    end
+
+    # An NRC name for two units ("Units 2 & 3") can't be an alias of either.
+    def single_unit?(name) = !name.match?(/\bUnits\b/)
+
+    # The units the list says this page is about, from the list as stored.
+    def units_for(page)
+      list = Source.find_by(url: LIST_URL)
+      List.rows(list&.content_text).select { |row| row.page_url == page.url }
+    end
+
+    def site_candidates(source, run)
+      units = units_for(source)
+      return [] if units.empty?
+
+      text = page_text(source.content_text)
+      return [] if text.blank?
+
+      facilities = units.map { |row| { "name" => unit_name(row), "nrc_docket" => row.nrc_docket } }
+      @licensees.call(text, run:).uniq { |answer| [ answer["name"], answer["link"] ] }.flat_map do |answer|
+        licensee_candidates(answer, text, facilities)
+      end
+    end
+
+    def licensee_candidates(answer, text, facilities)
+      name, link, quote = answer.values_at("name", "link", "quote").map { |value| value.to_s.squish }
+      return [] if name.blank?
+
+      problem = quote_problem(name, quote, text)
+      flags = problem ? { status: "needs_review", notes: "The extractor model's quote for #{name} #{problem}" } : {}
+      organization = { "name" => name }
+      candidates = [ { kind: "organization", payload: organization, quote: }.merge(flags) ]
+      candidates += facilities.map do |facility|
+        { kind: "facility_relationship", quote:, payload: {
+          "organization" => organization, "facility" => facility, "relationship_type" => link } }.merge(flags)
+      end
+      return candidates unless answer["decommissions"]
+
+      role_quote = answer["decommissioning_quote"].to_s.squish
+      role_problem = quote_problem(name, role_quote, text)
+      candidates << { kind: "organization_role", quote: role_quote, payload: { "organization" => organization, "role" => ROLE } }
+        .merge(role_problem ? { status: "needs_review", notes: "The extractor model's decommissioning quote for #{name} #{role_problem}" } : {})
+    end
+
+    # Why a quote can't stand for the claim, or nil: it must be on the page
+    # and name the company.
+    def quote_problem(name, quote, text)
+      return "is empty" if quote.blank?
+      return "isn't on the page: #{quote.truncate(120).inspect}" unless text.include?(quote)
+
+      "doesn't name the company: #{quote.truncate(120).inspect}" unless quote.downcase.include?(name.downcase)
+    end
+end
