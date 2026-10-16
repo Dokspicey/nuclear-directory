@@ -95,10 +95,12 @@ class DataQuality::Plugins::UsaspendingDoeAwardsTest < ActiveSupport::TestCase
     candidates = plugin.extract(recipient("d527144c-7fea-82ff-aff0-e95e5fd6e488-C"), nil)
 
     company, link = candidates
-    assert_equal({ "name" => "AMERICAN CENTRIFUGE OPERATING, LLC" }, company[:payload])
+    assert_equal({ "name" => "American Centrifuge Operating", "aliases" => [ "AMERICAN CENTRIFUGE OPERATING, LLC" ] }, company[:payload],
+      "a readable name, the award's spelling kept as an alias (DATA.md D1, #302)")
     assert_equal({ "from_organization" => { "name" => "U.S. Department of Energy" }, "to_organization" => { "name" => "AMERICAN CENTRIFUGE OPERATING, LLC" },
       "relationship_type" => "funds", "started_on" => "2019-05-31",
-      "description" => "2 awards from the U.S. Department of Energy totaling $505.0 million, 2019–2022: 89243223CNE000030 and 89303519CNE000005." },
+      "description" => "2 awards from the U.S. Department of Energy totaling $505.0 million (first in 2019, latest in 2022): " \
+        "89243223CNE000030 and 89303519CNE000005." },
       link[:payload])
     assert_includes recipient("d527144c-7fea-82ff-aff0-e95e5fd6e488-C").content_text, link[:quote], "quotes its largest award's row"
     assert plugin.quote_in_source?(recipient("d527144c-7fea-82ff-aff0-e95e5fd6e488-C"), link[:quote])
@@ -110,9 +112,9 @@ class DataQuality::Plugins::UsaspendingDoeAwardsTest < ActiveSupport::TestCase
     @answers[[ "nuclear_energy_rd", 2 ]] = { "results" => [ sfr ], "page_metadata" => { "hasNext" => false } }
     crawl!
 
-    assert_equal "1 award from the U.S. Department of Energy totaling $921.7 million, 2021: DENE0009040.",
+    assert_equal "1 award from the U.S. Department of Energy totaling $921.7 million (2021): DENE0009040.",
       plugin.extract(recipient(XENERGY["recipient_id"]), nil).last[:payload]["description"]
-    assert_equal "1 award from the U.S. Department of Energy totaling $1.7 billion, 2021: DENE0009054.",
+    assert_equal "1 award from the U.S. Department of Energy totaling $1.7 billion (2021): DENE0009054.",
       plugin.extract(recipient(sfr["recipient_id"]), nil).last[:payload]["description"]
   end
 
@@ -212,8 +214,27 @@ class DataQuality::Plugins::UsaspendingDoeAwardsTest < ActiveSupport::TestCase
 
     context = plugin.verification_context(source, link[:quote])
 
-    assert context.start_with?(Plugin::COLUMNS.join(","))
-    assert_equal 41, CSV.parse(context, headers: true).size
+    header, table = context.split("\n", 2)
+    assert_equal "41 awards, one per row after the header line:", header, "the count is said, so the header isn't taken for an award (#302)"
+    assert table.start_with?(Plugin::COLUMNS.join(","))
+    assert_equal 41, CSV.parse(table, headers: true).size
+  end
+
+  test "a company's readable name: title case, no legal suffix, acronyms kept; a mixed-case name is its own" do
+    {
+      "BROOKHAVEN TECHNOLOGY GROUP INC" => "Brookhaven Technology Group", "BWXT NUCLEAR ENERGY, INC." => "BWXT Nuclear Energy",
+      "3M COMPANY" => "3M", "ELECTRIC POWER RESEARCH INSTITUTE, INC." => "Electric Power Research Institute",
+      "NATIONAL ACADEMY OF SCIENCES" => "National Academy of Sciences", "X-ENERGY, LLC" => "X-Energy", "TerraPower, LLC" => "TerraPower, LLC"
+    }.each { |spelling, name| assert_equal name, plugin.display_name(spelling), spelling }
+  end
+
+  test "award years say when the awards started, so they can't be read as the award period (#302)" do
+    same_year = XENERGY.merge("Award ID" => "DENE0009999", "Start Date" => "2021-09-01", "generated_internal_id" => "ASST_NON_DENE0009999_089")
+    @answers[[ "nuclear_energy_rd", 2 ]] = { "results" => [ same_year ], "page_metadata" => { "hasNext" => false } }
+    crawl!
+
+    assert_match(/\A2 awards from the U\.S\. Department of Energy totaling \$[\d.]+ (?:million|billion) \(all in 2021\): /,
+      plugin.extract(recipient(XENERGY["recipient_id"]), nil).last[:payload]["description"])
   end
 
   test "match links an existing company to DOE; the link waits for a person" do

@@ -115,6 +115,53 @@ namespace :data_quality do
     puts "Dry run: nothing changed. Run again with APPLY=1 to apply." unless apply
   end
 
+  # #302, one-off: the DOE award claims still open get the plug-in's new
+  # wording ("first in 2016, latest in 2023") and readable company names,
+  # as do the pending records the crawler made for them. Links the verifier
+  # disputed go back to verify; a claim waiting on a person's same-company
+  # call keeps its place. No fetch, no model call. Dry run unless APPLY=1;
+  # then run verify for the kind.
+  desc "Reword the open DOE award claims (#302) and send disputed links back to verify, audited: BY=human:tosin [APPLY=1] bin/rails data_quality:refresh_doe_awards"
+  task refresh_doe_awards: :environment do
+    by = ENV["BY"].to_s
+    abort "Usage: BY=human:<handle> [APPLY=1] bin/rails data_quality:refresh_doe_awards" unless by.match?(/\Ahuman:\S+\z/)
+
+    apply = ENV["APPLY"] == "1"
+    kind = "usaspending_doe_awards"
+    plugin = DataQuality::Plugin.for(kind)
+    directory = DataQuality::DirectoryClient.new
+    open = Candidate.joins(:source).where(sources: { source_kind: kind }, status: %w[new matched needs_review]).includes(:source).order(:id)
+    counts = Hash.new(0)
+    ActiveRecord::Base.transaction(requires_new: true) do
+      open.each do |candidate|
+        fresh = plugin.extract(candidate.source, nil).find { |item| item[:kind] == candidate.kind } or next
+        changes = fresh[:payload].slice("name", "aliases", "description").reject { |key, value| candidate.payload[key] == value }
+        reverify = candidate.kind == "relationship" && candidate.status == "needs_review" && candidate.ai_recommendation.present?
+        next if changes.empty? && !reverify
+
+        # The pending record the crawler proposed for it takes the same name or wording.
+        record = directory.attached_record(candidate)
+        if record&.verification_status == "pending" && !record.verified_by.to_s.start_with?("human:")
+          attributes = changes.slice(*(candidate.kind == "organization" ? %w[name aliases] : %w[description])).symbolize_keys
+          if attributes.any?
+            result = directory.write_pending(candidate.kind, attributes.merge(id: record.id), candidate:, crawl_run: nil, evidence: false)
+            abort "candidate #{candidate.id}: #{result.errors.to_sentence}" if result.errors.any?
+            counts["records"] += 1
+          end
+        end
+        note = "Reworded for #302 by #{by}#{'; sent back to verify' if reverify}"
+        candidate.update!({ payload: candidate.payload.merge(changes), notes: [ candidate.notes, note ].compact_blank.join(" · ") }
+          .merge(reverify ? { status: "matched", ai_recommendation: nil, ai_reason: nil, ai_confidence: nil, ai_model: nil, ai_checked_at: nil } : {}))
+        counts[reverify ? "reverify" : "reworded"] += 1
+        puts "candidate #{candidate.id.to_s.ljust(5)} #{candidate.kind}: #{changes.map { |key, value| "#{key} -> #{value.inspect}" }.join('; ')}#{' (back to verify)' if reverify}"
+      end
+      raise ActiveRecord::Rollback unless apply
+    end
+    verb = apply ? "" : "would be "
+    puts "#{counts['reworded'] + counts['reverify']} claims #{verb}reworded, #{counts['reverify']} #{verb}sent back to verify, #{counts['records']} pending records #{verb}renamed or reworded."
+    puts apply ? "Next: bin/rails \"data_quality:stage[verify,#{kind}]\"" : "Dry run: nothing changed. Run again with APPLY=1 to apply."
+  end
+
   desc "Check the OpenRouter key works, without a model call: bin/rails data_quality:check_key"
   task check_key: :environment do
     key = DataQuality::OpenRouter::Client.new.check_key

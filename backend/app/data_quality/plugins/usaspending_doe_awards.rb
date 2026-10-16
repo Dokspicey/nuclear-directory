@@ -45,6 +45,10 @@ class DataQuality::Plugins::UsaspendingDoeAwards < DataQuality::Plugin
   FIELDS = [ "Award ID", "Recipient Name", "Award Amount", "Start Date", "End Date", "Description", "generated_internal_id", "recipient_id" ].freeze
   # USAspending's recipient hash and level, e.g. "1f4e2b…-C".
   RECIPIENT_ID = /\A[0-9a-f-]+-[A-Z]\z/i
+  # Legal suffixes a display name leaves out (DATA.md D1), and words kept as written.
+  LEGAL_SUFFIX = /,?\s+(?:INC|INCORPORATED|LLC|L\.L\.C|CORP|CORPORATION|COMPANY|CO|LTD|LIMITED|LP|L\.P|LLP|PLLC|PBC)\.?\z/i
+  ACRONYMS = %w[BWXT EPRI GE AMS PKMJ NOG USA US HALEU TRISO SMR 3M LLNL ORNL INL].freeze
+  SMALL_WORDS = %w[of and the for in on at].freeze
   COLUMNS = %w[award_id recipient_name amount_usd start_date end_date award_type assistance_listing search award_url
     generated_award_id recipient_id description].freeze
 
@@ -90,23 +94,50 @@ class DataQuality::Plugins::UsaspendingDoeAwards < DataQuality::Plugin
   # The link's total, award count and first year come from every row, so the
   # verifier sees the recipient's whole table, header included, rather than
   # a passage around one award.
-  def verification_context(source, _quote) = source.content_text.to_s
+  # The count is stated, so the header line isn't taken for an award (#302).
+  def verification_context(source, _quote)
+    text = source.content_text.to_s
+    rows = CSV.parse(text, headers: true).count { |row| row["recipient_name"].present? }
+    "#{rows} #{rows == 1 ? 'award' : 'awards'}, one per row after the header line:\n#{text}"
+  end
 
   def extract(source, _run)
     rows = CSV.parse(source.content_text.to_s, headers: true).select { |row| row["recipient_name"].present? }
     return [] if rows.empty?
 
     recipient = rows.first["recipient_name"]
+    name = display_name(recipient)
     largest = rows.max_by { |row| row["amount_usd"].to_d }
     quote = largest.to_csv.chomp
     [
-      { kind: "organization", payload: { "name" => recipient }, quote: },
+      { kind: "organization", payload: { "name" => name, "aliases" => ([ recipient ] if name != recipient) }.compact, quote: },
       { kind: "relationship", quote:, payload: {
         "from_organization" => { "name" => FUNDER }, "to_organization" => { "name" => recipient },
         "relationship_type" => "funds", "description" => summary(rows),
         "started_on" => rows.filter_map { |row| row["start_date"].presence }.min
       }.compact }
     ]
+  end
+
+  # A company's name as people read it, from the award's spelling (DATA.md
+  # D1, #302): an all-capitals name in title case, its legal suffix dropped
+  # ("BROOKHAVEN TECHNOLOGY GROUP INC" => "Brookhaven Technology Group"),
+  # acronyms kept ("BWXT NUCLEAR ENERGY, INC." => "BWXT Nuclear Energy").
+  # A name already in mixed case is the company's own and is kept.
+  def display_name(spelling)
+    spelling = spelling.to_s.squish
+    return spelling unless spelling.match?(/[A-Z]/) && spelling == spelling.upcase
+
+    name = spelling
+    name = name.sub(LEGAL_SUFFIX, "") while name.match?(LEGAL_SUFFIX) && name.sub(LEGAL_SUFFIX, "").present?
+    words = name.split(/(\s+|-|\/)/)
+    words.each_with_index.map do |word, index|
+      next word if word.match?(/\A(?:\s+|-|\/)\z/)
+      next word if ACRONYMS.include?(word.delete(".,")) || (word.match?(/\A[A-Z&]{2,5}\z/) && !word.match?(/[AEIOU]/))
+      next word.downcase if index.positive? && SMALL_WORDS.include?(word.downcase)
+
+      word.capitalize
+    end.join.delete_suffix(",").presence || spelling
   end
 
   private
@@ -220,15 +251,23 @@ class DataQuality::Plugins::UsaspendingDoeAwards < DataQuality::Plugin
       stats
     end
 
-    # "3 awards from the U.S. Department of Energy totaling $2.62 billion,
-    # 2019–2026: DENE0009054, DENE0009040 and DENE0008928."
+    # "3 awards from the U.S. Department of Energy totaling $2.62 billion
+    # (first in 2019, latest in 2026): DENE0009054, DENE0009040 and DENE0008928."
+    # The years are when awards started, said so they can't be read as the
+    # period the awards run (#302).
     def summary(rows)
       total = rows.sum { |row| row["amount_usd"].to_d }
-      years = rows.filter_map { |row| row["start_date"].to_s[0, 4].presence }.minmax.uniq.join("–")
+      first, latest = rows.filter_map { |row| row["start_date"].to_s[0, 4].presence }.minmax
+      years =
+        if first.nil? then nil
+        elsif rows.one? then " (#{first})"
+        elsif first == latest then " (all in #{first})"
+        else " (first in #{first}, latest in #{latest})"
+        end
       ids = rows.sort_by { |row| -row["amount_usd"].to_d }.map { |row| row["award_id"] }
       listed = ids.size > 3 ? "#{ids.first(3).join(', ')} and #{ids.size - 3} more" : ids.to_sentence(last_word_connector: " and ")
       noun = rows.size == 1 ? "award" : "awards"
-      "#{rows.size} #{noun} from the #{FUNDER} totaling #{dollars(total)}#{", #{years}" if years.present?}: #{listed}."
+      "#{rows.size} #{noun} from the #{FUNDER} totaling #{dollars(total)}#{years}: #{listed}."
     end
 
     def dollars(amount)
