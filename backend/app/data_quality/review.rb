@@ -113,8 +113,13 @@ module DataQuality::Review
     # is never approved in bulk, however it's recommended.
     def safe_ids(category: "all", source_kind: nil, directory: DataQuality::DirectoryClient.new)
       firsts = first_batches
-      category_scope(category, source_kind:).where(id: Candidate.recommended.select(:id)).includes(:source).order(:id)
-        .reject { |candidate| held_reason(candidate, directory:, firsts:) }.map(&:id)
+      claims = category_scope(category, source_kind:).where(id: Candidate.recommended.select(:id)).includes(:source).order(:id).to_a
+      # Which attached records a person decided, one query per kind of record.
+      decided = claims.select(&:subject_id).group_by(&:subject_type).flat_map do |type, group|
+        directory.human_decided_ids(type:, ids: group.map(&:subject_id)).map { |id| [ type, id ] }
+      end.to_set
+      claims.reject { |candidate| held_reason(candidate, directory:, firsts:, decided: decided.include?([ candidate.subject_type, candidate.subject_id ])) }
+        .map(&:id)
     end
 
     # Why a claim waits for Data Quality instead of being approved in bulk
@@ -122,11 +127,17 @@ module DataQuality::Review
     # - its record is one a person decided, so approving would change a value
     #   they chose; it's decided one at a time (Keep ours or Take theirs)
     # - it came in its source's first batch, which Data Quality reviews
-    # nil when it's safe.
-    def held_reason(candidate, directory: DataQuality::DirectoryClient.new, record: :lookup, firsts: first_batches)
-      record = directory.attached_record(candidate) if record == :lookup
-      # Any decision a person made: approved, rejected or taken off.
-      decided = record && record.verified_by.to_s.start_with?("human:")
+    # - it isn't attached to a record yet: approving could find a record a
+    #   person decided by its name and change it
+    # nil when it's safe. decided: whether a person decided its record, when already known.
+    def held_reason(candidate, directory: DataQuality::DirectoryClient.new, record: :lookup, firsts: first_batches, decided: nil)
+      return "it isn't attached to a record yet" unless candidate.subject_id
+
+      if decided.nil?
+        record = directory.attached_record(candidate) if record == :lookup
+        # Any decision a person made: approved, rejected or taken off.
+        decided = record&.verified_by.to_s.start_with?("human:")
+      end
       return "it would change a record a person decided" if decided || candidate.notes.to_s.match?(/\Ahuman-verified /i)
       return "it's from this source's first batch" if candidate.crawl_run_id && firsts[candidate.source.source_kind] == candidate.crawl_run_id
 

@@ -487,6 +487,19 @@ class DataQuality::ReviewTest < ActiveSupport::TestCase
     assert gone.reload.unpublished?
   end
 
+  test "a recommended claim not attached to a record yet waits, so approving can't land on a decided record by its name" do
+    decided = Organization.create!(name: "Named Co", description: "A person's.", verification_status: "verified", verified_by: BY)
+    unattached = candidate("organization", { "name" => "Named Co", "description" => "The crawler's." }, quote: "Named Co")
+    @source.update!(content_text: "Named Co")
+    run_stage("verify", verifier: Recommend.new) # verified without a match run: no record attached
+    unattached.update!(ai_recommendation: "recommend_publish")
+
+    assert_nil unattached.reload.subject_id
+    assert_not_includes Review.safe_ids, unattached.id
+    assert_match "waits for Data Quality: it isn't attached", Review.approve([ unattached.id ], by: BY, only_recommended: true).sole.errors.sole
+    assert_equal "A person's.", decided.reload.description
+  end
+
   test "a source's first batch waits for Data Quality; later batches are approved in bulk as before" do
     first_run = CrawlRun.create!(stage: "extract", source_kind: "dummy", status: "succeeded", started_at: 2.days.ago)
     later_run = CrawlRun.create!(stage: "extract", source_kind: "dummy", status: "succeeded", started_at: 1.day.ago)

@@ -176,6 +176,13 @@ module Directory
     private_constant :LINK_VERBS, :ROLE_WORDS
 
     # Any fact's current decision (Directory::FactStateRef), or nil.
+    # Of these facts of one type, the ids a person decided, in one query.
+    def human_decided_ids(type:, ids:)
+      raise ArgumentError, "not a fact type: #{type.inspect}" unless FACT_TYPES.include?(type.to_s)
+
+      type.to_s.constantize.where(id: ids).where("verified_by LIKE 'human:%'").pluck(:id)
+    end
+
     # Locks a fact's row until the surrounding transaction ends, so a check
     # made on it holds through a write (a bulk approval, #309).
     def lock_fact(type:, id:)
