@@ -49,6 +49,8 @@ class DataQuality::Plugins::UsaspendingDoeAwards < DataQuality::Plugin
   LEGAL_SUFFIX = /,?\s+(?:INC|INCORPORATED|LLC|L\.L\.C|CORP|CORPORATION|COMPANY|CO|LTD|LIMITED|LP|L\.P|LLP|PLLC|PBC)\.?\z/i
   ACRONYMS = %w[BWXT EPRI GE AMS PKMJ NOG USA US HALEU TRISO SMR 3M LLNL ORNL INL].freeze
   SMALL_WORDS = %w[of and the for in on at].freeze
+  # Line-of-business words a shared brand drops ("BWXT Nuclear" => "BWXT").
+  GENERIC_WORDS = %w[nuclear energy power operations operating group services technologies technology holdings government].freeze
   COLUMNS = %w[award_id recipient_name amount_usd start_date end_date award_type assistance_listing search award_url
     generated_award_id recipient_id description].freeze
 
@@ -88,20 +90,29 @@ class DataQuality::Plugins::UsaspendingDoeAwards < DataQuality::Plugin
   # verifier disputed it goes back to verify, which this run's verify stage
   # then reads. A claim waiting on a person's same-company call keeps its
   # place. Once reworded, a claim reads the same again, so this changes
-  # nothing on later runs. Returns what changed:
-  # [{ candidate:, changes:, reverify: }].
+  # nothing on later runs. A pending company several claims share is named
+  # after the words their names share ("BWXT" for "BWXT Nuclear Energy" and
+  # "BWXT Nuclear Operations Group"), each spelling kept as an alias.
+  # Returns what changed: [{ candidate:, changes:, reverify: }].
   def refresh_open_claims(by: "agent:#{source_kind}")
     directory = DataQuality::DirectoryClient.new
-    open = Candidate.joins(:source).where(sources: { source_kind: }, status: %w[new matched needs_review]).includes(:source).order(:id)
+    open = Candidate.joins(:source).where(sources: { source_kind: }, status: %w[new matched needs_review]).includes(:source).order(:id).to_a
+    fresh = open.to_h { |candidate| [ candidate.id, extract(candidate.source, nil).find { |item| item[:kind] == candidate.kind } ] }
+    shared = open.select { |candidate| candidate.kind == "organization" && candidate.subject_id && fresh[candidate.id] }
+      .group_by(&:subject_id).transform_values { |claims| shared_name(claims.map { |claim| fresh[claim.id][:payload]["name"] }) }
     open.filter_map do |candidate|
-      fresh = extract(candidate.source, nil).find { |item| item[:kind] == candidate.kind } or next
-      changes = fresh[:payload].slice("name", "aliases", "description").reject { |key, value| candidate.payload[key] == value }
+      item = fresh[candidate.id] or next
+      payload = item[:payload]
+      payload = payload.merge("name" => shared[candidate.subject_id]) if candidate.kind == "organization" && shared[candidate.subject_id]
+      changes = payload.slice("name", "aliases", "description").reject { |key, value| candidate.payload[key] == value }
       next if changes.empty?
 
       reverify = changes.key?("description") && candidate.status == "needs_review" && candidate.ai_recommendation.present?
       record = directory.attached_record(candidate)
       if record&.verification_status == "pending" && !record.verified_by.to_s.start_with?("human:")
         attributes = changes.slice(*(candidate.kind == "organization" ? %w[name aliases] : %w[description])).symbolize_keys
+        # Claims sharing it with no name in common: it keeps its own.
+        attributes.delete(:name) if shared.key?(candidate.subject_id) && shared[candidate.subject_id].nil?
         if attributes.any?
           result = directory.write_pending(candidate.kind, attributes.merge(id: record.id), candidate:, crawl_run: nil, evidence: false)
           raise "candidate #{candidate.id}: #{result.errors.to_sentence}" if result.errors.any?
@@ -174,6 +185,21 @@ class DataQuality::Plugins::UsaspendingDoeAwards < DataQuality::Plugin
   end
 
   private
+    # One name for claims that share a company: theirs when they agree, else
+    # the words they all start with, without a trailing "and" or legal word;
+    # nil when they share none (the record keeps its name).
+    def shared_name(names)
+      names = names.compact.uniq
+      return names.first if names.size <= 1
+
+      words = names.map(&:split)
+      common = words.first.each_with_index.take_while { |word, index| words.all? { |other| other[index] == word } }.map(&:first)
+      common.pop while common.any? && SMALL_WORDS.include?(common.last.downcase)
+      # "BWXT Nuclear" is still BWXT: the brand, not the line of business.
+      common.pop while common.size > 1 && GENERIC_WORDS.include?(common.last.downcase)
+      common.join(" ").presence
+    end
+
     # [rows, nil], or [nil, the Response that stopped it].
     def search_all
       rows = {}

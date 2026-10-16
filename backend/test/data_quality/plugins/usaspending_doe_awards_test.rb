@@ -234,6 +234,27 @@ class DataQuality::Plugins::UsaspendingDoeAwardsTest < ActiveSupport::TestCase
     assert_empty plugin.refresh_open_claims, "a second run finds nothing to change"
   end
 
+  test "a pending company two claims share is named after the brand they share, not whichever ran last" do
+    company = Organization.create!(name: "BWXT NUCLEAR ENERGY, INC.")
+    claim = lambda do |spelling, recipient_id|
+      text = CSV.generate do |csv|
+        csv << Plugin::COLUMNS
+        csv << [ "DE#{recipient_id}", spelling, "2000000.0", "2021-01-01", "2026-01-01", "contract", nil, "haleu_fuel_contracts", "u", "CONT_#{recipient_id}", "#{recipient_id}-C", "Work" ]
+      end
+      source = Source.create!(url: "https://www.usaspending.gov/recipient/#{recipient_id}-C/latest", source_kind: "usaspending_doe_awards", content_text: text)
+      Candidate.create!(source:, kind: "organization", quote: "q", status: "needs_review", payload: { "name" => spelling },
+        subject_type: "Organization", subject_id: company.id)
+    end
+    energy = claim.("BWXT NUCLEAR ENERGY, INC.", "aaa1")
+    operations = claim.("BWXT NUCLEAR OPERATIONS GROUP, INC.", "aaa2")
+
+    plugin.refresh_open_claims
+
+    assert_equal "BWXT", company.reload.name
+    assert_equal [ "BWXT", "BWXT" ], [ energy.reload.payload["name"], operations.reload.payload["name"] ]
+    assert_empty plugin.refresh_open_claims, "and it stays that way"
+  end
+
   test "a company's readable name: title case, no legal suffix, acronyms kept; a mixed-case name is its own" do
     {
       "BROOKHAVEN TECHNOLOGY GROUP INC" => "Brookhaven Technology Group", "BWXT NUCLEAR ENERGY, INC." => "BWXT Nuclear Energy",
