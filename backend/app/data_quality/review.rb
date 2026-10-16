@@ -32,9 +32,11 @@ module DataQuality::Review
   # source's value. found_by: the model of the run that extracted it (nil for
   # hand-made ones).
   # category: which of the Checks screen's groups it's in (CATEGORIES).
+  # held: why it waits for Data Quality rather than being approved in bulk
+  # (held_reason), or nil.
   Item = Data.define(:candidate_id, :kind, :status, :claim, :payload, :quote, :source, :notes,
     :ai_recommendation, :ai_reason, :ai_confidence, :ai_model, :ai_checked_at, :verify_run_id,
-    :subject_type, :subject_id, :record, :differences, :found_by, :crawl_run_id, :category)
+    :subject_type, :subject_id, :record, :differences, :found_by, :crawl_run_id, :category, :held)
   Source = Data.define(:id, :url, :title, :source_kind)
   EvidenceItem = Data.define(:source, :quote, :found_by, :confidence)
   PendingFact = Data.define(:type, :id, :kind, :attributes, :evidence, :created_at, :last_event)
@@ -107,8 +109,32 @@ module DataQuality::Review
 
     # The recommended claims a Checks filter shows, oldest first: what
     # "Approve N safe" counts, fingerprints and approves on that filter.
-    def safe_ids(category: "all", source_kind: nil)
-      category_scope(category, source_kind:).where(id: Candidate.recommended.select(:id)).order(:id).pluck(:id)
+    # Only truly safe ones: a claim that waits for Data Quality (held_reason)
+    # is never approved in bulk, however it's recommended.
+    def safe_ids(category: "all", source_kind: nil, directory: DataQuality::DirectoryClient.new)
+      firsts = first_batches
+      category_scope(category, source_kind:).where(id: Candidate.recommended.select(:id)).includes(:source).order(:id)
+        .reject { |candidate| held_reason(candidate, directory:, firsts:) }.map(&:id)
+    end
+
+    # Why a claim waits for Data Quality instead of being approved in bulk
+    # (Tosin, 16 Oct, after an approve-all replaced hand-written descriptions):
+    # - its record is one a person decided, so approving would change a value
+    #   they chose; it's decided one at a time (Keep ours or Take theirs)
+    # - it came in its source's first batch, which Data Quality reviews
+    # nil when it's safe.
+    def held_reason(candidate, directory: DataQuality::DirectoryClient.new, record: :lookup, firsts: first_batches)
+      record = directory.attached_record(candidate) if record == :lookup
+      decided = record && record.verified_by.to_s.start_with?("human:") && %w[verified pending].include?(record.verification_status)
+      return "it would change a record a person decided" if decided || candidate.notes.to_s.match?(/\Ahuman-verified /i)
+      return "it's from this source's first batch" if candidate.crawl_run_id && firsts[candidate.source.source_kind] == candidate.crawl_run_id
+
+      nil
+    end
+
+    # Each kind of source's first batch: { "usaspending_doe_awards" => crawl run id }.
+    def first_batches
+      Candidate.joins(:source).where.not(crawl_run_id: nil).group("sources.source_kind").minimum(:crawl_run_id)
     end
 
     # The claims waiting on one fact (both queues), oldest first, for its
@@ -414,6 +440,10 @@ module DataQuality::Review
           if only_recommended && !(candidate.ai_recommendation == "recommend_publish" && !candidate.status_needs_review?)
             next Result.new(candidate_id: candidate.id, ref: nil, errors: [ "it isn't recommended, so approve it on its own" ])
           end
+          # Checked again when a bulk approval runs: the record may have been decided since the page loaded.
+          if only_recommended && (held = held_reason(candidate, directory:))
+            next Result.new(candidate_id: candidate.id, ref: nil, errors: [ "it waits for Data Quality: #{held}" ])
+          end
           # A link is written onto the record match attached, which needs both
           # ends found. One whose company or plant is still a question has no
           # link yet; without this check the write would find any link of the
@@ -570,7 +600,8 @@ module DataQuality::Review
           ai_recommendation: candidate.ai_recommendation, ai_reason: candidate.ai_reason, ai_confidence: candidate.ai_confidence,
           ai_model: candidate.ai_model, ai_checked_at: candidate.ai_checked_at, verify_run_id: candidate.verify_run_id,
           subject_type: candidate.subject_type, subject_id: candidate.subject_id, record:, differences:,
-          found_by: candidate.crawl_run&.model, crawl_run_id: candidate.crawl_run_id, category: category_of(candidate))
+          found_by: candidate.crawl_run&.model, crawl_run_id: candidate.crawl_run_id, category: category_of(candidate),
+          held: held_reason(candidate, directory:, record:))
       end
 
       # The same rules as category_scope, for one candidate.
