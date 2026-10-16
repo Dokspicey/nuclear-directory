@@ -24,6 +24,9 @@ class Admin::RecordsController < Admin::BaseController
   def update
     values = params.fetch(:values, {}).permit(*editable_fields).to_h.transform_values(&:presence)
       .reject { |name, value| @fact.values[name].to_s == value.to_s }
+    # A new website would otherwise set the domain from it; keep the one in
+    # the form, blank included (companies sharing a website have none).
+    values["domain"] = params.dig(:values, :domain).presence if values.key?("website") && !values.key?("domain") && editable_fields.include?("domain")
     # A pending record is approved as it is ("Save and approve"); a live one with nothing changed stays as it was.
     if values.empty? && @fact.verification_status != "pending"
       flash[:notice] = "Nothing changed."

@@ -192,6 +192,16 @@ class Admin::LiveTest < ActionDispatch::IntegrationTest
     assert_select "input[name=?]", "values[capacity_mw]"
   end
 
+  test "changing a website keeps a deliberately blank domain blank" do
+    c = company("Shared Site Co", website: "https://group.example/a")
+    assert_nil c.domain
+
+    patch admin_record_path(type: "Organization", id: c.id), params: { values: { name: c.name, website: "https://group.example/b", domain: "" } }
+
+    assert_equal "https://group.example/b", c.reload.website
+    assert_nil c.domain
+  end
+
   test "an edit that races with a Take off doesn't put the record back" do
     c = company("Race Co")
     stale = DataQuality::Review.fact(type: "Organization", id: c.id) # what the page loaded: live
