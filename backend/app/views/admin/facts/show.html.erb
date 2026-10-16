@@ -32,6 +32,7 @@
         <% end %>
       </dl>
     </div>
+    <%= render "admin/facts/proposed", item: @claim if @claim %>
   </section>
 
   <aside class="nd-split__side" aria-label="Actions">

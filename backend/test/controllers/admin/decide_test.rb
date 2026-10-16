@@ -36,6 +36,47 @@ class Admin::DecideTest < ActionDispatch::IntegrationTest
     assert_equal "NJ", unit.reload.state
   end
 
+  test "before approving, the page shows what the claim proposes: NJ → DE, its quote and source" do
+    unit = Facility.create!(name: "Hope Creek 1", nrc_docket: "05000354", state: "NJ", verification_status: "verified", verified_by: "human:tosin")
+    claim = Candidate.create!(source: @nrc, kind: "facility", quote: "Hope Creek 1, Hancocks Bridge, DE", status: "needs_review", notes: "unsure",
+      subject_type: "Facility", subject_id: unit.id, payload: { "name" => "Hope Creek 1", "nrc_docket" => "05000354", "state" => "DE" })
+
+    open(claim)
+
+    assert_select "#proposed" do
+      assert_select "dd", /NJ → DE/
+      assert_select ".nd-quote", "“Hope Creek 1, Hancocks Bridge, DE”"
+      assert_select "a[href=?]", @nrc.url
+    end
+  end
+
+  test "the bar decides the claim that was opened, when two sources have one on the same fact" do
+    unit = Facility.create!(name: "Catawba 2", nrc_docket: "05000414", verification_status: "verified", verified_by: "human:tosin")
+    eia = Source.create!(url: "https://www.eia.gov/decide.xlsx", source_kind: "eia_generators", crawl_status: "ok")
+    from_nrc = Candidate.create!(source: @nrc, kind: "facility", quote: "q", status: "needs_review", notes: "unsure",
+      subject_type: "Facility", subject_id: unit.id, payload: { "name" => "Catawba 2", "state" => "SC" })
+    from_eia = Candidate.create!(source: eia, kind: "facility", quote: "q", status: "needs_review", notes: "unsure",
+      subject_type: "Facility", subject_id: unit.id, payload: { "identify" => { "name" => "Catawba", "unit" => "2" }, "capacity_mw" => "1150.1" })
+
+    get admin_fact_path(type: "Facility", id: unit.id, from: "checks", back: admin_checks_path(source: "eia_generators"), claim: from_eia.id)
+
+    assert_select ".nd-decide button[name=candidate_id][value=?]", from_eia.id.to_s, minimum: 1
+    assert_select ".nd-decide button[value=?]", from_nrc.id.to_s, 0
+    assert_select ".nd-itemnav", /1 of 1/, "the list is the EIA one"
+  end
+
+  test "a pending fact whose claim is still open (a lapsed recommendation) isn't decided on its own" do
+    link = FacilityRelationship.create!(organization: organizations(:westinghouse), facility: facilities(:vogtle), relationship_type: "owns")
+    Evidence.create!(subject: link, source: @nrc, quote: "owns", found_by: "crawler")
+    Candidate.create!(source: @nrc, kind: "facility_relationship", quote: "q", status: "matched", ai_recommendation: "recommend_publish",
+      ai_source_sha256: "an older snapshot", subject_type: "FacilityRelationship", subject_id: link.id, payload: { "relationship_type" => "owns" })
+
+    get admin_fact_path(type: "FacilityRelationship", id: link.id, from: "checks", back: @back)
+
+    assert_select ".nd-decide", 0
+    assert_select "button", text: "Approve", count: 0
+  end
+
   test "a possible duplicate: Merge (not built yet), Keep separate, Reject" do
     open(waiting("GENERAL ATOMICS", notes: 'no exact match for "GENERAL ATOMICS", but similar: General Matter. Same record, or a new one?'))
 
@@ -57,7 +98,7 @@ class Admin::DecideTest < ActionDispatch::IntegrationTest
     a, b = waiting("Alpha Co"), waiting("Beta Co")
     open(a)
     following = css_select(".nd-decide input[name=next]").first["value"]
-    assert_equal admin_fact_path(type: "Organization", id: b.subject_id, from: "checks", back: @back), following
+    assert_equal admin_fact_path(type: "Organization", id: b.subject_id, from: "checks", back: @back, claim: b.id), following
 
     post approve_admin_candidates_path, params: { candidate_id: a.id, back: @back, next: following }
     assert_response :see_other

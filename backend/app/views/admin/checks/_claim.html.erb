@@ -15,7 +15,7 @@
       <p class="type-kicker text-ink-muted"><%= check_kicker(item) %></p>
       <p class="type-subject">
         <% if item.subject_id %>
-          <%= link_to check_subject(item), admin_fact_path(type: item.subject_type, id: item.subject_id, from: "checks", back: request.fullpath), class: "nd-link" %>
+          <%= link_to check_subject(item), admin_fact_path(type: item.subject_type, id: item.subject_id, from: "checks", back: request.fullpath, claim: item.candidate_id), class: "nd-link" %>
         <% else %>
           <%= check_subject(item) %>
         <% end %>

@@ -9,12 +9,15 @@ class Admin::FactsController < Admin::BaseController
     @list = list_position if params[:from] == "checks"
     # Decide here (#269): the claims waiting on this fact, or the fact itself
     # when it's pending with none.
+    # The claim this page was opened for (a Checks row is one claim), else the oldest waiting.
     waiting = DataQuality::Review.waiting_for(type: @fact.type, id: @fact.id)
-    @claim = waiting.first
-    @pending = @fact.verification_status == "pending" && @claim.nil?
+    @claim = waiting.find { |item| item.candidate_id == params[:claim].to_i } || waiting.first
+    # The fact's own buttons only when no claim on it is open at all (a lapsed
+    # recommendation is still open, and is decided through its claim).
+    @pending = @fact.verification_status == "pending" && @claim.nil? && !DataQuality::Review.open_claims?(type: @fact.type, id: @fact.id)
     @sourced = DataQuality::Review.sourced?(type: @fact.type, id: @fact.id) if @pending
-    # After deciding: this fact again while more claims wait on it, else the next item.
-    @following = waiting.size > 1 ? fact_path_here : @list&.dig(:next)
+    # After deciding: the next item in the list it was opened from.
+    @following = @list&.dig(:next)
     # Nothing to decide: the last decision on it, so Back after one shows the result.
     @decided = DataQuality::Review.last_decision_for(type: @fact.type, id: @fact.id) unless @claim || @pending
   end
@@ -43,17 +46,19 @@ class Admin::FactsController < Admin::BaseController
     end
 
     # This page again, with where it was opened from.
-    def fact_path_here = admin_fact_path(type: params[:type], id: params[:id], **context)
+    def fact_path_here = admin_fact_path(type: params[:type], id: params[:id], **context, claim: params[:claim].presence)
     def context = params.permit(:from, :back).to_h.symbolize_keys.compact_blank
     helper_method :context
 
-    # Where this fact sits in the Checks list it was opened from:
-    # { index:, total:, previous:, next: } with paths, or nil when it isn't in it.
+    # Where this item (the fact, or one claim on it) sits in the Checks list
+    # it was opened from: { index:, total:, previous:, next: } with paths, or
+    # nil when it isn't in it.
     def list_position
-      subjects = DataQuality::Review.check_subjects(category: list_filters["category"].presence_in(Admin::ChecksController::CATEGORIES) || "all",
+      rows = DataQuality::Review.check_subjects(category: list_filters["category"].presence_in(Admin::ChecksController::CATEGORIES) || "all",
         source_kind: list_filters["source"].presence)
-      index = subjects.index([ params[:type], params[:id].to_i ]) or return
-      path = ->(subject) { subject && admin_fact_path(type: subject.first, id: subject.last, **context) }
-      { index: index + 1, total: subjects.size, previous: path.(index.positive? ? subjects[index - 1] : nil), next: path.(subjects[index + 1]) }
+      here = [ params[:type], params[:id].to_i ]
+      index = (params[:claim].present? && rows.index([ *here, params[:claim].to_i ])) || rows.index { |row| row.first(2) == here } or return
+      path = ->(row) { row && admin_fact_path(type: row[0], id: row[1], **context, claim: row[2]) }
+      { index: index + 1, total: rows.size, previous: path.(index.positive? ? rows[index - 1] : nil), next: path.(rows[index + 1]) }
     end
 end

@@ -46,8 +46,8 @@ class Admin::NavigationTest < ActionDispatch::IntegrationTest
     assert_select ".nd-crumbs li[aria-current=page]", "Beta Co"
     assert_select ".nd-crumbs__back[href=?]", back, text: "‹ Checks"
     assert_select ".nd-itemnav", /2 of 3/
-    assert_select ".nd-itemnav a[rel=prev][href=?]", admin_fact_path(type: "Organization", id: a.subject_id, from: "checks", back:)
-    assert_select ".nd-itemnav a[rel=next][href=?]", admin_fact_path(type: "Organization", id: c.subject_id, from: "checks", back:)
+    assert_select ".nd-itemnav a[rel=prev][href=?]", admin_fact_path(type: "Organization", id: a.subject_id, from: "checks", back:, claim: a.id)
+    assert_select ".nd-itemnav a[rel=next][href=?]", admin_fact_path(type: "Organization", id: c.subject_id, from: "checks", back:, claim: c.id)
 
     open.(c)
     assert_select ".nd-itemnav", /3 of 3/
@@ -58,7 +58,7 @@ class Admin::NavigationTest < ActionDispatch::IntegrationTest
   test "a back value outside the admin is ignored" do
     c = waiting("Alpha Co")
     [ "https://evil.example/admin", "//evil.example/admin", "/administrator", "javascript:alert(1)" ].each do |back|
-      get admin_fact_path(type: "Organization", id: c.subject_id, from: "checks", back:)
+      get admin_fact_path(type: "Organization", id: c.subject_id, from: "checks", back:, claim: c.id)
       assert_select ".nd-crumbs li a[href=?]", admin_checks_path, { text: "Checks" }, back
     end
   end

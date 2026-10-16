@@ -39,7 +39,7 @@ class Admin::CandidatesControllerTest < ActionDispatch::IntegrationTest
     assert_equal "noindex, nofollow", response.headers["X-Robots-Tag"]
     assert_select "#claim-#{c.id}" do
       assert_select ".type-kicker", "New company · nrc.gov"
-      assert_select ".type-subject a[href=?]", admin_fact_path(type: "Organization", id: c.reload.subject_id, from: "checks", back: "/admin/checks"), text: "Imaginary Fission Co"
+      assert_select ".type-subject a[href=?]", admin_fact_path(type: "Organization", id: c.reload.subject_id, from: "checks", back: "/admin/checks", claim: c.id), text: "Imaginary Fission Co"
       assert_select "details .nd-quote", "“a quote”"
       assert_select "details a[href=?]", @source.url, text: /NRC test page/
       assert_select "details", /Verifier recommends publishing.*92% sure.*The row names Imaginary Fission Co/m
