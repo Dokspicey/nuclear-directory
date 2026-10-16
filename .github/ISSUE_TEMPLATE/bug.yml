@@ -1,0 +1,33 @@
+name: Bug
+description: Something on the site, in the admin or in the pipeline doesn't work as it should
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happens
+      description: What you saw, and where (page, admin screen, job or log line).
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should happen
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to see it
+      description: Steps, a URL, or the record involved. Never paste passwords, keys or tokens.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Public site
+        - Admin
+        - Data pipeline (crawl, extract, match, verify)
+        - Seed data
+        - Infra (deploy, backups, monitoring, preview)
+        - Not sure
