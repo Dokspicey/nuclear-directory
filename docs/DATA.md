@@ -32,7 +32,7 @@ The pipeline and FactWriter find an existing record by these, in this order. A r
 
 | Record | Identity, strongest first |
 |---|---|
-| Unit | NRC docket |
+| Unit | NRC docket; then a unit name or alias (e.g. a planned unit before it has a docket) |
 | Site | EIA plant ID; then a site name or alias |
 | Company | A normalized name or alias (`OrganizationAlias.normalize`: case, punctuation and Inc./LLC/Co. dropped); then the website domain, unless several companies share it. A same-brand match ("Duke Energy Carolinas, LLC" → Duke Energy) is used by matching only, to propose; it never merges on its own |
 | Link | Both ends and the type |
@@ -121,9 +121,9 @@ The verb is fixed (VOICE.md). Each link needs a quote that states that relations
 | Fuel and materials | Mines, converts, enriches or fabricates fuel; supplies materials such as coolant; produces isotopes (medical and industrial) | `fuel` or its stages, `coolant` or its kinds, `isotopes` (new key) | 11 |
 | Components and manufacturing | Makes equipment: pumps, valves, forgings, steam generators, instrumentation and control hardware, naval and defense nuclear components | `components` (new key) | 0 |
 | Waste and decommissioning | Stores, transports and disposes of spent fuel and waste; decommissions plants | `waste_decommissioning` (new key) | 0 |
-| Services and engineering | Maintains, builds, licenses or advises | `reactor_services`, `regulatory_consultant` | 6 |
+| Services and engineering | Maintains, builds, licenses or advises, and other professional services to the industry | `reactor_services`, `regulatory_consultant`, or a sourced activity tag: construction (EPC), licensing and consulting, legal, insurance, software | 6 |
 | Power buyers | Buys nuclear power, mostly hyperscalers and data centers | `data_center_offtaker`, or a published power deal as the buyer, **unless the buyer is a utility** (TVA buying from Kairos is a utility deal) | 4 |
-| Investors | Puts money into nuclear companies | `venture_capital`, or a published `invests_in` link | 6 |
+| Investors | Puts money into nuclear companies or projects | `venture_capital`, a sourced investor-type tag (private equity, bank, project finance, corporate fund), or a published `invests_in` or `funds` link as the funder | 6 |
 | Government and research | Agencies, regulators, national labs and universities | `government_agency`, `national_lab`, `university` (new key) | 4 |
 
 **Counting:** buckets overlap (6 of 81 companies are in two or more today). The total is always the number of companies ("81 companies"), never the sum of buckets. A bucket count is labelled "companies that develop reactors", "companies that buy nuclear power", and so on. Charts of buckets are bars, never a pie or a 100% stack.
@@ -180,7 +180,7 @@ The verb is fixed (VOICE.md). Each link needs a quote that states that relations
 |---|---|---|
 | 1. Official record | NRC, EIA, DOE and other agency pages and data; SEC filings; state utility commission filings | Cite. Preferred for operators, licenses, capacity, awards |
 | 2. The party itself | A company's own site, press release or annual report | Cite. Preferred for deals, products and descriptions |
-| 3. Named reporting | Trade press or news that names both parties and the terms | Cite when tiers 1–2 don't state it; replace it with a primary source when one appears |
+| 3. Named reporting | Trade press or news that names both parties and the terms | Cite when tiers 1–2 don't state it; replace it with a primary source when one appears. **Not for deals:** a power deal, investment or award needs a tier 1–2 source (section 2) |
 | Leads only | Aggregators and directories: SMR Intel, ANS Buyers Guide, GAIN directory, GEM tracker, WNA, LinkedIn | Never cite. Trace each lead to tiers 1–3 (#257–#259) |
 
 **Which sources feed which bucket**, with what's live, planned or missing: the "Sources by bucket" table on the sources roadmap, #133 (https://github.com/tosinoladokun/nuclear-directory/issues/133#issuecomment-6206324347).
@@ -222,6 +222,7 @@ The admin's Live screen and the nightly `data_quality:audit` are planned (Admin 
 | `no-location` | Medium | Any plant or reactor without coordinates or a state |
 | `no-site` | Medium | Any reactor with an NRC docket that isn't under a site |
 | `no-owner`, `no-share` | Low | An operating plant with no published owner, or co-owners without shares |
+| `ownership-over-100` | High | A plant's current owners' shares add up to more than 100% (owners with an `ended_on` date before today aren't counted, so successive owners don't add together) |
 | `no-category`, `no-links` | Low | Companies that don't show up anywhere useful |
 | state mismatch | High | A unit's state differs from its site's |
 
