@@ -34,12 +34,44 @@ relationships:
   quote: 'TerraPower: funding to support the development of up to eight Natrium sodium fast reactors - two new units capable of generating up to 690 MW of firm power with delivery as early as 2032, plus the rights for energy from up to six other Natrium units capable of producing 2.1 GW and targeted for delivery by 2035.'
   published: '2026-01-09'
   confidence: 0.8
+- type: offtake_with
+  to: Vistra Corporation
+  description: 'Signed 20-year agreements (Jan 2026) for more than 2.1 GW from Perry and Davis-Besse, plus 433 MW of uprates at Perry, Davis-Besse and Beaver Valley.'
+  source_url: https://about.fb.com/news/2026/01/meta-nuclear-energy-projects-power-american-ai-leadership/
+  quote: 'Through additional 20-year nuclear energy agreements, we will purchase more than 2.1 GW of energy from two operating Vistra nuclear power plants in Ohio (Perry and Davis-Besse)'
+  published: '2026-01-09'
+  confidence: 1.0
+- type: offtake_with
+  to: TerraPower, LLC
+  description: 'Agreement (Jan 2026): Meta funds early development of two Natrium units (up to 690 MW, as early as 2032) and has rights to energy from up to six more units (2.1 GW by 2035).'
+  source_url: https://www.terrapower.com/terrapower-announces-deal-with-meta
+  quote: 'TerraPower, a nuclear innovation company, and Meta announced today an agreement to develop up to 8 Natrium reactor'
+  published: '2026-01-09'
+  confidence: 1.0
 facilities:
 - name: Clinton Clean Energy Center
   type: offtakes_from
   source_url: https://www.constellationenergy.com/newsroom/2025/constellation-meta-sign-20-year-deal-for-clean-reliable-nuclear-energy-in-illinois.html
   quote: Meta is purchasing the plant’s clean energy attributes as part of its commitment to match 100% of its electricity use with clean and renewable energy.
   published: '2025-06-03'
+  confidence: 1.0
+- name: Perry
+  type: offtakes_from
+  source_url: https://about.fb.com/news/2026/01/meta-nuclear-energy-projects-power-american-ai-leadership/
+  quote: 'Through additional 20-year nuclear energy agreements, we will purchase more than 2.1 GW of energy from two operating Vistra nuclear power plants in Ohio (Perry and Davis-Besse)'
+  published: '2026-01-09'
+  confidence: 1.0
+- name: Davis Besse
+  type: offtakes_from
+  source_url: https://about.fb.com/news/2026/01/meta-nuclear-energy-projects-power-american-ai-leadership/
+  quote: 'Through additional 20-year nuclear energy agreements, we will purchase more than 2.1 GW of energy from two operating Vistra nuclear power plants in Ohio (Perry and Davis-Besse)'
+  published: '2026-01-09'
+  confidence: 1.0
+- name: Beaver Valley
+  type: offtakes_from
+  source_url: https://about.fb.com/news/2026/01/meta-nuclear-energy-projects-power-american-ai-leadership/
+  quote: 'increasing energy production at the Perry and Davis-Besse plants in Ohio and the Beaver Valley plant in Pennsylvania'
+  published: '2026-01-09'
   confidence: 1.0
 notes: 'Meta also signed PPAs with Vistra (Perry, Davis-Besse, Beaver Valley uprates) and an agreement with Oklo (Pike County, OH) in Jan 2026; those counterparties are not in this seed. HQ not verified. #63: Clinton is an operating (fission) nuclear plant. Meta also ran a nuclear RFP (https://sustainability.atmeta.com/blog/2024/12/03/accelerating-the-next-wave-of-nuclear-to-power-ai-innovation/). HQ (Menlo Park) stated only in SEC 10-K (blocked, 403).'
 description:

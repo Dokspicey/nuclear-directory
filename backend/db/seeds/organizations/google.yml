@@ -52,12 +52,39 @@ relationships:
   quote: The agreement will see Google receive the clean energy attributes from the plant through the TVA system to further decarbonise its data centre operations in Montgomery County, Tennessee, and Jackson County, Alabama, and support future growth in the region.
   published: '2025-08-18'
   confidence: 0.8
+- type: offtake_with
+  to: NextEra Energy
+  description: 'Signed 25-year agreement (Oct 2025) to buy power from the 615 MW Duane Arnold plant once restarted (online by Q1 2029, pending approvals); CIPCO buys the rest.'
+  source_url: https://www.investor.nexteraenergy.com/news-and-events/news-releases/2025/10-27-2025-203948689
+  quote: 'Google will purchase power from the 615-MW plant'
+  published: '2025-10-27'
+  confidence: 1.0
+- type: offtake_with
+  to: Constellation
+  description: 'Signed 20-year PPA (Oct 2026) supporting 890 MW of uprates at 11 Constellation units in Illinois, Pennsylvania and New Jersey.'
+  source_url: https://www.constellationenergy.com/news/2026/10/google-and-constellation-announce-landmark-agreement-to-bring-890-mw-of-new-nuclear-capacity-to-pjm-grid.html
+  quote: 'The 20-year power purchase agreement will enable investments in new equipment and technology at 11 Constellation-owned nuclear units in Illinois, Pennsylvania, and New Jersey'
+  published: '2026-10-06'
+  confidence: 1.0
+- type: offtake_with
+  to: Tennessee Valley Authority
+  description: 'Google receives clean energy attributes from Hermes 2 through the TVA system (part of the Aug 2025 Kairos-TVA-Google agreement).'
+  source_url: https://www.kairospower.com/updates/google-kairos-power-tva-collaborate-to-meet-americas-growing-energy-needs
+  quote: 'Through a new power purchase agreement (PPA) between Kairos Power and TVA, Kairos Power’s Hermes 2 Plant in Oak Ridge, Tenn., will deliver up to 50 megawatts (MW) of reliable, 24/7 energy to the TVA grid that powers Google data centers'
+  published: '2025-08-18'
+  confidence: 1.0
 facilities:
 - name: Fall Line Fusion Power Station
   type: offtakes_from
   source_url: https://cfs.energy/news-and-media/google-and-commonwealth-fusion-systems-sign-strategic-partnership/
   quote: Google signed a power purchase agreement (PPA) for 200 megawatts (MW) of electricity from CFS’ inaugural ARC power plant, which CFS expects will put power on the grid in the early 2030s, in Chesterfield County, Virginia.
   published: '2025-06-30'
+  confidence: 1.0
+- name: Duane Arnold Energy Center
+  type: offtakes_from
+  source_url: https://www.investor.nexteraenergy.com/news-and-events/news-releases/2025/10-27-2025-203948689
+  quote: 'Google will purchase power from the 615-MW plant'
+  published: '2025-10-27'
   confidence: 1.0
 notes: 'Google is also listed as a CFS investor (corporate, not VC). blog.google announcement URL returned 404. HQ not verified. Google also has a PPA with Constellation (890 MW) per Constellation newsroom headline; not researched. #63: "Technology company" is not in the quote; about.google has no clean one-line description. HQ not added: about.google/locations lists the Googleplex address (Mountain View, CA) among many offices without calling it headquarters.'
 description:
