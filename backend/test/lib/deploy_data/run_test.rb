@@ -355,4 +355,18 @@ class DeployData::RunTest < ActiveSupport::TestCase
     assert_equal 0, @seeds
     assert_includes DataDeploy.sole.error, "TimedOut"
   end
+
+  test "a timeout while posting the report doesn't change what was applied" do
+    github = DeployData::GitHub.new(token: "test-token")
+    stub_request(:get, %r{api.github.com/repos/.+/commits/.+/pulls}).to_return(status: 200, body: [ { number: 298, merged_at: "2026-10-17T00:00:00Z" } ].to_json)
+    stub_request(:post, %r{api.github.com/repos/.+/issues/298/comments}).to_raise(DeployData::Run::TimedOut.new("took longer than bin/deploy-data allows"))
+    run = DeployData::Run.new(commit: "abc1234def", mode: "on", backup: @backup, github:, lock: FakeLock.new, root: @root,
+      migrations: DeployData::Migrations.new(@root.join("db/data")), seeder: @seeder, checker: -> { [] })
+
+    status = nil
+    _, err = capture_io { status = run.call }
+    assert_equal :applied, status
+    assert DataDeploy.sole.applied?
+    assert_includes err, "couldn't post the report to GitHub"
+  end
 end

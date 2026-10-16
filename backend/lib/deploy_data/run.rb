@@ -185,9 +185,15 @@ module DeployData
         @report.migration_events = VerificationEvent.where("id > ?", first_event).pluck(:subject_type).tally if @pending.any?
       end
 
-      # The seed and data migrations commit together, or (a rehearsal) not at all.
+      # The seed and data migrations commit together, or (a rehearsal) not at
+      # all. Repeatable read: every count and event the report reads comes from
+      # one snapshot plus this run's own writes, so an admin approval committed
+      # meanwhile isn't counted as the seed's (and if it touches a row the seed
+      # writes, Postgres stops the run, which the next deploy retries). Inside
+      # an open transaction (tests) the isolation can't be set, so it's left.
       def in_one_transaction
-        ActiveRecord::Base.transaction do
+        isolation = :repeatable_read unless ActiveRecord::Base.connection.transaction_open?
+        ActiveRecord::Base.transaction(isolation:) do
           yield
           raise ActiveRecord::Rollback if rolled_back?
         end

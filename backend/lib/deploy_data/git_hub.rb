@@ -38,7 +38,9 @@ module DeployData
         request(:post, "/repos/#{@repo}/issues", title:, body:)
       end
       result["html_url"]
-    rescue StandardError => error
+    rescue StandardError, Run::TimedOut => error
+      # The data step is over by now (its outcome already decided), so a
+      # timeout here is only a report that didn't arrive: Run alerts Sentry.
       warn "deploy-data: couldn't post the report to GitHub: #{error.message}"
       nil
     end
