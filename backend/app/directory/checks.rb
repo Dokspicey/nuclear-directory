@@ -60,7 +60,8 @@ module Directory::Checks
       end
 
       def flag_tags
-        quoted = ->(model) { evidence(model).where("COALESCE(evidence.quote, '') <> ''").select(:subject_id) }
+        # A quote of only spaces or newlines is no quote.
+        quoted = ->(model) { evidence(model).where("evidence.quote ~ '[^[:space:]]'").select(:subject_id) }
         fresh = lambda do |model|
           checked = "COALESCE(evidence.last_confirmed_at, evidence.created_at)"
           evidence(model).joins(:source).where(

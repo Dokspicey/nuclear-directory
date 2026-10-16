@@ -1,16 +1,19 @@
 <%# A company as its public page shows it (#201): name, roles and
     technologies, its one-line description, the key facts, and how many
-    deals and plants it has. Locals: p (CompanyProfile), record (Organization). %>
+    deals and plants it has. A public record shows only what visitors see
+    (the profile hides unsourced fields); one that isn't public yet shows
+    its own values. Locals: p (CompanyProfile), record (Organization),
+    shown (p when public, else record). %>
 <div class="nd-factcard">
   <h1 class="type-admin-h1"><%= record.name %></h1>
   <% tags = p.shown_roles.map { |r| role_label(r.role) } + p.technologies.map { |t| t.technology.name } %>
   <% if tags.any? %>
     <p class="nd-record__tags"><% tags.each do |tag| %><span class="nd-tag"><%= tag %></span><% end %></p>
   <% end %>
-  <% if record.description.present? %><p class="type-body"><%= record.description %></p><% end %>
+  <% if shown.description.present? %><p class="type-body"><%= shown.description %></p><% end %>
   <dl class="nd-kv type-body">
-    <% [ [ "Website", record.website ], [ "Also known as", p.aliases.join(", ").presence ], [ "Legal name", record.legal_name ],
-         [ "Headquarters", place(record.hq_city, record.hq_state) ], [ "Founded", record.founded_year ] ].each do |label, value| %>
+    <% [ [ "Website", shown.website ], [ "Also known as", p.aliases.join(", ").presence ], [ "Legal name", shown.legal_name ],
+         [ "Headquarters", place(shown.hq_city, shown.hq_state) ], [ "Founded", shown.founded_year ] ].each do |label, value| %>
       <% next if value.blank? %>
       <dt class="type-label"><%= label %></dt><dd class="wrap-anywhere"><%= value %></dd>
     <% end %>

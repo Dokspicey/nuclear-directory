@@ -197,6 +197,49 @@ class Admin::LiveTest < ActionDispatch::IntegrationTest
     assert_nil c.hq_city
   end
 
+  test "the public view shows only what visitors see; a record not public yet shows its own values" do
+    bare = Organization.create!(name: "Unsourced Co", description: "Not on the site.", hq_city: "Hidden City", **VERIFIED)
+    pending = Organization.create!(name: "Draft Co", description: "Waiting to be checked.")
+
+    get admin_record_path(type: "Organization", id: bare.id)
+    assert_select ".nd-factcard", text: /Not on the site|Hidden City/, count: 0
+
+    get admin_record_path(type: "Organization", id: pending.id)
+    assert_select ".nd-factcard p", "Waiting to be checked."
+  end
+
+  test "a pending site that's public through a verified unit: its own details stay hidden, and Take off is offered" do
+    site = Facility.create!(name: "Half Site", city: "Unchecked Town", state: "TX", facility_type: "power_reactor", verification_status: "pending")
+    unit = Facility.create!(name: "Half 1", parent: site, **VERIFIED)
+    Evidence.create!(subject: unit, source: @web, quote: "Half 1", found_by: "human")
+    assert Facility.published.exists?(site.id), "the site is public through its unit"
+
+    get admin_record_path(type: "Facility", id: site.id)
+
+    assert_select ".nd-factcard", text: /Unchecked Town/, count: 0
+    assert_select "details.nd-takeoff summary", "Take off"
+  end
+
+  test "editing a claim from a fact page opened in Live comes back to it, with Live's way back" do
+    reactor = Facility.create!(name: "Claimed Reactor", nrc_docket: "05099201", **VERIFIED)
+    claim = Candidate.create!(source: @web, kind: "facility", quote: "q", status: "needs_review", notes: "unsure",
+      subject_type: "Facility", subject_id: reactor.id, payload: { "name" => "Claimed Reactor", "nrc_docket" => "05099201", "state" => "TX" })
+    Candidate.create!(source: @web, kind: "organization", quote: "q", status: "needs_review", notes: "unsure", payload: { "name" => "Unrelated Co" })
+    back = admin_live_path(tab: "reactors")
+    fact = admin_fact_path(type: "Facility", id: reactor.id, from: "live", back:)
+
+    get fact
+    edit = css_select("a.nd-decide__edit").first["href"]
+    assert_equal edit_admin_candidate_path(claim.id, back:, next: fact), edit
+
+    get edit
+    assert_select ".nd-itemnav", 0, "no Previous and Next through Checks"
+    assert_select ".nd-crumbs li a[href=?]", back, "Live"
+
+    patch admin_candidate_path(claim.id, back:, next: fact), params: { values: { state: "TX" } }
+    assert_redirected_to fact
+  end
+
   test "a unit has no Record page; its fact page opened from Live says Live" do
     site = Facility.create!(name: "Unit Site", **VERIFIED)
     unit = Facility.create!(name: "Unit 1", parent: site, **VERIFIED)

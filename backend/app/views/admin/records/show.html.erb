@@ -26,7 +26,7 @@
         <span class="type-small text-ink-muted">Not on the site</span>
       <% end %>
     </div>
-    <%= render(@record.is_a?(Organization) ? "admin/records/company_card" : "admin/records/plant_card", p: @profile, record: @record) %>
+    <%= render(@record.is_a?(Organization) ? "admin/records/company_card" : "admin/records/plant_card", p: @profile, record: @record, shown: (@fact.published ? @profile : @record)) %>
   </section>
 
   <aside class="nd-split__side" aria-label="Actions">
@@ -47,7 +47,7 @@
     <span class="nd-btn nd-btn--outline type-ui text-ink-muted" aria-disabled="true" title="Adding facts comes with #202">Add fact <span class="nd-tag">Soon</span></span>
     <span class="nd-btn nd-btn--outline type-ui text-ink-muted" aria-disabled="true" title="Merging comes with #142">Merge <span class="nd-tag">Soon</span></span>
 
-    <% if @fact.verification_status == "verified" %>
+    <% if @fact.verification_status == "verified" || @fact.published %>
       <details class="nd-takeoff">
         <summary class="nd-btn nd-btn--danger type-ui">Take off</summary>
         <%= form_with url: admin_fact_unpublish_path(type: @fact.type, id: @fact.id), class: "nd-panel nd-takeoff__form" do %>
