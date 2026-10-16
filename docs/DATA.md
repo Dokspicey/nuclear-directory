@@ -98,8 +98,8 @@ The verb is fixed (VOICE.md). Each link needs a quote that states that relations
 | Plant status | `operating`, `under_construction`, `planned`, `shut_down`, `decommissioning`. Blank means not stated, shown as "Not stated". Never guessed |
 | Company status | `active`, `acquired`, `defunct`, each with a quote when it isn't `active` |
 | Dates | ISO `2026-10-09` in data. A month-only source date is stored as the 1st, with the description saying "October 2026" |
-| State | Two-letter USPS code, from EIA for plants (not NRC's "nearest city", which put Salem in Delaware, #197) |
-| Location | "City, ST" when a source names the city (#225). Coordinates from EIA, 6 decimal places |
+| State | Two-letter USPS code. For power plants in EIA-860M, from EIA (not NRC's "nearest city", which put Salem in Delaware, #197). For any other site (test reactors, fuel plants, mines, fusion plants), from the operator's, owner's or an agency's page that states it (e.g. HFIR from DOE OSTI) |
+| Location | "City, ST" when a source names the city (#225). Coordinates to 6 decimal places: from EIA for power plants it covers; otherwise from an official record (NRC, DOE, a state agency) that states them. None rather than geocoding an address |
 | Country | ISO 3166 alpha-2, only when a source states where the company is based. Blank otherwise |
 | Ownership | Percent, 0–100, only on `owns`, only as stated. Co-owners' shares should sum to 100 or less |
 | Money | US dollars in deal terms (`amount_usd`). Other currencies are converted only if the source gives the figure |
@@ -211,6 +211,7 @@ The admin's Live screen and the nightly `data_quality:audit` are planned (Admin 
 | Check | Severity | Rule |
 |---|---|---|
 | `no-quote` | Highest | A public fact with no quoted evidence |
+| `ineligible-source` | Highest | A public fact whose only evidence comes from a leads-only source (LinkedIn, SMR Intel, ANS Buyers Guide, GAIN, GEM, WNA), or a deal, investment or award whose only evidence is tier 3 news (section 5). Checked against a list of leads-only domains and the news domains in the publisher-group lookup (#166) |
 | `source-disagrees` | High | A source now states a different value, or a person's decision overrides one |
 | `dropped-by-source` | High | A complete read of its source no longer lists it |
 | `stale` | Medium | Not re-confirmed in 14 days (NRC, EIA) or 365 days (web, hand research) |
