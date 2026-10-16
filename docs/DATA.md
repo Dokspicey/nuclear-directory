@@ -122,7 +122,7 @@ The verb is fixed (VOICE.md). Each link needs a quote that states that relations
 | Investors | Puts money into nuclear companies | `venture_capital` | 4 (5 with #250) |
 | Government and research | Regulators, agencies, national labs | `government_agency`, `national_lab` | 4 |
 
-**When a company fits more than one bucket**, it gets the first that applies in the order above, read from the bottom up for the public sector: Government and research, then Reactor developers, Fuel and materials, Utilities and operators, Power buyers, Services and engineering, Investors. So Westinghouse is a reactor developer (also tagged fuel and services), Amazon is a power buyer (also tagged investor), and Holtec is a reactor developer (also tagged operator). A person can override this only if the order gives a wrong answer; none does today.
+**When a company fits more than one bucket**, it gets the first that applies in this order: Government and research, Reactor developers, Fuel and materials, Utilities and operators, Power buyers, Services and engineering, Investors. So Westinghouse is a reactor developer (also tagged fuel and services), Amazon is a power buyer (also tagged investor), and Holtec is a reactor developer (also tagged operator). A person can override this only if the order gives a wrong answer; none does today.
 
 **Tags, by group** (filters and explanations, never navigation):
 
