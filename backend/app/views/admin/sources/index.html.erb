@@ -39,7 +39,7 @@
             <td class="type-cell-num nd-sources__blank">—</td><td class="type-cell-num nd-sources__blank">—</td><td class="type-data text-ink-muted nd-sources__blank">—</td><td class="nd-l"><span class="nd-tag">Soon</span></td>
           <% else %>
             <td class="type-cell-num" data-unit="<%= entry.documents == 1 ? "document" : "documents" %>"><%= num.(entry.documents) %></td>
-            <td class="type-cell-num nd-sources__facts" data-unit="<%= entry.facts == 1 ? "fact" : "facts" %>"><%= entry.facts.positive? ? link_to(number_with_delimiter(entry.facts), admin_live_path(within: entry.key), class: "nd-link") : 0 %></td>
+            <td class="type-cell-num nd-sources__facts" data-unit="<%= entry.facts == 1 ? "fact" : "facts" %>"><% if entry.facts.positive? %><%= link_to number_with_delimiter(entry.facts), admin_live_path(within: entry.key), class: "nd-link" %><span class="nd-sources__plain"><%= number_with_delimiter(entry.facts) %></span><% else %>0<% end %></td>
             <td class="type-data text-ink-muted"><%= entry.last_read_at&.strftime("%-d %b %H:%M") || "—" %></td>
             <td class="type-body nd-l"><%= entry.documents.zero? ? tag.span("Not read yet", class: "text-ink-muted") : source_status(entry.status, research: false) %></td>
           <% end %>
@@ -51,7 +51,7 @@
         <tr>
           <td class="type-body"><%= link_to entry.name, admin_source_path(key: entry.key), class: "nd-link" %></td>
           <td class="type-cell-num" data-unit="<%= entry.documents == 1 ? "document" : "documents" %>"><%= num.(entry.documents) %></td>
-          <td class="type-cell-num nd-sources__facts" data-unit="<%= entry.facts == 1 ? "fact" : "facts" %>"><%= entry.facts.positive? ? link_to(number_with_delimiter(entry.facts), admin_live_path(within: entry.key), class: "nd-link") : 0 %></td>
+          <td class="type-cell-num nd-sources__facts" data-unit="<%= entry.facts == 1 ? "fact" : "facts" %>"><% if entry.facts.positive? %><%= link_to number_with_delimiter(entry.facts), admin_live_path(within: entry.key), class: "nd-link" %><span class="nd-sources__plain"><%= number_with_delimiter(entry.facts) %></span><% else %>0<% end %></td>
           <td class="type-data text-ink-muted"><%= entry.last_read_at&.strftime("%-d %b %H:%M") || "—" %></td>
           <td class="type-body nd-l"><%= source_status(entry.status, research: true) %></td>
         </tr>

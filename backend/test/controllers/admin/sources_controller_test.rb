@@ -32,7 +32,8 @@ class Admin::SourcesControllerTest < ActionDispatch::IntegrationTest
 
   def page(url, **attributes) = Source.create!(url:, source_kind: "web_page", domain: URI(url).host.delete_prefix("www."), **attributes)
   def backs(source, name) = Organization.create!(name:, **VERIFIED).tap { |o| Evidence.create!(subject: o, source:, quote: name, found_by: "human") }
-  def cells(row) = row.css("td").map { |td| td.text.squish }
+  # Each cell as read on a wide screen (the phone-only plain count left out).
+  def cells(row) = row.css("td").map { |td| td.dup.tap { |cell| cell.css(".nd-sources__plain").each(&:remove) }.text.squish }
 
   test "Sources: official records by crawler, hand research by publisher, with documents, facts, last read and status" do
     nrc = sources(:nrc).tap { |source| source.update!(crawl_status: "ok", fetched_at: Time.zone.parse("2026-10-15 07:00")) }

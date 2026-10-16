@@ -733,6 +733,11 @@
   .nd-shell__head .nd-sources__search { flex: 1 1 320px; width: auto; }
   .nd-shell mark { background: var(--nd-paper-sunken); color: var(--nd-ink); font-weight: 600; }
   .nd-sources__search input { flex: 1; border: 0; background: transparent; min-width: 0; }
+  /* The input fills its 44px box, so a tap anywhere in it focuses it; the icon sits over it. */
+  .nd-sources__search { position: relative; padding: 0; }
+  .nd-sources__search svg { position: absolute; left: var(--nd-space-4); pointer-events: none; }
+  .nd-sources__search input { align-self: stretch; height: 100%; padding: 0 var(--nd-space-4) 0 44px; }
+  .nd-sources__plain { display: none; }
   .nd-sources td:first-child { width: 100%; }
 
   @media (max-width: 560px) {
@@ -752,7 +757,9 @@
        row is its name and "Soon" only. */
     .nd-sources--list tbody tr { position: relative; min-height: 44px; }
     .nd-sources--list td:first-child > a.nd-link::after { content: ""; position: absolute; inset: 0; }
-    .nd-sources--list .nd-sources__facts a { pointer-events: none; color: inherit; text-decoration: none; }
+    /* The facts count is plain text: its Live link is out of the tab order too. */
+    .nd-sources--list .nd-sources__facts a { display: none; }
+    .nd-sources--list .nd-sources__facts .nd-sources__plain { display: inline; }
     .nd-sources--list .nd-sources__run { position: relative; z-index: 1; }
     .nd-sources--list .nd-sources__run > summary { min-height: 44px; display: flex; align-items: center; }
     .nd-sources__blank { display: none !important; }
