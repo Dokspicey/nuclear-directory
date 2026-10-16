@@ -176,6 +176,15 @@ module Directory
     private_constant :LINK_VERBS, :ROLE_WORDS
 
     # Any fact's current decision (Directory::FactStateRef), or nil.
+    # Locks a fact's row until the surrounding transaction ends, so a check
+    # made on it holds through a write (a bulk approval, #309).
+    def lock_fact(type:, id:)
+      raise ArgumentError, "not a fact type: #{type.inspect}" unless FACT_TYPES.include?(type.to_s)
+
+      type.to_s.constantize.lock.find_by(id:)
+      nil
+    end
+
     def fact_state(type:, id:)
       raise ArgumentError, "not a fact type: #{type.inspect}" unless FACT_TYPES.include?(type.to_s)
 

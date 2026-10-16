@@ -290,6 +290,9 @@ class DataQuality::DirectoryClient
   # Whether a fact is public now (its model's published scope).
   def published?(type:, id:) = lookup.published?(type:, id:)
 
+  # Holds a fact's row lock until the surrounding transaction ends.
+  def lock_fact(type:, id:) = lookup.lock_fact(type:, id:)
+
   # Whether a fact has any evidence (a source) at all.
   def sourced?(type:, id:) = lookup.sourced?(type:, id:)
 

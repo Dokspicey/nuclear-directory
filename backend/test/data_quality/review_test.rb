@@ -475,6 +475,18 @@ class DataQuality::ReviewTest < ActiveSupport::TestCase
     assert Review.approve([ on_decided.id ], by: BY).sole.ok?, "on its own, a person can still take it"
   end
 
+  test "a record a person took off or rejected holds its claims too, so a bulk approval never puts it back" do
+    gone = Organization.create!(name: "Taken Off Co", verification_status: "verified", verified_by: BY)
+    gone.unpublish!(by: BY, reason: "Not nuclear")
+    claim = Candidate.create!(source: @source, kind: "organization", payload: { "name" => "Taken Off Co" }, quote: "Taken Off Co",
+      status: "matched", subject_type: "Organization", subject_id: gone.id, ai_recommendation: "recommend_publish")
+
+    assert_equal "it would change a record a person decided", Review.candidate(claim.id).held
+    assert_not_includes Review.safe_ids, claim.id
+    assert_match "waits for Data Quality", Review.approve([ claim.id ], by: BY, only_recommended: true).sole.errors.sole
+    assert gone.reload.unpublished?
+  end
+
   test "a source's first batch waits for Data Quality; later batches are approved in bulk as before" do
     first_run = CrawlRun.create!(stage: "extract", source_kind: "dummy", status: "succeeded", started_at: 2.days.ago)
     later_run = CrawlRun.create!(stage: "extract", source_kind: "dummy", status: "succeeded", started_at: 1.day.ago)

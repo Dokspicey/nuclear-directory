@@ -125,7 +125,8 @@ module DataQuality::Review
     # nil when it's safe.
     def held_reason(candidate, directory: DataQuality::DirectoryClient.new, record: :lookup, firsts: first_batches)
       record = directory.attached_record(candidate) if record == :lookup
-      decided = record && record.verified_by.to_s.start_with?("human:") && %w[verified pending].include?(record.verification_status)
+      # Any decision a person made: approved, rejected or taken off.
+      decided = record && record.verified_by.to_s.start_with?("human:")
       return "it would change a record a person decided" if decided || candidate.notes.to_s.match?(/\Ahuman-verified /i)
       return "it's from this source's first batch" if candidate.crawl_run_id && firsts[candidate.source.source_kind] == candidate.crawl_run_id
 
@@ -213,9 +214,10 @@ module DataQuality::Review
     # (a refused item is a Result with errors, not an error).
     def approve(candidate_ids, by:, reason: nil, only_recommended: false, directory: DataQuality::DirectoryClient.new)
       human!(by)
+      firsts = first_batches if only_recommended # once per bulk approval
       Candidate.transaction do
         Candidate.where(id: candidate_ids).includes(:crawl_run, :verify_run).order(:id).map do |candidate|
-          approve_one(candidate, by:, reason:, directory:, only_recommended:)
+          approve_one(candidate, by:, reason:, directory:, only_recommended:, firsts:)
         end
       end
     end
@@ -433,15 +435,18 @@ module DataQuality::Review
       # fact still waiting for approval.
       # only_recommended (bulk approval): checked under the lock, so a claim a
       # verify run moved to review a moment ago isn't published in bulk.
-      def approve_one(candidate, by:, reason:, directory:, edited: false, only_recommended: false)
+      def approve_one(candidate, by:, reason:, directory:, edited: false, only_recommended: false, firsts: nil)
         Candidate.transaction do
           lock_for_decision(candidate)
           next Result.new(candidate_id: candidate.id, ref: nil, errors: [ already(candidate) ]) unless open?(candidate)
           if only_recommended && !(candidate.ai_recommendation == "recommend_publish" && !candidate.status_needs_review?)
             next Result.new(candidate_id: candidate.id, ref: nil, errors: [ "it isn't recommended, so approve it on its own" ])
           end
-          # Checked again when a bulk approval runs: the record may have been decided since the page loaded.
-          if only_recommended && (held = held_reason(candidate, directory:))
+          # Checked again when a bulk approval runs: the record may have been
+          # decided since the page loaded. Its row stays locked through the
+          # write, so a person's approval can't land in between.
+          directory.lock_fact(type: candidate.subject_type, id: candidate.subject_id) if only_recommended && candidate.subject_id
+          if only_recommended && (held = held_reason(candidate, directory:, firsts: firsts || first_batches))
             next Result.new(candidate_id: candidate.id, ref: nil, errors: [ "it waits for Data Quality: #{held}" ])
           end
           # A link is written onto the record match attached, which needs both
