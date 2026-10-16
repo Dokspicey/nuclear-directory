@@ -39,7 +39,7 @@ class DirectoryTest < ActionDispatch::IntegrationTest
     get companies_path(category: "reactor-developers")
 
     assert_response :success
-    assert_select "title", "Reactor developers · Nuclear Directory"
+    assert_select "title", "Advanced reactor and SMR developers in the US · Nuclear Directory"
     assert_select "h1", /Reactor developers/
     assert_select "h1 .nd-listhead__count", "2 companies"
     assert_select "a.nd-pill[aria-current=page]", /Reactor developers/

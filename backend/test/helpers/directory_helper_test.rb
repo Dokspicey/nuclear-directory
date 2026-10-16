@@ -12,7 +12,7 @@ class DirectoryHelperTest < ActionView::TestCase
   end
 
   test "a plant's preview says what it is, where, how big, and who owns and runs it (#246)" do
-    assert_equal "Plant Vogtle: Operating power plant in Waynesboro, GA. 4 units, 4,536 MWe. Owned by Georgia Power; operated by Southern Nuclear.",
+    assert_equal "Plant Vogtle: Operating power plant in Waynesboro, Georgia. 4 units, 4,536 MWe. Owned by Georgia Power; operated by Southern Nuclear.",
       plant_preview(profile)
   end
 
@@ -20,7 +20,7 @@ class DirectoryHelperTest < ActionView::TestCase
     owners = [ "Georgia Power", "Oglethorpe Power", "MEAG Power", "Dalton Utilities" ]
     line = plant_preview(profile(owners:))
 
-    assert_equal "Plant Vogtle: Operating power plant in Waynesboro, GA. 4 units, 4,536 MWe. " \
+    assert_equal "Plant Vogtle: Operating power plant in Waynesboro, Georgia. 4 units, 4,536 MWe. " \
       "Owned by Georgia Power and 3 others; operated by Southern Nuclear.", line
     assert_operator line.length, :<=, 160
   end
@@ -33,12 +33,12 @@ class DirectoryHelperTest < ActionView::TestCase
   end
 
   test "a plant's preview leaves out what isn't known, and never says nothing" do
-    assert_equal "Hermes: Test reactor in Oak Ridge, TN. Operated by Kairos Power.",
+    assert_equal "Hermes: Test reactor in Oak Ridge, Tennessee. Operated by Kairos Power.",
       plant_preview(profile(name: "Hermes", status: nil, facility_type: "research_reactor", city: "Oak Ridge", state: "TN",
         units: [], capacity_mw: nil, owners: [], operators: [ "Kairos Power" ]))
     assert_equal "Blank Site", plant_preview(profile(name: "Blank Site", status: nil, facility_type: nil, city: nil, state: nil,
       units: [], capacity_mw: nil, owners: [], operators: []))
-    assert_equal "Gone Plant: In Somewhere, TX. 1 unit.", plant_preview(profile(name: "Gone Plant", status: nil, facility_type: nil,
+    assert_equal "Gone Plant: In Somewhere, Texas. 1 unit.", plant_preview(profile(name: "Gone Plant", status: nil, facility_type: nil,
       city: "Somewhere", state: "TX", units: [ 1 ], capacity_mw: nil, owners: [], operators: []))
   end
 
