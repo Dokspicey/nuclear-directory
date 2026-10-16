@@ -32,6 +32,7 @@ module DirectoryHelper
 
   FACILITY_STATUS_LABELS = {
     "operating" => "Operating",
+    "not_operating" => "Not operating",
     "under_construction" => "Under construction",
     "planned" => "Planned",
     "shut_down" => "Shut down",
@@ -142,10 +143,14 @@ module DirectoryHelper
   PREVIEW_LIMIT = 160
 
   def plant_preview(profile)
-    kind = [ facility_status_label(profile.status), (profile.status ? facility_type_label(profile.facility_type)&.downcase : facility_type_label(profile.facility_type)) ]
+    # "Not operating" reads after the place, not before the type: "Power plant in Covert, MI, not operating".
+    idle = profile.status == "not_operating"
+    status = facility_status_label(profile.status) unless idle
+    kind = [ status, (status ? facility_type_label(profile.facility_type)&.downcase : facility_type_label(profile.facility_type)) ]
       .compact.join(" ").presence
     where = full_place(profile.city, profile.state)
     what = kind ? [ kind, (where && "in #{where}") ].compact.join(" ") : (where && "In #{where}")
+    what = what ? "#{what}, not operating" : "Not operating" if idle
     units = profile.units.size
     capacity = "#{number_with_precision(profile.capacity_mw, precision: 2, strip_insignificant_zeros: true, delimiter: ",")} MW" if profile.capacity_mw
     size = [ (pluralize(units, "unit") if units.positive?), capacity ].compact.join(", ").presence
