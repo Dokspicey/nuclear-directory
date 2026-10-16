@@ -65,6 +65,20 @@ relationships:
   quote: 'Under the agreement, Amazon will have the right to purchase electricity from the first project (4 modules), which is expected to generate 320 megawatts (MW) of energy capacity.'
   published: '2024-10-16'
   confidence: 1.0
+- type: offtake_with
+  to: X-Energy, Inc.
+  description: 'Framework (Oct 2024): Amazon and X-energy aim to bring more than 5 GW of new SMR power projects online in the US by 2039.'
+  source_url: https://x-energy.com/media/news-releases/amazon-invests-in-x-energy-to-support-advanced-small-modular-nuclear-reactors-and-expand-carbon-free-power
+  quote: Amazon and X-energy are also collaborating to bring more than 5 gigawatts of new power projects online across the United States by 2039, representing the largest commercial deployment target of SMRs to date.
+  published: '2024-10-16'
+  confidence: 1.0
+- type: offtake_with
+  to: Dominion Energy
+  description: 'Framework (Oct 2024): an agreement for Amazon and Dominion Energy to explore an SMR project near the North Anna nuclear station that would bring at least 300 MW to Virginia.'
+  source_url: https://www.aboutamazon.com/news/sustainability/amazon-nuclear-small-modular-reactor-net-carbon-zero
+  quote: In Virginia, we’ve signed an agreement with utility company Dominion Energy to explore the development of an SMR project near Dominion’s existing North Anna nuclear power station. This will bring at least 300 megawatts of power to the Virginia region
+  published: '2024-10-16'
+  confidence: 1.0
 facilities:
 - name: Susquehanna Steam Electric Station
   type: offtakes_from
@@ -96,7 +110,7 @@ facilities:
   quote: 'Under the agreement, Amazon will have the right to purchase electricity from the first project (4 modules), which is expected to generate 320 megawatts (MW) of energy capacity.'
   published: '2024-10-16'
   confidence: 1.0
-notes: 'Amazon-Dominion SMR MOU at North Anna (non-binding) noted under Dominion. Search summaries conflicted on whether Amazon alone provided $500M to X-energy; X-energy''s release says the ~$500M round was anchored by Amazon with other investors. Talen quotes obtained via WebFetch summarizer (SEC blocked curl). HQ not verified. #63: HQ not added: aboutamazon.com says only "The Puget Sound region is home to our first global headquarters" (no city) and names Arlington, VA as second headquarters. SEC filings blocked (403).'
+notes: 'Amazon-Dominion SMR MOU at North Anna (non-binding) is recorded as an offtake_with link labelled framework, since the quote says only "agreement ... to explore" (#253). Search summaries conflicted on whether Amazon alone provided $500M to X-energy; X-energy''s release says the ~$500M round was anchored by Amazon with other investors. Talen quotes obtained via WebFetch summarizer (SEC blocked curl). HQ not verified. #63: HQ not added: aboutamazon.com says only "The Puget Sound region is home to our first global headquarters" (no city) and names Arlington, VA as second headquarters. SEC filings blocked (403).'
 description:
   text: Company offering online shopping, cloud computing, streaming, devices, advertising and AI services.
   source_url: https://www.aboutamazon.com/about-us
