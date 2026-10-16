@@ -48,7 +48,7 @@ The verb is fixed (VOICE.md). Each link needs a quote that states that relations
 
 | Type | On screen | Means | Example | Not this | Authoritative source |
 |---|---|---|---|---|---|
-| `operates` | operates | Holds the NRC operating license and runs the plant | Southern Nuclear operates Hatch 1 | The utility that reports the plant to EIA (EIA's Entity Name is not the operator, #227) | NRC reactor list |
+| `operates` | operates | Runs the site day to day. For a power reactor: holds the NRC operating license. For other sites (mines, mills, enrichment, fuel and test facilities): named as operator by the operator, owner, NRC or another agency | Southern Nuclear operates Hatch 1; Ur-Energy operates Lost Creek | The utility that reports the plant to EIA (EIA's Entity Name is not the operator, #227) | NRC reactor list for power reactors; otherwise the operator's, owner's or an agency's page that names the operator |
 | `owns` | owns | Holds an ownership share; `ownership_pct` only when the source states it | Oglethorpe Power owns Plant Vogtle (30%) | Leasing a site (state the lease in the description instead) | Owner filings, press releases, the operator's plant page |
 | `vendor_for` | is the reactor developer for | Designed or supplies the reactor | Westinghouse is the reactor developer for Plant Vogtle | Supplying parts or services (use `supplies` to the operator) | Developer or operator press release, NRC docket |
 | `offtakes_from` | offtakes from | Has agreed to buy the plant's power | Amazon offtakes from Susquehanna | A power deal with the company, not tied to a plant (use `offtake_with`) | The buyer's or seller's press release, SEC 8-K, utility commission filing |
@@ -211,7 +211,7 @@ The admin's Live screen and the nightly `data_quality:audit` are planned (Admin 
 | Check | Severity | Rule |
 |---|---|---|
 | `no-quote` | Highest | A public fact with no quoted evidence |
-| `ineligible-source` | Highest | A public fact whose only evidence comes from a leads-only source (LinkedIn, SMR Intel, ANS Buyers Guide, GAIN, GEM, WNA), or a deal, investment or award whose only evidence is tier 3 news (section 5). Checked against a list of leads-only domains and the news domains in the publisher-group lookup (#166) |
+| `ineligible-source` | Highest | A public fact with **no eligible evidence**: none of its quotes comes from a citable source (leads-only sources such as LinkedIn, SMR Intel, ANS Buyers Guide, GAIN, GEM and WNA never count), or, for a deal, investment or award, none comes from tier 1 or 2 (section 5). Mixed ineligible evidence (say LinkedIn plus news) is flagged. Uses a leads-only domain list and the news domains in #166's publisher lookup |
 | `source-disagrees` | High | A source now states a different value, or a person's decision overrides one |
 | `dropped-by-source` | High | A complete read of its source no longer lists it |
 | `stale` | Medium | Not re-confirmed in 14 days (NRC, EIA) or 365 days (web, hand research) |
