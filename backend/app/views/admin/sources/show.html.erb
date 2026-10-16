@@ -1,0 +1,67 @@
+<% content_for :title, @entry.name %>
+<% research = @entry.kind.nil? %>
+<% status_label = ->(status) { { "pending" => research ? "Not checked by the crawler" : "Not read yet", "ok" => "OK", "blocked" => "Blocked", "needs_human" => "Needs a person" }.fetch(status) } %>
+
+<%= render "admin/crumbs", parent_label: "Sources", parent_path: admin_sources_path, current: @entry.name %>
+<h1 class="type-admin-h1">
+  <%= @entry.name %> <span class="type-count"><%= number_with_delimiter(@entry.documents) %></span>
+  <% if @entry.note %><span class="type-data text-ink-muted"><%= @entry.note %></span><% end %>
+</h1>
+
+<nav class="nd-fchips type-ui" aria-label="Status">
+  <%= link_to admin_source_path(key: @entry.key), class: "nd-fchip", aria: { current: ("page" unless @status) } do %>All <span class="type-data nd-num"><%= number_with_delimiter(@entry.documents) %></span><% end %>
+  <% Admin::SourcesController::STATUS_CHIPS.each do |status| %>
+    <%= link_to admin_source_path(key: @entry.key, status:), class: "nd-fchip", aria: { current: ("page" if status == @status) } do %><%= status_label.(status) %> <span class="type-data nd-num"><%= @counts[status] %></span><% end %>
+  <% end %>
+</nav>
+
+<% if @documents.empty? %>
+  <p class="type-body text-ink-muted">None.</p>
+<% else %>
+  <div class="overflow-x-auto">
+    <table class="nd-numtable nd-stack-table nd-sources">
+      <thead><tr><th scope="col">Document</th><th scope="col">Facts</th><th scope="col">Last read</th><th scope="col" class="nd-l">Status</th></tr></thead>
+      <% if research %>
+        <%# One collapsible row per domain, most documents first; the newest document's domain starts open. %>
+        <% by_domain = @documents.group_by(&:domain).sort_by { |domain, documents| [ -documents.size, domain.to_s ] } %>
+        <% newest = @documents.max_by(&:id)&.domain %>
+        <% by_domain.each do |domain, documents| %>
+          <tbody class="nd-sources__domain" data-controller="domain-rows" data-domain-rows-open-value="<%= domain == newest %>">
+            <tr class="nd-sources__group">
+              <td colspan="4">
+                <button type="button" class="nd-sources__toggle type-body-strong" aria-expanded="<%= domain == newest %>" data-action="domain-rows#toggle">
+                  <%= domain %> <span class="type-data text-ink-muted"><%= documents.size %></span>
+                </button>
+              </td>
+            </tr>
+            <% documents.each do |document| %>
+              <%= render "admin/sources/document", document: %>
+            <% end %>
+          </tbody>
+        <% end %>
+      <% else %>
+        <tbody>
+          <% @documents.each do |document| %>
+            <%= render "admin/sources/document", document: %>
+          <% end %>
+        </tbody>
+      <% end %>
+    </table>
+  </div>
+<% end %>
+
+<% if @runs.present? %>
+  <section class="nd-panel" aria-label="Last runs">
+    <p class="type-kicker text-ink-muted">Last run</p>
+    <% last = @runs.first.stats %>
+    <p class="type-data">Read <%= last["candidates"].to_i %> · Same <%= last["confirmed"].to_i %> · Changed <%= last["candidates"].to_i - last["confirmed"].to_i %></p>
+    <table class="nd-numtable">
+      <thead><tr><th scope="col">Run</th><th scope="col">Read</th><th scope="col">Same</th><th scope="col">Changed</th></tr></thead>
+      <tbody>
+        <% @runs.each do |run| %>
+          <tr><td class="type-data"><%= run.started_at.strftime("%-d %b %H:%M") %></td><td class="type-cell-num"><%= run.stats["candidates"].to_i %></td><td class="type-cell-num"><%= run.stats["confirmed"].to_i %></td><td class="type-cell-num"><%= run.stats["candidates"].to_i - run.stats["confirmed"].to_i %></td></tr>
+        <% end %>
+      </tbody>
+    </table>
+  </section>
+<% end %>

@@ -14,6 +14,7 @@
   </nav>
   <%= form_with url: admin_live_path, method: :get, class: "nd-live__search", role: "search" do %>
     <%= hidden_field_tag :tab, list.tab, id: nil unless list.tab == "all" %>
+    <%= hidden_field_tag :within, list.within, id: nil if list.within %>
     <% list.chosen.each do |group, keys| %>
       <% next if keys.empty? || (group == "status" && keys == [ Directory::LiveList::DEFAULT_STATUS ]) %>
       <%= hidden_field_tag group, keys.join(","), id: nil %>
@@ -22,6 +23,13 @@
     <input type="search" id="live-q" name="q" value="<%= list.query %>" placeholder="Search" class="nd-input type-input">
   <% end %>
 </div>
+
+<% if list.within %>
+  <%# Opened from Sources: only what that source (or document) backs. %>
+  <p class="nd-fchips type-ui">
+    <%= link_to live_path_for(list, without_source: true), class: "nd-fchip", aria: { current: "true" }, title: "Show every source" do %>From: <%= SourceCatalog.label(list.within) %> <span aria-hidden="true">×</span><% end %>
+  </p>
+<% end %>
 
 <%# The filters: one row per group of tags. On phones, behind "Filters (N)". %>
 <% chosen_count = list.chosen.sum { |group, keys| group == "status" ? (keys == [ Directory::LiveList::DEFAULT_STATUS ] ? 0 : 1) : keys.size } %>

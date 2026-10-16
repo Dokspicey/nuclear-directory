@@ -14,7 +14,7 @@ class Admin::LiveController < Admin::BaseController
   # Next on a record opened from it).
   def self.list_for(params)
     chosen = Directory::Checks::GROUPS.keys.index_with { |group| params[group].to_s.split(",").map(&:strip).compact_blank }
-    Directory::LiveList.new(tab: params[:tab].to_s, query: params[:q], chosen:)
+    Directory::LiveList.new(tab: params[:tab].to_s, query: params[:q], chosen:, within: params[:within].presence)
   end
 
   private
