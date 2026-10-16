@@ -152,7 +152,8 @@ module Directory
         note = "Merged into #{into.name} (##{into.id})"
         retired.each { |row| row.reject!(by:, reason: "#{note}; #{into.name} already has this, or it would point at itself") unless row.closed? }
         summary = moved.select { |_, count| count.positive? }.map { |what, count| "#{count} #{what.tr('_', ' ').then { |label| count == 1 ? label.singularize : label }}" }
-        from.unpublish!(by:, reason: [ reason, "#{note}. Moved: #{summary.join(', ').presence || 'nothing'}" ].compact.join(". "))
+        from.unpublish!(by:, reason: [ reason, "#{note}. Moved: #{summary.join(', ').presence || 'nothing'}" ].compact.join(". "),
+          context: { "merged_into" => { "type" => into.class.name, "id" => into.id } }) # for the admin's exits (#166)
         # Its address, and any it kept from earlier renames or merges, now
         # lead straight to into's page (#143).
         FormerSlug.where(sluggable: from).find_each { |former| into.remember_slug(former.slug) }
@@ -244,7 +245,8 @@ module Directory
         retired.each { |row| row.reject!(by:, reason: "#{note}; #{into.name} already has this link") unless row.closed? }
         summary = moved.select { |_, count| count.positive? }.map { |what, count| "#{count} #{what.tr('_', ' ').then { |label| count == 1 ? label.singularize : label }}" }
         summary << filled.join(", ") if filled.any?
-        from.unpublish!(by:, reason: [ reason, "#{note}. Moved: #{summary.join(', ').presence || 'nothing'}" ].compact.join(". "))
+        from.unpublish!(by:, reason: [ reason, "#{note}. Moved: #{summary.join(', ').presence || 'nothing'}" ].compact.join(". "),
+          context: { "merged_into" => { "type" => into.class.name, "id" => into.id } }) # for the admin's exits (#166)
         FormerSlug.where(sluggable: from).find_each { |former| into.remember_slug(former.slug) }
         into.remember_slug(from.slug)
         into.recompute_confidence!

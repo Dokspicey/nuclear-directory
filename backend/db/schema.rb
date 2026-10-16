@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_14_100000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_15_200000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -518,6 +518,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_14_100000) do
     t.jsonb "changed_values", default: {}, null: false
     t.datetime "created_at", null: false
     t.index ["subject_type", "subject_id", "created_at"], name: "index_verification_events_on_subject_and_time"
+    t.index ["to_status", "created_at"], name: "index_verification_events_on_to_status_and_created_at"
   end
 
   add_foreign_key "candidates", "crawl_runs"

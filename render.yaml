@@ -1,5 +1,5 @@
-# Render Blueprint: production hosting (issue #52). See "Deploying to Render"
-# in README.md. Spec: https://render.com/docs/blueprint-spec
+# Render Blueprint: production hosting (issue #52). See docs/deploying.md.
+# Spec: https://render.com/docs/blueprint-spec
 #
 # One web service (Rails + Solid Queue inside Puma) and one Postgres database,
 # both in Oregon. Secrets are `sync: false`: Render asks for them once, when
@@ -95,7 +95,7 @@ services:
   # preview_app role, which can't connect to production. Its DATABASE_URL is
   # set by hand in the dashboard, never fromDatabase (that would be
   # production). No production secrets, no jobs, no Sentry or PostHog, and
-  # NOINDEX keeps it out of search engines. See "UI previews" in README.md.
+  # NOINDEX keeps it out of search engines. See docs/previews.md.
   - type: web
     name: nuclear-directory-preview
     runtime: docker
@@ -132,7 +132,7 @@ services:
       - key: PREVIEW_ADMIN_PASSWORD
         sync: false
 
-  # Daily encrypted off-site backup (#54); see "Backups" in README.md.
+  # Daily encrypted off-site backup (#54); see docs/backups.md.
   # Runs inside Render's private network, so the database stays closed to
   # the internet.
   - type: cron
@@ -160,7 +160,7 @@ services:
       # age public key. Only its private half, kept in Tosin's password
       # manager, can decrypt the backups.
       - key: BACKUP_AGE_RECIPIENT
-        value: age1lht4cs0audrr4m2fq3ktp2m9yx9qvutffmrq6y898p4an37f4enssk6ctd
+        value: age160huv36mvxec0v3jjdvd238anktgzrsplrjkd53q2e0l2slslyfqzlu9cu
       - key: BACKUP_REPO
         value: tosinoladokun/nuclear-directory-backups
       # Two weeks of daily backups.
@@ -184,7 +184,7 @@ databases:
     # From the internet, only Tosin's Mac, for local Metabase (#111), signing
     # in as the read-only metabase_ro role over SSL. One single-host /32 with
     # a description; never remove this key (Render would open the database to
-    # everyone). When his IP changes, replace the /32 (README, "Metabase");
+    # everyone). When his IP changes, replace the /32 (docs/metabase.md);
     # to close it again, set `ipAllowList: []`.
     ipAllowList:
       - source: 99.110.208.39/32

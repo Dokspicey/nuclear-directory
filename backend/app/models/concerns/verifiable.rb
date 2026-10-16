@@ -47,8 +47,9 @@ module Verifiable
     change_verification!("rejected", by:, reason:)
   end
 
-  def unpublish!(by:, reason: nil)
-    change_verification!("unpublished", by:, reason:)
+  # context: recorded on the audit event, e.g. { "merged_into" => { "type", "id" } }.
+  def unpublish!(by:, reason: nil, context: nil)
+    change_verification!("unpublished", by:, reason:, context:)
   end
 
   def human_verified?
@@ -93,11 +94,12 @@ module Verifiable
     # Locked, so two decisions at once are recorded in the order they happen.
     # The same decision again changes nothing, not even verified_at, so the
     # date shown always matches the audit trail.
-    def change_verification!(status, by:, reason:)
+    def change_verification!(status, by:, reason:, context: nil)
       with_lock do
         next if verification_status == status && verified_by == by
 
         self.verification_reason = reason
+        self.verification_context = context if context
         self.decided_by = by
         update!(verification_status: status, verified_at: Time.current, verified_by: by)
         recompute_confidence!
