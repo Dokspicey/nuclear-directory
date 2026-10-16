@@ -50,15 +50,23 @@
   </div>
 <% end %>
 
-<% if @runs.present? %>
+<% failure = SourceCatalog.failure(@entry.kind) %>
+<% if @runs.present? || failure %>
   <section class="nd-panel" aria-label="Last runs">
     <p class="type-kicker text-ink-muted">Last run</p>
-    <% last = @runs.first %>
-    <% if last.status == "failed" %>
-      <p class="type-data">Failed<% if last.error.present? %><span class="text-ink-muted"> · <%= last.error.truncate(200) %></span><% end %></p>
-    <% else %>
-      <p class="type-data">Read <%= last.stats["candidates"].to_i %> · Same <%= last.stats["confirmed"].to_i %> · Changed <%= last.stats["candidates"].to_i - last.stats["confirmed"].to_i %></p>
+    <% if failure %>
+      <p class="type-data">The last read failed at <%= failure.started_at.strftime("%-d %b %H:%M") %><% if failure.error.present? %><span class="text-ink-muted"> · <%= failure.error.truncate(200) %></span><% end %></p>
+      <% if @runs.present? %><p class="type-kicker text-ink-muted">Earlier run</p><% end %>
     <% end %>
+    <% last = @runs&.first %>
+    <% if last && failure&.id != last.id %>
+      <% if last.status == "failed" %>
+        <p class="type-data">Failed<% if last.error.present? %><span class="text-ink-muted"> · <%= last.error.truncate(200) %></span><% end %></p>
+      <% else %>
+        <p class="type-data">Read <%= last.stats["candidates"].to_i %> · Same <%= last.stats["confirmed"].to_i %> · Changed <%= last.stats["candidates"].to_i - last.stats["confirmed"].to_i %></p>
+      <% end %>
+    <% end %>
+    <% if @runs.present? %>
     <table class="nd-numtable">
       <thead><tr><th scope="col">Run</th><th scope="col">Read</th><th scope="col">Same</th><th scope="col">Changed</th></tr></thead>
       <tbody>
@@ -74,5 +82,6 @@
         <% end %>
       </tbody>
     </table>
+    <% end %>
   </section>
 <% end %>

@@ -59,8 +59,7 @@ class Admin::SourcesControllerTest < ActionDispatch::IntegrationTest
     assert_equal [ "1", facts.to_s, "15 Oct 07:00", "OK" ], cells(reactors).drop(1)
     assert_match "Last run", cells(reactors).first
     assert_select "a[href=?]", admin_live_path(within: "nrc_reactor_list"), facts.to_s
-    assert_select "tr", /\AUSAspending\s*—\s*—\s*—\s*Soon\z/, "a crawler not built into the daily crawl yet"
-    assert_select "td.nd-sources__blank", 6, "on phones a Soon row (USAspending and its API) is its name and Soon only"
+    assert_select "tr", /\AUSAspending\s+0\s+0\s+—\s+Not read yet\z/, "in the daily crawl, before its first read"
     assert_select "tr", /EIA-860M index.*0\s+0\s+—\s+Not read yet/m, "a daily crawler before its first read"
     company = css_select("tr").find { |row| row.text.include?("Company sites") }
     sites = SourceCatalog.entry("company-sites")
@@ -129,8 +128,36 @@ class Admin::SourcesControllerTest < ActionDispatch::IntegrationTest
 
     get admin_source_path(key: "nrc_reactor_list")
 
-    assert_select "section[aria-label='Last runs'] p", /Failed · Timeout reading the list/
+    assert_select "section[aria-label='Last runs'] p", /The last read failed at .* · Timeout reading the list/
     assert_select "section[aria-label='Last runs'] td", /Failed · Timeout reading the list/
+  end
+
+  test "a source's page: a crawl that failed after a good match, or before any, says so" do
+    CrawlRun.create!(stage: "match", source_kind: "nrc_reactor_list", status: "succeeded", started_at: 2.days.ago, finished_at: 2.days.ago,
+      stats: { "candidates" => 10, "confirmed" => 9 })
+    CrawlRun.create!(stage: "crawl", source_kind: "nrc_reactor_list", status: "failed", started_at: 1.hour.ago, finished_at: 1.hour.ago, error: "HTTP 503")
+    CrawlRun.create!(stage: "crawl", source_kind: "eia_generators", status: "failed", started_at: 1.hour.ago, finished_at: 1.hour.ago, error: "Timeout")
+    sign_in_as users(:admin)
+
+    get admin_source_path(key: "nrc_reactor_list")
+    assert_select "section[aria-label='Last runs'] p", /The last read failed at .* · HTTP 503/
+    assert_select "section[aria-label='Last runs'] p", "Earlier run"
+    assert_select "section[aria-label='Last runs'] p", /Read 10 · Same 9 · Changed 1/
+
+    get admin_source_path(key: "eia_generators")
+    assert_select "section[aria-label='Last runs'] p", /The last read failed at .* · Timeout/
+  end
+
+  test "Sources: a match that failed after a good crawl says so, with its reason" do
+    CrawlRun.create!(stage: "match", source_kind: "nrc_reactor_list", status: "succeeded", started_at: 2.days.ago, finished_at: 2.days.ago,
+      stats: { "candidates" => 10, "confirmed" => 10 })
+    CrawlRun.create!(stage: "crawl", source_kind: "nrc_reactor_list", status: "succeeded", started_at: 2.hours.ago, finished_at: 2.hours.ago)
+    CrawlRun.create!(stage: "match", source_kind: "nrc_reactor_list", status: "failed", started_at: 1.hour.ago, finished_at: 1.hour.ago, error: "Bad file")
+    sign_in_as users(:admin)
+
+    get admin_sources_path
+
+    assert_select "details.nd-sources__run p", /The last read failed: Bad file\. These are an earlier run's counts/
   end
 
   test "search matches title, address and domain, ignoring case, and marks the match" do
@@ -178,6 +205,9 @@ class Admin::SourcesControllerTest < ActionDispatch::IntegrationTest
     assert_equal [ "Counted 1", "Counted 2", "Counted Owner owns Counted Site" ].sort, css_select(".nd-live__table tbody td:first-child a").map(&:text).sort
     assert_equal 3, SourceCatalog.documents("company-sites").find { |doc| doc.id == source.id }.facts
     assert_select ".nd-live__foot", /Showing 3 records/
+    assert_select "a.nd-fchip--tab", /All\s+3/, "tab counts are the source's"
+    assert_select "a.nd-fchip--tab", /Reactors\s+1/
+    assert_select "a.nd-fchip--tab", /Links\s+1/
   end
 
   test "Last run says when the last read failed after an earlier match" do

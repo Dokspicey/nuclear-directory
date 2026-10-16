@@ -50,7 +50,8 @@ class Directory::LiveList
   def total = @keys ? @keys.size : filtered(nil).values.sum(&:size)
 
   # This tab's records with the chosen status only (its count on the tab).
-  def self.tab_count(tab, status: DEFAULT_STATUS) = new(tab:, chosen: { "status" => [ status ] }).total
+  # Within a source (within), the count of what that source backs in the tab.
+  def self.tab_count(tab, status: DEFAULT_STATUS, within: nil) = new(tab:, chosen: { "status" => [ status ] }, within:).total
 
   # [type, id] of every record shown, in order (newest change first).
   def keys

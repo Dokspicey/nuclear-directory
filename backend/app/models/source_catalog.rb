@@ -34,8 +34,8 @@ class SourceCatalog
     "eia_generators" => { name: "EIA-860M generators", daily: true },
     "nrc_power_status" => { name: "NRC power status", note: "cross-check only", daily: true },
     "eia_860m_index" => { name: "EIA-860M index", note: "finds the monthly file", daily: true },
-    "usaspending_doe_awards" => { name: "USAspending" },
-    "usaspending_api" => { name: "USAspending API", note: "the award search" }
+    "usaspending_doe_awards" => { name: "USAspending", daily: true },
+    "usaspending_api" => { name: "USAspending API", note: "the award search", daily: true }
   }.freeze
   RESEARCH_KIND = "web_page"
   LIVE_TYPES = %w[Organization Facility Relationship FacilityRelationship].freeze
@@ -116,6 +116,16 @@ class SourceCatalog
     end
 
     # The last finished match runs of a kind, newest first: [CrawlRun, …].
+    # The newest crawl, extract or match run of this kind that failed after
+    # its last good match (so the match counts shown are an earlier run's), or nil.
+    def failure(kind)
+      return unless kind
+
+      good = CrawlRun.where(source_kind: kind, stage: "match", status: "succeeded").maximum(:started_at)
+      failed = CrawlRun.where(source_kind: kind, stage: %w[crawl extract match], status: "failed")
+      (good ? failed.where("started_at > ?", good) : failed).order(started_at: :desc).first
+    end
+
     def runs(kind, limit: 10) = CrawlRun.where(source_kind: kind, stage: "match").where.not(status: "running").order(started_at: :desc).limit(limit)
 
     private
