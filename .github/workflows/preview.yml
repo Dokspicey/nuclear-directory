@@ -1,8 +1,7 @@
 # UI previews: label a PR "preview" and its head is pushed to the `preview`
 # branch, which the free nuclear-directory-preview service on Render deploys.
 # One preview at a time; the most recent label or push wins. The preview runs
-# on its own database and never touches production. See "UI previews" in
-# README.md.
+# on its own database and never touches production. See docs/previews.md.
 name: Preview
 
 on:
