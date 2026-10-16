@@ -1,0 +1,8 @@
+# Production data: once merged, bin/deploy-data writes these to production
+# on deploy (#301). Tosin approves them (the data-approved label; see
+# .github/workflows/data-pr-guard.yml).
+/backend/db/seeds.rb @tosinoladokun
+/backend/db/seeds/ @tosinoladokun
+/backend/db/data/ @tosinoladokun
+/backend/lib/seed/ @tosinoladokun
+/backend/app/directory/fact_writer.rb @tosinoladokun

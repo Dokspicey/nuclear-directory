@@ -1,0 +1,46 @@
+# A PR that changes production data (the seed, the code that loads it, or a
+# db/data/ migration) merges only with Tosin's "data-approved" label (#301):
+# once merged, bin/deploy-data writes it to production on deploy. A new push
+# to such a PR takes the label off, so the approval is always for the exact
+# commit that merges. Make "data-pr-guard" a required check on main.
+name: Data PR guard
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, labeled, unlabeled]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  data-pr-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require data-approved on PRs that change production data
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          ACTION: ${{ github.event.action }}
+          APPROVED: ${{ contains(github.event.pull_request.labels.*.name, 'data-approved') }}
+        run: |
+          # Kept in step with DeployData::Fingerprint and db/data/ (backend/lib/deploy_data/).
+          data_files="$(gh api --paginate "repos/${REPO}/pulls/${PR}/files" --jq '.[].filename' \
+            | grep -E '^backend/(db/seeds\.rb|db/seeds/|db/data/|lib/seed/|app/directory/fact_writer\.rb)' || true)"
+          if [[ -z "$data_files" ]]; then
+            echo "No production data changes."
+            exit 0
+          fi
+          echo "This PR changes production data:"
+          echo "$data_files" | sed 's/^/  /'
+          if [[ "$ACTION" == "synchronize" && "$APPROVED" == "true" ]]; then
+            gh api -X DELETE "repos/${REPO}/issues/${PR}/labels/data-approved" > /dev/null || true
+            echo "::error::New commits since the data-approved label, so it was taken off. Tosin adds it again after reviewing them."
+            exit 1
+          fi
+          if [[ "$APPROVED" != "true" ]]; then
+            echo "::error::Changes production data: needs Tosin's data-approved label (and the rehearsal output in the PR body) before merge."
+            exit 1
+          fi
+          echo "Approved for production (data-approved)."
