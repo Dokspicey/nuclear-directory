@@ -290,8 +290,14 @@ module AdminHelper
     "candidate" => %w[claim claims], "claim" => %w[claim claims], "unit" => %w[unit units],
     "organization role" => %w[role roles], "organization technology" => %w[technology technologies] }.freeze
 
+  SITE_FIELD_WORDS = { "eia_plant_id" => "EIA plant ID", "facility_type" => "type", "technology_id" => "technology",
+    "reactor_type" => "reactor type", "capacity_mw" => "capacity", "latitude" => "location", "longitude" => "location" }.freeze
+
+  # A plant merge also names the site fields it fills where the kept plant
+  # has none ("eia_plant_id, status"): "fills in its EIA plant ID and status".
   def merge_moved_words(moved)
-    parts = moved.to_s.split(", ").filter_map do |part|
+    counted, fields = moved.to_s.split(", ").partition { |part| part.match?(/\A\d+ /) }
+    parts = counted.filter_map do |part|
       count, what = part.split(" ", 2)
       next if count.to_i.zero?
 
@@ -299,6 +305,8 @@ module AdminHelper
       one, many = MERGE_WORDS.fetch(key) { [ key, key.pluralize ] }
       "#{count} #{count.to_i == 1 ? one : many}"
     end
+    labels = fields.map { |name| SITE_FIELD_WORDS.fetch(name.strip) { field_label(name.strip).downcase_first } }.uniq
+    parts << "fills in its #{labels.to_sentence(last_word_connector: " and ")}" if labels.any?
     parts.join(", ").presence
   end
 end

@@ -61,6 +61,16 @@ class Admin::MergeTest < ActionDispatch::IntegrationTest
     assert duplicate.reload.unpublished?
   end
 
+  test "a plant merge that only fills the kept site's blank fields says so, not that nothing moves" do
+    kept = sourced(Facility.create!(name: "Kept Plant", **VERIFIED))
+    duplicate = Facility.create!(name: "Duplicate Plant", status: "operating", eia_plant_id: "6051")
+
+    get admin_record_merge_path(type: "Facility", id: duplicate.id, into: kept.id)
+
+    assert_select "p", /Moves to Kept Plant: 1 other name, fills in its EIA plant ID and status\./
+    assert_select "p", text: /Nothing else moves/, count: 0
+  end
+
   test "a removed record isn't merged from here, nor merged into" do
     gone = sourced(Organization.create!(name: "Gone Co", **VERIFIED))
     gone.unpublish!(by: "human:tosin", reason: "Test")

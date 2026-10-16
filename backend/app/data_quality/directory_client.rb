@@ -316,6 +316,12 @@ class DataQuality::DirectoryClient
     method = MERGES.fetch(type)
     result = moved = nil
     ActiveRecord::Base.transaction(requires_new: true) do
+      # The claims on both records are locked first, in the order an approval
+      # takes (source, claim, then the fact), so a merge and an approval of
+      # one of those claims never wait on each other.
+      claims = ::Candidate.where(subject_type: type, subject_id: [ from_id, into_id ])
+      ::Source.where(id: claims.select(:source_id)).order(:id).lock.to_a
+      claims.order(:id).lock.to_a
       result = write_result(fact_writer.public_send(method, from_id:, into_id:, by:, reason:))
       # In the admin's words: candidates are claims.
       moved = verification_history(type:, id: from_id).first&.reason.to_s[/Moved: (.*)\z/, 1]&.gsub(/\bcandidate(s?)\b/, "claim\\1") if result.errors.empty?
@@ -323,6 +329,8 @@ class DataQuality::DirectoryClient
     end
     @plant_names = nil unless dry_run
     [ result, moved ]
+  rescue ActiveRecord::Deadlocked, ActiveRecord::LockWaitTimeout
+    [ WriteResult.new(ref: nil, errors: [ "someone was deciding on one of its claims just then; try again" ]), nil ]
   end
 
   # A human's decision on a directory fact: status "verified" (approve or
