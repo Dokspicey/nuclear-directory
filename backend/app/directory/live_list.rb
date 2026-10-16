@@ -17,6 +17,10 @@ class Directory::LiveList
     "reactors" => -> { { "Facility" => Facility.where.not(nrc_docket: nil) } },
     "links" => -> { { "Relationship" => Relationship.all, "FacilityRelationship" => FacilityRelationship.all } }
   }.freeze
+  # All of a source's records (within, on the All tab): every company,
+  # plant, reactor (with or without a docket) and link it backs, as
+  # SourceCatalog counts them, so a Facts count opens to that many.
+  EVERYTHING = -> { { "Organization" => Organization.all, "Facility" => Facility.all, "Relationship" => Relationship.all, "FacilityRelationship" => FacilityRelationship.all } }
   TAB_LABELS = { "all" => "All", "companies" => "Companies", "plants" => "Plants", "reactors" => "Reactors", "links" => "Links" }.freeze
   # What a tab counts, so a count reads as records of that kind (Data Quality, #283).
   # [one, many]
@@ -79,12 +83,16 @@ class Directory::LiveList
   end
 
   def chosen?(key) = chosen.values.flatten.include?(key)
+  # What the footer's count is of: [one, many].
+  def nouns = within && tab == "all" ? %w[record records] : TAB_NOUNS.fetch(tab)
+
   def filtered? = query.present? || within.present? || chosen.any? { |group, keys| group == "status" ? keys != [ DEFAULT_STATUS ] : keys.any? }
 
   private
     # Each model's ids in this tab and search.
     def base
-      @base ||= TABS.fetch(tab).call.to_h { |type, scope| [ type, sourced(type, search(type, scope)).pluck(:id).to_set ] }
+      @base ||= (within && tab == "all" ? EVERYTHING : TABS.fetch(tab)).call
+        .to_h { |type, scope| [ type, sourced(type, search(type, scope)).pluck(:id).to_set ] }
     end
 
     # The base, narrowed by every chosen group except one (nil: all of them).

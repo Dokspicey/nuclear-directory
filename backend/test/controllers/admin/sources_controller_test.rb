@@ -162,6 +162,35 @@ class Admin::SourcesControllerTest < ActionDispatch::IntegrationTest
     assert_select "a.nd-fchip[href=?]", admin_live_path, /From: \/ \(home page\)/
   end
 
+  test "a Facts count opens to that many records in Live: reactors, units without a docket and links too" do
+    source = page("https://www.example.net/plant")
+    site = Facility.create!(name: "Counted Site", **VERIFIED)
+    reactor = Facility.create!(name: "Counted 1", parent: site, nrc_docket: "05099301", **VERIFIED)
+    undocketed = Facility.create!(name: "Counted 2", parent: site, **VERIFIED)
+    owner = Organization.create!(name: "Counted Owner", **VERIFIED)
+    link = FacilityRelationship.create!(organization: owner, facility: site, relationship_type: "owns", **VERIFIED)
+    [ reactor, undocketed, link ].each { |fact| Evidence.create!(subject: fact, source:, quote: "q", found_by: "human") }
+    sign_in_as users(:admin)
+
+    get admin_live_path(within: "doc-#{source.id}")
+
+    assert_equal [ "Counted 1", "Counted 2", "Counted Owner owns Counted Site" ].sort, css_select(".nd-live__table tbody td:first-child a").map(&:text).sort
+    assert_equal 3, SourceCatalog.documents("company-sites").find { |doc| doc.id == source.id }.facts
+    assert_select ".nd-live__foot", /Showing 3 records/
+  end
+
+  test "Last run says when the last read failed after an earlier match" do
+    CrawlRun.create!(stage: "match", source_kind: "nrc_reactor_list", status: "succeeded", started_at: 2.days.ago, finished_at: 2.days.ago,
+      stats: { "candidates" => 10, "confirmed" => 10 })
+    CrawlRun.create!(stage: "crawl", source_kind: "nrc_reactor_list", status: "failed", started_at: 1.hour.ago, finished_at: 1.hour.ago,
+      error: "Timeout")
+    sign_in_as users(:admin)
+
+    get admin_sources_path
+
+    assert_select "details.nd-sources__run p", /The last read failed/
+  end
+
   test "folded: blocked sources with the reason, the last run per stage and this month's spend" do
     blocked = Source.create!(url: "https://www.nrc.gov/list", source_kind: "nrc_reactor_list", crawl_status: "blocked",
       status_reason: "HTTP 403 from AkamaiGHost, reference #18.abc", blocked_streak: 2, fetched_at: Time.current)

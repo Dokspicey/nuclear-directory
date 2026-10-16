@@ -26,6 +26,7 @@
             <% if run && !entry.soon %>
               <details class="nd-sources__run">
                 <summary class="type-small text-ink-muted">Last run</summary>
+                <% if run.failed %><p class="type-data">The last read failed. These are the previous run's counts.</p><% end %>
                 <p class="type-data text-ink-muted">
                   Read <%= num.(run.read) %> · Same <%= num.(run.same) %> · Changed <%= num.(run.read && run.read.to_i - run.same.to_i) %>
                   <% if run.changed.positive? %> · <%= link_to "#{run.changed} waiting", admin_checks_path(source: entry.kind), class: "nd-link" %><% end %>
