@@ -178,14 +178,22 @@ module DirectoryHelper
     "utility" => "utility", "operator" => "plant operator", "data_center_offtaker" => "power buyer",
     "venture_capital" => "investor"
   }.freeze
-  TITLE_LIMIT = 60
+  # The whole <title>, " · Nuclear Directory" included, about what search
+  # results show before cutting it off.
+  TITLE_LIMIT = 70
+  SITE_SUFFIX = " · Nuclear Directory"
 
-  # "Helion Energy: fusion developer, investors and deals", from the roles
-  # shown and the sections the page has, shortened to fit TITLE_LIMIT.
+  # "Helion Energy: fusion developer, investors · Nuclear Directory", from the
+  # roles shown and the sections the page has. What the page holds is dropped
+  # from the end, then the role, until the whole title fits TITLE_LIMIT; a name
+  # too long even alone is kept whole rather than cut.
   def company_title(profile)
     keys = profile.shown_roles.map { |r| r.role.key }
     fusion = profile.technologies.any? { |t| [ t.technology.key, t.technology.parent&.key ].include?("fusion") }
-    key = keys.first
+    # The role its category is for, as on its card (LinkCard.for_company), so
+    # Kairos Power is a "reactor developer", not "molten salt coolant".
+    category_keys = profile.category&.role_keys.to_a
+    key = profile.shown_roles.map(&:role).find { |r| ([ r.key, r.parent&.key ] & category_keys).any? }&.key || keys.first
     role = if fusion && keys.include?("reactor_vendor")
       "fusion developer"
     elsif key
@@ -193,8 +201,8 @@ module DirectoryHelper
     end
     holds = [ ("plants" if profile.plant_links.any?), ("investors" if investors_of(profile).any?), ("deals" if profile.deals.any?) ].compact
     candidates = holds.size.downto(0).map { |n| [ role, holds.first(n).to_sentence(last_word_connector: " and ").presence ].compact.join(", ").presence }
-    [ *candidates.map { |about| [ profile.name, about ].compact.join(": ") }, profile.name ]
-      .find { |title| title.length <= TITLE_LIMIT } || profile.name
+    titles = [ *candidates.map { |about| [ profile.name, about ].compact.join(": ") }, profile.name ].map { |title| "#{title}#{SITE_SUFFIX}" }
+    titles.find { |title| title.length <= TITLE_LIMIT } || titles.last
   end
 
   # A company's meta and link-preview description (#292, #247), within
@@ -204,11 +212,16 @@ module DirectoryHelper
   #    Southern Nuclear Operating Company, Inc."
   def company_description(profile)
     listed = ->(names, noun = nil) { names.many? ? "#{names.first} and #{pluralize(names.size - 1, [ "other", noun ].compact.join(" "))}" : names.first }
-    sites = ->(type) { profile.plant_links.select { |l| l.relationship_type == type }.map { |l| (l.facility.parent || l.facility).name }.uniq }
+    # Present tense, so only links in effect today (as on the company's card).
+    current = ->(l) { (l.started_on.nil? || l.started_on <= Date.current) && (l.ended_on.nil? || l.ended_on > Date.current) }
+    places = ->(type) { profile.plant_links.select { |l| l.relationship_type == type && current.call(l) }.map { |l| l.facility.parent || l.facility }.uniq }
+    sites = ->(type) { places.call(type).map(&:name) }
+    # "plant" only when every one is a power plant; a mine or fuel plant makes it "site" (VOICE.md).
+    noun = ->(type) { places.call(type).all? { |site| site.facility_type == "power_reactor" } ? "plant" : "site" }
     deals_out = ->(type) { profile.deals.select { |d| d.relationship_type == type && d.from_organization_id == profile.organization.id }.map { |d| d.to_organization.name }.uniq }
     facts = [
-      ("Owns #{listed.call(sites.call('owns'), 'plant')}" if sites.call("owns").any?),
-      ("Operates #{listed.call(sites.call('operates'), 'plant')}" if sites.call("operates").any?),
+      ("Owns #{listed.call(sites.call('owns'), noun.call('owns'))}" if sites.call("owns").any?),
+      ("Operates #{listed.call(sites.call('operates'), noun.call('operates'))}" if sites.call("operates").any?),
       ("Investors include #{listed.call(investors_of(profile))}" if investors_of(profile).any?),
       ("Invests in #{listed.call(deals_out.call('invests_in'))}" if deals_out.call("invests_in").any?),
       ("Supplies #{listed.call(deals_out.call('supplies'))}" if deals_out.call("supplies").any?),
@@ -227,9 +240,10 @@ module DirectoryHelper
     text
   end
 
-  # Companies that invest in or fund this one, from the deals the page shows.
+  # Companies that invest in this one (equity, invests_in), from the deals the
+  # page shows. Grants and awards (funds) aren't investment (DATA.md).
   def investors_of(profile)
-    profile.deals.select { |d| %w[invests_in funds].include?(d.relationship_type) && d.to_organization_id == profile.organization.id }
+    profile.deals.select { |d| d.relationship_type == "invests_in" && d.to_organization_id == profile.organization.id }
       .map { |d| d.from_organization.name }.uniq
   end
 

@@ -4,7 +4,7 @@
   tech_tags = p.technologies.map { |t| t.technology.name }
   record_citations = p.citations_for(p.organization)
   # Title and description say what this page adds, from published facts (#292).
-  content_for :title, "#{company_title(p)} · Nuclear Directory"
+  content_for :title, company_title(p)
   content_for :og_title, p.name
   @link_card = [ LinkCard.for_company(p), "companies", p.slug ] # its preview image (#245)
   description = company_description(p)

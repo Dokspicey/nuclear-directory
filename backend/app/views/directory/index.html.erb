@@ -14,7 +14,8 @@
   # and the description gives its count (#290); the heading stays short.
   category_page = listing.category && !listing.searching?
   content_for :title, "#{category_page ? listing.category.title : heading} · Nuclear Directory"
-  description = if category_page then listing.category.description(@counts.fetch(listing.category.key))
+  # The count of what this page lists (a state or technology filter narrows it).
+  description = if category_page then listing.category.description(total)
                 elsif listing.searching? then "Companies and plants matching “#{listing.query}”."
                 else "#{heading} in the US nuclear industry."
                 end

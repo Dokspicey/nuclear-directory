@@ -35,7 +35,7 @@ class SearchTitlesTest < ActionDispatch::IntegrationTest
 
   test "a company with no one-line description is described by its plants, never the generic line (#247)" do
     utility = cite!(company("Alabama Power", city: "Birmingham", state: "AL", roles: [ role("utility") ]))
-    %w[Farley Hatch Vogtle].each { |name| cite!(link(utility, "owns", cite!(plant(name)))) }
+    %w[Farley Hatch Vogtle].each { |name| cite!(link(utility, "owns", cite!(plant(name, facility_type: "power_reactor")))) }
     cite!(link(utility, "operates", Facility.find_by!(name: "Farley")))
 
     get company_path(slug: utility.slug)
@@ -66,17 +66,64 @@ class SearchTitlesTest < ActionDispatch::IntegrationTest
 
     get company_path(slug: helion.slug)
 
-    assert_select "title", "Helion Energy: fusion developer, investors and deals · Nuclear Directory"
+    # "…, investors and deals" would run past 70 characters, so "deals" goes.
+    assert_select "title", "Helion Energy: fusion developer, investors · Nuclear Directory"
     assert_equal "Helion Energy: Develops fusion power plants. Investors include Lightspeed.", description
   end
 
-  test "a long company name drops what the page holds before going over 60 characters" do
+  test "a mine or fuel plant among them makes them sites, not plants" do
+    miner = cite!(company("Energy Fuels", roles: [ role("fuel") ], description: "Produces uranium."))
+    cite!(link(miner, "owns", cite!(plant("Pinyon Plain Mine", facility_type: "uranium_mine"))))
+    cite!(link(miner, "owns", cite!(plant("White Mesa Mill", facility_type: "mill"))))
+
+    get company_path(slug: miner.slug)
+
+    assert_equal "Energy Fuels: Produces uranium. Owns Pinyon Plain Mine and 1 other site.", description
+  end
+
+  test "the title's role is the one the company's category is for" do
+    coolant = role("coolant")
+    kairos = cite!(company("Kairos Power", roles: [ role("molten_salt_coolant", parent: coolant), role("reactor_vendor") ]))
+
+    get company_path(slug: kairos.slug)
+
+    assert_select "title", "Kairos Power: reactor developer · Nuclear Directory"
+  end
+
+  test "a grant or award isn't an investment, and an ended or future link isn't present tense" do
+    fusion = technology("fusion", "Fusion")
+    helion = cite!(company("Helion Energy", roles: [ role("reactor_vendor") ], techs: [ fusion ], description: "Develops fusion power plants."))
+    cite!(link(cite!(company("US Department of Energy")), "funds", helion))
+    utility = cite!(company("Old Utility", roles: [ role("utility") ]))
+    cite!(link(utility, "operates", cite!(plant("Retired Station")))).update!(ended_on: Date.new(2020, 1, 1))
+    cite!(link(utility, "owns", cite!(plant("Future Station")))).update!(started_on: Date.current + 1.year)
+
+    get company_path(slug: helion.slug)
+    assert_no_match(/Investors/, description)
+    assert_no_match(/investors/, css_select("title").text)
+
+    get company_path(slug: utility.slug)
+    assert_no_match(/Operates|Owns/, description)
+  end
+
+  test "a filtered category describes what it lists, not the whole category" do
+    fusion = technology("fusion", "Fusion")
+    cite!(company("Helion", techs: [ fusion ], state: "WA"))
+    %w[TAE Zap].each { |name| cite!(company(name, techs: [ fusion ], state: "CA")) }
+
+    get companies_path(category: "fusion", state: "CA")
+
+    assert_equal "2 fusion energy companies in the US.", description
+  end
+
+  test "a long company name drops what the page holds, then its role, to keep the title within 70 characters" do
     name = "Northern States Power Company Minnesota Generation"
     cite!(company(name, roles: [ role("utility") ])).then { |org| cite!(link(org, "owns", cite!(plant("Prairie Island")))) }
 
     get company_path(slug: Organization.find_by!(name:).slug)
 
-    assert_select "title", "#{name}: utility · Nuclear Directory"
+    assert_select "title", "#{name} · Nuclear Directory"
+    assert_operator css_select("title").text.length, :<=, 70
   end
 
   test "a plant's title names its town and state, and owners and operator only when they're published (#291)" do
