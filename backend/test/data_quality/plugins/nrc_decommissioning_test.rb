@@ -123,9 +123,13 @@ class DataQuality::Plugins::NrcDecommissioningTest < ActiveSupport::TestCase
     source = stored(Plugin::LIST_URL, list_html)
     candidates = plugin.extract(source, nil)
 
-    assert_equal 21, candidates.size
+    assert_equal 23, candidates.size, "21 units and 2 sites"
     assert candidates.all? { |candidate| candidate[:kind] == "facility" && plugin.quote_in_source?(source, candidate[:quote]) }
-    by_docket = candidates.index_by { |candidate| candidate[:payload]["nrc_docket"] }
+    sites, units = candidates.partition { |candidate| candidate[:payload]["nrc_docket"].nil? }
+    assert_equal [ { "name" => "Indian Point", "facility_type" => "power_reactor", "status" => "decommissioning",
+      "country_code" => "US", "city" => "Buchanan", "state" => "NY" }, "San Onofre" ], [ sites.first[:payload], sites.last[:payload]["name"] ]
+    assert_equal candidates.first(2), sites, "sites come first, so match puts their units under them"
+    by_docket = units.index_by { |candidate| candidate[:payload]["nrc_docket"] }
     assert_equal({ "name" => "Crystal River 3", "nrc_docket" => "05000302", "facility_type" => "power_reactor",
       "status" => "decommissioning", "country_code" => "US", "city" => "Crystal River", "state" => "FL",
       "aliases" => [ "Crystal River – Unit 3" ] }, by_docket["05000302"][:payload])
@@ -236,8 +240,13 @@ class DataQuality::Plugins::NrcDecommissioningTest < ActiveSupport::TestCase
     %w[crawl extract match].each { |stage| DataQuality::Pipeline.run("nrc_decommissioning", plugin: with, only: stage) }
     DataQuality::Pipeline.run("nrc_decommissioning", plugin: with, only: "verify", verifier: PublishEverything.new)
 
-    units = Candidate.where(kind: "facility").index_by { |candidate| candidate.payload["nrc_docket"] }
+    units = Candidate.where(kind: "facility").select { |candidate| candidate.payload["nrc_docket"] }.index_by { |candidate| candidate.payload["nrc_docket"] }
     assert_equal 21, units.size
+    indian_point = Facility.find_by!(name: "Indian Point")
+    assert_nil indian_point.parent_id
+    assert_equal [ indian_point.id ] * 3, units.values_at("05000003", "05000247", "05000286").map { |c| Facility.find(c.subject_id).parent_id },
+      "Indian Point's three units are one plant"
+    assert_equal 3, Facility.where(parent_id: Facility.find_by!(name: "San Onofre").id).count
     assert_equal dresden.id, Facility.find(units["05000010"].subject_id).parent_id, "Dresden 1 goes under its site"
     crane = units["05000289"]
     assert_equal crane_site.id, Facility.find(crane.subject_id).parent_id

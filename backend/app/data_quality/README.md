@@ -228,7 +228,9 @@ then NRC's page for each site it links to (about 20), each at most once a day. A
 - **From the list:** one unit per row, with its docket, `power_reactor`, status `decommissioning` (as the
   list states), and city and state from its Location. The quote is the row. NRC's "Crystal River – Unit 3"
   becomes "Crystal River 3", as NRC's operating list names units, with NRC's spelling as an alias. No
-  model is asked. A unit of a known site ("Dresden 1") goes under it, as for the operating list.
+  model is asked. A unit of a known site ("Dresden 1") goes under it, as for the operating list. A plant
+  listed with several units (Indian Point, San Onofre) gets a site, proposed first so its units go under
+  it and it counts as one plant.
 - **From each site page:** NRC names the licensee in prose, so the extractor model (prompt
   `nrc-decommissioning-licensees-v1`) lists the companies that hold the license now, each with the
   sentence that says so. A quote that isn't on the page, or doesn't name the company, sends the claim to

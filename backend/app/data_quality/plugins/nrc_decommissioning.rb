@@ -8,7 +8,8 @@
 #
 # Extract, from the list: one unit per row (docket, `power_reactor`, status
 # `decommissioning` as the list states, city and state from its Location),
-# quoting the row. No model is asked.
+# quoting the row, and a site for a plant listed with several units (Indian
+# Point, San Onofre), so it counts as one plant. No model is asked.
 # From each site page: the companies NRC says hold the license, read by the
 # extractor model (Licensees) and checked here: a quote that isn't on the
 # page, or doesn't name the company, sends the claim to review. Each
@@ -47,6 +48,8 @@ class DataQuality::Plugins::NrcDecommissioning < DataQuality::Plugin
     "05000320" => "Three Mile Island Unit 2 is not part of the Crane Clean Energy Center, which is Unit 1 renamed " \
       "for its restart. Approve it as its own record, never under Crane."
   }.freeze
+  # "San Onofre – Units 2 & 3": the site, then the unit numbers.
+  UNIT_PATTERN = /\A(.+?)\s+[–-]\s+Units?\s+(\d+)(?:\s*&\s*(\d+))?\z/
   # A date stamp at the foot of every page, which changes without the facts.
   PAGE_STAMP = /Page Last Reviewed\/Updated [A-Za-z]+, [A-Za-z]+ \d{1,2}, \d{4}/
 
@@ -157,7 +160,7 @@ class DataQuality::Plugins::NrcDecommissioning < DataQuality::Plugin
       rows = List.rows(source.content_text)
       raise TableMissing, "#{TABLE_MISSING} (#{source.url})" if rows.empty?
 
-      rows.map do |row|
+      site_candidates_for(rows) + rows.map do |row|
         name = unit_name(row)
         { kind: "facility", quote: row.line, payload: {
           "name" => name, "nrc_docket" => row.nrc_docket, "facility_type" => "power_reactor",
@@ -167,13 +170,32 @@ class DataQuality::Plugins::NrcDecommissioning < DataQuality::Plugin
       end
     end
 
+    # A site for each plant the list names with several units ("Indian Point
+    # – Unit 1" to "Unit 3"), so they count as one plant, not three. Proposed
+    # first, so match puts the units under it. A unit of a site the directory
+    # already has (Dresden 1) is the list's only row for it, so gets none.
+    def site_candidates_for(rows)
+      rows.reject { |row| UNIT_NAMES.key?(row.nrc_docket) || PLACE_BY_HAND.key?(row.nrc_docket) }
+        .group_by { |row| site_name(row) }.filter_map do |name, units|
+          next if name.nil? || units.size < 2
+
+          places = units.map { |row| [ row.city, row.state ] }.uniq
+          city, state = places.one? ? places.first : []
+          { kind: "facility", quote: units.first.line, payload: {
+            "name" => name, "facility_type" => "power_reactor", "status" => "decommissioning", "country_code" => "US",
+            "city" => city, "state" => state }.compact }
+        end
+    end
+
+    def site_name(row) = row.name[UNIT_PATTERN, 1]
+
     # "Crystal River – Unit 3" => "Crystal River 3", as NRC's operating list
     # names units. "San Onofre – Units 2 & 3" is two rows; each takes its
     # number from its acronym (SONGS2). Anything else keeps NRC's name.
     def unit_name(row)
       return UNIT_NAMES[row.nrc_docket] if UNIT_NAMES.key?(row.nrc_docket)
 
-      match = row.name.match(/\A(.+?)\s+[–-]\s+Units?\s+(\d+)(?:\s*&\s*(\d+))?\z/)
+      match = row.name.match(UNIT_PATTERN)
       return row.name unless match
 
       site, *numbers = match.captures.compact
