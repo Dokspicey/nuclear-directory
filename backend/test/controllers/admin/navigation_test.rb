@@ -120,7 +120,22 @@ class Admin::NavigationTest < ActionDispatch::IntegrationTest
     assert_select "button", "Approve 3 safe"
   end
 
+  test "Previous and Next go on from the claims into the pending facts, as Checks lists them" do
+    last_claim = waiting("Zulu Co")
+    pending = DataQuality::Review.fact_kinds.flat_map { |kind| DataQuality::Review.pending_facts(kind:, limit: 100) }
+    first_pending = pending.first
+    back = admin_checks_path(category: "facts")
+
+    get admin_fact_path(type: "Organization", id: last_claim.subject_id, from: "checks", back:)
+    assert_select ".nd-itemnav", /1 of #{1 + pending.size}/
+    assert_select ".nd-itemnav a[rel=next][href=?]", admin_fact_path(type: first_pending.type, id: first_pending.id, from: "checks", back:)
+
+    get admin_fact_path(type: first_pending.type, id: first_pending.id, from: "checks", back:)
+    assert_select ".nd-itemnav", /2 of #{1 + pending.size}/
+  end
+
   test "Read and Same count today's match runs only" do
+    travel_to Time.zone.parse("2026-10-15 12:00")
     CrawlRun.create!(stage: "match", source_kind: "nrc_reactor_list", status: "succeeded", started_at: 2.days.ago, finished_at: 2.days.ago,
       stats: { "candidates" => 219, "confirmed" => 219 })
     CrawlRun.create!(stage: "match", source_kind: "eia_generators", status: "succeeded", started_at: 1.hour.ago, finished_at: 1.hour.ago,

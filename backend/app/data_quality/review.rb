@@ -117,8 +117,17 @@ module DataQuality::Review
     # The claims a Checks filter lists, in its order, as [type, id] of the
     # fact each is attached to (nil for a claim not attached yet): for Prev
     # and Next on a fact page opened from Checks.
-    def check_subjects(category: "all", source_kind: nil)
-      category_scope(category, source_kind:).order(:id).pluck(:subject_type, :subject_id).select(&:last).uniq
+    # Pending facts with no open claim follow, kind by kind, as Checks lists
+    # them (All and Facts, without a source filter).
+    def check_subjects(category: "all", source_kind: nil, directory: DataQuality::DirectoryClient.new)
+      claims = category_scope(category, source_kind:).order(:id).pluck(:subject_type, :subject_id).select(&:last).uniq
+      return claims if source_kind || !%w[all facts].include?(category)
+
+      open = Candidate.where(status: %w[new matched needs_review]).where.not(subject_id: nil).pluck(:subject_type, :subject_id).to_set
+      pending = directory.fact_kinds.flat_map do |kind|
+        directory.pending_fact_ids(kind:).sort.map { |id| [ kind.camelize, id ] }.reject { |subject| open.include?(subject) }
+      end
+      (claims + pending).uniq
     end
 
     # How many candidates wait in each Checks group, plus "all":
