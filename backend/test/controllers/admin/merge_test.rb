@@ -27,7 +27,8 @@ class Admin::MergeTest < ActionDispatch::IntegrationTest
     assert_select ".nd-panel a", { text: "BWXT Nuclear Energy", count: 0 }, "not itself"
 
     get page.(into: kept.id)
-    assert_select "p", /Moves to BWXT: .*alias.*evidence/
+    assert_select "p", /Moves to BWXT: 1 other name, 1 source quote\./
+    assert_select "p", /Only merge if they're the same company/
     assert duplicate.reload.pending?, "seeing what moves changes nothing"
 
     post page.(), params: { into: kept.id, reason: "" }
@@ -38,12 +39,13 @@ class Admin::MergeTest < ActionDispatch::IntegrationTest
     post page.(), params: { into: kept.id, reason: "BWXT's nuclear energy unit (DOE award)" }
     assert_response :see_other
     assert_redirected_to admin_record_path(type: "Organization", id: kept.id)
-    assert_match(/\AMerged into BWXT\. Moved: /, flash[:notice])
+    assert_equal "Merged into BWXT.", flash[:notice]
     assert duplicate.reload.unpublished?
     assert_match "BWXT's nuclear energy unit", duplicate.verification_events.order(:id).last.reason
     assert_equal({ "type" => "Organization", "id" => kept.id }, duplicate.verification_events.order(:id).last.context["merged_into"])
     assert_includes kept.former_slugs.pluck(:slug), duplicate.slug, "its address leads to the one kept"
     assert_equal kept.id, Directory::Lookup.organization(name: "BWXT NUCLEAR ENERGY, INC.")&.id
+    assert_equal kept.id, Directory::Lookup.organization(name: "BWXT Nuclear Energy")&.id, "its own name is an alias of the one kept now"
   end
 
   test "a plant site merges into another site, found by a unit's docket" do
@@ -73,5 +75,13 @@ class Admin::MergeTest < ActionDispatch::IntegrationTest
     post admin_record_merge_path(type: "Organization", id: live.id), params: { into: gone.id, reason: "x" }
     assert_redirected_to admin_record_merge_path(type: "Organization", id: live.id)
     assert live.reload.verified?
+  end
+
+  test "a Record with no facts has no empty field list" do
+    bare = Organization.create!(name: "Bare Co")
+
+    get admin_record_path(type: "Organization", id: bare.id)
+
+    assert_select ".nd-factcard dl.nd-kv", 0
   end
 end

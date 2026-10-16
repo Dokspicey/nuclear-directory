@@ -117,6 +117,15 @@ module Directory
           else row.update!(organization: into) && moved["aliases"] += 1
           end
         end
+        # Its own name too, as merge_facility does (DATA.md D1: every spelling
+        # is an alias), so a source still using it ("BWXT NOG TECHNOLOGIES")
+        # finds into. Not when it's into's name, an alias already, or
+        # another company's name.
+        name = OrganizationAlias.normalize(from.name)
+        others = Organization.where.not(id: [ from.id, into.id ]).pluck(:name).map { |other| OrganizationAlias.normalize(other) }
+        unless name == OrganizationAlias.normalize(into.name) || OrganizationAlias.exists?(normalized_alias: name) || others.include?(name)
+          into.aliases.create!(alias: from.name) && moved["aliases"] += 1
+        end
         if (domain = from.domain)
           from.update_columns(domain: nil)
           into.update!(domain:) && moved["domain"] += 1 if into.domain.blank?

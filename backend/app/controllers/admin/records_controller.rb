@@ -73,7 +73,7 @@ class Admin::RecordsController < Admin::BaseController
     into = merge_target or return redirect_after(admin_record_merge_path(type: @fact.type, id: @fact.id, back: params[:back].presence))
     result = merge_with(into, reason: params[:reason].to_s.strip)
     if result.ok?
-      flash[:notice] = "Merged into #{into.name}. Moved: #{result.moved.presence || 'nothing'}."
+      flash[:notice] = "Merged into #{into.name}."
       redirect_after admin_record_path(type: @fact.type, id: into.id, back: params[:back].presence)
     else
       @into = into

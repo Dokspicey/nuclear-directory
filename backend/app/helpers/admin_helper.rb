@@ -280,4 +280,25 @@ module AdminHelper
   def change_text(event)
     [ event.from_status, event.to_status ].compact.map { |status| STATUS_WORDS.fetch(status, status.humanize) }.join(" to ")
   end
+
+  # A merge's "Moved: 3 aliases, 1 evidence, 2 candidates" in the screen's
+  # words (Design, #305): "3 other names, 1 source quote, 2 claims". nil
+  # when nothing moves.
+  MERGE_WORDS = { "alias" => %w[other\ name other\ names], "domain" => %w[domain domains], "role" => %w[role roles],
+    "technology" => %w[technology technologies], "facility relationship" => %w[plant\ link plant\ links],
+    "relationship" => %w[company\ link company\ links], "evidence" => %w[source\ quote source\ quotes],
+    "candidate" => %w[claim claims], "claim" => %w[claim claims], "unit" => %w[unit units],
+    "organization role" => %w[role roles], "organization technology" => %w[technology technologies] }.freeze
+
+  def merge_moved_words(moved)
+    parts = moved.to_s.split(", ").filter_map do |part|
+      count, what = part.split(" ", 2)
+      next if count.to_i.zero?
+
+      key = what.to_s.singularize
+      one, many = MERGE_WORDS.fetch(key) { [ key, key.pluralize ] }
+      "#{count} #{count.to_i == 1 ? one : many}"
+    end
+    parts.join(", ").presence
+  end
 end

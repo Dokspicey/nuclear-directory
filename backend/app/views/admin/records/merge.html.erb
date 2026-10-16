@@ -14,12 +14,16 @@
       <p class="type-admin-h2"><%= link_to @into.name, admin_record_path(type: @fact.type, id: @into.id), class: "nd-link", target: "_blank", rel: "noopener" %></p>
       <p class="type-small text-ink-muted">
         <%= @into.verification_status == "pending" ? "Pending" : "Live" %> ·
-        <%= link_to "Pick another", admin_record_merge_path(type: @fact.type, id: @fact.id, back:), class: "nd-link" %>
+        <%= link_to "Pick another", admin_record_merge_path(type: @fact.type, id: @fact.id, back:), class: "nd-link nd-tap" %>
       </p>
     </div>
 
     <% if @preview.ok? %>
-      <p class="type-body">Moves to <%= @into.name %>: <%= @preview.moved.presence || "nothing" %>. <%= @fact.name %> is then taken off, and its page leads to <%= @into.name %>.</p>
+      <% moved = merge_moved_words(@preview.moved) %>
+      <p class="type-body"><%= moved ? "Moves to #{@into.name}: #{moved}." : "Nothing else moves." %> <%= @fact.name %> is then taken off, and its page leads to <%= @into.name %>.</p>
+      <% if @fact.type == "Organization" %>
+        <p class="type-small text-ink-muted">Only merge if they're the same company. A subsidiary with its own brand stays separate (e.g. Nuclear Fuel Services under BWXT).</p>
+      <% end %>
     <% else %>
       <div class="nd-alert" role="alert"><p class="type-body">Can't merge: <%= @preview.errors.to_sentence %>.</p></div>
     <% end %>
