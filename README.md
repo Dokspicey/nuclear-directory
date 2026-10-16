@@ -60,7 +60,8 @@ Details: [`backend/app/data_quality/README.md`](backend/app/data_quality/README.
 - [Data standard](docs/DATA.md)
 
 Operational runbooks (deploying to Render, backups and restores, UI previews,
-local Metabase, the analytics relay) live in a private ops repo for the
+local Metabase, the analytics relay) live in the private
+`nuclear-directory-backups` repo, next to the encrypted backups, for the
 maintainers.
 
 ## Run it

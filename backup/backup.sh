@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Dumps the database, encrypts it with age and uploads it as a release asset
 # to a private GitHub repo, keeping the newest BACKUP_KEEP releases.
-# Runbook: "Backups" in the private ops repo.
+# Runbook: "Backups" in the private backups repo.
 #
 # Env:
 #   DATABASE_URL          database to dump

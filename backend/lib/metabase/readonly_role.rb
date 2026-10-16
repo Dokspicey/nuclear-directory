@@ -1,6 +1,6 @@
 # The read-only Postgres role local Metabase uses on production (#111).
 # Tosin creates it from the Render shell with `bin/rails
-# metabase:create_readonly_role` (Metabase runbook, private ops repo); the password is typed
+# metabase:create_readonly_role` (Metabase runbook, private backups repo); the password is typed
 # there and kept only in his password manager.
 #
 # Writes fail twice over: its transactions are read-only by default, and the
