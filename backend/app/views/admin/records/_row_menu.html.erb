@@ -1,5 +1,6 @@
-<%# A related row's actions (Design, #166): Open, Decide in Checks when
-    something waits on it, Edit, then Take off (with a reason) or Put back.
+<%# A related row's actions (Design, #166): Open, Decide when claims wait
+    on it (through them, then back here), Edit, then Take off (with a
+    reason) or Put back.
     Each comes back to this Record at the row (here). One menu open at a
     time, Esc closes it; on phones it opens as a sheet. Locals: row,
     section, here. %>
@@ -9,10 +10,10 @@
   <div class="nd-rowmenu__panel">
     <%= link_to "Open", related_row_path(row, section.key, record_path_here), class: "nd-rowmenu__item type-ui" %>
     <% if row.waiting.positive? %>
-      <%= link_to "Decide in Checks", admin_fact_path(type: item_type, id: item_id, claim: row.first_claim, back: record_path_here), class: "nd-rowmenu__item type-ui" %>
+      <%= link_to "Decide", admin_fact_path(type: item_type, id: item_id, claim: row.first_claim, claims: 1, from: "record", section: section.key, row: row.item.join("-"), back: here), class: "nd-rowmenu__item type-ui" %>
     <% end %>
     <% if row.editable? %>
-      <%= link_to "Edit", admin_fact_edit_path(type: item_type, id: item_id, back: record_path_here, next: here), class: "nd-rowmenu__item type-ui" %>
+      <%= link_to "Edit", admin_fact_edit_path(type: item_type, id: item_id, from: "record", section: section.key, row: row.item.join("-"), back: record_path_here, next: here), class: "nd-rowmenu__item type-ui" %>
     <% end %>
     <% if row.live? %>
       <%= form_with url: admin_fact_unpublish_path(type: item_type, id: item_id), class: "nd-rowmenu__takeoff" do %>

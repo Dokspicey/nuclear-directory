@@ -95,6 +95,32 @@ class Admin::RelatedTest < ActionDispatch::IntegrationTest
     assert_select "input[name=?]", "values[relationship_type]", 0
   end
 
+  test "Decide goes through the item's waiting claims, then back to the Record at its row" do
+    claim = ->(state) { Candidate.create!(source: @web, kind: "facility", quote: "q", status: "needs_review", notes: "unsure", subject_type: "Facility", subject_id: @u2.id, payload: { "name" => "Vogtle 2", "state" => state }) }
+    first, second = claim.("GA"), claim.("AL")
+    here = "#{record(@site)}#item-Facility-#{@u2.id}"
+    context = { claims: 1, from: "record", section: "units", row: "Facility-#{@u2.id}", back: here }
+
+    get record(@site)
+    assert_select "#item-Facility-#{@u2.id} .nd-rowmenu a[href=?]", admin_fact_path(type: "Facility", id: @u2.id, claim: first.id, **context), "Decide"
+
+    get admin_fact_path(type: "Facility", id: @u2.id, claim: first.id, **context)
+    assert_select ".nd-itemnav", /1 of 2 waiting/
+    following = admin_fact_path(type: "Facility", id: @u2.id, **context.except(:claims), claims: 1, claim: second.id)
+    assert_select ".nd-itemnav a[rel=next][href=?]", following
+
+    post reject_admin_candidates_path, params: { candidate_id: first.id, back: here, next: following }
+    assert_redirected_to following
+    post reject_admin_candidates_path, params: { candidate_id: second.id, back: here }
+    assert_redirected_to here
+  end
+
+  test "Edit from a row: Live / the Record / the item / Edit" do
+    get admin_fact_edit_path(type: "Facility", id: @u1.id, from: "record", section: "units", row: "Facility-#{@u1.id}", back: record(@site), next: "#{record(@site)}#item-Facility-#{@u1.id}")
+
+    assert_equal [ "Live", "Plant Vogtle", "Vogtle 1", "Edit" ], css_select(".nd-crumbs li").map { |li| li.text.squish }
+  end
+
   test "a related row's page: Live / the Record / it, with Previous and Next through its section" do
     live = admin_live_path(tab: "plants")
     parent = record(@site, back: live)

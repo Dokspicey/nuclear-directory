@@ -45,7 +45,7 @@
             <td class="type-body nd-related__status">
               <%= row.status %>
               <% if row.waiting.positive? %>
-                · <%= link_to "#{row.waiting} waiting", admin_fact_path(type: item_type, id: item_id, claim: row.first_claim, back: record_path_here), class: "nd-link type-data" %>
+                · <%= link_to "#{row.waiting} waiting", admin_fact_path(type: item_type, id: item_id, claim: row.first_claim, claims: 1, from: "record", section: section.key, row: row.item.join("-"), back: here), class: "nd-link type-data" %>
               <% end %>
             </td>
             <td class="nd-related__actions"><%= render "admin/records/row_menu", row:, section:, here: %></td>

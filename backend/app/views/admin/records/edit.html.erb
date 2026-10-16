@@ -2,7 +2,8 @@
 <% pending = @fact.verification_status == "pending" %>
 
 <div class="nd-stack max-w-prose">
-  <%= render "admin/crumbs", parent_label: @fact.name.to_s.upcase_first, parent_path: next_or(record_path_here), current: "Edit" %>
+  <% trail = [ [ "Live", related_context[:live] ], [ related_context[:name], next_or(related_context[:path]) ], [ @fact.name.to_s.upcase_first, record_path_here ] ] if related_context %>
+  <%= render "admin/crumbs", parent_label: @fact.name.to_s.upcase_first, parent_path: next_or(record_path_here), trail:, current: "Edit" %>
   <h1 class="type-admin-h1 m-0">Edit <%= @fact.name %></h1>
 
   <%= form_with url: record_path_here, method: :patch, class: "nd-stack" do |form| %>

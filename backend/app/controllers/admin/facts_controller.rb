@@ -19,6 +19,8 @@ class Admin::FactsController < Admin::BaseController
     # A named claim that's no longer waiting shows its own result, never another claim's buttons.
     asked = params[:claim].presence&.to_i
     @claim = asked ? waiting.find { |item| item.candidate_id == asked } : waiting.first
+    # Opened by Decide on a Record's row (claims=1): Previous and Next through this item's waiting claims.
+    @list = waiting_position(waiting) if params[:claims].present? && params[:from] == "record"
     if asked && @claim.nil?
       @decided = DataQuality::Review.decision_of(asked)
       @following = @list&.dig(:next)
@@ -53,6 +55,14 @@ class Admin::FactsController < Admin::BaseController
   end
 
   private
+    # Where the claim sits among those waiting on this item ("1 of 2 waiting"),
+    # each opened the same way; after the last decision, back (the Record's row).
+    def waiting_position(waiting)
+      index = waiting.index { |item| item.candidate_id == @claim&.candidate_id } or return
+      path = ->(item) { item && admin_fact_path(type: @fact.type, id: @fact.id, **context, claims: 1, claim: item.candidate_id) }
+      { index: index + 1, total: waiting.size, label: "waiting", previous: path.(index.positive? ? waiting[index - 1] : nil), next: path.(waiting[index + 1]) }
+    end
+
     # "Taken off: Georgia Power owns Plant Vogtle." (Design, #166), or the error.
     def flash_named(result, verb)
       return flash_results([ result ], verb) unless result.ok?
