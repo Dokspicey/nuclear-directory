@@ -53,7 +53,7 @@
       <details class="nd-takeoff">
         <summary class="nd-btn nd-btn--danger type-ui">Take off</summary>
         <%= form_with url: admin_fact_unpublish_path(type: @fact.type, id: @fact.id), class: "nd-panel nd-takeoff__form" do %>
-          <button type="submit" disabled hidden aria-hidden="true" tabindex="-1"></button>
+          <%# Enter in the reason submits it too, after the confirm. %>
           <%= hidden_field_tag :next, record_path_here, id: nil %>
           <div class="nd-field">
             <label for="reason" class="type-body-strong">Reason</label>

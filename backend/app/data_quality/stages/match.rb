@@ -242,6 +242,8 @@ class DataQuality::Stages::Match < DataQuality::Stage
       # FactWriter derives a domain from the website unless domain was supplied.
       domain = payload.key?("domain") ? payload["domain"].presence : payload["website"].presence
       by_name = directory.organization(name:) if name
+      # Its other spellings (an award's legal name) find it too, as for a plant.
+      by_name ||= Array(payload["aliases"]).compact_blank.lazy.filter_map { |other| directory.organization(name: other) }.first
       by_domain = directory.organization(domain:) if domain
 
       if by_name && by_domain && by_name.id != by_domain.id

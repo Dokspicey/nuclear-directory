@@ -112,6 +112,17 @@ class Admin::LiveTest < ActionDispatch::IntegrationTest
     assert_select "details summary", /Sources\s+1/
   end
 
+  test "Take off on a Record: Enter in the reason submits it, through the Take off button and its confirm" do
+    c = company("Enter Co")
+
+    get admin_record_path(type: "Organization", id: c.id)
+
+    assert_select "form.nd-takeoff__form" do
+      assert_select "button[type=submit]", 1, "no hidden button that would swallow Enter"
+      assert_select "button[type=submit]:not([disabled])[data-turbo-confirm]", "Take off"
+    end
+  end
+
   test "Edit saves changed values as an approval in the history, and Take off comes back to the Record" do
     c = company("Edit Me Co")
     back = admin_live_path
