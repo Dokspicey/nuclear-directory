@@ -133,13 +133,24 @@ module DeployData
         first_event = Census.last_event_id
         counts_file = @root.join(SEED_COUNTS)
         File.delete(counts_file) if File.exist?(counts_file)
-        ActiveRecord::Base.transaction { @seeder.call }
+        log = capturing_output { ActiveRecord::Base.transaction { @seeder.call } }
         @report.seed = @last ? "ran (#{@changed.size} #{'file'.pluralize(@changed.size)} changed since #{short(@last.commit)})" : "ran (first automatic run)"
-        @report.seed_counts = JSON.parse(File.read(counts_file)) if File.exist?(counts_file)
+        @report.seed_counts = File.exist?(counts_file) ? JSON.parse(File.read(counts_file)) : SeedLog.counts(log)
 
         events = VerificationEvent.where("id > ?", first_event).to_a
         @report.seed_events = events.map(&:subject_type).tally
         flip_flops(events)
+      end
+
+      # Runs the block, printing its output as usual and returning it too.
+      def capturing_output
+        original = $stdout
+        captured = StringIO.new
+        $stdout = SeedLog::Tee.new(original, captured)
+        yield
+        captured.string
+      ensure
+        $stdout = original
       end
 
       def flip_flops(events)

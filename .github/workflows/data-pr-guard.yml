@@ -9,6 +9,12 @@ on:
   pull_request:
     types: [opened, reopened, synchronize, labeled, unlabeled]
 
+# Opening a PR with labels sends one event per label at once; only the
+# newest run per PR finishes.
+concurrency:
+  group: data-pr-guard-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   pull-requests: write
@@ -27,7 +33,7 @@ jobs:
         run: |
           # Kept in step with DeployData::Fingerprint and db/data/ (backend/lib/deploy_data/).
           data_files="$(gh api --paginate "repos/${REPO}/pulls/${PR}/files" --jq '.[].filename' \
-            | grep -E '^backend/(db/seeds\.rb|db/seeds/|db/data/|lib/seed/|app/directory/fact_writer\.rb)' || true)"
+            | grep -E '^backend/(db/seeds\.rb|db/seeds/|db/data/[^/]+\.rb$|lib/seed/|app/directory/fact_writer\.rb)' || true)"
           if [[ -z "$data_files" ]]; then
             echo "No production data changes."
             exit 0

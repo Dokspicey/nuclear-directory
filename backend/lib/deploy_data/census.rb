@@ -13,15 +13,23 @@ module DeployData
       TABLES.index_with { |table| connection.select_value("SELECT count(*) FROM #{connection.quote_table_name(table)}").to_i }
     end
 
-    # What the public sees.
+    # What the public sees, as Data Quality counts it (docs/DATA.md and the
+    # launch posts), from the site's .published scopes: facts are every
+    # published record and link (Directory::Lookup.published_counts), reactors
+    # are published units with an NRC docket (a site-less one included), and
+    # quotes and sources are those of published facts only, not of pending
+    # crawler records.
     def public_totals
+      quotes = Directory::Lookup::FACT_TYPES.map do |type|
+        Evidence.where(subject_type: type, subject_id: type.constantize.published.select(:id))
+      end.reduce(:or)
       {
         "companies" => Organization.published.count,
         "plants and sites" => DirectoryListing.new.public_sites.count,
-        "reactors" => Facility.published.where.not(parent_id: nil).count,
-        "facts" => [ OrganizationRole, OrganizationTechnology, Relationship, FacilityRelationship ].sum { |model| model.published.count },
-        "quotes" => Evidence.count,
-        "sources" => Source.count
+        "reactors" => Facility.published.where.not(nrc_docket: [ nil, "" ]).count,
+        "facts" => Directory::Lookup.published_counts.values.sum,
+        "quotes" => quotes.count,
+        "sources" => quotes.distinct.count(:source_id)
       }
     end
 

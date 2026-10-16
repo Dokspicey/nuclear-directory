@@ -22,8 +22,7 @@ module DeployData
     def title = "#{@label} #{@commit.to_s[0, 7].presence || 'unknown commit'}: #{outcome}"
 
     def to_s
-      lines = [ "#{@label} #{@commit.to_s[0, 7].presence || '(no commit)'}" \
-        "#{" (PR ##{@pull_request})" if @pull_request}: #{outcome}" ]
+      lines = [ [ @label, @commit.to_s[0, 7].presence, ("(PR ##{@pull_request})" if @pull_request) ].compact.join(" ") + ": #{outcome}" ]
       lines << "Backup: #{backup}" if backup
       lines << "seed:check: #{seed_check}" if seed_check
       lines << "Seed: #{seed}" if seed

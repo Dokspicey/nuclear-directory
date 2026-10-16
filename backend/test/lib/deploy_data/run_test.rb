@@ -250,4 +250,13 @@ class DeployData::RunTest < ActiveSupport::TestCase
     assert_equal :applied, run_step(mode: "on"), "switched on, it applies what report mode only rehearsed"
     assert_equal "Westinghouse Electric", organizations(:westinghouse).reload.name
   end
+
+  test "the loader's per-kind counts go in the report" do
+    seeder = -> { puts format("%-24s %3d created, %3d updated", "organization", 2, 68) }
+    run_step(seeder:)
+    report = @github.posts.sole[:body]
+    assert_includes report, "Seed counts, from the loader:"
+    assert_match(/  organization\s+2 created, 68 updated/, report)
+    assert_includes @output, "organization", "still printed to the deploy log"
+  end
 end
