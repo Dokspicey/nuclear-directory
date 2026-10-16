@@ -1,0 +1,64 @@
+<%# One waiting claim (#201): its label, subject and value, Approve and Reject
+    (Keep for a change: keep the human-verified value), Edit; the quote, source,
+    why it's here and a reason behind Details. Posts to today's actions.
+    Locals: item (DataQuality::Review::Item). %>
+<% source_url = safe_url(item.source.url) %>
+<% value = check_value(item) %>
+<li class="nd-wait" id="claim-<%= item.candidate_id %>">
+  <%= form_with url: approve_admin_candidates_path(filters), class: "contents" do %>
+    <%# Enter in the reason field submits with the form's first button; a disabled
+        one makes Enter do nothing, so every decision takes a deliberate click. %>
+    <button type="submit" disabled hidden aria-hidden="true" tabindex="-1"></button>
+    <%= hidden_field_tag :anchor, anchor, id: nil if local_assigns[:anchor] %>
+    <%= hidden_field_tag :back, request.fullpath, id: nil %>
+    <div class="nd-wait__what">
+      <p class="type-kicker text-ink-muted"><%= check_kicker(item) %></p>
+      <p class="type-subject">
+        <% if item.subject_id %>
+          <%= link_to check_subject(item), admin_fact_path(type: item.subject_type, id: item.subject_id, from: "checks", back: request.fullpath, claim: item.candidate_id), class: "nd-link" %>
+        <% else %>
+          <%= check_subject(item) %>
+        <% end %>
+      </p>
+      <details>
+        <summary class="type-small">Details</summary>
+        <div class="nd-wait__more">
+          <p class="type-body"><%= item.claim %></p>
+          <% if item.quote.present? %><blockquote class="nd-quote">“<%= item.quote %>”</blockquote><% end %>
+          <p class="type-small text-ink-muted">
+            <% if source_url %>
+              <%= link_to source_url, class: "nd-link nd-link--muted", target: "_blank", rel: "noopener" do %><%= item.source.title.presence || source_host(source_url) %> <%= icon("arrow-square-out", size: 12) %><% end %>
+            <% else %>
+              <%= item.source.title.presence || item.source.url %>
+            <% end %>
+            · <span class="nd-num">Claim <%= item.candidate_id %></span>
+          </p>
+          <% if item.ai_recommendation == "recommend_publish" %>
+            <p class="type-body"><strong>Verifier recommends publishing</strong><% if item.ai_confidence %> (<%= percent(item.ai_confidence) %> sure)<% end %>: <%= item.ai_reason %></p>
+          <% elsif item.notes.present? %>
+            <p class="type-body"><strong>Why it's here:</strong> <%= item.notes.upcase_first %></p>
+          <% end %>
+          <% if item.differences.any? %><p class="type-small">Approving replaces the human-verified <%= item.differences.keys.map { |name| field_label(name).downcase_first }.to_sentence %>.</p><% end %>
+          <% if item.differences.size > 1 %>
+            <dl class="nd-kv type-body">
+              <% item.differences.each do |name, (stored, incoming)| %>
+                <dt class="type-label"><%= field_label(name) %></dt><dd class="nd-num"><%= stored %> → <%= incoming %></dd>
+              <% end %>
+            </dl>
+          <% end %>
+          <div class="nd-field">
+            <label for="reason-<%= item.candidate_id %>" class="type-body-strong">Reason <span class="type-small text-ink-muted">(optional, kept in the history if you reject)</span></label>
+            <input type="text" class="nd-input type-input" id="reason-<%= item.candidate_id %>" name="reasons[<%= item.candidate_id %>]">
+          </div>
+        </div>
+      </details>
+    </div>
+    <% if value %><p class="nd-wait__value type-change"><%= value %></p><% end %>
+    <div class="nd-wait__actions type-ui">
+      <button type="submit" class="nd-btn nd-btn--primary" name="candidate_id" value="<%= item.candidate_id %>">Approve</button>
+      <button type="submit" class="nd-btn nd-btn--outline" name="candidate_id" value="<%= item.candidate_id %>"
+        formaction="<%= reject_admin_candidates_path(filters) %>"><%= item.differences.any? ? "Keep" : "Reject" %></button>
+      <%= link_to "Edit", edit_admin_candidate_path(item.candidate_id, **filters, back: request.fullpath), class: "nd-btn nd-btn--outline" %>
+    </div>
+  <% end %>
+</li>

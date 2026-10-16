@@ -31,10 +31,11 @@ module DataQuality::Review
   # when it disagrees with a human-verified record; approving would apply the
   # source's value. found_by: the model of the run that extracted it (nil for
   # hand-made ones).
+  # category: which of the Checks screen's groups it's in (CATEGORIES).
   Item = Data.define(:candidate_id, :kind, :status, :claim, :payload, :quote, :source, :notes,
     :ai_recommendation, :ai_reason, :ai_confidence, :ai_model, :ai_checked_at, :verify_run_id,
-    :subject_type, :subject_id, :record, :differences, :found_by, :crawl_run_id)
-  Source = Data.define(:id, :url, :title)
+    :subject_type, :subject_id, :record, :differences, :found_by, :crawl_run_id, :category)
+  Source = Data.define(:id, :url, :title, :source_kind)
   EvidenceItem = Data.define(:source, :quote, :found_by, :confidence)
   PendingFact = Data.define(:type, :id, :kind, :attributes, :evidence, :created_at, :last_event)
   # One directory fact as the admin shows it. values: its stored values;
@@ -55,6 +56,13 @@ module DataQuality::Review
   NOT_EDITABLE = (LINK_ENDS + %w[id slug relationship_type parent_id]).freeze
   # What reasons() calls candidates with no notes.
   NO_REASON = "no reason"
+  # The Checks screen's groups of waiting items (#201). Pending facts with no
+  # candidate are in "facts" too.
+  CATEGORIES = %w[changed links facts duplicates].freeze
+  # A link between companies, or a company and a plant (a role or technology is a fact).
+  CHECK_LINK_KINDS = %w[relationship facility_relationship].freeze
+  # Match's notes when a name is close to a record it might be.
+  DUPLICATE_NOTES = [ "but similar:", "could be the same brand" ].freeze
   # A company's role or technology is what that fact is (a plant's
   # technology is an ordinary value).
   IDENTIFYING = { "organization_role" => %w[role], "organization_technology" => %w[technology] }.freeze
@@ -87,6 +95,75 @@ module DataQuality::Review
 
     # How many candidates wait in each queue: { recommended: 12, needs_review: 3 }.
     def counts = QUEUES.transform_values { |scope| scope.call.count }
+
+    # Waiting candidates in a Checks group ("all" or one of CATEGORIES),
+    # oldest first, optionally from one kind of source. Pending facts are
+    # listed by pending_facts.
+    def checks(category: "all", source_kind: nil, after_id: nil, limit: 50, directory: DataQuality::DirectoryClient.new)
+      scope = category_scope(category, source_kind:).includes(:source, :crawl_run).order(:id).limit(limit)
+      scope = scope.where("candidates.id > ?", after_id) if after_id
+      scope.map { |candidate| item(candidate, directory) }
+    end
+
+    # The recommended claims a Checks filter shows, oldest first: what
+    # "Approve N safe" counts, fingerprints and approves on that filter.
+    def safe_ids(category: "all", source_kind: nil)
+      category_scope(category, source_kind:).where(id: Candidate.recommended.select(:id)).order(:id).pluck(:id)
+    end
+
+    # The claims waiting on one fact (both queues), oldest first, for its
+    # page's decision panel.
+    def waiting_for(type:, id:, directory: DataQuality::DirectoryClient.new)
+      waiting_scope.where(subject_type: type.to_s, subject_id: id).includes(:source, :crawl_run).order(:id)
+        .map { |candidate| item(candidate, directory) }
+    end
+
+    # The last decision a person made on a claim about one fact, for the
+    # result line once nothing waits: { status: "merged"|"rejected", by:, at: }, or nil.
+    def last_decision_for(type:, id:)
+      candidate = Candidate.where(subject_type: type.to_s, subject_id: id, status: %w[merged rejected])
+        .where.not(reviewed_at: nil).order(reviewed_at: :desc).first
+      candidate && { status: candidate.status, by: candidate.reviewed_by, at: candidate.reviewed_at }
+    end
+
+    # How one claim was decided, for its page's result line: { status:, by:, at: }, or nil.
+    def decision_of(candidate_id)
+      candidate = Candidate.where(id: candidate_id, status: %w[merged rejected]).where.not(reviewed_at: nil).first
+      candidate && { status: candidate.status, by: candidate.reviewed_by, at: candidate.reviewed_at }
+    end
+
+    # Whether a fact has any source, so it can be approved.
+    def sourced?(type:, id:, directory: DataQuality::DirectoryClient.new) = directory.sourced?(type: type.to_s, id:)
+
+    # Ids of the claims a Checks filter lists, in its order (oldest first).
+    def check_ids(category: "all", source_kind: nil) = category_scope(category, source_kind:).order(:id).pluck(:id)
+
+    # The claims a Checks filter lists, in its order, as [type, id] of the
+    # fact each is attached to (nil for a claim not attached yet): for Prev
+    # and Next on a fact page opened from Checks.
+    # Pending facts with no open claim follow, kind by kind, as Checks lists
+    # them (All and Facts, without a source filter).
+    def check_subjects(category: "all", source_kind: nil, directory: DataQuality::DirectoryClient.new)
+      # [type, id, claim id] per claim row (one fact can have several), then [type, id, nil] per pending fact.
+      claims = category_scope(category, source_kind:).where.not(subject_id: nil).order(:id).pluck(:subject_type, :subject_id, :id)
+      return claims if source_kind || !%w[all facts].include?(category)
+
+      open = Candidate.where(status: %w[new matched needs_review]).where.not(subject_id: nil).pluck(:subject_type, :subject_id).to_set
+      pending = directory.fact_kinds.flat_map do |kind|
+        directory.pending_fact_ids(kind:).sort.map { |id| [ kind.camelize, id ] }.reject { |subject| open.include?(subject) }.map { |subject| [ *subject, nil ] }
+      end
+      claims + pending
+    end
+
+    # Whether any claim on a fact is still open (new, matched or needing
+    # review), recommended or not: then the fact is decided through it.
+    def open_claims?(type:, id:) = Candidate.where(status: %w[new matched needs_review], subject_type: type.to_s, subject_id: id).exists?
+
+    # How many candidates wait in each Checks group, plus "all":
+    # { "all" => 9, "changed" => 2, … }. Pending facts aren't included.
+    def check_counts(source_kind: nil)
+      CATEGORIES.index_with { |category| category_scope(category, source_kind:).count }.then { |counts| { "all" => counts.values.sum }.merge(counts) }
+    end
 
     # Kinds of question in a queue, most common first, quoted names blanked
     # ('no exact match for "…"'), for the admin's reason filter: passing one
@@ -241,6 +318,18 @@ module DataQuality::Review
         PendingFact.new(type: fact.type, id: fact.id, kind: fact.kind, attributes: fact.attributes, created_at: fact.created_at,
           last_event: fact.last_event, evidence: fact.evidence.map { |e| EvidenceItem.new(source: sources[e.source_id], quote: e.quote,
             found_by: e.found_by, confidence: e.confidence) })
+      end
+    end
+
+    # How many facts pending_facts lists, across every kind: pending, with no
+    # open candidate (those are counted in the queues).
+    def pending_count(directory: DataQuality::DirectoryClient.new)
+      directory.fact_kinds.sum do |kind|
+        ids = directory.pending_fact_ids(kind:)
+        next 0 if ids.empty?
+
+        covered = Candidate.where(status: %w[new matched needs_review], subject_type: kind.camelize, subject_id: ids).distinct.count(:subject_id)
+        ids.size - covered
       end
     end
 
@@ -463,15 +552,47 @@ module DataQuality::Review
         differences = DataQuality::Differences.with_human_verified(candidate, record)
         Item.new(candidate_id: candidate.id, kind: candidate.kind, status: candidate.status, claim: DataQuality::Claim.describe(candidate),
           payload: candidate.payload, quote: candidate.quote, notes: candidate.notes,
-          source: Source.new(id: candidate.source.id, url: candidate.source.url, title: candidate.source.title),
+          source: Source.new(id: candidate.source.id, url: candidate.source.url, title: candidate.source.title, source_kind: candidate.source.source_kind),
           ai_recommendation: candidate.ai_recommendation, ai_reason: candidate.ai_reason, ai_confidence: candidate.ai_confidence,
           ai_model: candidate.ai_model, ai_checked_at: candidate.ai_checked_at, verify_run_id: candidate.verify_run_id,
           subject_type: candidate.subject_type, subject_id: candidate.subject_id, record:, differences:,
-          found_by: candidate.crawl_run&.model, crawl_run_id: candidate.crawl_run_id)
+          found_by: candidate.crawl_run&.model, crawl_run_id: candidate.crawl_run_id, category: category_of(candidate))
       end
 
+      # The same rules as category_scope, for one candidate.
+      def category_of(candidate)
+        notes = candidate.notes.to_s
+        if notes.match?(/\Ahuman-verified /i) then "changed"
+        elsif DUPLICATE_NOTES.any? { |note| notes.downcase.include?(note) } then "duplicates"
+        elsif CHECK_LINK_KINDS.include?(candidate.kind) then "links"
+        else "facts"
+        end
+      end
+
+      # Waiting candidates in one of the Checks screen's groups. A candidate is
+      # in exactly one: a disagreement with a human-verified value (verify's
+      # note), then a possible duplicate (match's note), then a link, else a fact.
+      def category_scope(category, source_kind: nil)
+        scope = waiting_scope
+        scope = scope.where(source_id: ::Source.where(source_kind:).select(:id)) if source_kind
+        notes = "COALESCE(candidates.notes, '')"
+        changed = "#{notes} ILIKE 'human-verified %'"
+        duplicate = "(#{DUPLICATE_NOTES.map { |note| "#{notes} ILIKE #{Candidate.connection.quote("%#{note}%")}" }.join(' OR ')})"
+        case category
+        when nil, "all" then scope
+        when "changed" then scope.where(changed)
+        when "duplicates" then scope.where("#{duplicate} AND NOT (#{changed})")
+        when "links" then scope.where(kind: CHECK_LINK_KINDS).where("NOT (#{changed}) AND NOT #{duplicate}")
+        when "facts" then scope.where.not(kind: CHECK_LINK_KINDS).where("NOT (#{changed}) AND NOT #{duplicate}")
+        else raise ArgumentError, "not a Checks group: #{category.inspect}"
+        end
+      end
+
+      # Both queues: recommended, or needing a person's look.
+      def waiting_scope = Candidate.where(id: Candidate.recommended.select(:id)).or(Candidate.status_needs_review)
+
       def sources_by_id(ids)
-        ::Source.where(id: ids.uniq).to_h { |source| [ source.id, Source.new(id: source.id, url: source.url, title: source.title) ] }
+        ::Source.where(id: ids.uniq).to_h { |source| [ source.id, Source.new(id: source.id, url: source.url, title: source.title, source_kind: source.source_kind) ] }
       end
   end
 end

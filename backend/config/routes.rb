@@ -37,7 +37,13 @@ Rails.application.routes.draw do
   # decision goes through DataQuality::Review.
   resource :session, only: %i[new create destroy], path: "admin/session", path_names: { new: "sign-in" }
   namespace :admin do
-    root "candidates#index"
+    # Admin v2 (#201): Overview, Sources, Checks (where claims and pending
+    # facts are approved) and Correction requests. The actions underneath
+    # are today's: candidates, pending facts, corrections, facts.
+    root "overview#show"
+    get "sources" => "status#show", as: :sources
+    get "status", to: redirect("/admin/sources")
+    get "checks" => "checks#show", as: :checks
     resources :candidates, only: %i[index edit update] do
       collection do
         post :approve
@@ -51,7 +57,6 @@ Rails.application.routes.draw do
         post :reject
       end
     end
-    get "status" => "status#show", as: :status
     resources :corrections, only: :index do
       member do
         post :start
