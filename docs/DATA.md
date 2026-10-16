@@ -65,6 +65,12 @@ The verb is fixed (VOICE.md). Each link needs a quote that states that relations
 
 **Deal stage** (announced, MOU, signed, terminated) goes in the description and in the deal term's `status`. Deal amounts and dates are deal terms (#264), never free text alone.
 
+**Counting deals (Tosin, 15 Oct: "just facts, not opinions"):**
+- A **deal** in counts and data pieces is a **signed** power deal: a PPA, a supply agreement or a tariff subscription.
+- **Frameworks, MOUs, letters of intent, options and preorders** are recorded too, but listed separately and labelled by stage. They're never in the headline count.
+- **Self-builds** (a company buying reactors for its own site) and **feasibility studies** are not power deals.
+- An **unnamed party** stays unnamed ("a hyperscaler", as its filing says). A deal reported only by trade press, or only as talks, is not recorded until a primary source states it.
+
 ## 3. Names
 
 - **Company display name: the brand the company uses** on its own site ("Constellation", "Duke Energy", "Ameren"). Every legal name and source spelling ("Constellation Energy Generation, LLC", EIA's "Union Electric Co - (MO)") is saved as an alias, so matching still finds it. *(Tosin, D1.)*
@@ -166,3 +172,4 @@ The admin's Live screen and the nightly `data_quality:audit` are planned (Admin 
 | Display names are ours; a source's spelling never renames | PM, Backend | #241 |
 | Company display name is the brand it uses; every other spelling is an alias (D1) | Tosin | #238 |
 | Capacity is shown as "MW", noted "Net summer capacity, from EIA" on plant pages (D2) | Tosin | #238 |
+| A counted deal is a signed power deal; frameworks and MOUs are listed separately by stage | Tosin | #253, #255 |
