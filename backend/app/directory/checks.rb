@@ -114,7 +114,7 @@ module Directory::Checks
           Facility.where.not(id: linked).where("facilities.parent_id IS NULL OR facilities.parent_id NOT IN (?)", linked)
             .where.not(id: Facility.where(id: linked).where.not(parent_id: nil).select(:parent_id))
         end
-        co_owned = current.call.where(relationship_type: "owns").group(:facility_id).having("COUNT(*) >= 2").select(:facility_id)
+        co_owned = -> { current.call.where(relationship_type: "owns").group(:facility_id).having("COUNT(*) >= 2").select(:facility_id) }
         [
           Tag.new("no-operator", "No operator", "gaps", nil, "An operating plant or reactor with no live operator",
             { "Facility" => -> { without.call("operates").operating } }),
@@ -136,7 +136,7 @@ module Directory::Checks
                 .where.not(id: Relationship.published.select(:from_organization_id)).where.not(id: Relationship.published.select(:to_organization_id))
             } }),
           Tag.new("no-share", "No share", "gaps", nil, "An owner of a co-owned plant with no ownership share",
-            { "FacilityRelationship" => -> { FacilityRelationship.where(relationship_type: "owns", ownership_pct: nil, facility_id: co_owned) } })
+            { "FacilityRelationship" => -> { FacilityRelationship.where(relationship_type: "owns", ownership_pct: nil, facility_id: co_owned.call) } })
         ]
       end
 

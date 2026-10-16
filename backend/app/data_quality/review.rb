@@ -344,7 +344,11 @@ module DataQuality::Review
     # Put back: the status it had before it was taken off. A record that was
     # pending (a site public through a verified unit) goes back to pending,
     # its own fields still unapproved; anything else is approved again.
+    # Only while it's still taken off, so an old form can't undo a newer decision.
     def republish(type:, id:, by:, reason: nil, directory: DataQuality::DirectoryClient.new)
+      now = directory.fact(type:, id:)&.verification_status
+      return Result.new(candidate_id: nil, ref: nil, errors: [ "it's #{now || 'gone'} now, so it wasn't changed" ]) unless now == "unpublished"
+
       before = directory.verification_history(type:, id:).find { |event| event.to_status == "unpublished" }&.from_status
       return decide_fact(type, id, "pending", by:, reason:, directory:) if before == "pending"
 

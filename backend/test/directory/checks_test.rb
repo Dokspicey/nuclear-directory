@@ -96,6 +96,16 @@ class Directory::ChecksTest < ActiveSupport::TestCase
     assert_not_includes ids("no-share", FacilityRelationship), current.id
   end
 
+  test "No share works out today's co-owners when it's asked, not when the tags were built" do
+    plant = Facility.create!(name: "Ending Share Plant", status: "operating", **VERIFIED)
+    a, b = Organization.create!(name: "Staying Owner", **VERIFIED), Organization.create!(name: "Leaving Owner", **VERIFIED)
+    staying = FacilityRelationship.create!(organization: a, facility: plant, relationship_type: "owns", **VERIFIED)
+    FacilityRelationship.create!(organization: b, facility: plant, relationship_type: "owns", ended_on: 1.day.from_now, ownership_pct: 50, **VERIFIED)
+
+    assert_includes ids("no-share", FacilityRelationship), staying.id
+    travel_to(2.days.from_now) { assert_not_includes ids("no-share", FacilityRelationship), staying.id, "the other owner has left" }
+  end
+
   test "source disagrees: an open disagreement, or a source's latest reading that a person's decision overrules" do
     source = Source.create!(url: "https://www.nrc.gov/disagree", source_kind: "nrc_reactor_list", domain: "nrc.gov")
     overruled = Facility.create!(name: "Overruled 1", **VERIFIED)

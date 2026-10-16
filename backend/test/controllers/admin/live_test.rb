@@ -272,6 +272,10 @@ class Admin::LiveTest < ActionDispatch::IntegrationTest
 
     assert_equal "pending", site.reload.verification_status, "its own fields stay unapproved"
     assert Facility.published.exists?(unit.id)
+
+    site.verify!(by: "human:tosin")
+    post admin_fact_republish_path(type: "Facility", id: site.id)
+    assert_equal "verified", site.reload.verification_status, "an old Put back form doesn't undo a newer approval"
   end
 
   test "a unit has no Record page; its fact page opened from Live says Live" do
