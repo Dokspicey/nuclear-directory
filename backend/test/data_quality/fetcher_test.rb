@@ -223,4 +223,50 @@ class DataQuality::FetcherTest < ActiveSupport::TestCase
     assert_equal [ :error, 500 ], @fetcher.get(PAGE).then { |r| [ r.kind, r.status ] }
     assert_equal :error, @fetcher.get(PAGE).kind
   end
+
+  SEARCH = "https://example.gov/api/search/"
+
+  test "posts a JSON search honestly and returns the answer (#123)" do
+    stub = stub_request(:post, SEARCH)
+      .with(body: { "filters" => { "program_numbers" => [ "81.121" ] } }.to_json,
+        headers: { "User-Agent" => DataQuality::Fetcher::USER_AGENT, "Content-Type" => "application/json", "Accept" => "application/json" })
+      .to_return(body: '{"results":[]}', headers: { "Content-Type" => "application/json" })
+
+    response = @fetcher.post_json(SEARCH, { filters: { program_numbers: [ "81.121" ] } })
+
+    assert_requested stub
+    assert_equal [ :ok, '{"results":[]}' ], [ response.kind, response.body ]
+  end
+
+  test "a POST obeys robots.txt and the spacing between requests to one host" do
+    stub_request(:post, SEARCH).to_return(body: "{}")
+    @fetcher.post_json(SEARCH, {})
+    @fetcher.post_json(SEARCH, {})
+    assert_equal [ DataQuality::Fetcher::HOST_INTERVAL ] * 2, @sleeps, "robots.txt, then each POST, spaced"
+
+    response = @fetcher.post_json("https://example.gov/private/search", {})
+    assert_equal :disallowed, response.kind
+    assert_not_requested :post, "https://example.gov/private/search"
+  end
+
+  test "a POST that's blocked is reported, once; one that redirects isn't followed" do
+    stub_request(:post, SEARCH).to_return(status: 403, headers: { "Server" => "AkamaiGHost" })
+    assert_equal :blocked, @fetcher.post_json(SEARCH, {}).kind
+    assert_requested :post, SEARCH, times: 1
+
+    WebMock.reset!
+    stub_request(:get, ROBOTS).to_return(body: "")
+    stub_request(:post, SEARCH).to_return(status: 307, headers: { "Location" => "https://elsewhere.example/search" })
+    response = @fetcher.post_json(SEARCH, {})
+    assert_equal :error, response.kind
+    assert_match "a redirect after a POST isn't followed", response.reason
+    assert_not_requested :post, "https://elsewhere.example/search"
+  end
+
+  test "a POST goes only to a public https host" do
+    assert_match "only https", @fetcher.post_json("http://example.gov/api/search/", {}).reason
+    internal = DataQuality::Fetcher.new(sleeper: ->(_) { }, resolver: ->(_host) { [ "10.0.0.5" ] })
+    assert_match "internal address", internal.post_json("https://internal.example/api/", {}).reason
+    assert_not_requested :post, %r{internal\.example}
+  end
 end
