@@ -110,6 +110,40 @@ class DataQuality::Plugins::NrcDecommissioningTest < ActiveSupport::TestCase
     assert_requested @pages, times: 1
   end
 
+  test "a same-day rerun after a blocked site page fetches no later page" do
+    stub_request(:get, SITE_PAGES).to_return(status: 403, body: "Access Denied")
+    crawl
+
+    second = crawl
+
+    assert_equal({ "skipped_recent" => 1 }, second.stats["site_pages"])
+    assert_equal "site page blocked", second.stats["stopped"]
+    assert_requested @pages, times: 1
+  end
+
+  test "a site page is read again when the list maps a new unit to it, though its text is the same" do
+    licensees = FakeLicensees.new([ answer("Duke", "owns", DUKE_QUOTE) ])
+    with = plugin(licensees)
+    cr3_links = -> { Candidate.where(kind: "facility_relationship").select { |c| c.source.url == CR3_URL }.map { |c| c.payload.dig("facility", "nrc_docket") }.sort }
+    crawl(with)
+    DataQuality::Stages::Extract.call(plugin: with)
+    assert_equal [ "05000302" ], cr3_links.call
+
+    # Next day the list puts Dresden 1 on Crystal River's page too; the page itself is unchanged.
+    moved = list_html.sub("/facilities-safety/facility-finder/decommissioning/power-reactor/dresden-nuclear-power-station-unit-1",
+      "/facilities-safety/facility-finder/decommissioning/power-reactor/cr3")
+    stub_request(:get, Plugin::LIST_URL).to_return(body: moved)
+    Source.update_all(fetched_at: 2.days.ago)
+    calls = licensees.texts.size
+
+    run = crawl(with)
+    DataQuality::Stages::Extract.call(plugin: with)
+
+    assert_equal 19, run.stats["site_pages"]["unchanged"], "no page changed (Dresden 1 no longer has its own)"
+    assert_equal [ "05000010", "05000302" ], cr3_links.call
+    assert_equal calls + 1, licensees.texts.size, "only Crystal River's page is read again"
+  end
+
   test "a list without its table needs a human" do
     stub_request(:get, Plugin::LIST_URL).to_return(body: "<html><body>We moved things around</body></html>")
 

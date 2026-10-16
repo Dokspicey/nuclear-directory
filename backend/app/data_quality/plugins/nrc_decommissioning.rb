@@ -75,9 +75,14 @@ class DataQuality::Plugins::NrcDecommissioning < DataQuality::Plugin
 
     stats.merge!("units" => rows.size, "site_pages" => Hash.new(0))
     rows.filter_map(&:page_url).uniq.each do |url|
-      result = DataQuality::Snapshot.take(source(url, title: "NRC: #{rows.find { |row| row.page_url == url }.name}"), fetcher: @fetcher).to_s
+      page = source(url, title: "NRC: #{rows.find { |row| row.page_url == url }.name}")
+      result = DataQuality::Snapshot.take(page, fetcher: @fetcher).to_s
       stats["site_pages"][result] += 1
-      return stats.merge("stopped" => "site page blocked") if result == "blocked"
+      # A block recorded earlier today (still blocked, or escalated to
+      # needs_human) stops a same-day rerun too, before any later page.
+      return stats.merge("stopped" => "site page blocked") if result == "blocked" || page.blocked_streak.positive?
+
+      reread_if_units_changed(page)
     end
     stats
   end
@@ -87,10 +92,14 @@ class DataQuality::Plugins::NrcDecommissioning < DataQuality::Plugin
   end
 
   # The list's table rows, or a site page's text without its date stamp
-  # (#240): neither changes when only the stamp does.
+  # (#240): neither changes when only the stamp does. A site page's also
+  # covers the units the list maps to it, since its claims name them.
   def rows_sha256(source)
-    text = source.url == LIST_URL ? List.lines(source.content_text).join("\n") : page_text(source.content_text).gsub(PAGE_STAMP, "")
-    Digest::SHA256.hexdigest(text) if text.present?
+    return (Digest::SHA256.hexdigest(List.lines(source.content_text).join("\n")) if source.content_text.present?) if source.url == LIST_URL
+
+    text = page_text(source.content_text).gsub(PAGE_STAMP, "")
+    units = units_for(source).map { |row| [ row.nrc_docket, unit_name(row) ].join(" ") }.sort
+    Digest::SHA256.hexdigest([ text, *units ].join("\n")) if text.present?
   end
 
   # A unit gone from the list has usually finished decommissioning (its
@@ -154,6 +163,16 @@ class DataQuality::Plugins::NrcDecommissioning < DataQuality::Plugin
         new_source.source_kind = source_kind
         new_source.title = title
       end
+    end
+
+    # A site page whose units changed on the list (a docket added under it)
+    # while its own text didn't is read again: extract skips a page whose
+    # content it has already read, so its stored read is cleared.
+    def reread_if_units_changed(page)
+      return unless page.crawl_ok? && page.extracted_rows_sha256.present?
+      return if rows_sha256(page) == page.extracted_rows_sha256
+
+      page.update!(extracted_sha256: nil)
     end
 
     def list_candidates(source)
