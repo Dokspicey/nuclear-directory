@@ -39,8 +39,8 @@ class SeedsTest < ActiveSupport::TestCase
   test "loads the hand-checked organizations as verified facts with evidence" do
     load_seeds
 
-    assert_equal 52, Organization.verified.count
-    assert_equal 67, OrganizationRole.verified.count
+    assert_equal 53, Organization.verified.count
+    assert_equal 68, OrganizationRole.verified.count
     assert_equal 48, OrganizationTechnology.verified.count
     assert_equal 57, Relationship.verified.count
     assert_equal 34, Facility.verified.count
