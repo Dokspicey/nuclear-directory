@@ -111,7 +111,13 @@ namespace :directory do
     apply = ENV["APPLY"] == "1"
     counts = Hash.new(0)
     Relationship.where(relationship_type: "funds").where.not(verification_status: Verifiable::CLOSED_STATUSES).order(:id).each do |link|
-      sources = Source.where(id: link.evidence.select(:source_id), source_kind: "usaspending_doe_awards")
+      # Its own sources, and those of the same funds link to a company merged
+      # into its company (that link was retired by the merge; merged_into, #261).
+      merged = VerificationEvent.where(subject_type: "Organization", to_status: "unpublished")
+        .where("context -> 'merged_into' ->> 'id' = ?", link.to_organization_id.to_s).select(:subject_id)
+      retired = Relationship.where(from_organization_id: link.from_organization_id, to_organization_id: merged, relationship_type: "funds")
+      sources = Source.where(source_kind: "usaspending_doe_awards",
+        id: Evidence.where(subject: [ link, *retired ]).select(:source_id))
       sources.each do |source|
         CSV.parse(source.content_text, headers: true).each do |row|
           next if row["generated_award_id"].blank?

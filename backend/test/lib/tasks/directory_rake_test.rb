@@ -227,6 +227,19 @@ class DirectoryRakeTest < ActiveSupport::TestCase
     verified.evidence.create!(source: second_page, quote: "row", found_by: "crawler")
     assert_output(/1 award terms written, 3 already there/) { backfill_award_terms(BY: by, APPLY: "1") }
     assert_equal second_page.id, DealTerm.find_by!(external_id: "ASST_D").evidence.sole.source_id
+
+    # A company merged into X-energy before the backfill: its DOE link was retired, and its awards land on X-energy's.
+    duplicate = Organization.create!(name: "X-energy Duplicate", verification_status: "verified", verified_by: by)
+    retired = Relationship.create!(from_organization: doe, to_organization: duplicate, relationship_type: "funds",
+      verification_status: "verified", verified_by: by)
+    retired.evidence.create!(source: page.("https://www.usaspending.gov/recipient/x-energy-dup/latest", [
+      [ "DE-NE0008888", "X ENERGY DUP", "7000000.00", "2024-03-01", "", "assistance", "81.121", "nuclear",
+        "https://www.usaspending.gov/award/ASST_E", "ASST_E", "xd-C", "Dup" ]
+    ]), quote: "row", found_by: "crawler")
+    assert Directory::FactWriter.merge_organization(from_id: duplicate.id, into_id: xenergy.id, by:).ok?
+    assert retired.reload.rejected?
+    assert_output(/1 award terms written, 4 already there/) { backfill_award_terms(BY: by, APPLY: "1") }
+    assert_equal verified, DealTerm.find_by!(external_id: "ASST_E").link
     assert_raises(SystemExit) { capture_io { backfill_award_terms(BY: "agent:x") } }
   end
 end
