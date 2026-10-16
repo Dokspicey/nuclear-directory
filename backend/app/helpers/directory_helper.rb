@@ -216,9 +216,10 @@ module DirectoryHelper
     current = ->(l) { (l.started_on.nil? || l.started_on <= Date.current) && (l.ended_on.nil? || l.ended_on > Date.current) }
     places = ->(type) { profile.plant_links.select { |l| l.relationship_type == type && current.call(l) }.map { |l| l.facility.parent || l.facility }.uniq }
     sites = ->(type) { places.call(type).map(&:name) }
-    # "plant" only when every one is a power plant; a mine or fuel plant makes it "site" (VOICE.md).
-    noun = ->(type) { places.call(type).all? { |site| site.facility_type == "power_reactor" } ? "plant" : "site" }
-    deals_out = ->(type) { profile.deals.select { |d| d.relationship_type == type && d.from_organization_id == profile.organization.id }.map { |d| d.to_organization.name }.uniq }
+    # "plant" only when every one is a published power plant; a mine, a fuel
+    # plant or a type that isn't published makes it "site" (VOICE.md).
+    noun = ->(type) { places.call(type).all? { |site| profile.plant_facts?(site) && site.facility_type == "power_reactor" } ? "plant" : "site" }
+    deals_out = ->(type) { profile.deals.select { |d| d.relationship_type == type && d.from_organization_id == profile.organization.id && current.call(d) }.map { |d| d.to_organization.name }.uniq }
     facts = [
       ("Owns #{listed.call(sites.call('owns'), noun.call('owns'))}" if sites.call("owns").any?),
       ("Operates #{listed.call(sites.call('operates'), noun.call('operates'))}" if sites.call("operates").any?),
@@ -241,9 +242,12 @@ module DirectoryHelper
   end
 
   # Companies that invest in this one (equity, invests_in), from the deals the
-  # page shows. Grants and awards (funds) aren't investment (DATA.md).
+  # page shows and in effect today. Grants and awards (funds) aren't
+  # investment (DATA.md).
   def investors_of(profile)
-    profile.deals.select { |d| d.relationship_type == "invests_in" && d.to_organization_id == profile.organization.id }
+    today = Date.current
+    profile.deals.select { |d| d.relationship_type == "invests_in" && d.to_organization_id == profile.organization.id &&
+      (d.started_on.nil? || d.started_on <= today) && (d.ended_on.nil? || d.ended_on > today) }
       .map { |d| d.from_organization.name }.uniq
   end
 

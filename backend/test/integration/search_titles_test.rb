@@ -71,6 +71,19 @@ class SearchTitlesTest < ActionDispatch::IntegrationTest
     assert_equal "Helion Energy: Develops fusion power plants. Investors include Lightspeed.", description
   end
 
+  test "an ended deal isn't present tense, and an unpublished plant type isn't called a plant" do
+    supplier = cite!(company("Old Supplier", roles: [ role("fuel") ], description: "Made fuel."))
+    cite!(link(supplier, "supplies", cite!(company("Past Customer")))).update!(ended_on: Date.new(2020, 1, 1))
+    owner = cite!(company("Owner Co", description: "Owns things."))
+    [ "Unknown One", "Unknown Two" ].each { |name| cite!(link(owner, "owns", plant(name, facility_type: "power_reactor"))) }
+
+    get company_path(slug: supplier.slug)
+    assert_no_match(/Supplies/, description)
+
+    get company_path(slug: owner.slug)
+    assert_match(/and 1 other site\./, description)
+  end
+
   test "a mine or fuel plant among them makes them sites, not plants" do
     miner = cite!(company("Energy Fuels", roles: [ role("fuel") ], description: "Produces uranium."))
     cite!(link(miner, "owns", cite!(plant("Pinyon Plain Mine", facility_type: "uranium_mine"))))
