@@ -58,7 +58,9 @@ class Admin::SourcesControllerTest < ActionDispatch::IntegrationTest
     assert_equal [ "1", facts.to_s, "15 Oct 07:00", "OK" ], cells(reactors).drop(1)
     assert_match "Last run", cells(reactors).first
     assert_select "a[href=?]", admin_live_path(within: "nrc_reactor_list"), facts.to_s
-    assert_select "tr", /\AUSAspending\s*—\s*—\s*—\s*Soon\z/, "a crawler that hasn't run yet"
+    assert_select "tr", /\AUSAspending\s*—\s*—\s*—\s*Soon\z/, "a crawler not built into the daily crawl yet"
+    assert_select "td.nd-sources__blank", 6, "on phones a Soon row (USAspending and its API) is its name and Soon only"
+    assert_select "tr", /EIA-860M index.*0\s+0\s+—\s+Not read yet/m, "a daily crawler before its first read"
     company = css_select("tr").find { |row| row.text.include?("Company sites") }
     sites = SourceCatalog.entry("company-sites")
     assert_equal [ "Company sites", sites.documents.to_s, sites.facts.to_s, "—", "Not checked by the crawler" ], cells(company)

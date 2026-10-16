@@ -747,5 +747,14 @@
     .nd-sources__search { max-width: none; flex-basis: 100%; }
     /* What a bare number counts, said after it. */
     .nd-stack-table td[data-unit]::after { content: " " attr(data-unit); font: 400 13px/18px var(--font-text); color: var(--nd-ink-muted); }
+    /* Sources (Design, #285): a stacked row is one link to its source; the
+       facts count is plain text there, and "Last run" still opens. A Soon
+       row is its name and "Soon" only. */
+    .nd-sources--list tbody tr { position: relative; min-height: 44px; }
+    .nd-sources--list td:first-child > a.nd-link::after { content: ""; position: absolute; inset: 0; }
+    .nd-sources--list .nd-sources__facts a { pointer-events: none; color: inherit; text-decoration: none; }
+    .nd-sources--list .nd-sources__run { position: relative; z-index: 1; }
+    .nd-sources--list .nd-sources__run > summary { min-height: 44px; display: flex; align-items: center; }
+    .nd-sources__blank { display: none !important; }
   }
 }

@@ -28,11 +28,12 @@ class SourceCatalog
   end
 
   # Crawler kinds, as the admin names them, in this order. note: what it's for, when it backs no facts itself.
+  # daily: the daily crawl reads it, so before its first read it's "Not read yet", not Soon.
   OFFICIAL = {
-    "nrc_reactor_list" => { name: "NRC reactor list" },
-    "eia_generators" => { name: "EIA-860M generators" },
-    "nrc_power_status" => { name: "NRC power status", note: "cross-check only" },
-    "eia_860m_index" => { name: "EIA-860M index", note: "finds the monthly file" },
+    "nrc_reactor_list" => { name: "NRC reactor list", daily: true },
+    "eia_generators" => { name: "EIA-860M generators", daily: true },
+    "nrc_power_status" => { name: "NRC power status", note: "cross-check only", daily: true },
+    "eia_860m_index" => { name: "EIA-860M index", note: "finds the monthly file", daily: true },
     "usaspending_doe_awards" => { name: "USAspending" },
     "usaspending_api" => { name: "USAspending API", note: "the award search" }
   }.freeze
@@ -128,7 +129,7 @@ class SourceCatalog
         statuses = sources.distinct.pluck(:crawl_status)
         Entry.new(key:, name:, note:, kind:, documents: sources.count, facts: public_facts(sources.ids).uniq { |_, type, id| [ type, id ] }.size,
           last_read_at: sources.maximum(:fetched_at), status: STATUS_ORDER.find { |status| statuses.include?(status) },
-          soon: sources.none?)
+          soon: sources.none? && !OFFICIAL.dig(kind, :daily))
       end
 
       def documents_for(scope)
