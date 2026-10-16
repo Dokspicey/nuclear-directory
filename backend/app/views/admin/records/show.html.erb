@@ -12,7 +12,8 @@
 %>
 
 <div class="nd-shell__head">
-  <%= render "admin/crumbs", parent_label: "Live", parent_path: back, current: @fact.name.to_s.upcase_first %>
+  <% trail = [ [ "Live", related_context[:live] ], [ related_context[:name], related_context[:path] ] ] if related_context %>
+  <%= render "admin/crumbs", parent_label: "Live", parent_path: back, trail:, current: @fact.name.to_s.upcase_first %>
   <%= render "admin/itemnav", list: @list if @list %>
 </div>
 
@@ -99,3 +100,5 @@
     </details>
   </aside>
 </div>
+
+<%= render "admin/records/related", related: @related %>

@@ -6,7 +6,12 @@ class Admin::FactsController < Admin::BaseController
 
   def show
     @fact = DataQuality::Review.fact(type: params[:type], id: params[:id].to_i) or raise ActiveRecord::RecordNotFound
-    @list = params[:from] == "live" ? live_position(@fact.type, @fact.id) : (list_position if params[:from] == "checks")
+    @list =
+      case params[:from]
+      when "live" then live_position(@fact.type, @fact.id)
+      when "record" then related_context&.dig(:list)
+      when "checks" then list_position
+      end
     # Decide here (#269): the claim this page was opened for (a Checks row is
     # one claim), else the oldest waiting on it, or the fact itself when it's
     # pending with none.
@@ -37,24 +42,32 @@ class Admin::FactsController < Admin::BaseController
     end
 
     result = DataQuality::Review.unpublish(type: params[:type], id: params[:id].to_i, by: actor, reason: params[:reason].strip)
-    flash_results([ result ], "Unpublished")
+    flash_named(result, "Taken off")
     redirect_after next_or(fact_path_here)
   end
 
   def republish
     result = DataQuality::Review.republish(type: params[:type], id: params[:id].to_i, by: actor, reason: params[:reason].presence)
-    flash_results([ result ], "Republished")
+    flash_named(result, "Put back")
     redirect_after next_or(fact_path_here)
   end
 
   private
+    # "Taken off: Georgia Power owns Plant Vogtle." (Design, #166), or the error.
+    def flash_named(result, verb)
+      return flash_results([ result ], verb) unless result.ok?
+
+      name = DataQuality::Review.fact(type: params[:type], id: params[:id].to_i)&.name
+      flash[:notice] = name ? "#{verb}: #{name.to_s.upcase_first}." : "#{verb}."
+    end
+
     def check_type
       raise ActiveRecord::RecordNotFound unless DataQuality::Review.fact_kinds.map(&:camelize).include?(params[:type])
     end
 
     # This page again, with where it was opened from.
     def fact_path_here = admin_fact_path(type: params[:type], id: params[:id], **context, claim: params[:claim].presence)
-    def context = params.permit(:from, :back).to_h.symbolize_keys.compact_blank
+    def context = params.permit(:from, :section, :row, :back).to_h.symbolize_keys.compact_blank
     helper_method :context
 
     # Where this item (the fact, or one claim on it) sits in the Checks list

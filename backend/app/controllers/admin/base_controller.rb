@@ -69,6 +69,43 @@ class Admin::BaseController < ApplicationController
       nil
     end
 
+    # Opened from a row of a Record's related items (from=record, back=that
+    # Record, section, row): that Record's name and page, its own way back
+    # (the Live list), and Previous and Next through the section's rows.
+    def related_context
+      return @related_context if defined?(@related_context)
+
+      @related_context = begin
+        back = back_path(nil) if params[:from] == "record"
+        uri = URI.parse(back) if back
+        route = Rails.application.routes.recognize_path(uri.path) if uri
+        if route && route[:controller] == "admin/records" && route[:action] == "show" && (record = route[:type].constantize.find_by(id: route[:id]))
+          up = Rack::Utils.parse_query(uri.query.to_s)["back"].to_s
+          related = RelatedItems.new(record)
+          position = related.neighbours(params[:section].to_s, params[:row].to_s.split("-", 2).then { |type, id| [ type, id.to_i ] })
+          path = ->(row) { row && related_row_path(row, params[:section], back) }
+          { name: record.name, path: back, live: up.match?(%r{\A/admin(?:[/?#]|\z)}) ? up : admin_live_path,
+            list: position&.merge(previous: path.(position[:previous]), next: path.(position[:next])) }
+        end
+      end
+    rescue URI::InvalidURIError, ActionController::RoutingError
+      @related_context = nil
+    end
+    helper_method :related_context
+
+    # A related row's page, opened from a Record: a company's or site's
+    # Record, else the unit's fact page, with the way back and the section.
+    def related_row_path(row, section, record_path)
+      type, id = row.target
+      context = { from: "record", section:, row: row.item.join("-"), back: record_path }
+      if type == "Organization" || (type == "Facility" && Facility.where(id:, parent_id: nil).exists?)
+        admin_record_path(type:, id:, **context)
+      else
+        admin_fact_path(type:, id:, **context)
+      end
+    end
+    helper_method :related_row_path
+
     # A Live list item's page: a company's or site's Record, else its fact page.
     def live_item_path(key, back, tab = nil)
       type, id = key
