@@ -1,89 +1,99 @@
-<% content_for :title, "Sources and runs" %>
+<% content_for :title, "Sources" %>
+<% num = ->(n) { n.nil? || n.zero? ? "—" : number_with_delimiter(n) } %>
 
-<div class="nd-stack">
-  <h1 class="type-title-md m-0">Sources and runs</h1>
-  <p class="m-0 max-w-prose text-ink-muted">What the crawler can reach, what each stage did last, and what the models cost this month.</p>
+<h1 class="type-admin-h1">Sources <span class="type-count"><%= @rows.size %></span></h1>
+
+<div class="overflow-x-auto">
+  <table class="nd-numtable">
+    <thead>
+      <tr><th scope="col">Source</th><th scope="col">Last read</th><th scope="col">Read</th><th scope="col">Same</th><th scope="col">Changed</th><th scope="col">Approved</th><th scope="col">Rejected</th><th scope="col">Live</th></tr>
+    </thead>
+    <tbody>
+      <% @rows.each do |row| %>
+        <tr>
+          <td class="type-body"><%= source_kind_label(row.source_kind) %> <span class="type-data-sm text-ink-muted"><%= row.source_kind %></span></td>
+          <td class="type-data text-ink-muted">
+            <% if row.failed %><span class="text-critical"><%= icon("warning-circle") %> Failed</span>
+            <% elsif row.last_read_at %><%= row.last_read_at.strftime("%-d %b %H:%M") %>
+            <% else %>—<% end %>
+          </td>
+          <td class="type-cell-num"><%= num.(row.read) %></td>
+          <td class="type-cell-num"><%= num.(row.same) %></td>
+          <td class="type-cell-num"><%= row.changed.positive? ? link_to(number_with_delimiter(row.changed), admin_checks_path(source: row.source_kind), class: "nd-link") : "—" %></td>
+          <td class="type-cell-num"><%= num.(row.approved) %></td>
+          <td class="type-cell-num"><%= num.(row.rejected) %></td>
+          <td class="type-cell-num"><%= num.(row.live) %></td>
+        </tr>
+      <% end %>
+      <tr>
+        <td class="type-body"><%= link_to "Correction requests", admin_corrections_path, class: "nd-link", title: "From visitors" %></td>
+        <td class="type-data text-ink-muted"><%= @corrections[:last] ? @corrections[:last].strftime("%-d %b") : "—" %></td>
+        <td class="type-cell-num"><%= num.(@corrections[:total]) %></td>
+        <td class="type-cell-num">—</td>
+        <td class="type-cell-num"><%= @corrections[:open].positive? ? link_to(@corrections[:open], admin_corrections_path, class: "nd-link") : "—" %></td>
+        <td class="type-cell-num">—</td>
+        <td class="type-cell-num">—</td>
+        <td class="type-cell-num">—</td>
+      </tr>
+    </tbody>
+  </table>
 </div>
 
-<section class="nd-stack">
-  <h2 class="nd-sec-h">Model spend <small class="nd-num"><%= Time.current.strftime("%B %Y") %></small></h2>
-  <p class="m-0 type-body">
-    <span class="nd-num"><%= money(@spend.cost) %></span> of the <span class="nd-num">$<%= format("%.2f", @spend.budget) %></span> monthly budget
-    (<span class="nd-num"><%= (@spend.share * 100).floor %>%</span>), from <span class="nd-num"><%= number_with_delimiter(@spend.calls) %></span>
-    <%= "call".pluralize(@spend.calls) %> and <span class="nd-num"><%= number_with_delimiter(@spend.total_tokens) %></span> <%= "token".pluralize(@spend.total_tokens) %>.
-  </p>
-  <%# Present when the page loads, so status rather than alert (an alert is for the result of an action). %>
-  <% if @spend.share >= 1 %>
-    <p class="m-0 type-body" role="status">The budget is used up. Model calls are refused until next month or until the budget is raised.</p>
-  <% elsif @spend.share >= 0.8 %>
-    <p class="m-0 type-body"><%= money(@spend.cost).upcase_first %> of <%= money(@spend.budget) %> used; model calls stop at 100%.</p>
-  <% end %>
-</section>
+<details class="nd-fold">
+  <summary class="type-body">Needs attention <span class="type-data nd-num"><%= @sources.attention.size %></span></summary>
+  <div class="nd-fold__body">
+    <% if @sources.attention.empty? %>
+      <p class="nd-fold__row type-body text-ink-muted">Nothing. <%= safe_join(@sources.by_status.map { |status, n| "#{crawl_status_label(status)} #{n}" }, " · ") %></p>
+    <% end %>
+    <% @sources.attention.each do |source| %>
+      <% url = safe_url(source.url) %>
+      <div class="nd-fold__row type-body" id="source-<%= source.id %>">
+        <p>
+          <%= crawl_status_label(source.crawl_status) %>:
+          <% if url %><%= link_to url, class: "nd-link", target: "_blank", rel: "noopener" do %><%= source.title.presence || source_host(url) %> <%= icon("arrow-square-out", size: 12) %><% end %><% else %><%= source.url %><% end %>
+          <br><span class="type-small text-ink-muted"><%= source.status_reason.presence || "No reason recorded." %><% if source.blocked_streak.to_i.positive? %> Blocked <%= pluralize(source.blocked_streak, "day") %> in a row.<% end %></span>
+        </p>
+        <span class="type-data text-ink-muted"><%= source.fetched_at&.utc&.strftime("%-d %b %H:%M") %></span>
+      </div>
+    <% end %>
+  </div>
+</details>
 
-<section class="nd-stack">
-  <h2 class="nd-sec-h">Sources <small class="nd-num"><%= @sources.total %></small></h2>
-  <p class="m-0 type-small text-ink-muted">
-    <%= safe_join(@sources.by_status.map { |status, n| "#{crawl_status_label(status)} #{n}" }, " · ") %>
-  </p>
-  <% if @sources.attention.empty? %>
-    <p class="m-0">No source needs attention.</p>
-  <% else %>
-    <ol class="nd-items">
-      <% @sources.attention.each do |source| %>
-        <% url = safe_url(source.url) %>
-        <li class="nd-item nd-item--single" id="source-<%= source.id %>">
-          <div class="nd-item__main">
-            <p class="nd-item__claim type-body-strong">
-              <%= crawl_status_label(source.crawl_status) %>:
-              <% if url %><%= link_to url, class: "nd-link", target: "_blank", rel: "noopener" do %><%= source.title.presence || source_host(url) %> <%= icon("arrow-square-out", size: 12) %><% end %><% else %><%= source.url %><% end %>
-            </p>
-            <p class="nd-item__why type-body"><%= source.status_reason.presence || "No reason recorded." %></p>
-            <div class="nd-item__meta type-small">
-              <span class="nd-num"><%= source.source_kind %></span>
-              <% if source.blocked_streak.to_i.positive? %><span>Blocked <span class="nd-num"><%= source.blocked_streak %></span> <%= "day".pluralize(source.blocked_streak) %> in a row</span><% end %>
-              <% if source.fetched_at %><span>Last tried <span class="nd-num"><%= source.fetched_at.utc.strftime("%Y-%m-%d %H:%M") %></span> UTC</span><% end %>
-            </div>
-          </div>
-        </li>
-      <% end %>
-    </ol>
-  <% end %>
-</section>
+<details class="nd-fold">
+  <summary class="type-body">Last run per stage <span class="type-data nd-num"><%= @runs.running.size + @runs.latest.size %></span></summary>
+  <div class="nd-fold__body">
+    <% if @runs.latest.empty? && @runs.running.empty? %>
+      <p class="nd-fold__row type-body text-ink-muted">No runs yet.</p>
+    <% end %>
+    <% (@runs.running + @runs.latest).each do |run| %>
+      <div class="nd-fold__row type-body">
+        <p>
+          <span class="type-data"><%= run.source_kind %></span> · <%= run.stage.humanize %> ·
+          <% if run.failed? %><span class="text-critical"><%= icon("warning-circle") %> Failed</span><% else %><%= run.status.humanize %><% end %>
+          <br><span class="type-small text-ink-muted"><%= run.failed? ? run.error.to_s.truncate(160) : run_detail(run.stats) %></span>
+        </p>
+        <span class="type-data text-ink-muted"><%= run.started_at.utc.strftime("%-d %b %H:%M") %> · <%= run_duration(run.duration) %></span>
+      </div>
+    <% end %>
+  </div>
+</details>
 
-<section class="nd-stack">
-  <h2 class="nd-sec-h">Last run per stage</h2>
-  <% if @runs.latest.empty? && @runs.running.empty? %>
-    <p class="m-0 text-ink-muted">No runs yet.</p>
-  <% else %>
-    <%# The shared card table (#97): one card per run on phones, labels before values (#90). %>
-    <div class="nd-table-wrap nd-table-wrap--cards">
-      <table class="nd-table nd-table--cards">
-        <thead><tr><th scope="col">Run</th><th scope="col">Result</th><th scope="col">Started (UTC)</th><th scope="col">Time</th><th scope="col">Detail</th></tr></thead>
-        <tbody>
-          <% (@runs.running + @runs.latest).each do |run| %>
-            <tr>
-              <th scope="row"><span class="type-data-sm"><%= run.source_kind %></span> · <%= run.stage.humanize %></th>
-              <td data-label="Result">
-                <% if run.failed? %>
-                  <span class="text-critical"><%= icon("warning-circle") %> Failed</span>
-                <% else %>
-                  <%= run.status.humanize %>
-                <% end %>
-              </td>
-              <td class="type-data-sm" data-label="Started (UTC)"><%= run.started_at.utc.strftime("%Y-%m-%d %H:%M") %></td>
-              <td class="type-data-sm" data-label="Time"><%= run_duration(run.duration) %></td>
-              <td class="type-small" data-label="Detail"><%= run.failed? ? run.error.to_s.truncate(160) : run_detail(run.stats) %></td>
-            </tr>
-          <% end %>
-        </tbody>
-      </table>
-    </div>
-  <% end %>
-</section>
+<details class="nd-fold">
+  <summary class="type-body">Model spend <span class="type-data nd-num"><%= money(@spend.cost) %></span></summary>
+  <div class="nd-fold__body">
+    <p class="nd-fold__row type-body">
+      <span><%= Time.current.strftime("%B %Y") %>: <span class="nd-num"><%= number_with_delimiter(@spend.calls) %></span> <%= "call".pluralize(@spend.calls) %>, <span class="nd-num"><%= number_with_delimiter(@spend.total_tokens) %></span> <%= "token".pluralize(@spend.total_tokens) %></span>
+      <span class="type-data"><%= money(@spend.cost) %> of $<%= format("%.2f", @spend.budget) %> (<%= (@spend.share * 100).floor %>%)</span>
+    </p>
+    <%# Present when the page loads, so status rather than alert (an alert is for the result of an action). %>
+    <% if @spend.share >= 1 %>
+      <p class="nd-fold__row type-body" role="status">The budget is used up. Model calls are refused until next month or until the budget is raised.</p>
+    <% elsif @spend.share >= 0.8 %>
+      <p class="nd-fold__row type-body"><%= money(@spend.cost).upcase_first %> of <%= money(@spend.budget) %> used; model calls stop at 100%.</p>
+    <% end %>
+  </div>
+</details>
 
 <% if @analytics_url %>
-  <section class="nd-stack">
-    <h2 class="nd-sec-h">Visitors</h2>
-    <p class="m-0"><%= link_to @analytics_url, class: "nd-link", target: "_blank", rel: "noopener" do %>Open the PostHog dashboard<% end %></p>
-  </section>
+  <p class="type-body"><%= link_to @analytics_url, class: "nd-link", target: "_blank", rel: "noopener" do %>Visitors on PostHog <%= icon("arrow-square-out", size: 12) %><% end %></p>
 <% end %>

@@ -14,26 +14,49 @@
   </head>
 
   <body>
-    <header class="nd-sitebar">
-      <div class="nd-sitebar__inner">
-        <a class="nd-wordmark" href="<%= authenticated? ? admin_root_path : root_path %>"><span class="sr-only">Nuclear Directory</span><%= render "shared/wordmark" %></a>
-        <span class="type-label">Admin</span>
-        <% if authenticated? %>
-          <nav class="nd-adminnav type-ui" aria-label="Admin">
-            <%= link_to "Review queue", admin_candidates_path, aria: { current: ("page" if controller_name == "candidates") } %>
-            <%= link_to "Pending facts", admin_pending_facts_path, aria: { current: ("page" if controller_name == "pending_facts") } %>
-            <%= link_to "Corrections", admin_corrections_path, aria: { current: ("page" if controller_name == "corrections") } %>
-            <%= link_to "Sources and runs", admin_status_path, aria: { current: ("page" if controller_name == "status") } %>
-            <%= button_to "Sign out", session_path, method: :delete, class: "nd-btn nd-btn--ghost nd-btn--sm" %>
+    <% if authenticated? %>
+      <%# The stages down the left (#201, canvas A); on phones, behind Menu. %>
+      <div class="nd-shell">
+        <header class="nd-shell__side" data-controller="admin-menu">
+          <div class="nd-shell__brand">
+            <a class="nd-wordmark" href="<%= admin_root_path %>"><span class="sr-only">Nuclear Directory admin</span><%= render "shared/wordmark" %></a>
+            <button type="button" class="nd-btn nd-btn--outline type-ui nd-shell__menu" hidden aria-controls="admin-nav" aria-expanded="true"
+              data-admin-menu-target="button" data-action="admin-menu#toggle">Menu</button>
+          </div>
+          <nav id="admin-nav" class="nd-shell__nav type-body" aria-label="Admin">
+            <% admin_nav_items.each do |item| %>
+              <% if item[:soon] %>
+                <span class="nd-shell__soon text-ink-muted"><span><%= item[:label] %><span class="sr-only">,</span></span> <span class="nd-tag">Soon</span></span>
+                <% next %>
+              <% end %>
+              <%= link_to item[:path], class: (item[:gap] ? "nd-shell__gap" : nil), title: item[:title], aria: { current: ("page" if item[:current]) } do %>
+                <span><%= item[:label] %></span><%= " " if item[:count] %><% if item[:count] %><span class="type-data nd-num"><%= number_with_delimiter(item[:count]) %></span><% end %>
+              <% end %>
+            <% end %>
           </nav>
-        <% end %>
-      </div>
-    </header>
+          <div class="nd-shell__foot">
+            <%= button_to "Sign out", session_path, method: :delete, class: "nd-btn nd-btn--ghost nd-btn--sm type-ui" %>
+          </div>
+        </header>
 
-    <main class="nd-page">
-      <% if notice %><div class="nd-flash" role="status"><p class="type-body"><%= notice %></p></div><% end %>
-      <% if alert %><div class="nd-flash" role="alert"><%= icon("warning-circle") %><p class="type-body-strong"><%= alert %></p></div><% end %>
-      <%= yield %>
-    </main>
+        <main class="nd-shell__main">
+          <% if notice %><div class="nd-flash" role="status"><p class="type-body"><%= admin_notice %></p></div><% end %>
+          <% if alert %><div class="nd-flash" role="alert"><%= icon("warning-circle") %><p class="type-body-strong"><%= alert %></p></div><% end %>
+          <%= yield %>
+        </main>
+      </div>
+    <% else %>
+      <header class="nd-sitebar">
+        <div class="nd-sitebar__inner">
+          <a class="nd-wordmark" href="<%= root_path %>"><span class="sr-only">Nuclear Directory</span><%= render "shared/wordmark" %></a>
+          <span class="type-label">Admin</span>
+        </div>
+      </header>
+      <main class="nd-page">
+        <% if notice %><div class="nd-flash" role="status"><p class="type-body"><%= notice %></p></div><% end %>
+        <% if alert %><div class="nd-flash" role="alert"><%= icon("warning-circle") %><p class="type-body-strong"><%= alert %></p></div><% end %>
+        <%= yield %>
+      </main>
+    <% end %>
   </body>
 </html>

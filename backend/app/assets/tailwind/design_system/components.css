@@ -330,15 +330,10 @@
   }
 }
 
-/* Admin (#86): header and nav, flash messages, form fields, review items,
+/* Admin (#86): flash messages, form fields, review items (the edit page),
    the bulk bar (desktop only) and key-value lists. Layout only: type comes
    from the type-* utilities in the markup (DESIGN.md). */
 @layer components {
-  .nd-adminnav { flex: 1 1 300px; display: flex; flex-wrap: wrap; align-items: center; gap: var(--nd-space-1) var(--nd-space-4); }
-  .nd-adminnav a { white-space: nowrap; color: var(--nd-ink-muted); text-decoration: none; padding: var(--nd-space-2) 0; border-bottom: 2px solid transparent; }
-  .nd-adminnav a:hover { color: var(--nd-ink); }
-  .nd-adminnav a[aria-current="page"] { color: var(--nd-ink); border-bottom-color: var(--nd-ink); }
-  .nd-adminnav form { margin-left: auto; }
 
   /* Like .nd-alert (#103): a 1px ink border; an alert adds the warning icon
      and a bold lead. Color isn't used for state. */
@@ -386,10 +381,139 @@
   /* 44px tap targets on touch screens: buttons and fields grow; small links
      get an invisible 44px hit area (the .nd-src pattern). */
   @media (pointer: coarse) {
-    .nd-item__actions .nd-btn, .nd-adminnav a, .nd-adminnav .nd-btn, .nd-filters .nd-btn, .nd-filters .nd-select, .nd-input { min-height: 44px; }
+    .nd-item__actions .nd-btn, .nd-filters .nd-btn, .nd-filters .nd-select, .nd-input { min-height: 44px; }
     .nd-filters .nd-select select { min-height: 42px; }
     .nd-item__meta a, .nd-tap { position: relative; }
     .nd-item__meta a::after, .nd-tap::after { content: ""; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); transform: translate(-50%, -50%); }
+  }
+}
+
+/* Admin v2 (#201, canvas A): the stages down a left nav, big counts, one
+   row per item with its buttons on the right, details behind a click.
+   Square corners, as on the canvas. Layout only: type comes from the
+   type-* utilities in the markup. */
+@layer components {
+  .nd-shell { display: flex; min-height: 100vh; background: var(--nd-paper); }
+  .nd-shell__side { flex: none; width: 240px; box-sizing: border-box; padding: var(--nd-space-6) var(--nd-space-4); border-right: var(--nd-hairline) solid var(--nd-rule); display: flex; flex-direction: column; gap: 2px; }
+  .nd-shell__brand { display: flex; justify-content: space-between; align-items: center; gap: var(--nd-space-3); padding: 0 var(--nd-space-3) 20px; }
+  .nd-shell__brand .nd-wordmark__svg { height: 17px; }
+  .nd-shell__menu { display: none; }
+  .nd-shell__nav { display: flex; flex-direction: column; gap: 2px; }
+  .nd-shell__nav a { display: flex; justify-content: space-between; align-items: center; gap: var(--nd-space-3); min-height: 44px; padding: 0 var(--nd-space-3); color: var(--nd-ink); text-decoration: none; }
+  .nd-shell__nav a:hover { background: var(--nd-paper-sunken); }
+  .nd-shell__nav a[aria-current="page"] { background: var(--nd-inverse); color: var(--nd-on-inverse); }
+  .nd-shell__soon { display: flex; justify-content: space-between; align-items: center; gap: var(--nd-space-3); min-height: 44px; padding: 0 var(--nd-space-3); cursor: default; }
+  .nd-shell__soon > span:first-child { white-space: nowrap; }
+  .nd-shell__soon .nd-tag { flex: none; }
+  .nd-shell__gap { margin-top: var(--nd-space-4); }
+  .nd-shell__foot { margin-top: auto; padding: var(--nd-space-6) var(--nd-space-3) 0; }
+  .nd-shell__main { flex: 1 1 auto; min-width: 0; box-sizing: border-box; padding: var(--nd-space-8) 40px var(--nd-space-12); display: flex; flex-direction: column; gap: var(--nd-space-4); }
+  .nd-shell__main > * { margin: 0; }
+  .nd-shell__head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--nd-space-3); }
+  .nd-shell__head > * { margin: 0; }
+  .nd-shell__head--date { justify-content: flex-start; align-items: baseline; gap: var(--nd-space-4); }
+  .nd-shell__head--section { padding-top: var(--nd-space-3); }
+  /* Breadcrumb above an inner page (#269): the trail on wider screens, one
+     back link to the parent on phones. Separators come from CSS. */
+  .nd-crumbs ol { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--nd-space-1) 6px; }
+  .nd-crumbs li + li::before { content: "/"; color: var(--nd-control); margin-right: 6px; }
+  .nd-crumbs__back { display: none; }
+  .nd-itemnav { display: flex; align-items: center; gap: var(--nd-space-2); }
+  /* The decision bar on an item page (#269): top right on desktop, wrapping
+     right-aligned; a sticky bar at the bottom on phones. Reject opens its
+     reason panel under it (a bottom sheet on phones). */
+  .nd-decide { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: var(--nd-space-1); }
+  .nd-decide__buttons { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--nd-space-2); position: relative; }
+  .nd-decide__reject > summary { list-style: none; }
+  .nd-decide__reject > summary::-webkit-details-marker { display: none; }
+  .nd-decide__panel { position: absolute; right: 0; top: calc(100% + var(--nd-space-2)); z-index: 20; width: min(360px, 90vw); }
+  .nd-decide__result { margin: 0 0 0 auto; color: var(--nd-ink-muted); }
+  @media (max-width: 560px) {
+    .nd-crumbs ol { display: none; }
+    .nd-crumbs__back { display: inline-flex; align-items: center; min-height: 44px; }
+    .nd-itemnav { width: 100%; justify-content: space-between; }
+    .nd-itemnav .nd-btn, .nd-itemnav > span { min-height: 44px; display: inline-flex; align-items: center; }
+    .nd-decide { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; margin: 0; align-items: stretch; background: var(--nd-paper-raised); border-top: var(--nd-hairline) solid var(--nd-rule); padding: var(--nd-space-3) var(--nd-space-4) calc(var(--nd-space-3) + env(safe-area-inset-bottom)); }
+    .nd-decide__buttons { flex-wrap: nowrap; position: static; }
+    .nd-decide__buttons > *, .nd-decide .nd-decide__reject > summary { flex: 1 1 0; justify-content: center; }
+    .nd-decide .nd-decide__reject { display: flex; flex: 1 1 0; }
+    .nd-decide__panel { position: fixed; left: 0; right: 0; bottom: 0; top: auto; width: auto; border-radius: 0; padding-bottom: calc(var(--nd-space-4) + env(safe-area-inset-bottom)); }
+    .nd-shell__main:has(.nd-decide) { padding-bottom: 120px; }
+  }
+
+  /* Square controls at 44px (canvas A). */
+  .nd-shell .nd-btn { border-radius: 0; height: auto; min-height: 44px; padding: 0 var(--nd-space-4); }
+  .nd-btn--outline { background: transparent; border-color: var(--nd-ink); }
+  .nd-btn--outline:hover { background: var(--nd-paper-sunken); }
+  .nd-btn--danger { background: transparent; border-color: var(--nd-critical); color: var(--nd-critical); }
+
+  /* Stage tiles and counts */
+  .nd-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--nd-space-2); }
+  .nd-tile { background: var(--nd-paper-raised); border: var(--nd-hairline) solid var(--nd-rule); padding: 18px; display: flex; flex-direction: column; gap: 6px; color: var(--nd-ink); text-decoration: none; }
+  a.nd-tile:hover { border-color: var(--nd-ink); }
+  .nd-tile--sm { padding: var(--nd-space-4); gap: var(--nd-space-1); }
+  .nd-tile--ink { background: var(--nd-inverse); border-color: var(--nd-inverse); color: var(--nd-on-inverse); }
+
+  /* A table of counts: names left, numbers right. */
+  .nd-numtable { width: 100%; border-collapse: collapse; background: var(--nd-paper-raised); border: var(--nd-hairline) solid var(--nd-rule); }
+  .nd-numtable th { text-align: right; padding: 10px 14px; background: var(--nd-paper-sunken); font: 600 11px/16px var(--font-text); letter-spacing: .08em; text-transform: uppercase; color: var(--nd-ink-muted); white-space: nowrap; }
+  .nd-numtable td { text-align: right; padding: 12px 14px; border-top: var(--nd-hairline) solid var(--nd-rule); white-space: nowrap; }
+  .nd-numtable th:first-child, .nd-numtable td:first-child { text-align: left; }
+  .nd-numtable td:first-child { white-space: normal; }
+
+  /* Filter chips with counts; the current one has an ink edge. */
+  .nd-fchips { display: flex; flex-wrap: wrap; gap: var(--nd-space-2); }
+  .nd-fchip { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 var(--nd-space-3); border: var(--nd-hairline) solid var(--nd-rule); background: var(--nd-paper-raised); color: var(--nd-ink); text-decoration: none; }
+  .nd-fchip:hover, .nd-fchip[aria-current="page"] { border-color: var(--nd-ink); }
+
+  /* One waiting item: what it is, its value, its buttons. */
+  .nd-waits { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--nd-space-2); }
+  .nd-wait { background: var(--nd-paper-raised); border: var(--nd-hairline) solid var(--nd-rule); padding: 18px 20px; display: flex; flex-wrap: wrap; align-items: center; gap: var(--nd-space-3) var(--nd-space-6); }
+  .nd-wait__what { flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: var(--nd-space-1); }
+  .nd-wait__what > * { margin: 0; overflow-wrap: anywhere; }
+  .nd-wait__value { overflow-wrap: anywhere; }
+  .nd-wait__actions { display: flex; flex-wrap: wrap; gap: var(--nd-space-2); }
+  .nd-wait details > summary { cursor: pointer; width: fit-content; color: var(--nd-ink-muted); }
+  .nd-wait__more { display: flex; flex-direction: column; gap: var(--nd-space-2); padding-top: var(--nd-space-2); }
+  .nd-wait__more > * { margin: 0; }
+
+  /* The fact page: the fact on the left, its status and actions on the right. */
+  .nd-split { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+  .nd-split__main { flex: 3 1 520px; min-width: 0; display: flex; flex-direction: column; gap: var(--nd-space-2); }
+  .nd-split__side { flex: 1 1 280px; min-width: 0; display: flex; flex-direction: column; gap: var(--nd-space-2); }
+  .nd-split__side .nd-btn, .nd-split__side form { width: 100%; justify-content: center; }
+  .nd-factcard { border: var(--nd-hairline) solid var(--nd-ink); background: var(--nd-paper); padding: 28px 32px; display: flex; flex-direction: column; gap: 18px; }
+  .nd-factcard > * { margin: 0; }
+  .nd-factcard .nd-kv { background: var(--nd-paper-raised); border: var(--nd-hairline) solid var(--nd-rule); padding: 18px; }
+  .nd-panel { background: var(--nd-paper-raised); border: var(--nd-hairline) solid var(--nd-rule); padding: var(--nd-space-4); display: flex; flex-direction: column; gap: var(--nd-space-2); }
+  .nd-panel > * { margin: 0; }
+  .nd-fold { background: var(--nd-paper-raised); border: var(--nd-hairline) solid var(--nd-rule); padding: 0 var(--nd-space-4); }
+  .nd-fold > summary { display: flex; justify-content: space-between; align-items: center; min-height: 52px; cursor: pointer; list-style: none; }
+  .nd-fold > summary::-webkit-details-marker { display: none; }
+  .nd-fold__row { display: flex; justify-content: space-between; gap: var(--nd-space-3); padding: 9px 0; border-top: var(--nd-hairline) solid var(--nd-rule); }
+  .nd-fold__row > * { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+  .nd-fold__body { padding-bottom: var(--nd-space-2); }
+  .nd-takeoff > summary { list-style: none; }
+  .nd-takeoff > summary::-webkit-details-marker { display: none; }
+  .nd-takeoff__form { margin-top: var(--nd-space-2); }
+
+  /* Phones: the nav folds behind Menu at the top, stage tiles become rows. */
+  @media (max-width: 767px) {
+    .nd-shell { flex-direction: column; }
+    .nd-shell__side { width: auto; padding: var(--nd-space-3) var(--nd-space-4); border-right: 0; border-bottom: var(--nd-hairline) solid var(--nd-rule); }
+    .nd-shell__brand { padding: 0; }
+    .nd-shell__menu:not([hidden]) { display: inline-flex; }
+    .nd-shell__nav { padding-top: var(--nd-space-3); }
+    .nd-shell__foot { margin-top: 0; padding: var(--nd-space-3) var(--nd-space-3) 0; }
+    .nd-shell__side[data-menu-state="closed"] .nd-shell__nav, .nd-shell__side[data-menu-state="closed"] .nd-shell__foot { display: none; }
+    .nd-shell__main { padding: 20px var(--nd-space-4) var(--nd-space-8); }
+    .nd-tiles--stages { display: flex; flex-direction: column; }
+    .nd-tiles:has(.nd-tile--sm) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .nd-tiles--stages .nd-tile { flex-direction: row; justify-content: space-between; align-items: center; min-height: 72px; padding: 0 18px; }
+    .nd-factcard { padding: 20px; }
+  }
+  @media (pointer: coarse) {
+    .nd-fchip, .nd-wait details > summary { min-height: 44px; display: inline-flex; align-items: center; }
   }
 }
 

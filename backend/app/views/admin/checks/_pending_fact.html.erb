@@ -1,0 +1,45 @@
+<%# A directory fact waiting with no claim, e.g. seed data (#201): Approve
+    (only with a source) and Reject, its values and evidence behind Details.
+    Posts to today's pending-fact actions. Locals: fact (DataQuality::Review::PendingFact). %>
+<% first = fact.evidence.first&.source %>
+<li class="nd-wait" id="fact-<%= fact.type %>-<%= fact.id %>">
+  <%= form_with url: approve_admin_pending_facts_path(category: (filters[:category])), class: "contents" do %>
+    <button type="submit" disabled hidden aria-hidden="true" tabindex="-1"></button>
+    <%= hidden_field_tag :anchor, anchor, id: nil if local_assigns[:anchor] %>
+    <%= hidden_field_tag :back, request.fullpath, id: nil %>
+    <%= hidden_field_tag :type, fact.type, id: nil %>
+    <div class="nd-wait__what">
+      <p class="type-kicker text-ink-muted">Pending <%= type_label(fact.type).downcase_first %><%= " · #{source_host(first.url)}" if first %></p>
+      <p class="type-subject"><%= link_to fact_heading(fact), admin_fact_path(type: fact.type, id: fact.id, from: "checks", back: request.fullpath), class: "nd-link" %></p>
+      <details>
+        <summary class="type-small">Details</summary>
+        <div class="nd-wait__more">
+          <dl class="nd-kv type-body">
+            <% fact.attributes.compact_blank.except(*AdminHelper::HIDDEN_FIELDS).each do |name, value| %>
+              <dt class="type-label"><%= field_label(name) %></dt><dd><%= field_display(name, value) %></dd>
+            <% end %>
+          </dl>
+          <% fact.evidence.each do |evidence| %>
+            <% url = evidence.source && safe_url(evidence.source.url) %>
+            <% if evidence.quote.present? %><blockquote class="nd-quote">“<%= evidence.quote %>”</blockquote><% end %>
+            <p class="type-small text-ink-muted">
+              <% if url %><%= link_to url, class: "nd-link nd-link--muted", target: "_blank", rel: "noopener" do %><%= evidence.source.title.presence || source_host(url) %> <%= icon("arrow-square-out", size: 12) %><% end %> · <% end %>Found by <%= evidence.found_by %>
+            </p>
+          <% end %>
+          <% if fact.evidence.empty? %><p class="type-small text-ink-muted">No source, so it can't be published. Reject it, or add a source first.</p><% end %>
+          <div class="nd-field">
+            <label for="fact-reason-<%= fact.type %>-<%= fact.id %>" class="type-body-strong">Reason <span class="type-small text-ink-muted">(optional, kept in the history if you reject)</span></label>
+            <input type="text" class="nd-input type-input" id="fact-reason-<%= fact.type %>-<%= fact.id %>" name="reasons[<%= fact.id %>]">
+          </div>
+        </div>
+      </details>
+    </div>
+    <div class="nd-wait__actions type-ui">
+      <% if fact.evidence.any? %>
+        <button type="submit" class="nd-btn nd-btn--primary" name="id" value="<%= fact.id %>">Approve</button>
+      <% end %>
+      <button type="submit" class="nd-btn nd-btn--outline" name="id" value="<%= fact.id %>"
+        formaction="<%= reject_admin_pending_facts_path(category: filters[:category]) %>">Reject</button>
+    </div>
+  <% end %>
+</li>

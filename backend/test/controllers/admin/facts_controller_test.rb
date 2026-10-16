@@ -11,34 +11,39 @@ class Admin::FactsControllerTest < ActionDispatch::IntegrationTest
 
   setup { sign_in_as users(:admin) }
 
-  test "lists pending facts of a kind with their quote, and approves one" do
+  test "Checks lists pending facts under Facts, with their quote behind Details, and approves one" do
     link = seed_owns_link
 
     get admin_pending_facts_path(kind: "facility_relationship")
+    assert_redirected_to admin_checks_path(category: "facts")
+    follow_redirect!
 
     assert_response :success
-    assert_select "#fact-#{link.id}" do
-      assert_select ".nd-item__claim a[href=?]", admin_fact_path(type: "FacilityRelationship", id: link.id),
+    assert_select ".nd-fchip[aria-current=page]", /Facts\s+\d+/
+    assert_select "#fact-FacilityRelationship-#{link.id}" do
+      assert_select ".type-kicker", "Pending plant owner or operator · nrc.gov"
+      assert_select ".type-subject a[href=?]", admin_fact_path(type: "FacilityRelationship", id: link.id, from: "checks", back: "/admin/checks?category=facts"),
         text: "#{organizations(:westinghouse).name} owns #{facilities(:vogtle).name}"
-      assert_select ".nd-quote", "“Vogtle is operated for its owners”"
+      assert_select "details .nd-quote", "“Vogtle is operated for its owners”"
     end
 
-    post approve_admin_pending_facts_path(kind: "facility_relationship"), params: { type: "facility_relationship", id: link.id }
+    post approve_admin_pending_facts_path(category: "facts"), params: { type: "FacilityRelationship", id: link.id }
 
-    assert_redirected_to admin_pending_facts_path(kind: "facility_relationship")
+    assert_redirected_to admin_checks_path(category: "facts")
     assert_equal [ "verified", "human:tosin" ], [ link.reload.verification_status, link.verified_by ]
   end
 
   test "a pending fact with no source can't be approved" do
     link = FacilityRelationship.create!(organization: organizations(:westinghouse), facility: facilities(:vogtle), relationship_type: "owns")
 
-    get admin_pending_facts_path(kind: "facility_relationship")
-    assert_select "#fact-#{link.id}" do
+    get admin_checks_path(category: "facts")
+    assert_select "#fact-FacilityRelationship-#{link.id}" do
       assert_select "button", text: "Approve", count: 0
-      assert_select "p", /No source recorded, so it can't be published/
+      assert_select "button", text: "Reject"
+      assert_select "details p", /No source, so it can't be published/
     end
 
-    post approve_admin_pending_facts_path(kind: "facility_relationship"), params: { type: "facility_relationship", id: link.id }
+    post approve_admin_pending_facts_path, params: { type: "facility_relationship", id: link.id }
     assert_match "it has no source", flash[:alert]
     assert link.reload.pending?
   end
@@ -49,8 +54,9 @@ class Admin::FactsControllerTest < ActionDispatch::IntegrationTest
 
     get admin_fact_path(type: "FacilityRelationship", id: link.id)
 
-    assert_select "td", /ownership pct?\s*blank to 45\.7|ownership blank to 45\.7/
-    assert_select "td", "tosin"
+    assert_select "details", /History\s+1/
+    assert_select ".nd-fold__row", /ownership pct?\s*blank to 45\.7|ownership blank to 45\.7/
+    assert_select ".nd-fold__row", /tosin/
   end
 
   test "rejecting a pending fact with a reason" do
@@ -68,7 +74,7 @@ class Admin::FactsControllerTest < ActionDispatch::IntegrationTest
     assert_response :bad_request
   end
 
-  test "the fact page shows status, values and history; unpublish, then republish" do
+  test "the fact page shows its status, values and history beside Take off (reason required), then Put back" do
     terrapower = organizations(:terrapower)
     terrapower.verify!(by: "human:tosin")
     Evidence.create!(subject: terrapower, source: sources(:nrc), quote: "TerraPower", found_by: "human") # republishing needs a source
@@ -76,17 +82,26 @@ class Admin::FactsControllerTest < ActionDispatch::IntegrationTest
     get admin_fact_path(type: "Organization", id: terrapower.id)
     assert_response :success
     assert_select "h1", "TerraPower"
-    assert_select ".nd-badge--verified", /Verified/
-    assert_select "a[href=?]", company_path(slug: terrapower.slug), text: /View on site/
+    assert_select ".nd-panel .type-admin-h2", "Live"
+    assert_select "a[href=?]", company_path(slug: terrapower.slug), text: /Open/
+    assert_select "form[action=?]", admin_fact_unpublish_path(type: "Organization", id: terrapower.id) do
+      assert_select "input[name=reason][required]"
+      assert_select "button", "Take off"
+    end
+
+    post admin_fact_unpublish_path(type: "Organization", id: terrapower.id), params: { reason: "   " }
+    assert_equal "Say why it's taken off.", flash[:alert]
+    assert terrapower.reload.verified?, "no reason, nothing taken off"
 
     post admin_fact_unpublish_path(type: "Organization", id: terrapower.id), params: { reason: "Merged into another company" }
     assert_redirected_to admin_fact_path(type: "Organization", id: terrapower.id)
     assert terrapower.reload.unpublished?
 
     follow_redirect!
-    assert_select "a", text: /View on site/, count: 0, message: "not public, so no link"
-    assert_select ".nd-badge", /Unpublished/
-    assert_select "td", "Merged into another company"
+    assert_select "a", text: /Open/, count: 0, message: "not public, so no link"
+    assert_select ".nd-panel .type-admin-h2", "Removed"
+    assert_select ".nd-fold__row", /Merged into another company/
+    assert_select "button", "Put back"
 
     post admin_fact_republish_path(type: "Organization", id: terrapower.id)
     assert terrapower.reload.verified?
@@ -97,14 +112,19 @@ class Admin::FactsControllerTest < ActionDispatch::IntegrationTest
     plant.verify!(by: "human:tosin")
 
     get admin_fact_path(type: "Facility", id: plant.id)
-    assert_select "a[href=?]", plant_path(slug: plant.slug), text: /View on site/
+    assert_select "a[href=?]", plant_path(slug: plant.slug), text: /Open/
 
     pending = Facility.create!(name: "Pending Plant")
     get admin_fact_path(type: "Facility", id: pending.id)
-    assert_select "a", text: /View on site/, count: 0
+    assert_select "a[href=?]", plant_path(slug: pending.slug), count: 0
+    assert_select ".nd-panel .type-admin-h2", "Waiting"
+    # Decided here, then back to the list it came from.
+    get admin_fact_path(type: "Facility", id: pending.id, from: "checks", back: admin_checks_path(category: "facts"))
+    assert_select ".nd-decide input[name=back][value=?]", admin_checks_path(category: "facts")
+    assert_select ".nd-decide button", "Reject"
   end
 
-  test "a pending site that's public through a published unit links to its page and says why" do
+  test "a pending site that's public through a published unit links to its page and says so" do
     site = Facility.create!(name: "Plant Example Site")
     unit = Facility.create!(name: "Example 1", parent: site, nrc_docket: "05099991")
     unit.verify!(by: "human:tosin")
@@ -113,8 +133,8 @@ class Admin::FactsControllerTest < ActionDispatch::IntegrationTest
 
     get admin_fact_path(type: "Facility", id: site.id)
 
-    assert_select "a[href=?]", plant_path(slug: site.slug), text: /View on site/
-    assert_select "p", /Pending, but public: a site shows once one of its units is published/
+    assert_select "a[href=?]", plant_path(slug: site.slug), text: /Open/
+    assert_select ".nd-panel .type-admin-h2", "Pending, shown with its units"
   end
 
   test "a fact type that isn't one is not found" do

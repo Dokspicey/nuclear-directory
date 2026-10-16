@@ -1,0 +1,30 @@
+# Seed research for #253 (hyperscaler power deals) - 2026-10-15. Quotes copied from raw page text fetched this session.
+# Created by the NRC/EIA crawlers on 12 Oct; this file lets the seed name it as a deal party. Brand rename is #267.
+name: Vistra Corporation
+aliases:
+- Vistra Operations Company, LLC
+website: https://vistracorp.com
+hq:
+  city: Irving
+  state: TX
+  source_url: https://investor.vistracorp.com/2026-02-26-Vistra-Reports-Fourth-Quarter-and-Full-Year-2025-Results
+  quote: integrated retail electricity and power generation company based in Irving, Texas
+  confidence: 1.0
+country_code: US
+status: active
+roles:
+- key: operator
+  source_url: https://investor.vistracorp.com/2026-02-26-Vistra-Reports-Fourth-Quarter-and-Full-Year-2025-Results
+  quote: The company safely operates a reliable, efficient power generation fleet of natural gas, nuclear, coal, solar, and battery energy storage facilities
+  published: '2026-02-26'
+  confidence: 1.0
+technologies: []
+relationships: []
+facilities: []
+notes: 'Operates Comanche Peak, Beaver Valley, Davis-Besse and Perry (NRC reactor list). Power deals with Amazon and Meta are recorded in their files (#253).'
+description:
+  text: Power generation and retail electricity company based in Irving, Texas, with a fleet that includes nuclear plants.
+  source_url: https://investor.vistracorp.com/2026-02-26-Vistra-Reports-Fourth-Quarter-and-Full-Year-2025-Results
+  quote: 'Vistra (NYSE: VST) is a leading Fortune 500 integrated retail electricity and power generation company based in Irving, Texas'
+  also:
+  - quote: The company safely operates a reliable, efficient power generation fleet of natural gas, nuclear, coal, solar, and battery energy storage facilities

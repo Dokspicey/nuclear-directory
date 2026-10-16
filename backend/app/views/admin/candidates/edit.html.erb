@@ -2,8 +2,11 @@
 <% source_url = safe_url(@item.source.url) %>
 
 <div class="nd-stack max-w-prose">
-  <p class="type-small m-0"><%= link_to "Back to the queue", admin_candidates_path(filters.presence || { queue: @item.status == "needs_review" ? "needs_review" : "recommended" }), class: "nd-link nd-link--muted nd-tap" %></p>
-  <h1 class="type-title-md m-0">Edit, then approve</h1>
+  <div class="nd-shell__head">
+    <%= render "admin/crumbs", parent_label: "Checks", parent_path: back_path(admin_checks_path(filters.slice("category", "source"))), current: "Edit, then approve" %>
+    <%= render "admin/itemnav", list: @list if @list %>
+  </div>
+  <h1 class="type-admin-h1 m-0">Edit, then approve</h1>
   <p class="nd-item__claim type-body-strong"><%= @item.claim %></p>
   <% if @item.quote.present? %><blockquote class="nd-quote">“<%= @item.quote %>”</blockquote><% end %>
   <% if source_url %>
@@ -14,7 +17,7 @@
       <%= @item.differences.map { |name, (stored, incoming)| "#{field_label(name).downcase_first} is #{stored} there, #{incoming} here" }.to_sentence %>.</p>
   <% end %>
 
-  <%= form_with url: admin_candidate_path(@item.candidate_id, filters), method: :patch, class: "nd-stack" do |form| %>
+  <%= form_with url: admin_candidate_path(@item.candidate_id, **item_context), method: :patch, class: "nd-stack" do |form| %>
     <%# Enter in a field does nothing: approving takes a click (as in the queue). %>
     <button type="submit" disabled hidden aria-hidden="true" tabindex="-1"></button>
     <% if @errors.present? %>
@@ -42,7 +45,26 @@
     </div>
     <div class="nd-row">
       <%= form.submit "Approve with these values", class: "nd-btn nd-btn--primary" %>
-      <%= link_to "Cancel", admin_candidates_path(filters), class: "nd-btn nd-btn--ghost" %>
+      <%= link_to "Cancel", back_path(admin_checks_path(filters.slice("category", "source"))), class: "nd-btn nd-btn--outline" %>
     </div>
   <% end %>
+
+  <%# Or reject it here (#269), then on to the next claim, as from the fact page. %>
+  <details class="nd-decide__reject nd-fold" data-controller="decide" data-decide-target="panel">
+    <summary class="type-body">Reject</summary>
+    <%= form_with url: reject_admin_candidates_path, class: "nd-fold__body nd-wait__more" do %>
+      <button type="submit" disabled hidden aria-hidden="true" tabindex="-1"></button>
+      <%= hidden_field_tag :back, back_path(admin_checks_path(filters.slice("category", "source"))), id: nil %>
+      <%= hidden_field_tag :next, @list[:next], id: nil if @list&.dig(:next) %>
+      <div class="nd-field">
+        <label for="edit-reject-reason" class="type-body-strong">Reason (optional)</label>
+        <input type="text" class="nd-input type-input" id="edit-reject-reason" name="reasons[<%= @item.candidate_id %>]">
+        <span class="type-small text-ink-muted">Kept in the history</span>
+      </div>
+      <div class="nd-wait__actions type-ui">
+        <button type="submit" class="nd-btn nd-btn--primary" name="candidate_id" value="<%= @item.candidate_id %>">Reject</button>
+        <button type="button" class="nd-btn nd-btn--outline" data-action="decide#close">Cancel</button>
+      </div>
+    <% end %>
+  </details>
 </div>

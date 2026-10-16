@@ -1,0 +1,10 @@
+<%# The trail above an inner page (#269): the stage it's under (the list as it
+    was, with its filters), then this page. On phones, one link back to the
+    parent. Locals: parent_label, parent_path, current. %>
+<nav class="nd-crumbs type-small" aria-label="Breadcrumb">
+  <ol>
+    <li><%= link_to parent_label, parent_path, class: "nd-link nd-link--muted" %></li>
+    <li aria-current="page"><%= current %></li>
+  </ol>
+  <%= link_to "‹ #{parent_label}", parent_path, class: "nd-link nd-link--muted nd-tap nd-crumbs__back" %>
+</nav>
