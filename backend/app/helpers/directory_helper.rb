@@ -32,6 +32,7 @@ module DirectoryHelper
 
   FACILITY_STATUS_LABELS = {
     "operating" => "Operating",
+    "not_operating" => "Not operating",
     "under_construction" => "Under construction",
     "planned" => "Planned",
     "shut_down" => "Shut down",

@@ -135,4 +135,43 @@ namespace :directory do
     puts "#{found.size - skipped} #{apply ? 'recorded' : 'would be recorded'}#{", #{skipped} skipped" if skipped.positive?}." if found.any?
     puts "Dry run: nothing changed. Run again with APPLY=1 to apply." unless apply || found.empty?
   end
+
+  # Sets plants' or units' status as a person's decision, quoting NRC's
+  # 365-day power status file: human-verified, so a crawler can't change it
+  # back, only propose a change in Checks. Without APPLY=1 it's a dry run:
+  # it writes, prints what changed and rolls back. The quote is the file's
+  # newest line naming the first facility ("10/14/2026 12:00:00 AM|Palisades|0"),
+  # or QUOTE=… (it must be in the file as last fetched).
+  desc "Set plants' or units' status from NRC's status file, audited: BY=human:tosin [APPLY=1] bin/rails \"directory:set_status[not_operating,171 174]\""
+  task :set_status, %i[status ids] => :environment do |_task, args|
+    by = ENV["BY"].to_s
+    apply = ENV["APPLY"] == "1"
+    status = args[:status].to_s
+    ids = args[:ids].to_s.split.map(&:to_i)
+    abort "Usage: BY=human:<handle> [APPLY=1] [QUOTE=…] bin/rails \"directory:set_status[status,id id …]\"" unless
+      by.match?(/\Ahuman:\S+\z/) && Facility.statuses.key?(status) && ids.any? && ids.all?(&:positive?)
+
+    facilities = Facility.where(id: ids).index_by(&:id)
+    abort "No facility #{(ids - facilities.keys).join(', ')}" if (ids - facilities.keys).any?
+    source = Source.where(source_kind: "nrc_power_status").order(fetched_at: :desc).first or abort "NRC's status file hasn't been fetched"
+    text = source.content_text.to_s
+    first = facilities.fetch(ids.first)
+    dated = ->(line) { Time.strptime(line.split("|").first.to_s, "%m/%d/%Y %I:%M:%S %p") rescue Time.at(0) }
+    quote = ENV["QUOTE"].presence || text.lines.map(&:strip).grep(/\|#{Regexp.escape(first.name)}\|/i).max_by(&dated)
+    abort "#{first.name} isn't in NRC's status file; give QUOTE=…" if quote.blank?
+    abort "The quote isn't in NRC's status file as last fetched: #{quote}" unless text.include?(quote)
+
+    reason = ENV["REASON"].presence || "NRC's 365-day power status file: #{quote}"
+    ActiveRecord::Base.transaction(requires_new: true) do
+      ids.each do |id|
+        facility = facilities.fetch(id)
+        result = Directory::FactWriter.write(:facility, { id:, status: },
+          evidence: [ { source_id: source.id, quote:, found_by: "human" } ], verification: { status: "verified", by:, reason: })
+        abort "#{facility.name} (##{id}): #{result.errors.to_sentence}" unless result.ok?
+        puts "#{apply ? 'Set' : 'Would set'} #{facility.name} (##{id}): #{facility.status || 'blank'} -> #{status}, quoting \"#{quote}\""
+      end
+      raise ActiveRecord::Rollback unless apply
+    end
+    puts "Dry run: nothing changed. Add APPLY=1 to set it." unless apply
+  end
 end
