@@ -113,6 +113,10 @@ class SeedsTest < ActiveSupport::TestCase
       hermes.slice(:facility_type, :status, :city, :state).values
     assert hermes.evidence.count >= 4, "one evidence row per sourced field"
 
+    # A city only where a source says the site is in it (#225); "near" a town isn't a city.
+    assert_equal [ "Palo", "IA" ], Facility.find_by!(name: "Duane Arnold Energy Center").slice(:city, :state).values
+    assert_nil Facility.find_by!(name: "White Mesa Mill").city, "its source says only near Blanding"
+
     vogtle = Facility.find_by!(name: "Plant Vogtle")
     shares = vogtle.facility_relationships.owns.includes(:organization).to_h { |l| [ l.organization.name, l.ownership_pct.to_f ] }
     assert_equal({ "Georgia Power" => 45.7, "Oglethorpe Power" => 30.0, "MEAG Power" => 22.7, "Dalton Utilities" => 1.6 }, shares)
