@@ -13,13 +13,13 @@ class CiScopeTest < Minitest::Test
   def test_docs_only_skips_test_and_lighthouse
     assert_equal({ test: false, lighthouse: false },
       scope("README.md", "DESIGN.md", "backend/app/data_quality/README.md", "planning/prd.md",
-        "ops/metabase/questions/01_companies_by_status.sql"))
+        "docs/snapshot-api.md"))
   end
 
   def test_render_yaml_or_github_only_skips_lighthouse
     assert_equal({ test: true, lighthouse: false }, scope("render.yaml"))
     assert_equal({ test: true, lighthouse: false }, scope(".github/scripts/check_blueprint.rb", ".github/workflows/preview.yml"))
-    assert_equal({ test: true, lighthouse: false }, scope("backup/backup.sh", "docker-compose.metabase.yml", "README.md"))
+    assert_equal({ test: true, lighthouse: false }, scope("backup/backup.sh", "docker-compose.yml", "README.md"))
   end
 
   def test_a_change_to_ci_itself_runs_everything

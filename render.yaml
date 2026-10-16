@@ -1,4 +1,5 @@
-# Render Blueprint: production hosting (issue #52). See docs/deploying.md.
+# Render Blueprint: production hosting (issue #52). The deploy runbook is in
+# the private ops repo.
 # Spec: https://render.com/docs/blueprint-spec
 #
 # One web service (Rails + Solid Queue inside Puma) and one Postgres database,
@@ -95,7 +96,7 @@ services:
   # preview_app role, which can't connect to production. Its DATABASE_URL is
   # set by hand in the dashboard, never fromDatabase (that would be
   # production). No production secrets, no jobs, no Sentry or PostHog, and
-  # NOINDEX keeps it out of search engines. See docs/previews.md.
+  # NOINDEX keeps it out of search engines. Runbook: the private ops repo.
   - type: web
     name: nuclear-directory-preview
     runtime: docker
@@ -132,7 +133,7 @@ services:
       - key: PREVIEW_ADMIN_PASSWORD
         sync: false
 
-  # Daily encrypted off-site backup (#54); see docs/backups.md.
+  # Daily encrypted off-site backup (#54); runbook in the private ops repo.
   # Runs inside Render's private network, so the database stays closed to
   # the internet.
   - type: cron
@@ -184,7 +185,7 @@ databases:
     # From the internet, only Tosin's Mac, for local Metabase (#111), signing
     # in as the read-only metabase_ro role over SSL. One single-host /32 with
     # a description; never remove this key (Render would open the database to
-    # everyone). When his IP changes, replace the /32 (docs/metabase.md);
+    # everyone). When his IP changes, replace the /32 (Metabase runbook, private ops repo);
     # to close it again, set `ipAllowList: []`.
     ipAllowList:
       - source: 99.110.208.39/32

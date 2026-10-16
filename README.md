@@ -49,24 +49,19 @@ Details: [`backend/app/data_quality/README.md`](backend/app/data_quality/README.
 
 - `backend/`: the Rails app, its tests and the seed data
 - `backup/`: the daily encrypted off-site backup job and restore tools
-- `docs/`: operator guides (below)
-- `ops/metabase/`: starter SQL for local Metabase
+- `docs/`: public docs (below)
 - `render.yaml`: production on Render; `docker-compose.yml`: local development
 - [DESIGN.md](DESIGN.md) and [VOICE.md](VOICE.md): how the site looks and how
   it speaks; read them before changing a page or any visible text
 
 ## Docs
 
-- [Deploying to Render](docs/deploying.md): deploys, secrets, memory,
-  domain, errors and uptime, rollback
-- [UI previews](docs/previews.md): the `preview` label and its throwaway
-  database
-- [Backups](docs/backups.md): point-in-time recovery, the daily off-site copy,
-  restore tests
-- [Metabase](docs/metabase.md): read-only production queries from a Mac
-- [Analytics relay and country](docs/analytics.md)
 - [Public JSON snapshot](docs/snapshot-api.md)
 - [Data standard](docs/DATA.md)
+
+Operational runbooks (deploying to Render, backups and restores, UI previews,
+local Metabase, the analytics relay) live in a private ops repo for the
+maintainers.
 
 ## Run it
 
