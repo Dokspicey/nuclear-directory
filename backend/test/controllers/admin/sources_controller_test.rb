@@ -92,6 +92,46 @@ class Admin::SourcesControllerTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  test "a match only in the address shows the address, marked" do
+    page("https://cfs.energy/technology/arc", title: "CFS technology")
+    sign_in_as users(:admin)
+
+    get admin_sources_search_path(q: "arc")
+
+    assert_select "td p mark", "arc"
+  end
+
+  test "Facts count only what Live lists: a source backing only a company's role counts 0" do
+    source = page("https://www.example.org/roles")
+    company = Organization.create!(name: "Role Only Co", **VERIFIED)
+    role = OrganizationRole.create!(organization: company, role: Role.first || Role.create!(key: "utility", name: "Utility"), **VERIFIED)
+    Evidence.create!(subject: role, source:, quote: "a utility", found_by: "human")
+
+    assert_equal 0, SourceCatalog.documents(SourceCatalog.entry("company-sites").key).find { |doc| doc.id == source.id }&.facts.to_i
+  end
+
+  test "the last run's Changed is that run's own; the Checks backlog shows as waiting" do
+    CrawlRun.create!(stage: "match", source_kind: "nrc_reactor_list", status: "succeeded", started_at: 1.hour.ago, finished_at: 1.hour.ago,
+      stats: { "candidates" => 10, "confirmed" => 7 })
+    Candidate.create!(source: sources(:nrc), kind: "organization", payload: { "name" => "X" }, quote: "q", status: "needs_review")
+    sign_in_as users(:admin)
+
+    get admin_sources_path
+
+    assert_select "details.nd-sources__run p", /Read 10 · Same 7 · Changed 3\s+· 1 waiting/
+  end
+
+  test "a failed match run says so, with its reason" do
+    CrawlRun.create!(stage: "match", source_kind: "nrc_reactor_list", status: "failed", started_at: 1.hour.ago, finished_at: 1.hour.ago,
+      error: "Timeout reading the list")
+    sign_in_as users(:admin)
+
+    get admin_source_path(key: "nrc_reactor_list")
+
+    assert_select "section[aria-label='Last runs'] p", /Failed · Timeout reading the list/
+    assert_select "section[aria-label='Last runs'] td", /Failed · Timeout reading the list/
+  end
+
   test "search matches title, address and domain, ignoring case, and marks the match" do
     page("https://cfs.energy/technology/arc")
     page("https://www.example.com/x", title: "CFS raises $863 million")

@@ -12,6 +12,10 @@
     <% else %>
       <%= document.text %>
     <% end %>
+    <% query = local_assigns[:query] %>
+    <% if query.present? && [ document.text, document.domain ].none? { |text| text.to_s.downcase.include?(query.downcase) } %>
+      <p class="type-small text-ink-muted wrap-anywhere"><%= mark_matches(document.url, query) %></p>
+    <% end %>
     <% if %w[blocked needs_human].include?(document.status) && document.status_reason.present? %>
       <p class="type-small text-ink-muted"><%= document.status_reason %></p>
     <% end %>

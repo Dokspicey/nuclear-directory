@@ -27,8 +27,8 @@
               <details class="nd-sources__run">
                 <summary class="type-small text-ink-muted">Last run</summary>
                 <p class="type-data text-ink-muted">
-                  Read <%= num.(run.read) %> · Same <%= num.(run.same) %> · Changed
-                  <%= run.changed.positive? ? link_to(run.changed, admin_checks_path(source: entry.kind), class: "nd-link") : 0 %>
+                  Read <%= num.(run.read) %> · Same <%= num.(run.same) %> · Changed <%= num.(run.read && run.read.to_i - run.same.to_i) %>
+                  <% if run.changed.positive? %> · <%= link_to "#{run.changed} waiting", admin_checks_path(source: entry.kind), class: "nd-link" %><% end %>
                 </p>
               </details>
             <% end %>

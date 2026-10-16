@@ -53,13 +53,24 @@
 <% if @runs.present? %>
   <section class="nd-panel" aria-label="Last runs">
     <p class="type-kicker text-ink-muted">Last run</p>
-    <% last = @runs.first.stats %>
-    <p class="type-data">Read <%= last["candidates"].to_i %> · Same <%= last["confirmed"].to_i %> · Changed <%= last["candidates"].to_i - last["confirmed"].to_i %></p>
+    <% last = @runs.first %>
+    <% if last.status == "failed" %>
+      <p class="type-data">Failed<% if last.error.present? %><span class="text-ink-muted"> · <%= last.error.truncate(200) %></span><% end %></p>
+    <% else %>
+      <p class="type-data">Read <%= last.stats["candidates"].to_i %> · Same <%= last.stats["confirmed"].to_i %> · Changed <%= last.stats["candidates"].to_i - last.stats["confirmed"].to_i %></p>
+    <% end %>
     <table class="nd-numtable">
       <thead><tr><th scope="col">Run</th><th scope="col">Read</th><th scope="col">Same</th><th scope="col">Changed</th></tr></thead>
       <tbody>
         <% @runs.each do |run| %>
-          <tr><td class="type-data"><%= run.started_at.strftime("%-d %b %H:%M") %></td><td class="type-cell-num"><%= run.stats["candidates"].to_i %></td><td class="type-cell-num"><%= run.stats["confirmed"].to_i %></td><td class="type-cell-num"><%= run.stats["candidates"].to_i - run.stats["confirmed"].to_i %></td></tr>
+          <tr>
+            <td class="type-data"><%= run.started_at.strftime("%-d %b %H:%M") %></td>
+            <% if run.status == "failed" %>
+              <td colspan="3" class="type-body">Failed<% if run.error.present? %><span class="text-ink-muted"> · <%= run.error.truncate(120) %></span><% end %></td>
+            <% else %>
+              <td class="type-cell-num"><%= run.stats["candidates"].to_i %></td><td class="type-cell-num"><%= run.stats["confirmed"].to_i %></td><td class="type-cell-num"><%= run.stats["candidates"].to_i - run.stats["confirmed"].to_i %></td>
+            <% end %>
+          </tr>
         <% end %>
       </tbody>
     </table>

@@ -38,6 +38,7 @@ class SourceCatalog
     "usaspending_api" => { name: "USAspending API", note: "the award search" }
   }.freeze
   RESEARCH_KIND = "web_page"
+  LIVE_TYPES = %w[Organization Facility Relationship FacilityRelationship].freeze
 
   GROUPS = {
     "company-sites" => "Company sites", "news" => "News and trade press", "government" => "Government",
@@ -145,10 +146,13 @@ class SourceCatalog
       def facts_backed(source_ids) = public_facts(source_ids).group_by(&:first).transform_values(&:size)
 
       # [source_id, type, id] for each public fact these sources back.
+      # Public facts of the kinds Live lists (companies, plants, reactors and
+      # links), so a Facts count opens to that many records there; a role or
+      # technology is shown on its company instead.
       def public_facts(source_ids)
         return [] if source_ids.empty?
 
-        rows = Evidence.where(source_id: source_ids).distinct.pluck(:source_id, :subject_type, :subject_id)
+        rows = Evidence.where(source_id: source_ids, subject_type: LIVE_TYPES).distinct.pluck(:source_id, :subject_type, :subject_id)
         public_ids = rows.group_by { |_, type, _| type }.to_h do |type, typed|
           [ type, type.constantize.published.where(id: typed.map(&:last)).pluck(:id).to_set ]
         end
