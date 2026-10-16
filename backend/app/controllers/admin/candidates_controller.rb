@@ -63,7 +63,7 @@ class Admin::CandidatesController < Admin::BaseController
   def edit
     @item = DataQuality::Review.candidate(params[:id].to_i) or raise ActiveRecord::RecordNotFound
     @fields = editable_fields(@item)
-    @list = list_position(@item.candidate_id)
+    @list = list_position(@item.candidate_id) unless from_fact
   end
 
   def update
@@ -75,13 +75,16 @@ class Admin::CandidatesController < Admin::BaseController
       reason: params[:note].presence)
     if result.ok?
       flash_results([ result ], "Approved")
+      # Opened from a fact page in Live: back to it, which moves on through Live.
+      return redirect_after(from_fact) if from_fact
+
       # On to the next claim in the list it was opened from; back to the list after the last.
       following = list_ids.find { |id| id > item.candidate_id }
       redirect_after(following ? edit_admin_candidate_path(following, **item_context) : queue_path)
     else
       @item = item
       @fields = editable_fields(item)
-      @list = list_position(item.candidate_id)
+      @list = list_position(item.candidate_id) unless from_fact
       @errors = result.errors
       render :edit, status: :unprocessable_content
     end
@@ -105,8 +108,13 @@ class Admin::CandidatesController < Admin::BaseController
       DataQuality::Review.check_ids(category:, source_kind: (filters["source"] || list_filters["source"]).presence)
     end
 
-    def item_context = { back: params[:back].presence, **filters.slice("category", "source").symbolize_keys }.compact
+    def item_context = { back: params[:back].presence, next: from_fact, **filters.slice("category", "source").symbolize_keys }.compact
     helper_method :item_context
+
+    # The fact page this edit was opened from in Live (next), if any. Its
+    # Previous and Next are Live's, so this page has none of Checks'.
+    def from_fact = next_or(nil)
+    helper_method :from_fact
 
     def list_position(id)
       ids = list_ids

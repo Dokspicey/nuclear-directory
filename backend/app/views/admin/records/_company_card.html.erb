@@ -1,0 +1,23 @@
+<%# A company as its public page shows it (#201): name, roles and
+    technologies, its one-line description, the key facts, and how many
+    deals and plants it has. A public record shows only what visitors see
+    (the profile hides unsourced fields); one that isn't public yet shows
+    its own values. Locals: p (CompanyProfile), record (Organization),
+    shown (p when public, else record). %>
+<div class="nd-factcard">
+  <h1 class="type-admin-h1"><%= record.name %></h1>
+  <% tags = p.shown_roles.map { |r| role_label(r.role) } + p.technologies.map { |t| t.technology.name } %>
+  <% if tags.any? %>
+    <p class="nd-record__tags"><% tags.each do |tag| %><span class="nd-tag"><%= tag %></span><% end %></p>
+  <% end %>
+  <% if shown.description.present? %><p class="type-body"><%= shown.description %></p><% end %>
+  <dl class="nd-kv type-body">
+    <% [ [ "Website", shown.website ], [ "Also known as", p.aliases.join(", ").presence ], [ "Legal name", shown.legal_name ],
+         [ "Headquarters", place(shown.hq_city, shown.hq_state) ], [ "Founded", shown.founded_year ] ].each do |label, value| %>
+      <% next if value.blank? %>
+      <dt class="type-label"><%= label %></dt><dd class="wrap-anywhere"><%= value %></dd>
+    <% end %>
+  </dl>
+  <div class="nd-fold__row type-body"><span>Deals and links</span><span class="type-data"><%= p.deals.size %></span></div>
+  <div class="nd-fold__row type-body"><span>Plants and sites</span><span class="type-data"><%= p.plant_links.size %></span></div>
+</div>
