@@ -277,6 +277,9 @@ class DataQuality::Plugins::UsaspendingDoeAwardsTest < ActiveSupport::TestCase
 
     assert_nothing_raised { plugin.crawl(nil) }
     assert_equal "old, 2021: X.", claim.reload.payload["description"]
+    assert_match "Not reworded:", claim.notes, "says why, for a person"
+    plugin.refresh_open_claims
+    assert_equal 1, claim.reload.notes.scan("Not reworded:").size, "once"
   end
 
   test "a recommended claim whose wording changes loses the old verdict, so it isn't approved in bulk on it" do

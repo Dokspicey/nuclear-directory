@@ -124,8 +124,14 @@ class DataQuality::Plugins::UsaspendingDoeAwards < DataQuality::Plugin
           attributes.delete(:name) if shared.key?(candidate.subject_id) && shared[candidate.subject_id].nil?
           if attributes.any?
             result = directory.write_pending(candidate.kind, attributes.merge(id: record.id), candidate:, crawl_run: nil, evidence: false)
-            # Refused (say its company was rejected meanwhile): left for a person; the crawl goes on.
-            next if result.errors.any?
+            # Refused (its company was rejected meanwhile, or the new name is
+            # another company's alias): left for a person, saying why, once;
+            # the crawl goes on.
+            if result.errors.any?
+              why = "Not reworded: #{result.errors.to_sentence}. Same company?"
+              candidate.update!(notes: [ candidate.notes, why ].compact_blank.join(" · ")) unless candidate.notes.to_s.include?(why)
+              next
+            end
           end
         end
         note = "Reworded for #302 by #{by}#{'; sent back to verify' if reverify}"
