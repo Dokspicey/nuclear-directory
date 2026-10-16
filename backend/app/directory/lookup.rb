@@ -52,8 +52,6 @@ module Directory
     # How many of each fact type the public pages show: { "Organization" => 112, … }.
     def published_counts = FACT_TYPES.index_with { |type| type.constantize.published.count }
 
-    # Every change of a fact's verification, newest first, as plain values:
-    # who, when, from -> to, why. type is the fact's class name ("Organization").
     # The awards, offtakes or rounds under one link (#256), oldest first.
     # published: true (the default) gives only what public pages may show.
     def deal_terms(link_type:, link_id:, published: true)
@@ -64,6 +62,8 @@ module Directory
         .order(Arel.sql("COALESCE(starts_on, signed_on) ASC NULLS LAST"), :id).map { |term| DealTermRef.from(term) }
     end
 
+    # Every change of a fact's verification, newest first, as plain values:
+    # who, when, from -> to, why. type is the fact's class name ("Organization").
     def verification_history(type:, id:)
       raise ArgumentError, "not a fact type: #{type.inspect}" unless FACT_TYPES.include?(type.to_s)
 

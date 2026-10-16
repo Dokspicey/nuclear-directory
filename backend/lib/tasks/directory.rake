@@ -111,7 +111,7 @@ namespace :directory do
     apply = ENV["APPLY"] == "1"
     counts = Hash.new(0)
     Relationship.where(relationship_type: "funds").where.not(verification_status: Verifiable::CLOSED_STATUSES).order(:id).each do |link|
-      sources = Source.where(id: link.evidence.select(:source_id)).select { |source| source.content_text.to_s.start_with?("award_id,") }
+      sources = Source.where(id: link.evidence.select(:source_id), source_kind: "usaspending_doe_awards")
       sources.each do |source|
         CSV.parse(source.content_text, headers: true).each do |row|
           next if row["generated_award_id"].blank?
@@ -127,7 +127,7 @@ namespace :directory do
             link_type: "Relationship", link_id: link.id, term_type: "award", external_id: row["generated_award_id"],
             amount_usd: row["amount_usd"], starts_on: row["start_date"], ends_on: row["end_date"].presence,
             program: row["assistance_listing"].presence || row["award_type"]
-          }, evidence: [ { source_id: source.id, quote: row.to_csv.chomp, found_by: "crawler", confidence: 1 } ], verification:)
+          }, evidence: [ { source_id: source.id, quote: row.to_csv.chomp, found_by: "crawler" } ], verification:)
           next if result.ok?
 
           counts[:written] -= 1

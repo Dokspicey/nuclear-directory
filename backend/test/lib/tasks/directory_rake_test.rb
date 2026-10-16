@@ -218,6 +218,15 @@ class DirectoryRakeTest < ActiveSupport::TestCase
     assert_equal [ xenergy_page.id ], DealTerm.find_by!(external_id: "ASST_A").evidence.pluck(:source_id)
 
     assert_output(/0 award terms written, 3 already there/) { backfill_award_terms(BY: by, APPLY: "1") }
+
+    # One link backed by two recipient pages (BWXT has two USAspending recipients).
+    second_page = page.("https://www.usaspending.gov/recipient/x-energy-2/latest", [
+      [ "DE-NE0009999", "X-ENERGY LLC", "5000000.00", "2025-02-01", "", "assistance", "81.121", "nuclear",
+        "https://www.usaspending.gov/award/ASST_D", "ASST_D", "x2-C", "Fuel" ]
+    ])
+    verified.evidence.create!(source: second_page, quote: "row", found_by: "crawler")
+    assert_output(/1 award terms written, 3 already there/) { backfill_award_terms(BY: by, APPLY: "1") }
+    assert_equal second_page.id, DealTerm.find_by!(external_id: "ASST_D").evidence.sole.source_id
     assert_raises(SystemExit) { capture_io { backfill_award_terms(BY: "agent:x") } }
   end
 end

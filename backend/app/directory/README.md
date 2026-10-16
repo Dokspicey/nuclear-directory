@@ -242,7 +242,7 @@ verified and its link is published.
 
 ```ruby
 Directory::FactWriter.write(:deal_term, { link_type: "Relationship", link_id: 7, term_type: "award",
-  external_id: "ASST_NON_DE-NE0009040_8900", amount_usd: "80000000.00", starts_on: "2020-10-13", program: "81.121" },
+  external_id: "ASST_NON_DENE0009040_8900", amount_usd: "80000000.00", starts_on: "2020-10-13", program: "81.121" },
   evidence: [ { source_id: 9, quote: "<the USAspending row>", found_by: "crawler" } ])
 Directory::Lookup.deal_terms(link_type: "Relationship", link_id: 7)
 # => [DealTermRef(term_type:, external_id:, amount_usd:, starts_on:, ends_on:, program:, source_urls:, …), …] oldest first
