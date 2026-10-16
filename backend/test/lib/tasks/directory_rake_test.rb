@@ -240,6 +240,35 @@ class DirectoryRakeTest < ActiveSupport::TestCase
     assert retired.reload.rejected?
     assert_output(/1 award terms written, 4 already there/) { backfill_award_terms(BY: by, APPLY: "1") }
     assert_equal verified, DealTerm.find_by!(external_id: "ASST_E").link
+
+    # A chain (A into B, B into X-energy), a link a person closed before its merge, and a rejected term.
+    a = Organization.create!(name: "Chain A", verification_status: "verified", verified_by: by)
+    b = Organization.create!(name: "Chain B", verification_status: "verified", verified_by: by)
+    award_row = ->(id, recipient) do
+      [ id, recipient, "1000000.00", "2024-05-01", "", "assistance", "81.121", "nuclear", "https://www.usaspending.gov/award/#{id}", id, "c-C", "Chain" ]
+    end
+    link_a = Relationship.create!(from_organization: doe, to_organization: a, relationship_type: "funds", verification_status: "verified", verified_by: by)
+    link_b = Relationship.create!(from_organization: doe, to_organization: b, relationship_type: "funds", verification_status: "verified", verified_by: by)
+    link_a.evidence.create!(source: page.("https://www.usaspending.gov/recipient/a/latest", [ award_row.("ASST_A1", "A") ]), quote: "row", found_by: "crawler")
+    link_b.evidence.create!(source: page.("https://www.usaspending.gov/recipient/b/latest", [ award_row.("ASST_B1", "B") ]), quote: "row", found_by: "crawler")
+    closed_co = Organization.create!(name: "Closed Co", verification_status: "verified", verified_by: by)
+    closed = Relationship.create!(from_organization: doe, to_organization: closed_co, relationship_type: "funds",
+      verification_status: "verified", verified_by: by)
+    closed.evidence.create!(source: page.("https://www.usaspending.gov/recipient/closed/latest", [ award_row.("ASST_CLOSED", "C") ]),
+      quote: "row", found_by: "crawler")
+    closed.reject!(by:, reason: "Not a DOE award to this company")
+    DealTerm.find_by!(external_id: "ASST_E").reject!(by:, reason: "Wrong award")
+
+    assert Directory::FactWriter.merge_organization(from_id: a.id, into_id: b.id, by:).ok?
+    assert Directory::FactWriter.merge_organization(from_id: b.id, into_id: xenergy.id, by:).ok?
+    assert Directory::FactWriter.merge_organization(from_id: closed_co.id, into_id: xenergy.id, by:).ok?
+
+    capture_io { backfill_award_terms(BY: by, APPLY: "1") }
+    assert_equal verified, DealTerm.find_by!(external_id: "ASST_A1").link, "A's award, two merges away"
+    assert_equal verified, DealTerm.find_by!(external_id: "ASST_B1").link
+    assert_nil DealTerm.find_by(external_id: "ASST_CLOSED"), "a link a person closed before the merge stays closed"
+    assert_equal 1, DealTerm.where(external_id: "ASST_E").count, "a rejected term isn't written again"
+    assert DealTerm.find_by!(external_id: "ASST_E").rejected?
     assert_raises(SystemExit) { capture_io { backfill_award_terms(BY: "agent:x") } }
   end
 end

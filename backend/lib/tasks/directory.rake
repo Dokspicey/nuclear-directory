@@ -110,19 +110,35 @@ namespace :directory do
 
     apply = ENV["APPLY"] == "1"
     counts = Hash.new(0)
+    # Every company merged into this one, at any depth (A into B, then B into C).
+    merged_into = ->(company_id) do
+      found = []
+      frontier = [ company_id ]
+      while frontier.any?
+        frontier = VerificationEvent.where(subject_type: "Organization", to_status: "unpublished")
+          .where("context -> 'merged_into' ->> 'id' IN (?)", frontier.map(&:to_s)).pluck(:subject_id) - found
+        found += frontier
+      end
+      found
+    end
     Relationship.where(relationship_type: "funds").where.not(verification_status: Verifiable::CLOSED_STATUSES).order(:id).each do |link|
       # Its own sources, and those of the same funds link to a company merged
-      # into its company (that link was retired by the merge; merged_into, #261).
-      merged = VerificationEvent.where(subject_type: "Organization", to_status: "unpublished")
-        .where("context -> 'merged_into' ->> 'id' = ?", link.to_organization_id.to_s).select(:subject_id)
-      retired = Relationship.where(from_organization_id: link.from_organization_id, to_organization_id: merged, relationship_type: "funds")
-      sources = Source.where(source_kind: "usaspending_doe_awards",
-        id: Evidence.where(subject: [ link, *retired ]).select(:source_id))
+      # into its company, but only a link the merge itself retired: its last
+      # decision is the merge's rejection ("Merged into …", #229). A link a
+      # person closed before the merge stays closed, and its rows aren't read.
+      retired = Relationship.where(from_organization_id: link.from_organization_id, to_organization_id: merged_into.(link.to_organization_id),
+        relationship_type: "funds", verification_status: "rejected").select do |other|
+        other.verification_events.order(:id).last&.reason.to_s.match?(/Merged into .+ \(#\d+\)/)
+      end
+      links = [ link, *retired ]
+      sources = Source.where(source_kind: "usaspending_doe_awards", id: Evidence.where(subject: links).select(:source_id))
       sources.each do |source|
         CSV.parse(source.content_text, headers: true).each do |row|
           next if row["generated_award_id"].blank?
 
-          existing = DealTerm.find_by(link:, term_type: "award", external_id: row["generated_award_id"])
+          # Already handled when any of these links has it, in any state: a
+          # term a person rejected isn't written again on the kept link.
+          existing = DealTerm.where(link: links, term_type: "award", external_id: row["generated_award_id"]).exists?
           next counts[:already] += 1 if existing
 
           counts[:written] += 1
