@@ -21,7 +21,7 @@ technologies: []
 relationships:
 - type: offtake_with
   to: Oklo
-  description: 'Non-binding master power agreement (Dec 2024): Oklo to deploy 12 GW of Aurora powerhouse projects through 2044 to power Switch data centers, through a series of PPAs.'
+  description: 'Non-binding master power agreement (Dec 2024): Oklo to deploy 12 GW of Aurora powerhouse projects through 2044.'
   source_url: https://www.switch.com/?p=33894
   quote: have signed a non-binding Master Power Agreement (“Master Agreement”) to deploy 12 gigawatts of Oklo Aurora powerhouse projects through 2044.
   published: '2024-12-18'

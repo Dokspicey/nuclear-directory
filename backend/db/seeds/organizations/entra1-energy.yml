@@ -20,3 +20,6 @@ description:
   text: Energy company deploying baseload power infrastructure across nuclear, natural gas and other sources.
   source_url: https://entra1.com/
   quote: ENTRA1 Energy's mission is to be a vital contributor to America's energy dominance and security by deploying baseload power infrastructure across nuclear, natural gas, and other advanced energy sources.
+  also:
+  - source_url: https://www.sec.gov/Archives/edgar/data/1822966/000182296623000242/a2023-10x06xstandardpowe.htm
+    quote: ENTRA1 Energy LLC is an American independent global energy production company
