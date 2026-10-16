@@ -1,0 +1,24 @@
+name: Task
+description: A feature, follow-up or chore, with what "done" means
+body:
+  - type: textarea
+    id: why
+    attributes:
+      label: Why
+      description: The problem or decision behind it. Issues must stand on their own (planning/ isn't in the repo).
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What to do
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when
+      value: |
+        - [ ] 
+    validations:
+      required: true
