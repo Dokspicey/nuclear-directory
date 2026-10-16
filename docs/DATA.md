@@ -206,7 +206,7 @@ The admin's Live screen and the nightly `data_quality:audit` are planned (Admin 
 - **Publishing:** a fact is public only through its model's `.published` scope: a unit when verified under an open site; a pending site when it has such a unit; a link only when both ends are public; a deal term only with its link.
 - **Deal terms (once #264 merges):** one term per link, kind and award ID; an award needs an amount, a start date and an award ID; dates in order; no negative amounts; no automated term on a rejected or unpublished link.
 
-### Audited (planned: the Live screen and `data_quality:audit`)
+### Audited (planned: the Live screen and `data_quality:audit`, #)
 
 | Check | Severity | Rule |
 |---|---|---|
