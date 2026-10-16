@@ -296,6 +296,8 @@ module AdminHelper
   # A plant merge also names the site fields it fills where the kept plant
   # has none ("eia_plant_id, status"): "fills in its EIA plant ID and status".
   def merge_moved_words(moved)
+    return if moved.blank? || moved == "nothing"
+
     counted, fields = moved.to_s.split(", ").partition { |part| part.match?(/\A\d+ /) }
     parts = counted.filter_map do |part|
       count, what = part.split(" ", 2)

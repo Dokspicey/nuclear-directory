@@ -71,6 +71,15 @@ class Admin::MergeTest < ActionDispatch::IntegrationTest
     assert_select "p", text: /Nothing else moves/, count: 0
   end
 
+  test "when nothing moves, it says so rather than naming a field" do
+    kept = sourced(Organization.create!(name: "Kept Co", **VERIFIED))
+    twin = Organization.create!(name: "KEPT CO") # the same name: not even an alias moves
+
+    get admin_record_merge_path(type: "Organization", id: twin.id, into: kept.id)
+
+    assert_select "p", /\ANothing else moves\. KEPT CO is then taken off/
+  end
+
   test "a removed record isn't merged from here, nor merged into" do
     gone = sourced(Organization.create!(name: "Gone Co", **VERIFIED))
     gone.unpublish!(by: "human:tosin", reason: "Test")
