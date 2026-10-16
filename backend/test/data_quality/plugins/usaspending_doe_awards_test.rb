@@ -220,6 +220,20 @@ class DataQuality::Plugins::UsaspendingDoeAwardsTest < ActiveSupport::TestCase
     assert_equal 41, CSV.parse(table, headers: true).size
   end
 
+  test "a crawl rewords claims still open from an earlier one, once, with no shell step (#302)" do
+    crawl!
+    source = recipient(XENERGY["recipient_id"])
+    old = Candidate.create!(source:, kind: "relationship", quote: "q", status: "new",
+      payload: { "description" => "1 award from the U.S. Department of Energy totaling $921.7 million, 2021: DENE0009040." })
+
+    stats = plugin.crawl(nil)
+
+    assert_equal 1, stats["reworded"]
+    assert_equal "1 award from the U.S. Department of Energy totaling $921.7 million (2021): DENE0009040.", old.reload.payload["description"]
+    assert_match "Reworded for #302", old.notes
+    assert_empty plugin.refresh_open_claims, "a second run finds nothing to change"
+  end
+
   test "a company's readable name: title case, no legal suffix, acronyms kept; a mixed-case name is its own" do
     {
       "BROOKHAVEN TECHNOLOGY GROUP INC" => "Brookhaven Technology Group", "BWXT NUCLEAR ENERGY, INC." => "BWXT Nuclear Energy",

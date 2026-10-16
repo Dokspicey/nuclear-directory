@@ -57,6 +57,7 @@ class DataQuality::Plugins::UsaspendingDoeAwards < DataQuality::Plugin
   end
 
   def crawl(_run)
+    reworded = { "reworded" => refresh_open_claims.size }.reject { |_, count| count.zero? }
     index = Source.find_or_create_by!(url: API_URL) do |source|
       source.source_kind = INDEX_SOURCE_KIND
       source.title = "USAspending.gov award search API"
@@ -76,9 +77,41 @@ class DataQuality::Plugins::UsaspendingDoeAwards < DataQuality::Plugin
         record(index, failure)
       end
     end
-    return { "api" => result.to_s } unless result == :ok
+    return { "api" => result.to_s }.merge(reworded) unless result == :ok
 
-    { "api" => "ok" }.merge(stats)
+    { "api" => "ok" }.merge(stats).merge(reworded)
+  end
+
+  # Claims still open from earlier crawls take this plug-in's current
+  # wording and names (#302), as do the pending records the crawler made for
+  # them (never one a person decided). A link whose wording changed after the
+  # verifier disputed it goes back to verify, which this run's verify stage
+  # then reads. A claim waiting on a person's same-company call keeps its
+  # place. Once reworded, a claim reads the same again, so this changes
+  # nothing on later runs. Returns what changed:
+  # [{ candidate:, changes:, reverify: }].
+  def refresh_open_claims(by: "agent:#{source_kind}")
+    directory = DataQuality::DirectoryClient.new
+    open = Candidate.joins(:source).where(sources: { source_kind: }, status: %w[new matched needs_review]).includes(:source).order(:id)
+    open.filter_map do |candidate|
+      fresh = extract(candidate.source, nil).find { |item| item[:kind] == candidate.kind } or next
+      changes = fresh[:payload].slice("name", "aliases", "description").reject { |key, value| candidate.payload[key] == value }
+      next if changes.empty?
+
+      reverify = changes.key?("description") && candidate.status == "needs_review" && candidate.ai_recommendation.present?
+      record = directory.attached_record(candidate)
+      if record&.verification_status == "pending" && !record.verified_by.to_s.start_with?("human:")
+        attributes = changes.slice(*(candidate.kind == "organization" ? %w[name aliases] : %w[description])).symbolize_keys
+        if attributes.any?
+          result = directory.write_pending(candidate.kind, attributes.merge(id: record.id), candidate:, crawl_run: nil, evidence: false)
+          raise "candidate #{candidate.id}: #{result.errors.to_sentence}" if result.errors.any?
+        end
+      end
+      note = "Reworded for #302 by #{by}#{'; sent back to verify' if reverify}"
+      candidate.update!({ payload: candidate.payload.merge(changes), notes: [ candidate.notes, note ].compact_blank.join(" · ") }
+        .merge(reverify ? { status: "matched", ai_recommendation: nil, ai_reason: nil, ai_confidence: nil, ai_model: nil, ai_checked_at: nil } : {}))
+      { candidate:, changes:, reverify: }
+    end
   end
 
   # The facts every row's source states, which a single row doesn't repeat.
