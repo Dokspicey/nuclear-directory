@@ -118,9 +118,9 @@ The verb is fixed (VOICE.md). Each link needs a quote that states that relations
 |---|---|---|---|
 | Utilities and operators | Owns or runs nuclear power plants | `utility` or `operator`, or a published owns/operates link to an **operating power plant** | 33 |
 | Reactor developers | Designs or sells reactors, fission or fusion | `reactor_vendor` | 11 |
-| Fuel and materials | Mines, converts, enriches or fabricates fuel; supplies materials such as coolant; produces isotopes (medical and industrial) | `fuel` or its stages, `coolant` or its kinds, `isotopes` (new key) | 11 |
+| Fuel and materials | Mines, converts, enriches or fabricates fuel; ships fresh fuel; supplies materials such as coolant; produces isotopes (medical and industrial) | `fuel` or its stages, `coolant` or its kinds, `isotopes` (new key), or the sourced tag "fresh-fuel transport" | 11 |
 | Components and manufacturing | Makes equipment: pumps, valves, forgings, steam generators, instrumentation and control hardware, naval and defense nuclear components | `components` (new key) | 0 |
-| Waste and decommissioning | Stores, transports and disposes of spent fuel and waste; decommissions plants | `waste_decommissioning` (new key) | 0 |
+| Waste and decommissioning | Stores, transports and disposes of spent fuel and waste; decommissions plants | `waste_decommissioning` (new key), or the sourced tag "spent-fuel transport" | 0 |
 | Services and engineering | Maintains, builds, licenses or advises, and other professional services to the industry | `reactor_services`, `regulatory_consultant`, or a sourced activity tag: construction (EPC), licensing and consulting, legal, insurance, software | 6 |
 | Power buyers | Buys nuclear power, mostly hyperscalers and data centers | `data_center_offtaker`, or a published power deal as the buyer, **unless the buyer is a utility** (TVA buying from Kairos is a utility deal) | 4 |
 | Investors | Puts money into nuclear companies or projects | `venture_capital`, a sourced investor-type tag (private equity, bank, project finance, corporate fund), or a published `invests_in` or `funds` link as the funder, **unless the funder is a government agency** (DOE grants put DOE in Government and research, not Investors) | 6 |
@@ -139,8 +139,8 @@ The verb is fixed (VOICE.md). Each link needs a quote that states that relations
 | Law firms, insurers | Services and engineering, only with a sourced nuclear role | legal, insurance |
 | Software and digital (not hardware) | Services and engineering | software |
 | Instrumentation and control hardware; naval and defense nuclear manufacturing | Components and manufacturing | — |
-| Spent-fuel casks and their transport | Waste and decommissioning | transport |
-| Fresh-fuel logistics | Fuel and materials | transport |
+| Spent-fuel casks and their transport | Waste and decommissioning | spent-fuel transport |
+| Fresh-fuel logistics | Fuel and materials | fresh-fuel transport |
 | Medical and industrial isotope producers | Fuel and materials | isotopes |
 | Private equity, banks, project finance | Investors | private equity, bank, project finance |
 | Universities with research reactors or DOE awards | Government and research | university |
@@ -153,7 +153,7 @@ The verb is fixed (VOICE.md). Each link needs a quote that states that relations
 |---|---|
 | Investor type | Venture capital, private equity, bank, project finance, corporate fund, each from a quote |
 | Fuel-cycle stage | Uranium (mining and milling), conversion, enrichment, fabrication |
-| Activity | Isotopes, transport, construction (EPC), licensing and consulting, legal, insurance, software |
+| Activity | Isotopes, fresh-fuel transport, spent-fuel transport (each from a quote that says which fuel it carries), construction (EPC), licensing and consulting, legal, insurance, software |
 | Sector | University, national lab, agency |
 | Technology | Fission, fusion, SMR (design types are on the roadmap, #263). Fusion is a tag under Reactor developers, never its own bucket |
 | Coolant | Molten salt, water, helium, sodium, lead, heavy water |
