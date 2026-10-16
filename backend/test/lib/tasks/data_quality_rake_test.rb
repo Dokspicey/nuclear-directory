@@ -117,4 +117,40 @@ class DataQualityRakeTest < ActiveSupport::TestCase
     assert_raises(SystemExit) { capture_io { confirm_identical(BY: "human:") } }
     assert_raises(SystemExit) { capture_io { confirm_identical(BY: "human:tosin", IDS: "x") } }
   end
+
+  def refresh_doe_awards(**env)
+    env.each { |key, value| ENV[key.to_s] = value }
+    Rake::Task["data_quality:refresh_doe_awards"].execute
+  ensure
+    env.each_key { |key| ENV.delete(key.to_s) }
+  end
+
+  test "refresh_doe_awards rewords the open DOE claims and their pending records, and sends disputed links back to verify (#302)" do
+    columns = DataQuality::Plugins::UsaspendingDoeAwards::COLUMNS
+    row = ->(id, amount, start) { [ id, "BROOKHAVEN TECHNOLOGY GROUP INC", amount, start, "2026-01-01", "assistance", "81.121", "nuclear_energy_rd",
+      "https://www.usaspending.gov/award/#{id}", id, "abc-C", "Work" ] }
+    text = CSV.generate { |csv| csv << columns; csv << row.("DESC1", "2000000.0", "2016-01-01"); csv << row.("DESC2", "3000000.0", "2023-01-01") }
+    source = Source.create!(url: "https://www.usaspending.gov/recipient/abc-C/latest", source_kind: "usaspending_doe_awards", content_text: text)
+    company = Organization.create!(name: "BROOKHAVEN TECHNOLOGY GROUP INC")
+    org_claim = Candidate.create!(source:, kind: "organization", quote: "q", status: "needs_review", notes: "could be the same brand as Brookhaven Lab",
+      payload: { "name" => "BROOKHAVEN TECHNOLOGY GROUP INC" }, subject_type: "Organization", subject_id: company.id, proposed_subject: true)
+    old = "2 awards from the U.S. Department of Energy totaling $5.0 million, 2016–2023: DESC2 and DESC1."
+    link = Relationship.create!(from_organization: Organization.create!(name: "U.S. Department of Energy"), to_organization: company,
+      relationship_type: "funds", description: old)
+    link_claim = Candidate.create!(source:, kind: "relationship", quote: "q", status: "needs_review", ai_recommendation: "needs_review",
+      ai_reason: "the awards run to 2026, not 2023", payload: { "description" => old }, subject_type: "Relationship", subject_id: link.id,
+      proposed_subject: true)
+
+    assert_output(/candidate #{link_claim.id}.*first in 2016, latest in 2023.*back to verify.*Dry run/m) { refresh_doe_awards(BY: "human:tosin") }
+    assert_equal "needs_review", link_claim.reload.status, "a dry run changes nothing"
+
+    capture_io { refresh_doe_awards(BY: "human:tosin", APPLY: "1") }
+
+    assert_equal [ "matched", nil ], [ link_claim.reload.status, link_claim.ai_recommendation ]
+    assert_match "(first in 2016, latest in 2023)", link_claim.payload["description"]
+    assert_match "(first in 2016, latest in 2023)", link.reload.description, "the pending link reads the same"
+    assert_equal [ "needs_review", "Brookhaven Technology Group" ], [ org_claim.reload.status, org_claim.payload["name"] ], "a same-company call keeps its place"
+    assert_equal "Brookhaven Technology Group", company.reload.name
+    assert_equal company.id, Directory::Lookup.organization(name: "BROOKHAVEN TECHNOLOGY GROUP INC")&.id, "the award's spelling still finds it"
+  end
 end

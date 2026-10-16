@@ -43,7 +43,7 @@ class Directory::ChecksTest < ActiveSupport::TestCase
     blank = Organization.create!(name: "Blank Co", **VERIFIED)
     Evidence.create!(subject: blank, source: b, quote: " \n ", found_by: "human")
 
-    assert_equal [ unquoted.id, blank.id ], ids("no-quote", Organization) & [ quoted_once.id, twice.id, unquoted.id, blank.id ], "spaces or newlines are no quote"
+    assert_equal [ unquoted.id, blank.id ].sort, (ids("no-quote", Organization) & [ quoted_once.id, twice.id, unquoted.id, blank.id ]).sort, "spaces or newlines are no quote"
     assert_includes ids("single-source", Organization), quoted_once.id
     assert_not_includes ids("single-source", Organization), twice.id
     assert_includes ids("multi-source", Organization), twice.id
