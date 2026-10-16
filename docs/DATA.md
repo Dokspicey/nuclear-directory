@@ -95,7 +95,7 @@ The verb is fixed (VOICE.md). Each link needs a quote that states that relations
 | Field | Rule |
 |---|---|
 | Capacity | **MW, net summer**, from EIA-860M's "Net Summer Capacity (MW)", stored to 0.1 MW. Shown as "MW", with the note "Net summer capacity, from EIA" on plant pages (Tosin, D2). Nameplate is never mixed in. A site's capacity is the sum of its units, never stored. |
-| Plant status | `operating`, `under_construction`, `planned`, `shut_down`, `decommissioning`. Blank means not stated, shown as "Not stated". Never guessed |
+| Plant status | `operating`, `not_operating`, `under_construction`, `planned`, `shut_down`, `decommissioning`. Blank means not stated, shown as "Not stated". Never guessed. A power reactor is `operating` if NRC lists it and its daily status report shows power above 0% on at least one of the last 365 days; a refuelling outage doesn't change that. It's `not_operating` ("Not operating") if it's licensed but at 0% on all 365 days, like Palisades in 2026. That isn't permanent, which is `shut_down`. A restart plan goes only in a sourced note (#296) |
 | Company status | `active`, `acquired`, `defunct`, each with a quote when it isn't `active` |
 | Dates | ISO `2026-10-09` in data. A month-only source date is stored as the 1st, with the description saying "October 2026" |
 | State | Two-letter USPS code. For power plants in EIA-860M, from EIA (not NRC's "nearest city", which put Salem in Delaware, #197). For any other site (test reactors, fuel plants, mines, fusion plants), from the operator's, owner's or an agency's page that states it (e.g. HFIR from DOE OSTI) |
@@ -218,6 +218,7 @@ The admin's Live screen and the nightly `data_quality:audit` are planned (Admin 
 | duplicate site | High | Two live sites share an EIA plant ID or coordinates within 50 m |
 | duplicate company | High | Two live companies share a normalized name, alias or domain |
 | `single-source` | Low | Rests on one source |
+| `idle-all-year` | High | A reactor marked `operating` that NRC's daily status report shows at 0% on all of the last 365 days (#296) |
 | `no-operator` | Medium | An operating reactor or plant with no published operator, on it or its site |
 | `no-capacity` | Medium | An operating reactor with no capacity |
 | `no-location` | Medium | Any plant or reactor without coordinates or a state |
@@ -244,6 +245,7 @@ The admin's Live screen and the nightly `data_quality:audit` are planned (Admin 
 | Capacity is shown as "MW", noted "Net summer capacity, from EIA" on plant pages (D2) | Tosin | #238 |
 | A counted deal is a signed power deal; frameworks and MOUs are listed separately by stage | Tosin | #253, #255 |
 | Nuclear Capital Partners is venture capital (#250) | Tosin | #250 |
+| A licensed reactor that produces no power is "Not operating", not "Restarting"; a restart plan is a sourced note | Tosin | #296 |
 | 9 company buckets; a company is in every bucket its facts support, with no stored main bucket; tags for detail | Tosin | #266 |
 | Scope is the whole nuclear industry, not only power; isotopes are in | Tosin | #266 |
 | Bucket names and edge cases ("Waste and decommissioning"; universities in Government and research; fusion and uranium as tags; stable URLs) | Tosin, with Founder and GTM | #266 |
