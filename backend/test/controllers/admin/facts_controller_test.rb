@@ -118,7 +118,9 @@ class Admin::FactsControllerTest < ActionDispatch::IntegrationTest
     get admin_fact_path(type: "Facility", id: pending.id)
     assert_select "a[href=?]", plant_path(slug: pending.slug), count: 0
     assert_select ".nd-panel .type-admin-h2", "Waiting"
-    assert_select "a[href=?]", admin_checks_path, text: "Decide in Checks"
+    assert_select "a[href=?]", "#{admin_checks_path}#fact-Facility-#{pending.id}", text: "Decide in Checks"
+    get admin_fact_path(type: "Facility", id: pending.id, from: "checks", back: admin_checks_path(category: "facts"))
+    assert_select "a[href=?]", "#{admin_checks_path(category: "facts")}#fact-Facility-#{pending.id}", text: "Decide in Checks"
   end
 
   test "a pending site that's public through a published unit links to its page and says so" do

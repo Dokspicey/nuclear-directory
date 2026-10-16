@@ -60,7 +60,8 @@
         <button type="submit" class="nd-btn nd-btn--primary type-ui">Put back</button>
       <% end %>
     <% elsif status == "pending" %>
-      <%= link_to "Decide in Checks", admin_checks_path, class: "nd-btn nd-btn--outline type-ui" %>
+      <%# Back to the list it came from, at its row (a pending fact with no claim is drawn as fact-Type-id). %>
+      <%= link_to "Decide in Checks", "#{back_path(admin_checks_path).split("#").first}#fact-#{@fact.type}-#{@fact.id}", class: "nd-btn nd-btn--outline type-ui" %>
     <% end %>
 
     <details class="nd-fold">
