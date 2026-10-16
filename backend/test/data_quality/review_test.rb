@@ -452,4 +452,64 @@ class DataQuality::ReviewTest < ActiveSupport::TestCase
     assert open_end.reload.status_needs_review?, "left for a person"
     assert_empty other.reload.evidence, "no quote added to another link"
   end
+
+  # ---- what Approve all may take (16 Oct: an approve-all replaced hand-written descriptions)
+
+  test "a recommended claim on a record a person decided waits for Data Quality: never in Approve all, nor approved in bulk" do
+    decided = Organization.create!(name: "Hand Written Co", description: "Written by a person.", verification_status: "verified", verified_by: BY)
+    Evidence.create!(subject: decided, source: @source, quote: "Hand Written Co", found_by: "human")
+    on_decided = Candidate.create!(source: @source, kind: "organization", payload: { "name" => "Hand Written Co", "description" => "1 award, 2021" },
+      quote: "Hand Written Co", status: "matched", subject_type: "Organization", subject_id: decided.id)
+    fresh = candidate("organization", { "name" => "Fresh Fission Co" }, quote: "Fresh Fission Co")
+    @source.update!(content_text: "Hand Written Co Fresh Fission Co")
+    run_stage("match")
+    run_stage("verify", verifier: Recommend.new)
+    on_decided.update!(ai_recommendation: "recommend_publish", status: "matched") # as the verifier left it on the night
+
+    assert_equal [ fresh.id ], Review.safe_ids
+    assert_equal "it would change a record a person decided", Review.candidate(on_decided.id).held
+
+    result = Review.approve([ on_decided.id ], by: BY, only_recommended: true).sole
+    assert_match "waits for Data Quality", result.errors.sole
+    assert_equal "Written by a person.", decided.reload.description
+    assert Review.approve([ on_decided.id ], by: BY).sole.ok?, "on its own, a person can still take it"
+  end
+
+  test "a record a person took off or rejected holds its claims too, so a bulk approval never puts it back" do
+    gone = Organization.create!(name: "Taken Off Co", verification_status: "verified", verified_by: BY)
+    gone.unpublish!(by: BY, reason: "Not nuclear")
+    claim = Candidate.create!(source: @source, kind: "organization", payload: { "name" => "Taken Off Co" }, quote: "Taken Off Co",
+      status: "matched", subject_type: "Organization", subject_id: gone.id, ai_recommendation: "recommend_publish")
+
+    assert_equal "it would change a record a person decided", Review.candidate(claim.id).held
+    assert_not_includes Review.safe_ids, claim.id
+    assert_match "waits for Data Quality", Review.approve([ claim.id ], by: BY, only_recommended: true).sole.errors.sole
+    assert gone.reload.unpublished?
+  end
+
+  test "a recommended claim not attached to a record yet waits, so approving can't land on a decided record by its name" do
+    decided = Organization.create!(name: "Named Co", description: "A person's.", verification_status: "verified", verified_by: BY)
+    unattached = candidate("organization", { "name" => "Named Co", "description" => "The crawler's." }, quote: "Named Co")
+    @source.update!(content_text: "Named Co")
+    run_stage("verify", verifier: Recommend.new) # verified without a match run: no record attached
+    unattached.update!(ai_recommendation: "recommend_publish")
+
+    assert_nil unattached.reload.subject_id
+    assert_not_includes Review.safe_ids, unattached.id
+    assert_match "waits for Data Quality: it isn't attached", Review.approve([ unattached.id ], by: BY, only_recommended: true).sole.errors.sole
+    assert_equal "A person's.", decided.reload.description
+  end
+
+  test "a source's first batch waits for Data Quality; later batches are approved in bulk as before" do
+    first_run = CrawlRun.create!(stage: "extract", source_kind: "dummy", status: "succeeded", started_at: 2.days.ago)
+    later_run = CrawlRun.create!(stage: "extract", source_kind: "dummy", status: "succeeded", started_at: 1.day.ago)
+    first = Candidate.create!(source: @source, kind: "organization", payload: { "name" => "First Batch Co" }, quote: "First Batch Co", crawl_run: first_run)
+    later = Candidate.create!(source: @source, kind: "organization", payload: { "name" => "Later Batch Co" }, quote: "Later Batch Co", crawl_run: later_run)
+    @source.update!(content_text: "First Batch Co Later Batch Co")
+    run_stage("match")
+    run_stage("verify", verifier: Recommend.new)
+
+    assert_equal [ later.id ], Review.safe_ids
+    assert_equal "it's from this source's first batch", Review.candidate(first.id).held
+  end
 end
