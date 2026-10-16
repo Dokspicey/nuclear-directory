@@ -193,6 +193,16 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
     assert_equal "TerraPower", terrapower.name
   end
 
+  test "a company is found by another spelling it came under, as a plant is (#302)" do
+    organizations(:terrapower).aliases.create!(alias: "TERRAPOWER ISOTOPES DIVISION")
+    c = candidate("organization", { "name" => "Terrapower Holdings", "aliases" => [ "TERRAPOWER ISOTOPES DIVISION" ] })
+
+    match!
+
+    assert_equal organizations(:terrapower).id, c.reload.subject_id
+    assert_match "by name", c.notes
+  end
+
   test "the name a match was found under becomes an alias only once it's approved" do
     c = candidate("organization", { "name" => "TP Nuclear Holdings", "domain" => "terrapower.com" })
 

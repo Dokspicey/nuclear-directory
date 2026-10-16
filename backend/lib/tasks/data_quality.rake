@@ -115,6 +115,30 @@ namespace :data_quality do
     puts "Dry run: nothing changed. Run again with APPLY=1 to apply." unless apply
   end
 
+  # #302: the DOE award claims still open take the plug-in's new wording and
+  # names. The DOE crawl does this itself at the start of each run
+  # (UsaspendingDoeAwards#refresh_open_claims); this shows what it would
+  # change, for a rehearsal on a restored backup. Dry run unless APPLY=1.
+  desc "Show (or with APPLY=1 make) the #302 rewording of open DOE award claims, audited: BY=human:tosin [APPLY=1] bin/rails data_quality:refresh_doe_awards"
+  task refresh_doe_awards: :environment do
+    by = ENV["BY"].to_s
+    abort "Usage: BY=human:<handle> [APPLY=1] bin/rails data_quality:refresh_doe_awards" unless by.match?(/\Ahuman:\S+\z/)
+
+    apply = ENV["APPLY"] == "1"
+    refreshed = []
+    ActiveRecord::Base.transaction(requires_new: true) do
+      refreshed = DataQuality::Plugin.for("usaspending_doe_awards").refresh_open_claims(by:)
+      refreshed.each do |item|
+        changes = item[:changes].map { |key, value| "#{key} -> #{value.inspect}" }.join("; ")
+        puts "candidate #{item[:candidate].id.to_s.ljust(5)} #{item[:candidate].kind}: #{changes}#{' (back to verify)' if item[:reverify]}"
+      end
+      raise ActiveRecord::Rollback unless apply
+    end
+    verb = apply ? "" : "would be "
+    puts "#{refreshed.size} claims #{verb}reworded, #{refreshed.count { |item| item[:reverify] }} #{verb}sent back to verify."
+    puts "Dry run: nothing changed. The next DOE crawl makes these changes itself." unless apply
+  end
+
   desc "Check the OpenRouter key works, without a model call: bin/rails data_quality:check_key"
   task check_key: :environment do
     key = DataQuality::OpenRouter::Client.new.check_key
