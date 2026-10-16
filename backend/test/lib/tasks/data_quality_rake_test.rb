@@ -133,12 +133,13 @@ class DataQualityRakeTest < ActiveSupport::TestCase
     source = Source.create!(url: "https://www.usaspending.gov/recipient/abc-C/latest", source_kind: "usaspending_doe_awards", content_text: text)
     company = Organization.create!(name: "BROOKHAVEN TECHNOLOGY GROUP INC")
     org_claim = Candidate.create!(source:, kind: "organization", quote: "q", status: "needs_review", notes: "could be the same brand as Brookhaven Lab",
-      payload: { "name" => "BROOKHAVEN TECHNOLOGY GROUP INC" }, subject_type: "Organization", subject_id: company.id)
+      payload: { "name" => "BROOKHAVEN TECHNOLOGY GROUP INC" }, subject_type: "Organization", subject_id: company.id, proposed_subject: true)
     old = "2 awards from the U.S. Department of Energy totaling $5.0 million, 2016–2023: DESC2 and DESC1."
     link = Relationship.create!(from_organization: Organization.create!(name: "U.S. Department of Energy"), to_organization: company,
       relationship_type: "funds", description: old)
     link_claim = Candidate.create!(source:, kind: "relationship", quote: "q", status: "needs_review", ai_recommendation: "needs_review",
-      ai_reason: "the awards run to 2026, not 2023", payload: { "description" => old }, subject_type: "Relationship", subject_id: link.id)
+      ai_reason: "the awards run to 2026, not 2023", payload: { "description" => old }, subject_type: "Relationship", subject_id: link.id,
+      proposed_subject: true)
 
     assert_output(/candidate #{link_claim.id}.*first in 2016, latest in 2023.*back to verify.*Dry run/m) { refresh_doe_awards(BY: "human:tosin") }
     assert_equal "needs_review", link_claim.reload.status, "a dry run changes nothing"

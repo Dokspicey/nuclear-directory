@@ -100,28 +100,38 @@ class DataQuality::Plugins::UsaspendingDoeAwards < DataQuality::Plugin
     fresh = open.to_h { |candidate| [ candidate.id, extract(candidate.source, nil).find { |item| item[:kind] == candidate.kind } ] }
     shared = open.select { |candidate| candidate.kind == "organization" && candidate.subject_id && fresh[candidate.id] }
       .group_by(&:subject_id).transform_values { |claims| shared_name(claims.map { |claim| fresh[claim.id][:payload]["name"] }) }
-    open.filter_map do |candidate|
-      item = fresh[candidate.id] or next
-      payload = item[:payload]
-      payload = payload.merge("name" => shared[candidate.subject_id]) if candidate.kind == "organization" && shared[candidate.subject_id]
-      changes = payload.slice("name", "aliases", "description").reject { |key, value| candidate.payload[key] == value }
-      next if changes.empty?
+    open.filter_map do |loaded|
+      item = fresh[loaded.id] or next
 
-      reverify = changes.key?("description") && candidate.status == "needs_review" && candidate.ai_recommendation.present?
-      record = directory.attached_record(candidate)
-      if record&.verification_status == "pending" && !record.verified_by.to_s.start_with?("human:")
-        attributes = changes.slice(*(candidate.kind == "organization" ? %w[name aliases] : %w[description])).symbolize_keys
-        # Claims sharing it with no name in common: it keeps its own.
-        attributes.delete(:name) if shared.key?(candidate.subject_id) && shared[candidate.subject_id].nil?
-        if attributes.any?
-          result = directory.write_pending(candidate.kind, attributes.merge(id: record.id), candidate:, crawl_run: nil, evidence: false)
-          raise "candidate #{candidate.id}: #{result.errors.to_sentence}" if result.errors.any?
+      Candidate.transaction do
+        # Locked and read again: a claim a person decided meanwhile is left as decided.
+        candidate = Candidate.lock.find_by(id: loaded.id)
+        next unless candidate && %w[new matched needs_review].include?(candidate.status)
+
+        payload = item[:payload]
+        payload = payload.merge("name" => shared[candidate.subject_id]) if candidate.kind == "organization" && shared[candidate.subject_id]
+        # The whole claim as extracted now, so its values stay consistent with each other.
+        changes = payload.reject { |key, value| candidate.payload[key] == value }
+        next if changes.empty?
+
+        reverify = changes.key?("description") && candidate.status == "needs_review" && candidate.ai_recommendation.present?
+        # Only a record this claim proposed: an existing company it was matched to keeps its name.
+        record = directory.attached_record(candidate) if candidate.proposed_subject
+        if record&.verification_status == "pending" && !record.verified_by.to_s.start_with?("human:")
+          attributes = changes.slice(*(candidate.kind == "organization" ? %w[name aliases] : %w[description started_on])).symbolize_keys
+          # Claims sharing it with no name in common: it keeps its own.
+          attributes.delete(:name) if shared.key?(candidate.subject_id) && shared[candidate.subject_id].nil?
+          if attributes.any?
+            result = directory.write_pending(candidate.kind, attributes.merge(id: record.id), candidate:, crawl_run: nil, evidence: false)
+            # Refused (say its company was rejected meanwhile): left for a person; the crawl goes on.
+            next if result.errors.any?
+          end
         end
+        note = "Reworded for #302 by #{by}#{'; sent back to verify' if reverify}"
+        candidate.update!({ payload: candidate.payload.merge(changes), notes: [ candidate.notes, note ].compact_blank.join(" · ") }
+          .merge(reverify ? { status: "matched", ai_recommendation: nil, ai_reason: nil, ai_confidence: nil, ai_model: nil, ai_checked_at: nil } : {}))
+        { candidate:, changes:, reverify: }
       end
-      note = "Reworded for #302 by #{by}#{'; sent back to verify' if reverify}"
-      candidate.update!({ payload: candidate.payload.merge(changes), notes: [ candidate.notes, note ].compact_blank.join(" · ") }
-        .merge(reverify ? { status: "matched", ai_recommendation: nil, ai_reason: nil, ai_confidence: nil, ai_model: nil, ai_checked_at: nil } : {}))
-      { candidate:, changes:, reverify: }
     end
   end
 

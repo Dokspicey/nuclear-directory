@@ -236,23 +236,47 @@ class DataQuality::Plugins::UsaspendingDoeAwardsTest < ActiveSupport::TestCase
 
   test "a pending company two claims share is named after the brand they share, not whichever ran last" do
     company = Organization.create!(name: "BWXT NUCLEAR ENERGY, INC.")
-    claim = lambda do |spelling, recipient_id|
+    claim = lambda do |spelling, recipient_id, proposed|
       text = CSV.generate do |csv|
         csv << Plugin::COLUMNS
         csv << [ "DE#{recipient_id}", spelling, "2000000.0", "2021-01-01", "2026-01-01", "contract", nil, "haleu_fuel_contracts", "u", "CONT_#{recipient_id}", "#{recipient_id}-C", "Work" ]
       end
       source = Source.create!(url: "https://www.usaspending.gov/recipient/#{recipient_id}-C/latest", source_kind: "usaspending_doe_awards", content_text: text)
       Candidate.create!(source:, kind: "organization", quote: "q", status: "needs_review", payload: { "name" => spelling },
-        subject_type: "Organization", subject_id: company.id)
+        subject_type: "Organization", subject_id: company.id, proposed_subject: proposed)
     end
-    energy = claim.("BWXT NUCLEAR ENERGY, INC.", "aaa1")
-    operations = claim.("BWXT NUCLEAR OPERATIONS GROUP, INC.", "aaa2")
+    energy = claim.("BWXT NUCLEAR ENERGY, INC.", "aaa1", true)
+    operations = claim.("BWXT NUCLEAR OPERATIONS GROUP, INC.", "aaa2", false)
 
     plugin.refresh_open_claims
 
     assert_equal "BWXT", company.reload.name
     assert_equal [ "BWXT", "BWXT" ], [ energy.reload.payload["name"], operations.reload.payload["name"] ]
     assert_empty plugin.refresh_open_claims, "and it stays that way"
+  end
+
+  test "an existing company a claim was matched to keeps its name; only a record the claim proposed is renamed" do
+    crawl!
+    existing = Organization.create!(name: "X-energy LLC", verification_status: "pending")
+    claim = Candidate.create!(source: recipient(XENERGY["recipient_id"]), kind: "organization", quote: "q", status: "needs_review",
+      payload: { "name" => "X-ENERGY, LLC" }, subject_type: "Organization", subject_id: existing.id, proposed_subject: false)
+
+    plugin.refresh_open_claims
+
+    assert_equal "X-energy LLC", existing.reload.name
+    refute_equal "X-ENERGY, LLC", claim.reload.payload["name"], "the claim itself is reworded"
+  end
+
+  test "a write the directory refuses (its company was rejected) skips that claim; the crawl goes on" do
+    crawl!
+    company = Organization.create!(name: "Gone Co", verification_status: "rejected", verified_by: "human:tosin")
+    doe = Organization.create!(name: "U.S. Department of Energy")
+    link = Relationship.create!(from_organization: doe, to_organization: company, relationship_type: "funds", description: "old, 2021: X.")
+    claim = Candidate.create!(source: recipient(XENERGY["recipient_id"]), kind: "relationship", quote: "q", status: "matched",
+      payload: { "description" => "old, 2021: X." }, subject_type: "Relationship", subject_id: link.id, proposed_subject: true)
+
+    assert_nothing_raised { plugin.crawl(nil) }
+    assert_equal "old, 2021: X.", claim.reload.payload["description"]
   end
 
   test "a company's readable name: title case, no legal suffix, acronyms kept; a mixed-case name is its own" do
