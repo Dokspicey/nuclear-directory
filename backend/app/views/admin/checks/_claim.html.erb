@@ -10,6 +10,7 @@
         one makes Enter do nothing, so every decision takes a deliberate click. %>
     <button type="submit" disabled hidden aria-hidden="true" tabindex="-1"></button>
     <%= hidden_field_tag :anchor, anchor, id: nil if local_assigns[:anchor] %>
+    <%= hidden_field_tag :back, request.fullpath, id: nil %>
     <div class="nd-wait__what">
       <p class="type-kicker text-ink-muted"><%= check_kicker(item) %></p>
       <p class="type-subject">
@@ -37,6 +38,7 @@
           <% elsif item.notes.present? %>
             <p class="type-body"><strong>Why it's here:</strong> <%= item.notes.upcase_first %></p>
           <% end %>
+          <% if item.differences.any? %><p class="type-small">Approving replaces the human-verified <%= item.differences.keys.map { |name| field_label(name).downcase_first }.to_sentence %>.</p><% end %>
           <% if item.differences.size > 1 %>
             <dl class="nd-kv type-body">
               <% item.differences.each do |name, (stored, incoming)| %>
@@ -55,7 +57,7 @@
     <div class="nd-wait__actions type-ui">
       <button type="submit" class="nd-btn nd-btn--primary" name="candidate_id" value="<%= item.candidate_id %>">Approve</button>
       <button type="submit" class="nd-btn nd-btn--outline" name="candidate_id" value="<%= item.candidate_id %>"
-        formaction="<%= reject_admin_candidates_path(filters) %>"><%= item.category == "changed" ? "Keep" : "Reject" %></button>
+        formaction="<%= reject_admin_candidates_path(filters) %>"><%= item.differences.any? ? "Keep" : "Reject" %></button>
       <%= link_to "Edit", edit_admin_candidate_path(item.candidate_id, **filters, back: request.fullpath), class: "nd-btn nd-btn--outline" %>
     </div>
   <% end %>

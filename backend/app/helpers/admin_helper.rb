@@ -138,11 +138,15 @@ module AdminHelper
 
   # The value to compare at a glance: old → new for a change, the record a
   # duplicate may be. nil when there's nothing to compare.
+  # Any claim that would replace a human-verified value shows it, whatever
+  # its group: its notes may predate the value being decided.
   def check_value(item)
+    if (difference = item.differences.first)
+      _, (stored, incoming) = difference
+      return "#{stored.presence || "blank"} → #{incoming.presence || "blank"}"
+    end
+
     case item.category
-    when "changed"
-      name, (stored, incoming) = item.differences.first
-      "#{stored.presence || "blank"} → #{incoming.presence || "blank"}" if name
     when "duplicates"
       similar = item.notes.to_s[/but similar: (.+?)\. Same record/, 1] || item.notes.to_s[/the same brand as (.+?)(?:\.|,| \(| Which)/, 1]
       "→ #{similar.split('; ').first}" if similar

@@ -103,6 +103,34 @@ class Admin::NavigationTest < ActionDispatch::IntegrationTest
     assert_response :see_other
   end
 
+  test "a decision on a later page of Checks comes back to that page" do
+    stub_const(Admin::ChecksController, :PAGE, 2) do
+      claims = 3.times.map { |n| waiting("Co #{n}") }
+      page_two = admin_checks_path(after: claims[1].id)
+
+      get page_two
+      assert_select "#claim-#{claims[2].id} input[name=back][value=?]", page_two
+      css_select("li[id^=fact-]").first&.then { |row| assert_select "##{row['id']} input[name=back][value=?]", page_two }
+
+      post reject_admin_candidates_path, params: { candidate_id: claims[2].id, back: page_two }
+      assert_redirected_to page_two
+    end
+  end
+
+  test "a claim outside Changed that would replace a human-verified value still shows it, with Keep" do
+    unit = Facility.create!(name: "Hope Creek 1", nrc_docket: "05000354", state: "NJ", verification_status: "verified", verified_by: "human:tosin")
+    claim = Candidate.create!(source: @nrc, kind: "facility", quote: "q", status: "needs_review", notes: "unsure",
+      subject_type: "Facility", subject_id: unit.id, payload: { "name" => "Hope Creek 1", "nrc_docket" => "05000354", "state" => "DE" })
+
+    get admin_checks_path(category: "facts")
+
+    assert_select "#claim-#{claim.id}" do
+      assert_select ".type-change", "NJ → DE"
+      assert_select "details p", /Approving replaces the human-verified state/
+      assert_select "button[formaction]", "Keep"
+    end
+  end
+
   test "Approve N safe counts and approves only the recommended claims the filter shows" do
     nrc = 2.times.map { |n| waiting("NRC Co #{n}", recommended: true) }
     waiting("Web Co", source: @web, recommended: true)

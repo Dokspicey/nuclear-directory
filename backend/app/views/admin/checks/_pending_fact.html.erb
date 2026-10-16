@@ -6,6 +6,7 @@
   <%= form_with url: approve_admin_pending_facts_path(category: (filters[:category])), class: "contents" do %>
     <button type="submit" disabled hidden aria-hidden="true" tabindex="-1"></button>
     <%= hidden_field_tag :anchor, anchor, id: nil if local_assigns[:anchor] %>
+    <%= hidden_field_tag :back, request.fullpath, id: nil %>
     <%= hidden_field_tag :type, fact.type, id: nil %>
     <div class="nd-wait__what">
       <p class="type-kicker text-ink-muted">Pending <%= type_label(fact.type).downcase_first %><%= " · #{source_host(first.url)}" if first %></p>
