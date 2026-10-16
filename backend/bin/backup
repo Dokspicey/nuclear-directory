@@ -82,7 +82,7 @@ releases="https://api.github.com/repos/${BACKUP_REPO}/releases"
 # them, but not one another run may still be uploading.
 api "${releases}?per_page=100" \
   | jq -r --argjson now "$(date -u +%s)" -f "${jq_dir}/abandoned_drafts.jq" \
-  | while read -r id; do api -X DELETE "${releases}/${id}" > /dev/null; done
+  | while read -r id; do api -X DELETE "${releases}/${id}" > /dev/null || true; done
 
 # Create as a draft, upload, then publish, so a failed upload never leaves an
 # empty release as the newest backup.
@@ -99,7 +99,12 @@ echo "Uploaded to ${BACKUP_REPO} release ${tag}"
 api "${releases}?per_page=100" \
   | jq -r --argjson keep "$keep" -f "${jq_dir}/prune_backups.jq" \
   | while read -r id old_tag; do
-      api -X DELETE "${releases}/${id}" > /dev/null
-      api -X DELETE "https://api.github.com/repos/${BACKUP_REPO}/git/refs/tags/${old_tag}" > /dev/null
-      echo "Pruned ${old_tag}"
+      # The daily job and a pre-deploy backup can prune the same release at
+      # once; one already gone isn't a failure.
+      if api -X DELETE "${releases}/${id}" > /dev/null && \
+         api -X DELETE "https://api.github.com/repos/${BACKUP_REPO}/git/refs/tags/${old_tag}" > /dev/null; then
+        echo "Pruned ${old_tag}"
+      else
+        echo "Couldn't prune ${old_tag} (already gone?); the next run tries again"
+      fi
     done

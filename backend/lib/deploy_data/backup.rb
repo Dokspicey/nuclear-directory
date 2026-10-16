@@ -18,8 +18,10 @@ module DeployData
       output, status = Open3.capture2e(env, Rails.root.join("bin/backup").to_s)
       puts output.lines.map { |line| "  #{line}" }.join
       tag = output[/^Uploaded to \S+ release (\S+)$/, 1]
-      raise Failed, "the backup didn't finish (exit #{status.exitstatus})" unless status.success? && tag
+      raise Failed, "the backup didn't finish (exit #{status.exitstatus})" unless tag
 
+      # Published: the backup is safe even if pruning old ones failed after it.
+      warn "deploy-data: the backup is published, but bin/backup exited #{status.exitstatus} after it (pruning)" unless status.success?
       tag
     end
   end
