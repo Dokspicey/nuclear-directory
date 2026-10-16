@@ -144,7 +144,8 @@ class SourceCatalog
       end
 
       def documents_for(scope)
-        sources = scope.order(:domain, :url).to_a
+        # Only what a Document shows: a fetched body (up to 20 MB) is never read here.
+        sources = scope.select(:id, :source_kind, :url, :title, :domain, :fetched_at, :crawl_status, :status_reason).order(:domain, :url).to_a
         facts = facts_backed(sources.map(&:id))
         sources.map do |source|
           Document.new(id: source.id, kind: source.source_kind, url: source.url, title: source.title, domain: source.domain, group: group_of(source.domain),
