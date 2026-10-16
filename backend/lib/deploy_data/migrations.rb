@@ -23,8 +23,9 @@ module DeployData
       []
     end
 
-    # Runs one, in its own transaction with its record. Raises on any error
-    # (the transaction rolls back, so it runs again on the next deploy).
+    # Runs one, in a transaction with its record (part of the caller's, when
+    # there is one). Raises on any error; rolled back, it runs again on the
+    # next deploy.
     def run(pending, reason:, commit:)
       klass = load_class(pending)
       migration = klass.new(reason:)

@@ -12,7 +12,7 @@ module DeployData
 
     # Returns the backup's tag; raises Failed if it didn't upload.
     def take!
-      env = { "BACKUP_TAG_SUFFIX" => "predeploy", "BACKUP_PRUNE_JQ" => Rails.root.join("lib/backup/prune_backups.jq").to_s }
+      env = { "BACKUP_TAG_SUFFIX" => "predeploy", "BACKUP_JQ_DIR" => Rails.root.join("lib/backup").to_s }
       # The image's Postgres 16 tools, whatever else is on the PATH.
       env["PATH"] = "#{PG_BIN}:#{ENV['PATH']}" if File.directory?(PG_BIN)
       output, status = Open3.capture2e(env, Rails.root.join("bin/backup").to_s)

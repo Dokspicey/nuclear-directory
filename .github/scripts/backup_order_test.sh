@@ -44,4 +44,16 @@ check "keep 2 of each kind: prune the oldest daily and the oldest pre-deploy, ol
 check "a pre-deploy backup can be the newest to restore" \
   "$(jq -r -f backup/newest_backup.jq <<< '[{"tagName":"backup-2026-10-11T0900Z","isDraft":false},{"tagName":"backup-2026-10-11T1500Z-predeploy","isDraft":false}]')" "backup-2026-10-11T1500Z-predeploy"
 
+# Only abandoned drafts are deleted: a recent one may be another run's
+# upload in progress (the daily job and a pre-deploy backup can overlap).
+now=$(jq -n '"2026-10-17T1200Z" | strptime("%Y-%m-%dT%H%MZ") | mktime')
+drafts='[
+  {"id":1,"tag_name":"backup-2026-10-17T0900Z","draft":true},
+  {"id":2,"tag_name":"backup-2026-10-17T1130Z-predeploy","draft":true},
+  {"id":3,"tag_name":"backup-2026-10-16T0900Z","draft":false},
+  {"id":4,"tag_name":"backup-garbled","draft":true},
+  {"id":5,"tag_name":"v1","draft":true}]'
+check "delete only drafts over 2 hours old" \
+  "$(jq -r --argjson now "$now" -f backend/lib/backup/abandoned_drafts.jq <<< "$drafts" | tr '\n' ' ')" "1 "
+
 exit $fail

@@ -11,7 +11,7 @@ RUN apt-get update -qq && \
 # which runs it before a data deploy (#301, bin/deploy-data).
 COPY backend/bin/backup /usr/local/bin/backup
 COPY backup/restore.sh /usr/local/bin/restore
-COPY backend/lib/backup/prune_backups.jq /usr/local/share/backup/prune_backups.jq
+COPY backend/lib/backup/*.jq /usr/local/share/backup/
 
 USER postgres
 ENTRYPOINT []

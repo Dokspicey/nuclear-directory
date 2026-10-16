@@ -259,4 +259,47 @@ class DeployData::RunTest < ActiveSupport::TestCase
     assert_match(/  organization\s+2 created, 68 updated/, report)
     assert_includes @output, "organization", "still printed to the deploy log"
   end
+
+  test "if a later data migration fails, the seed and earlier migrations are rolled back too" do
+    run_step
+    write "db/seeds/organizations/terrapower.yml", "name: TerraPower Inc\n"
+    write "db/data/20261017120000_fix_after_seed.rb", <<~RUBY
+      class FixAfterSeed < DeployData::Migration
+        BY = "human:tosin"
+        def up = Organization.find_by!(slug: "westinghouse").update!(name: "Fixed")
+      end
+    RUBY
+    write "db/data/20261017130000_breaks.rb", <<~RUBY
+      class Breaks < DeployData::Migration
+        BY = "human:tosin"
+        def up = raise("the pinned quote is gone")
+      end
+    RUBY
+    seeder = -> { Organization.find_by!(slug: "westinghouse").update!(name: "Seeded") }
+
+    assert_equal :failed, run_step(seeder:)
+    assert_equal "Westinghouse Electric Company", organizations(:westinghouse).reload.name
+    assert_equal 0, DataMigration.count
+
+    File.delete(@root.join("db/data/20261017130000_breaks.rb"))
+    assert_equal :applied, run_step(seeder:), "the next deploy runs the seed and both fixes again"
+    assert_equal "Fixed", organizations(:westinghouse).reload.name, "the fix lands after the re-seed"
+  end
+
+  test "a data migration that won't load or has no up is reported, not missed" do
+    run_step
+    write "db/data/20261017120000_no_up.rb", <<~RUBY
+      class NoUp < DeployData::Migration
+        BY = "human:tosin"
+      end
+    RUBY
+    assert_equal :failed, run_step
+    assert_includes @github.posts.last[:body], "NotImplementedError"
+
+    File.delete(@root.join("db/data/20261017120000_no_up.rb"))
+    write "db/data/20261017120000_broken.rb", "class Broken < DeployData::Migration\n  def up(\nend\n"
+    assert_equal :failed, run_step
+    assert_includes @github.posts.last[:body], "SyntaxError"
+    assert_equal 2, DataDeploy.failed.count
+  end
 end

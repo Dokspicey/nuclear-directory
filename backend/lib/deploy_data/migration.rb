@@ -20,7 +20,8 @@ module DeployData
   #   longer true, rather than guess.
   # - Rehearsed with `bin/deploy-data --dry-run` on a restored backup before
   #   merge; `say` what it changes so the rehearsal and deploy logs match.
-  # It runs in one transaction, recorded as run only if it succeeds. Never
+  # It runs in the deploy's transaction with the seed and the other new
+  # migrations, recorded as run only if they all succeed. Never
   # from db:prepare, db:schema:load or tests: only bin/deploy-data runs it.
   class Migration
     HUMAN = /\Ahuman:[a-z0-9_.-]+\z/

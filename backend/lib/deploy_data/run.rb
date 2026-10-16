@@ -7,8 +7,10 @@ module DeployData
   # 2. Hold the crawl's locks, or stop: never write during the daily crawl.
   # 3. Take a fresh encrypted backup; stop if it fails.
   # 4. seed:check; stop on any collision.
-  # 5. db:seed, in one transaction.
-  # 6. Each new data migration, in its own transaction.
+  # 5. db:seed, then
+  # 6. each new data migration, all in one transaction: if any fails,
+  #    nothing from 5 or 6 is written and the next deploy runs them all
+  #    again (so a migration's fix is never left out after a re-seed).
   # 7. Report: deploy log, a comment on the PR, and Sentry when it needs a look.
   #
   # "Stop" writes nothing, alerts, and lets the code deploy go on.
@@ -78,7 +80,7 @@ module DeployData
       finish
     rescue Stop
       finish
-    rescue TimedOut, StandardError => error
+    rescue TimedOut, StandardError, ScriptError => error
       @report ||= Report.new(commit: @commit, pull_request: nil, label:)
       @status = :failed
       @report.outcome = "failed: #{error.class.name.demodulize}: #{error.message.lines.first&.strip}"
@@ -102,7 +104,7 @@ module DeployData
       def steps
         take_backup
         check if @seed_changed
-        rolled_back_if_rehearsing do
+        in_one_transaction do
           @report.rows_before = Census.rows
           @report.totals_before = Census.public_totals
           seed if @seed_changed
@@ -168,18 +170,17 @@ module DeployData
         first_event = Census.last_event_id
         @pending.each do |pending|
           @report.migrations << @migrations.run(pending, reason: @reason, commit: @commit)
-        rescue StandardError => error
+        rescue StandardError, ScriptError => error
           raise MigrationFailed, "data migration #{pending.version} #{pending.name}: #{error.class.name}: #{error.message}"
         end
         @report.migration_events = VerificationEvent.where("id > ?", first_event).pluck(:subject_type).tally if @pending.any?
       end
 
-      def rolled_back_if_rehearsing
-        return yield unless rolled_back?
-
+      # The seed and data migrations commit together, or (a rehearsal) not at all.
+      def in_one_transaction
         ActiveRecord::Base.transaction do
           yield
-          raise ActiveRecord::Rollback
+          raise ActiveRecord::Rollback if rolled_back?
         end
       end
 
