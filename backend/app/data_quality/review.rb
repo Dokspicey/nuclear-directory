@@ -111,6 +111,24 @@ module DataQuality::Review
       category_scope(category, source_kind:).where(id: Candidate.recommended.select(:id)).order(:id).pluck(:id)
     end
 
+    # The claims waiting on one fact (both queues), oldest first, for its
+    # page's decision panel.
+    def waiting_for(type:, id:, directory: DataQuality::DirectoryClient.new)
+      waiting_scope.where(subject_type: type.to_s, subject_id: id).includes(:source, :crawl_run).order(:id)
+        .map { |candidate| item(candidate, directory) }
+    end
+
+    # The last decision a person made on a claim about one fact, for the
+    # result line once nothing waits: { status: "merged"|"rejected", by:, at: }, or nil.
+    def last_decision_for(type:, id:)
+      candidate = Candidate.where(subject_type: type.to_s, subject_id: id, status: %w[merged rejected])
+        .where.not(reviewed_at: nil).order(reviewed_at: :desc).first
+      candidate && { status: candidate.status, by: candidate.reviewed_by, at: candidate.reviewed_at }
+    end
+
+    # Whether a fact has any source, so it can be approved.
+    def sourced?(type:, id:, directory: DataQuality::DirectoryClient.new) = directory.sourced?(type: type.to_s, id:)
+
     # Ids of the claims a Checks filter lists, in its order (oldest first).
     def check_ids(category: "all", source_kind: nil) = category_scope(category, source_kind:).order(:id).pluck(:id)
 

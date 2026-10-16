@@ -40,6 +40,13 @@ module AdminHelper
     ]
   end
 
+  # The flash after a decision made on an item page, on the next one:
+  # "Approved. 4 of 6." (the count as the list is now).
+  def admin_notice
+    list = controller.instance_variable_get(:@list)
+    flash[:decided] && list ? "#{notice} #{list[:index]} of #{list[:total]}." : notice
+  end
+
   # Counts for the nav and the Overview tiles, once per request.
   def admin_nav_counts
     @admin_nav_counts ||= {

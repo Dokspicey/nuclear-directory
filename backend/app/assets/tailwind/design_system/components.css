@@ -419,11 +419,26 @@
   .nd-crumbs li + li::before { content: "/"; color: var(--nd-control); margin-right: 6px; }
   .nd-crumbs__back { display: none; }
   .nd-itemnav { display: flex; align-items: center; gap: var(--nd-space-2); }
+  /* The decision bar on an item page (#269): top right on desktop, wrapping
+     right-aligned; a sticky bar at the bottom on phones. Reject opens its
+     reason panel under it (a bottom sheet on phones). */
+  .nd-decide { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: var(--nd-space-1); }
+  .nd-decide__buttons { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--nd-space-2); position: relative; }
+  .nd-decide__reject > summary { list-style: none; }
+  .nd-decide__reject > summary::-webkit-details-marker { display: none; }
+  .nd-decide__panel { position: absolute; right: 0; top: calc(100% + var(--nd-space-2)); z-index: 20; width: min(360px, 90vw); }
+  .nd-decide__result { margin: 0 0 0 auto; color: var(--nd-ink-muted); }
   @media (max-width: 560px) {
     .nd-crumbs ol { display: none; }
     .nd-crumbs__back { display: inline-flex; align-items: center; min-height: 44px; }
     .nd-itemnav { width: 100%; justify-content: space-between; }
     .nd-itemnav .nd-btn, .nd-itemnav > span { min-height: 44px; display: inline-flex; align-items: center; }
+    .nd-decide { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; margin: 0; align-items: stretch; background: var(--nd-paper-raised); border-top: var(--nd-hairline) solid var(--nd-rule); padding: var(--nd-space-3) var(--nd-space-4) calc(var(--nd-space-3) + env(safe-area-inset-bottom)); }
+    .nd-decide__buttons { flex-wrap: nowrap; position: static; }
+    .nd-decide__buttons > *, .nd-decide .nd-decide__reject > summary { flex: 1 1 0; justify-content: center; }
+    .nd-decide .nd-decide__reject { display: flex; flex: 1 1 0; }
+    .nd-decide__panel { position: fixed; left: 0; right: 0; bottom: 0; top: auto; width: auto; border-radius: 0; padding-bottom: calc(var(--nd-space-4) + env(safe-area-inset-bottom)); }
+    .nd-shell__main:has(.nd-decide) { padding-bottom: 120px; }
   }
 
   /* Square controls at 44px (canvas A). */

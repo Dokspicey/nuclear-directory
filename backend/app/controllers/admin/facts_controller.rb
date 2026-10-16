@@ -7,6 +7,16 @@ class Admin::FactsController < Admin::BaseController
   def show
     @fact = DataQuality::Review.fact(type: params[:type], id: params[:id].to_i) or raise ActiveRecord::RecordNotFound
     @list = list_position if params[:from] == "checks"
+    # Decide here (#269): the claims waiting on this fact, or the fact itself
+    # when it's pending with none.
+    waiting = DataQuality::Review.waiting_for(type: @fact.type, id: @fact.id)
+    @claim = waiting.first
+    @pending = @fact.verification_status == "pending" && @claim.nil?
+    @sourced = DataQuality::Review.sourced?(type: @fact.type, id: @fact.id) if @pending
+    # After deciding: this fact again while more claims wait on it, else the next item.
+    @following = waiting.size > 1 ? fact_path_here : @list&.dig(:next)
+    # Nothing to decide: the last decision on it, so Back after one shows the result.
+    @decided = DataQuality::Review.last_decision_for(type: @fact.type, id: @fact.id) unless @claim || @pending
   end
 
   def unpublish

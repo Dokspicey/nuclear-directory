@@ -1,0 +1,75 @@
+<%# The decision bar on a fact page (#269, Design's spec on #166): top right
+    on desktop, a sticky bar at the bottom on phones. By kind of item:
+    - a claim that changes a human-verified value: Approve new value, Keep current, Edit;
+    - a possible duplicate: Merge (not built yet, #142), Keep separate, Reject;
+    - any other claim: Approve, Reject, Edit;
+    - a pending fact with no claim: Approve (needs a source), Reject.
+    Reject opens a panel with an optional reason. Each posts, then the next
+    item opens (next), or the list after the last (back). Once nothing waits,
+    the result line shows instead. The actions are Checks' own. %>
+<% back = back_path(admin_checks_path) %>
+<% if @claim %>
+  <% item = @claim %>
+  <% changed = item.differences.any? %>
+  <% duplicate = !changed && item.category == "duplicates" %>
+  <%= form_with url: approve_admin_candidates_path, class: "nd-decide", data: { controller: "decide" }, aria: { label: "Decide" } do %>
+    <button type="submit" disabled hidden aria-hidden="true" tabindex="-1"></button>
+    <%= hidden_field_tag :back, back, id: nil %>
+    <%= hidden_field_tag :next, @following, id: nil if @following %>
+    <div class="nd-decide__buttons type-ui">
+      <% if duplicate %>
+        <button type="button" class="nd-btn nd-btn--outline" disabled title="Merging comes with #142">Merge</button>
+        <button type="submit" class="nd-btn nd-btn--primary" name="candidate_id" value="<%= item.candidate_id %>">Keep separate</button>
+      <% else %>
+        <button type="submit" class="nd-btn nd-btn--primary" name="candidate_id" value="<%= item.candidate_id %>"><%= changed ? "Approve new value" : "Approve" %></button>
+      <% end %>
+      <details class="nd-decide__reject" data-decide-target="panel">
+        <summary class="nd-btn nd-btn--outline"><%= changed ? "Keep current" : "Reject" %></summary>
+        <div class="nd-decide__panel nd-panel">
+          <div class="nd-field">
+            <label for="decide-reason" class="type-body-strong">Reason (optional)</label>
+            <input type="text" class="nd-input type-input" id="decide-reason" name="reasons[<%= item.candidate_id %>]">
+            <span class="type-small text-ink-muted">Kept in the history</span>
+          </div>
+          <div class="nd-wait__actions">
+            <button type="submit" class="nd-btn nd-btn--primary" name="candidate_id" value="<%= item.candidate_id %>"
+              formaction="<%= reject_admin_candidates_path(**(changed ? { kept: 1 } : {})) %>"><%= changed ? "Keep current" : "Reject" %></button>
+            <button type="button" class="nd-btn nd-btn--outline" data-action="decide#close">Cancel</button>
+          </div>
+        </div>
+      </details>
+      <% unless duplicate %>
+        <%= link_to "Edit", edit_admin_candidate_path(item.candidate_id, back:), class: "nd-btn nd-btn--outline nd-decide__edit" %>
+      <% end %>
+    </div>
+  <% end %>
+<% elsif @pending %>
+  <%= form_with url: approve_admin_pending_facts_path, class: "nd-decide", data: { controller: "decide" }, aria: { label: "Decide" } do %>
+    <button type="submit" disabled hidden aria-hidden="true" tabindex="-1"></button>
+    <%= hidden_field_tag :type, @fact.type, id: nil %>
+    <%= hidden_field_tag :back, back, id: nil %>
+    <%= hidden_field_tag :next, @following, id: nil if @following %>
+    <div class="nd-decide__buttons type-ui">
+      <button type="submit" class="nd-btn nd-btn--primary" name="id" value="<%= @fact.id %>" <%= "disabled" unless @sourced %>>Approve</button>
+      <details class="nd-decide__reject" data-decide-target="panel">
+        <summary class="nd-btn nd-btn--outline">Reject</summary>
+        <div class="nd-decide__panel nd-panel">
+          <div class="nd-field">
+            <label for="decide-reason" class="type-body-strong">Reason (optional)</label>
+            <input type="text" class="nd-input type-input" id="decide-reason" name="reasons[<%= @fact.id %>]">
+            <span class="type-small text-ink-muted">Kept in the history</span>
+          </div>
+          <div class="nd-wait__actions">
+            <button type="submit" class="nd-btn nd-btn--primary" name="id" value="<%= @fact.id %>" formaction="<%= reject_admin_pending_facts_path %>">Reject</button>
+            <button type="button" class="nd-btn nd-btn--outline" data-action="decide#close">Cancel</button>
+          </div>
+        </div>
+      </details>
+    </div>
+    <% unless @sourced %><p class="nd-decide__hint type-small text-ink-muted">Needs a source to approve</p><% end %>
+  <% end %>
+<% elsif @decided %>
+  <p class="nd-decide__result type-ui">
+    <%= { "merged" => "Approved", "rejected" => "Rejected" }.fetch(@decided[:status]) %> by <%= who(@decided[:by]) %> · <span class="type-data"><%= @decided[:at].strftime("%-d %b %H:%M") %></span>
+  </p>
+<% end %>

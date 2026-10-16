@@ -15,9 +15,10 @@ class Admin::CandidatesController < Admin::BaseController
     if ids.empty?
       flash[:alert] = "Select at least one claim to approve."
     else
-      flash_results(DataQuality::Review.approve(ids.map(&:to_i), by: actor, only_recommended: !single), "Approved")
+      flash_decision(DataQuality::Review.approve(ids.map(&:to_i), by: actor, only_recommended: !single), "Approved")
     end
-    redirect_after queue_path
+    # From an item page, on to the next item; from the list, back to it.
+    redirect_after next_or(queue_path)
   end
 
   # Every recommended claim the Checks filter shows (its chip and source), in
@@ -52,8 +53,8 @@ class Admin::CandidatesController < Admin::BaseController
 
   def reject
     id = params.require(:candidate_id).to_i
-    flash_results(DataQuality::Review.reject([ id ], by: actor, reason: params.dig(:reasons, id.to_s).presence), "Rejected")
-    redirect_after queue_path
+    flash_decision(DataQuality::Review.reject([ id ], by: actor, reason: params.dig(:reasons, id.to_s).presence), params[:kept].present? ? "Kept" : "Rejected")
+    redirect_after next_or(queue_path)
   end
 
   def edit

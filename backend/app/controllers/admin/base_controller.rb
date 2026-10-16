@@ -26,6 +26,23 @@ class Admin::BaseController < ApplicationController
       {}
     end
 
+    # A decision's flash. Made on an item page and on to the next one, it's
+    # short ("Approved."), and that page adds where it is ("4 of 6.").
+    def flash_decision(results, verb)
+      flash_results(results, verb)
+      return unless next_or(nil) && results.all?(&:ok?)
+
+      flash[:notice] = "#{verb}."
+      flash[:decided] = true
+    end
+
+    # After a decision on an item page: the next item in its list (next),
+    # else the fallback (the list). Only a path inside the admin counts.
+    def next_or(fallback)
+      following = params[:next].to_s
+      following.match?(%r{\A/admin(?:[/?#]|\z)}) ? following : fallback
+    end
+
     # A list path at the row after the one just decided on (anchor), so the
     # place on the page isn't lost.
     def with_anchor(path)
