@@ -10,6 +10,11 @@
     end
 %>
 
+<div class="nd-shell__head">
+  <%= render "admin/crumbs", parent_label: "Checks", parent_path: back_path(admin_checks_path), current: @fact.name.to_s.upcase_first %>
+  <%= render "admin/itemnav", list: @list if @list %>
+</div>
+
 <div class="nd-split">
   <section class="nd-split__main" aria-label="<%= type_label(@fact.type) %>">
     <div class="nd-shell__head">
@@ -41,7 +46,7 @@
     <% if status == "verified" %>
       <details class="nd-takeoff">
         <summary class="nd-btn nd-btn--danger type-ui">Take off</summary>
-        <%= form_with url: admin_fact_unpublish_path(type: @fact.type, id: @fact.id), class: "nd-panel nd-takeoff__form" do %>
+        <%= form_with url: admin_fact_unpublish_path(type: @fact.type, id: @fact.id, **context), class: "nd-panel nd-takeoff__form" do %>
           <button type="submit" disabled hidden aria-hidden="true" tabindex="-1"></button>
           <div class="nd-field">
             <label for="reason" class="type-body-strong">Reason</label>
@@ -51,11 +56,11 @@
         <% end %>
       </details>
     <% elsif status == "unpublished" %>
-      <%= form_with url: admin_fact_republish_path(type: @fact.type, id: @fact.id) do %>
+      <%= form_with url: admin_fact_republish_path(type: @fact.type, id: @fact.id, **context) do %>
         <button type="submit" class="nd-btn nd-btn--primary type-ui">Put back</button>
       <% end %>
     <% elsif status == "pending" %>
-      <%= link_to "Decide in Checks", admin_checks_path(category: "facts"), class: "nd-btn nd-btn--outline type-ui" %>
+      <%= link_to "Decide in Checks", admin_checks_path, class: "nd-btn nd-btn--outline type-ui" %>
     <% end %>
 
     <details class="nd-fold">

@@ -22,13 +22,13 @@ module DataQuality::Status
   # last_read_at: its last finished crawl; read and same: rows its last match
   # compared and found unchanged (#240), nil before any; changed: claims
   # waiting in Checks; approved, rejected: claims decided, ever; live:
-  # public facts it backs.
+  # public facts it backs (only with live: true, for Sources; it costs a count per fact type).
   SourceRow = Data.define(:source_kind, :last_read_at, :failed, :read, :same, :changed, :approved, :rejected, :live)
 
   ATTENTION = %w[blocked needs_human].freeze
 
   # A row per kind of source that has run or has claims, by last read.
-  def self.by_kind(directory: DataQuality::DirectoryClient.new)
+  def self.by_kind(live: false, directory: DataQuality::DirectoryClient.new)
     crawls = latest(CrawlRun.where(stage: "crawl"))
     matches = latest(CrawlRun.where(stage: "match"))
     claims = ->(scope) { Candidate.where(id: scope.select(:id)).joins(:source).group("sources.source_kind").count }
@@ -41,8 +41,15 @@ module DataQuality::Status
       SourceRow.new(source_kind: kind, last_read_at: crawl&.started_at, failed: crawl&.status == "failed",
         read: match["candidates"], same: (match["confirmed"].to_i if match.any?), changed: waiting.fetch(kind, 0),
         approved: approved.fetch(kind, 0), rejected: rejected.fetch(kind, 0),
-        live: directory.published_count_backed_by(source_ids: ::Source.where(source_kind: kind).ids))
+        live: (directory.published_count_backed_by(source_ids: ::Source.where(source_kind: kind).ids) if live))
     end.sort_by { |row| [ row.last_read_at ? 0 : 1, -row.last_read_at.to_i, row.source_kind ] }
+  end
+
+  # Rows every source's match runs compared today, and how many of them
+  # still matched (#240): { read: 444, same: 438 }.
+  def self.read_today(now: Time.current)
+    stats = CrawlRun.where(stage: "match", status: "succeeded", started_at: now.all_day).pluck(:stats)
+    { read: stats.sum { |s| s["candidates"].to_i }, same: stats.sum { |s| s["confirmed"].to_i } }
   end
 
   # Kinds of source that have run or have claims, for by_kind and counting.

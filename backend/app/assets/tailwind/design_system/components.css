@@ -402,6 +402,9 @@
   .nd-shell__nav a { display: flex; justify-content: space-between; align-items: center; gap: var(--nd-space-3); min-height: 44px; padding: 0 var(--nd-space-3); color: var(--nd-ink); text-decoration: none; }
   .nd-shell__nav a:hover { background: var(--nd-paper-sunken); }
   .nd-shell__nav a[aria-current="page"] { background: var(--nd-inverse); color: var(--nd-on-inverse); }
+  .nd-shell__soon { display: flex; justify-content: space-between; align-items: center; gap: var(--nd-space-3); min-height: 44px; padding: 0 var(--nd-space-3); cursor: default; }
+  .nd-shell__soon > span:first-child { white-space: nowrap; }
+  .nd-shell__soon .nd-tag { flex: none; }
   .nd-shell__gap { margin-top: var(--nd-space-4); }
   .nd-shell__foot { margin-top: auto; padding: var(--nd-space-6) var(--nd-space-3) 0; }
   .nd-shell__main { flex: 1 1 auto; min-width: 0; box-sizing: border-box; padding: var(--nd-space-8) 40px var(--nd-space-12); display: flex; flex-direction: column; gap: var(--nd-space-4); }
@@ -410,6 +413,18 @@
   .nd-shell__head > * { margin: 0; }
   .nd-shell__head--date { justify-content: flex-start; align-items: baseline; gap: var(--nd-space-4); }
   .nd-shell__head--section { padding-top: var(--nd-space-3); }
+  /* Breadcrumb above an inner page (#269): the trail on wider screens, one
+     back link to the parent on phones. Separators come from CSS. */
+  .nd-crumbs ol { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--nd-space-1) 6px; }
+  .nd-crumbs li + li::before { content: "/"; color: var(--nd-control); margin-right: 6px; }
+  .nd-crumbs__back { display: none; }
+  .nd-itemnav { display: flex; align-items: center; gap: var(--nd-space-2); }
+  @media (max-width: 560px) {
+    .nd-crumbs ol { display: none; }
+    .nd-crumbs__back { display: inline-flex; align-items: center; min-height: 44px; }
+    .nd-itemnav { width: 100%; justify-content: space-between; }
+    .nd-itemnav .nd-btn, .nd-itemnav > span { min-height: 44px; display: inline-flex; align-items: center; }
+  }
 
   /* Square controls at 44px (canvas A). */
   .nd-shell .nd-btn { border-radius: 0; height: auto; min-height: 44px; padding: 0 var(--nd-space-4); }

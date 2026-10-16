@@ -4,7 +4,7 @@
 # spend (the admin's view of data_quality:status).
 class Admin::StatusController < Admin::BaseController
   def show
-    @rows = DataQuality::Status.by_kind
+    @rows = DataQuality::Status.by_kind(live: true)
     @corrections = { last: CorrectionReport.maximum(:created_at), total: CorrectionReport.count,
       open: CorrectionReport.where(status: %w[open reviewed]).count }
     @sources = DataQuality::Status.sources

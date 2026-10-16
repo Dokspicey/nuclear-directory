@@ -24,13 +24,17 @@ module AdminHelper
   def source_kind_label(kind) = SOURCE_KIND_LABELS.fetch(kind.to_s) { kind.to_s.humanize }
 
   # The left nav (#201): each stage with its count, then Correction requests
-  # after a gap. Stages without a screen yet aren't listed.
+  # after a gap. A stage whose screen isn't built yet is listed, greyed, as
+  # "Soon" (soon: true), with no link.
   def admin_nav_items
     counts = admin_nav_counts
     [
       { label: "Overview", path: admin_root_path, current: controller_name == "overview" },
       { label: "Sources", path: admin_sources_path, count: counts[:sources], current: controller_name == "status" },
       { label: "Checks", path: admin_checks_path, count: counts[:checks], current: %w[checks candidates pending_facts].include?(controller_name) },
+      { label: "Live", soon: true },
+      { label: "Removed", soon: true },
+      { label: "Where it appears", soon: true },
       { label: "Correction requests", path: admin_corrections_path, count: counts[:corrections], title: "From visitors", gap: true,
         current: controller_name == "corrections" }
     ]

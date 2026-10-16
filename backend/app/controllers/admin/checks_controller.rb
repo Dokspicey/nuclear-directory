@@ -16,12 +16,11 @@ class Admin::ChecksController < Admin::BaseController
     @counts["facts"] += pending
     @counts["all"] += pending
 
-    rows = DataQuality::Status.by_kind
-    @read = rows.sum { |row| row.read.to_i }
-    @same = rows.sum { |row| row.same.to_i }
+    @read, @same = DataQuality::Status.read_today.values_at(:read, :same)
 
-    # "Approve N safe": today's Approve all, over every recommended claim.
-    ids = DataQuality::Review.candidate_ids(queue: :recommended)
+    # "Approve N safe": today's Approve all, over the recommended claims this
+    # filter shows, so nothing hidden is approved with them.
+    ids = DataQuality::Review.safe_ids(category: @category, source_kind: @source_kind)
     @safe = ids.size
     @shown = Admin::CandidatesController.fingerprint(ids)
 

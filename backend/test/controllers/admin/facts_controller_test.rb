@@ -22,7 +22,7 @@ class Admin::FactsControllerTest < ActionDispatch::IntegrationTest
     assert_select ".nd-fchip[aria-current=page]", /Facts\s+\d+/
     assert_select "#fact-FacilityRelationship-#{link.id}" do
       assert_select ".type-kicker", "Pending plant owner or operator · nrc.gov"
-      assert_select ".type-subject a[href=?]", admin_fact_path(type: "FacilityRelationship", id: link.id),
+      assert_select ".type-subject a[href=?]", admin_fact_path(type: "FacilityRelationship", id: link.id, from: "checks", back: "/admin/checks?category=facts"),
         text: "#{organizations(:westinghouse).name} owns #{facilities(:vogtle).name}"
       assert_select "details .nd-quote", "“Vogtle is operated for its owners”"
     end
@@ -118,7 +118,7 @@ class Admin::FactsControllerTest < ActionDispatch::IntegrationTest
     get admin_fact_path(type: "Facility", id: pending.id)
     assert_select "a[href=?]", plant_path(slug: pending.slug), count: 0
     assert_select ".nd-panel .type-admin-h2", "Waiting"
-    assert_select "a[href=?]", admin_checks_path(category: "facts"), text: "Decide in Checks"
+    assert_select "a[href=?]", admin_checks_path, text: "Decide in Checks"
   end
 
   test "a pending site that's public through a published unit links to its page and says so" do

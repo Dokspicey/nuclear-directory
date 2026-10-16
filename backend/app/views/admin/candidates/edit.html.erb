@@ -2,7 +2,10 @@
 <% source_url = safe_url(@item.source.url) %>
 
 <div class="nd-stack max-w-prose">
-  <p class="type-small m-0"><%= link_to "Back to Checks", admin_checks_path(filters.slice("category", "source")), class: "nd-link nd-link--muted nd-tap" %></p>
+  <div class="nd-shell__head">
+    <%= render "admin/crumbs", parent_label: "Checks", parent_path: back_path(admin_checks_path(filters.slice("category", "source"))), current: "Edit, then approve" %>
+    <%= render "admin/itemnav", list: @list if @list %>
+  </div>
   <h1 class="type-admin-h1 m-0">Edit, then approve</h1>
   <p class="nd-item__claim type-body-strong"><%= @item.claim %></p>
   <% if @item.quote.present? %><blockquote class="nd-quote">“<%= @item.quote %>”</blockquote><% end %>
@@ -14,7 +17,7 @@
       <%= @item.differences.map { |name, (stored, incoming)| "#{field_label(name).downcase_first} is #{stored} there, #{incoming} here" }.to_sentence %>.</p>
   <% end %>
 
-  <%= form_with url: admin_candidate_path(@item.candidate_id, filters), method: :patch, class: "nd-stack" do |form| %>
+  <%= form_with url: admin_candidate_path(@item.candidate_id, **item_context), method: :patch, class: "nd-stack" do |form| %>
     <%# Enter in a field does nothing: approving takes a click (as in the queue). %>
     <button type="submit" disabled hidden aria-hidden="true" tabindex="-1"></button>
     <% if @errors.present? %>
@@ -42,7 +45,7 @@
     </div>
     <div class="nd-row">
       <%= form.submit "Approve with these values", class: "nd-btn nd-btn--primary" %>
-      <%= link_to "Cancel", admin_checks_path(filters.slice("category", "source")), class: "nd-btn nd-btn--outline" %>
+      <%= link_to "Cancel", back_path(admin_checks_path(filters.slice("category", "source"))), class: "nd-btn nd-btn--outline" %>
     </div>
   <% end %>
 </div>

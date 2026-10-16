@@ -25,6 +25,10 @@
           </div>
           <nav id="admin-nav" class="nd-shell__nav type-body" aria-label="Admin">
             <% admin_nav_items.each do |item| %>
+              <% if item[:soon] %>
+                <span class="nd-shell__soon text-ink-muted"><span><%= item[:label] %><span class="sr-only">,</span></span> <span class="nd-tag">Soon</span></span>
+                <% next %>
+              <% end %>
               <%= link_to item[:path], class: (item[:gap] ? "nd-shell__gap" : nil), title: item[:title], aria: { current: ("page" if item[:current]) } do %>
                 <span><%= item[:label] %></span><%= " " if item[:count] %><% if item[:count] %><span class="type-data nd-num"><%= number_with_delimiter(item[:count]) %></span><% end %>
               <% end %>

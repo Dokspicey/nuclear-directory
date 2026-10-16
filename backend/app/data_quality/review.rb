@@ -105,6 +105,22 @@ module DataQuality::Review
       scope.map { |candidate| item(candidate, directory) }
     end
 
+    # The recommended claims a Checks filter shows, oldest first: what
+    # "Approve N safe" counts, fingerprints and approves on that filter.
+    def safe_ids(category: "all", source_kind: nil)
+      category_scope(category, source_kind:).where(id: Candidate.recommended.select(:id)).order(:id).pluck(:id)
+    end
+
+    # Ids of the claims a Checks filter lists, in its order (oldest first).
+    def check_ids(category: "all", source_kind: nil) = category_scope(category, source_kind:).order(:id).pluck(:id)
+
+    # The claims a Checks filter lists, in its order, as [type, id] of the
+    # fact each is attached to (nil for a claim not attached yet): for Prev
+    # and Next on a fact page opened from Checks.
+    def check_subjects(category: "all", source_kind: nil)
+      category_scope(category, source_kind:).order(:id).pluck(:subject_type, :subject_id).select(&:last).uniq
+    end
+
     # How many candidates wait in each Checks group, plus "all":
     # { "all" => 9, "changed" => 2, … }. Pending facts aren't included.
     def check_counts(source_kind: nil)

@@ -9,11 +9,12 @@
     <%# Enter in the reason field submits with the form's first button; a disabled
         one makes Enter do nothing, so every decision takes a deliberate click. %>
     <button type="submit" disabled hidden aria-hidden="true" tabindex="-1"></button>
+    <%= hidden_field_tag :anchor, anchor, id: nil if local_assigns[:anchor] %>
     <div class="nd-wait__what">
       <p class="type-kicker text-ink-muted"><%= check_kicker(item) %></p>
       <p class="type-subject">
         <% if item.subject_id %>
-          <%= link_to check_subject(item), admin_fact_path(type: item.subject_type, id: item.subject_id), class: "nd-link" %>
+          <%= link_to check_subject(item), admin_fact_path(type: item.subject_type, id: item.subject_id, from: "checks", back: request.fullpath), class: "nd-link" %>
         <% else %>
           <%= check_subject(item) %>
         <% end %>
@@ -55,7 +56,7 @@
       <button type="submit" class="nd-btn nd-btn--primary" name="candidate_id" value="<%= item.candidate_id %>">Approve</button>
       <button type="submit" class="nd-btn nd-btn--outline" name="candidate_id" value="<%= item.candidate_id %>"
         formaction="<%= reject_admin_candidates_path(filters) %>"><%= item.category == "changed" ? "Keep" : "Reject" %></button>
-      <%= link_to "Edit", edit_admin_candidate_path(item.candidate_id, filters), class: "nd-btn nd-btn--outline" %>
+      <%= link_to "Edit", edit_admin_candidate_path(item.candidate_id, **filters, back: request.fullpath), class: "nd-btn nd-btn--outline" %>
     </div>
   <% end %>
 </li>

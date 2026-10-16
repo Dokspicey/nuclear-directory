@@ -39,13 +39,13 @@ class Admin::CandidatesControllerTest < ActionDispatch::IntegrationTest
     assert_equal "noindex, nofollow", response.headers["X-Robots-Tag"]
     assert_select "#claim-#{c.id}" do
       assert_select ".type-kicker", "New company · nrc.gov"
-      assert_select ".type-subject a[href=?]", admin_fact_path(type: "Organization", id: c.reload.subject_id), text: "Imaginary Fission Co"
+      assert_select ".type-subject a[href=?]", admin_fact_path(type: "Organization", id: c.reload.subject_id, from: "checks", back: "/admin/checks"), text: "Imaginary Fission Co"
       assert_select "details .nd-quote", "“a quote”"
       assert_select "details a[href=?]", @source.url, text: /NRC test page/
       assert_select "details", /Verifier recommends publishing.*92% sure.*The row names Imaginary Fission Co/m
       assert_select "button[name=candidate_id][value=?]", c.id.to_s, text: "Approve"
       assert_select "button[formaction=?]", reject_admin_candidates_path, text: "Reject"
-      assert_select "a[href=?]", edit_admin_candidate_path(c), text: "Edit"
+      assert_select "a[href=?]", edit_admin_candidate_path(c, back: "/admin/checks"), text: "Edit"
     end
     waiting = 1 + DataQuality::Review.pending_count # the fixtures' pending facts are waiting too
     assert_select ".nd-fchip[aria-current=page]", /All\s+#{waiting}/
@@ -203,7 +203,8 @@ class Admin::CandidatesControllerTest < ActionDispatch::IntegrationTest
 
     get edit_admin_candidate_path(c, category: "facts")
     assert_select "input[name=?][value=?]", "values[state]", "DE"
-    assert_select "a[href=?]", admin_checks_path(category: "facts"), text: "Back to Checks"
+    assert_select ".nd-crumbs li a[href=?]", admin_checks_path(category: "facts"), text: "Checks"
+    assert_select ".nd-crumbs__back", "‹ Checks"
 
     patch admin_candidate_path(c), params: { values: { state: "NJ", facility: "Somewhere else" }, note: "NRC lists the nearby city's state" }
 

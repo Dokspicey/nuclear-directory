@@ -32,11 +32,14 @@
   <p class="type-body text-ink-muted">Nothing waiting.</p>
 <% else %>
   <ol class="nd-waits">
-    <% @items.each do |item| %>
-      <%= render "claim", item: %>
+    <%# After a decision the list comes back at the row that followed (or the one before the last). %>
+    <% rows = @items.map { |item| "claim-#{item.candidate_id}" } + @facts.map { |fact| "fact-#{fact.type}-#{fact.id}" } %>
+    <% anchor_after = ->(i) { rows[i + 1] || (rows[i - 1] if i.positive?) } %>
+    <% @items.each_with_index do |item, i| %>
+      <%= render "claim", item:, anchor: anchor_after.(i) %>
     <% end %>
-    <% @facts.each do |fact| %>
-      <%= render "pending_fact", fact: %>
+    <% @facts.each_with_index do |fact, i| %>
+      <%= render "pending_fact", fact:, anchor: anchor_after.(@items.size + i) %>
     <% end %>
   </ol>
   <% if @next %>

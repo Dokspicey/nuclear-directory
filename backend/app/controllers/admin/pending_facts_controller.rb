@@ -8,14 +8,14 @@ class Admin::PendingFactsController < Admin::BaseController
 
   def approve
     flash_results([ DataQuality::Review.approve_fact(type: fact_type, id: fact_id, by: actor) ], "Approved")
-    redirect_to back_path
+    redirect_after list_path
   end
 
   def reject
     result = DataQuality::Review.reject_fact(type: fact_type, id: fact_id, by: actor,
       reason: params.dig(:reasons, fact_id.to_s).presence)
     flash_results([ result ], "Rejected")
-    redirect_to back_path
+    redirect_after list_path
   end
 
   private
@@ -23,5 +23,5 @@ class Admin::PendingFactsController < Admin::BaseController
     def fact_id = params.require(:id).to_i
 
     # Checks, with the chip it was on.
-    def back_path = admin_checks_path(params.permit(:category).to_h.compact_blank)
+    def list_path = with_anchor(back_path(admin_checks_path(params.permit(:category).to_h.compact_blank)))
 end
