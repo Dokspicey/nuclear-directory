@@ -200,7 +200,7 @@ class DataQuality::Plugins::UsaspendingDoeAwards < DataQuality::Plugin
     # ApproveAll20261016), run here so it needs no shell. A value it doesn't
     # expect stops it, changing nothing, and is reported; the crawl goes on.
     def repair_approve_all
-      DataQuality::Repairs::ApproveAll20261016.call(plugin: self).size
+      DataQuality::Repairs::ApproveAll20261016.call.size
     rescue DataQuality::Repairs::ApproveAll20261016::Mismatch => error
       Rails.error.report(error, handled: true, context: { repair: "approve_all_2026_10_16" })
       "stopped: #{error.message.truncate(200)}"

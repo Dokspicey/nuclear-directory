@@ -24,8 +24,8 @@ class DataQuality::Repairs::ApproveAll20261016Test < ActiveSupport::TestCase
     stub_const(Repair, :RESTORE, { @restored.id => [ "#{Repair::FUNDER}$1.7 billion, 2021: DENE0009054.", "ARDP award (Oct 2020): hand-written." ] }) do
       stub_const(Repair, :BWXT, Repair::BWXT.merge(id: @bwxt.id)) do
         stub_const(Repair, :BWXT_LINK, Repair::BWXT_LINK.merge(id: @bwxt_link.id)) do
-          stub_const(Repair, :RENAME, [ @caps.id ]) do
-            stub_const(Repair, :REWORD, [ @reworded.id ]) do
+          stub_const(Repair, :RENAME, { @caps.id => [ "BROOKHAVEN TECHNOLOGY GROUP INC", "Brookhaven Technology Group" ] }) do
+            stub_const(Repair, :REWORD, { @reworded.id => [ "$1.2 million", "2018", "DESC0018737" ] }) do
               stub_const(Repair, :OUT_OF_SCOPE, @nas.id, &)
             end
           end

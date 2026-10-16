@@ -27,19 +27,64 @@ class DataQuality::Repairs::ApproveAll20261016
   RESTORE = {
     45 => [ "#{FUNDER}$1.7 billion, 2021: DENE0009054.",
       "ARDP award (Oct 2020): $80M initial funding to demonstrate Natrium; cost-shared, DOE total up to $3.2B over seven years across both ARDP demos subject to appropriations." ],
-    46 => [ "4 awards from the U.S. Department of Energy totaling $967.5 million, 2016–2023:",
+    46 => [ "4 awards from the U.S. Department of Energy totaling $967.5 million, 2016–2023: DENE0009040, DENE0008472, DENE0008745 and 1 more.",
       "ARDP award (Oct 2020): $80M initial funding for a four-unit Xe-100 plant and TRISO fuel fabrication facility; cost-shared." ],
     48 => [ "#{FUNDER}$1.5 million, 2021: DESC0021623.",
       "Selected (May 2023) in the $46M Milestone-Based Fusion Development Program; payments only on verified milestones." ]
   }.freeze
   BWXT = { id: 98, was: "BWXT NUCLEAR ENERGY, INC.", name: "BWXT", aliases: [ "BWXT NUCLEAR ENERGY, INC.", "BWXT NUCLEAR OPERATIONS GROUP, INC." ] }.freeze
-  BWXT_LINK = { id: 72, was: "#{FUNDER}$99.9 million, 2023: 89233123FNA400535", started_on: Date.new(2018, 8, 1),
+  BWXT_LINK = { id: 72, was: "#{FUNDER}$99.9 million, 2023: 89233123FNA400535.", started_on: Date.new(2018, 8, 1),
     description: "2 awards from the U.S. Department of Energy totaling $102.6 million (first in 2018, latest in 2023): 89233123FNA400535 and DENE0008744." }.freeze
-  RENAME = [ 92, 93, 94, 95, 96, 97, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116 ].freeze
-  REWORD = [ 63, 65, 66, 69, 70, 75, 76, 77, 79, 81, 82, 84, 85, 86, 87, 88, 89, 90, 91, 92 ].freeze
+  # Company id => [its name as the approve-all left it, the name it takes] (Data Quality, 16 Oct).
+  RENAME = {
+    92 => [ "ADVANCED REACTOR CONCEPTS, LLC", "Advanced Reactor Concepts" ],
+    93 => [ "CERAMIC TUBULAR PRODUCTS LLC", "Ceramic Tubular Products" ],
+    94 => [ "BLUE WAVE CAPITAL AND CONSULTING LLC", "Blue Wave Capital and Consulting" ],
+    95 => [ "NUVISION ENGINEERING, INC", "NuVision Engineering" ],
+    96 => [ "CONTAINER TECHNOLOGIES INDUSTRIES, LLC", "Container Technologies Industries" ],
+    97 => [ "ELECTRIC POWER RESEARCH INSTITUTE INC", "Electric Power Research Institute" ],
+    99 => [ "ANALYSIS AND MEASUREMENT SERVICES CORPORATION", "Analysis and Measurement Services" ],
+    100 => [ "PKMJ TECHNICAL SERVICES, LLC", "PKMJ Technical Services" ],
+    101 => [ "3M COMPANY", "3M" ],
+    102 => [ "NAC INTERNATIONAL INC.", "NAC International" ],
+    103 => [ "GOOD ENERGY COLLECTIVE INCORPORATED", "Good Energy Collective" ],
+    104 => [ "NUCLEAR FUEL SERVICES INC", "Nuclear Fuel Services" ],
+    105 => [ "ENSCO INC", "ENSCO" ],
+    106 => [ "LEIDOS, INC.", "Leidos" ],
+    108 => [ "LODESTAR RESEARCH CORPORATION", "Lodestar Research" ],
+    109 => [ "NUSENICS, LLC", "Nusenics" ],
+    110 => [ "AQWEST, LLC", "AQWest" ],
+    111 => [ "AMPEERS LLC", "Ampeers" ],
+    112 => [ "SYDOR INSTRUMENTS, LLC", "Sydor Instruments" ],
+    113 => [ "PLASMA PROCESSES, LLC", "Plasma Processes" ],
+    114 => [ "XUV LASERS, INC.", "XUV Lasers" ],
+    115 => [ "BRIDGE 12 TECHNOLOGIES, INC.", "Bridge 12 Technologies" ],
+    116 => [ "BROOKHAVEN TECHNOLOGY GROUP INC", "Brookhaven Technology Group" ]
+  }.freeze
+  # One-award link id => [amount, year, award id] as the approve-all wrote them (Data Quality, 16 Oct).
+  REWORD = {
+    63 => [ "$73.2 million", "2021", "DENE0009042" ],
+    65 => [ "$20.2 million", "2021", "DENE0009223" ],
+    66 => [ "$10.5 million", "2021", "DENE0008925" ],
+    69 => [ "$3.0 million", "2019", "DENE0008816" ],
+    70 => [ "$3.0 million", "2026", "DENE0009542" ],
+    75 => [ "$1.9 million", "2024", "DENE0009345" ],
+    76 => [ "$1.7 million", "2026", "DENE0009540" ],
+    77 => [ "$1.7 million", "2023", "DENE0009335" ],
+    79 => [ "$900.0 million", "2026", "89243226FNE400213" ],
+    81 => [ "$4.7 million", "2022", "89243222CNE000026" ],
+    82 => [ "$4.3 million", "2022", "89243222FNE400082" ],
+    84 => [ "$4.8 million", "1996", "DEFG0297ER54392" ],
+    85 => [ "$2.5 million", "2022", "DESC0022578" ],
+    86 => [ "$2.2 million", "2016", "DESC0015834" ],
+    87 => [ "$1.4 million", "2024", "DESC0024754" ],
+    88 => [ "$1.4 million", "2023", "DESC0023913" ],
+    89 => [ "$1.3 million", "2020", "DESC0020701" ],
+    90 => [ "$1.3 million", "2023", "DESC0023878" ],
+    91 => [ "$1.3 million", "2019", "DESC0019918" ],
+    92 => [ "$1.2 million", "2018", "DESC0018737" ]
+  }.freeze
   OUT_OF_SCOPE = 107
-  ONE_AWARD = /\A#{Regexp.escape(FUNDER)}(?<amount>.+?), (?<year>\d{4}): (?<id>[^\s.]+)\.\z/
-  REWORDED = /\A#{Regexp.escape(FUNDER)}.+ \(\d{4}\): \S+\.\z/
 
   # A value that's neither what the approve-all left nor the repaired one.
   class Mismatch < StandardError; end
@@ -49,10 +94,9 @@ class DataQuality::Repairs::ApproveAll20261016
 
   def self.call(...) = new(...).call
 
-  def initialize(dry_run: false, directory: DataQuality::DirectoryClient.new, plugin: DataQuality::Plugin.for("usaspending_doe_awards"))
+  def initialize(dry_run: false, directory: DataQuality::DirectoryClient.new)
     @dry_run = dry_run
     @directory = directory
-    @plugin = plugin
   end
 
   # The changes made (or, in a dry run, that would be). [] once done.
@@ -72,8 +116,8 @@ class DataQuality::Repairs::ApproveAll20261016
 
   # Every change, checked against what the approve-all left; raises Mismatch first.
   def plan
-    [ *RESTORE.filter_map { |id, (was, written)| restore(id, was, written) }, *bwxt, *RENAME.filter_map { |id| rename(id) },
-      *REWORD.filter_map { |id| reword(id) }, take_down ].compact
+    [ *RESTORE.filter_map { |id, (was, written)| restore(id, was, written) }, *bwxt,
+      *RENAME.filter_map { |id, (was, name)| rename(id, was, name) }, *REWORD.filter_map { |id, award| reword(id, *award) }, take_down ].compact
   end
 
   private
@@ -90,7 +134,7 @@ class DataQuality::Repairs::ApproveAll20261016
       link = fact("Relationship", id)
       description = link.values["description"].to_s
       return if description == written && link.values["started_on"].nil?
-      raise Mismatch, "link #{id} reads #{description.inspect}, not the approve-all's #{was.inspect}" unless description.start_with?(was)
+      raise Mismatch, "link #{id} reads #{description.inspect}, not the approve-all's #{was.inspect}" unless description == was
 
       Change.new(kind: "relationship", id:, attributes: { description: written, started_on: nil }, status: link.verification_status,
         note: "restores the hand-written description")
@@ -108,7 +152,7 @@ class DataQuality::Repairs::ApproveAll20261016
       end
       description = link.values["description"].to_s
       unless description == BWXT_LINK[:description]
-        raise Mismatch, "link #{BWXT_LINK[:id]} reads #{description.inspect}" unless description.start_with?(BWXT_LINK[:was])
+        raise Mismatch, "link #{BWXT_LINK[:id]} reads #{description.inspect}" unless description == BWXT_LINK[:was]
 
         changes << Change.new(kind: "relationship", id: BWXT_LINK[:id], status: link.verification_status, note: "both awards",
           attributes: { description: BWXT_LINK[:description], started_on: BWXT_LINK[:started_on] })
@@ -116,24 +160,23 @@ class DataQuality::Repairs::ApproveAll20261016
       changes
     end
 
-    def rename(id)
+    def rename(id, was, name)
       company = fact("Organization", id)
-      name = @plugin.display_name(company.name)
-      return if name == company.name
-      raise Mismatch, "company #{id} is #{company.name.inspect}, not an award spelling" unless company.name == company.name.upcase
+      return if company.name == name
+      raise Mismatch, "company #{id} is #{company.name.inspect}, not #{was.inspect}" unless company.name == was
 
-      Change.new(kind: "organization", id:, attributes: { name:, aliases: [ company.name ] }, status: company.verification_status,
-        note: "#{company.name} -> #{name}")
+      Change.new(kind: "organization", id:, attributes: { name:, aliases: [ was ] }, status: company.verification_status, note: "#{was} -> #{name}")
     end
 
-    def reword(id)
+    def reword(id, amount, year, award)
       link = fact("Relationship", id)
       description = link.values["description"].to_s
-      return if description.match?(REWORDED)
-      found = description.match(ONE_AWARD) or raise Mismatch, "link #{id} reads #{description.inspect}"
+      written = "#{FUNDER}#{amount} (#{year}): #{award}."
+      return if description == written
+      was = "#{FUNDER}#{amount}, #{year}: #{award}."
+      raise Mismatch, "link #{id} reads #{description.inspect}, not #{was.inspect}" unless description == was
 
-      Change.new(kind: "relationship", id:, attributes: { description: "#{FUNDER}#{found[:amount]} (#{found[:year]}): #{found[:id]}." },
-        status: link.verification_status, note: "reworded")
+      Change.new(kind: "relationship", id:, attributes: { description: written }, status: link.verification_status, note: "reworded")
     end
 
     def take_down
