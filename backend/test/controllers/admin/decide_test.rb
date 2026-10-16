@@ -44,7 +44,10 @@ class Admin::DecideTest < ActionDispatch::IntegrationTest
     open(claim)
 
     assert_select "#proposed" do
+      assert_select "dd", 1, "a changed value lists only what it changes"
       assert_select "dd", /NJ → DE/
+      assert_select "dd .text-ink-muted", "NJ →"
+      assert_select "dd .type-body-strong", "DE"
       assert_select ".nd-quote", "“Hope Creek 1, Hancocks Bridge, DE”"
       assert_select "a[href=?]", @nrc.url
     end

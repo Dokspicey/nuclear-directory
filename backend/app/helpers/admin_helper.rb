@@ -150,7 +150,7 @@ module AdminHelper
   def check_value(item)
     if (difference = item.differences.first)
       _, (stored, incoming) = difference
-      return "#{stored.presence || "blank"} → #{incoming.presence || "blank"}"
+      return "#{stored.presence || "Not set"} → #{incoming.presence || "Not set"}"
     end
 
     case item.category

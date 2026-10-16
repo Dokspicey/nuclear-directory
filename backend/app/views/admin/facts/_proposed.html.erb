@@ -1,18 +1,19 @@
-<%# What the claim being decided proposes (#269), beside the fact as stored:
-    a human-verified value it would replace as old → new, its other values,
-    and the quote and source behind it. Locals: item (DataQuality::Review::Item). %>
+<%# What the claim being decided proposes (#269), beside the fact as stored.
+    A changed value: only the fields it changes, old → new (old and arrow
+    muted, new in strong). A new link or fact: all its values. Then the
+    quote and source behind it. Locals: item (DataQuality::Review::Item). %>
 <% source_url = safe_url(item.source.url) %>
+<% shown = item.differences.any? ? item.payload.slice(*item.differences.keys) : item.payload.except(*DataQuality::Review::LINK_ENDS, "identify").compact_blank %>
 <section class="nd-panel" id="proposed" aria-label="Proposed by this claim">
   <p class="type-kicker text-ink-muted"><%= check_kicker(item) %></p>
   <p class="type-body"><%= item.claim %></p>
-  <% shown = item.payload.except(*DataQuality::Review::LINK_ENDS, "identify").compact_blank %>
   <% if shown.any? %>
     <dl class="nd-kv type-body">
       <% shown.each do |name, value| %>
         <dt class="type-label"><%= field_label(name) %></dt>
         <dd>
           <% if (difference = item.differences[name]) %>
-            <span class="type-data"><%= difference.first.presence || "blank" %> → <%= difference.last %></span>
+            <span class="text-ink-muted"><%= difference.first.presence || "Not set" %> →</span> <span class="type-body-strong"><%= difference.last.presence || "Not set" %></span>
           <% else %>
             <%= field_display(name, value) %>
           <% end %>
