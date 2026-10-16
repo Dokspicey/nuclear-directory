@@ -8,6 +8,55 @@ class Admin::BaseController < ApplicationController
   private
     def actor = Current.user.actor
 
+    # Where a page's breadcrumb and its decisions lead back to (#269): the
+    # list it was opened from, with its filters and page, passed as `back`.
+    # Only a path inside the admin counts; anything else is the fallback.
+    def back_path(fallback)
+      back = params[:back].to_s
+      back.match?(%r{\A/admin(?:[/?#]|\z)}) ? back : fallback
+    end
+    helper_method :back_path
+
+    # The Checks filters in `back` ({ "category" =>, "source" => }), for
+    # Previous and Next in the same order as that list.
+    def list_filters
+      query = URI.parse(back_path("/admin/checks")).query.to_s
+      Rack::Utils.parse_query(query).slice("category", "source")
+    rescue URI::InvalidURIError
+      {}
+    end
+
+    # A decision's flash. Made on an item page and on to the next one, it's
+    # short ("Approved."), and that page adds where it is ("4 of 6.").
+    def flash_decision(results, verb)
+      flash_results(results, verb)
+      return unless next_or(nil) && results.all?(&:ok?)
+
+      flash[:notice] = "#{verb}."
+      flash[:decided] = true
+    end
+
+    # Where a decision goes: on to the next item only when it went through;
+    # when it was refused, back to the list, with the error in the flash.
+    def after_decision(results, fallback) = results.all?(&:ok?) ? next_or(fallback) : fallback
+
+    # After a decision on an item page: the next item in its list (next),
+    # else the fallback (the list). Only a path inside the admin counts.
+    def next_or(fallback)
+      following = params[:next].to_s
+      following.match?(%r{\A/admin(?:[/?#]|\z)}) ? following : fallback
+    end
+
+    # A list path at the row after the one just decided on (anchor), so the
+    # place on the page isn't lost.
+    def with_anchor(path)
+      anchor = params[:anchor].to_s
+      anchor.match?(/\A(?:claim|fact)-[\w-]+\z/) ? "#{path.split('#').first}##{anchor}" : path
+    end
+
+    # Every decision redirects with 303, so Back never resubmits it.
+    def redirect_after(path) = redirect_to(path, status: :see_other)
+
     # Flash messages for a batch of Review results. verb: "Approved", "Rejected".
     def flash_results(results, verb)
       done, failed = results.partition(&:ok?)

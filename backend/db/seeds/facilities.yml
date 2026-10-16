@@ -593,3 +593,16 @@ facilities:
   eia_plant_id: '6103'
 - name: Clinton Clean Energy Center
   eia_plant_id: '204'
+- name: Duane Arnold Energy Center
+  facility_type:
+    value: power_reactor
+    source_url: https://www.investor.nexteraenergy.com/news-and-events/news-releases/2025/10-27-2025-203948689
+    quote: 'Iowa''s only nuclear facility, which is located in Palo'
+    published: '2025-10-27'
+    confidence: 1.0
+  state:
+    value: IA
+    source_url: https://www.investor.nexteraenergy.com/news-and-events/news-releases/2025/10-27-2025-203948689
+    quote: 'Iowa''s only nuclear facility, which is located in Palo'
+    published: '2025-10-27'
+    confidence: 1.0

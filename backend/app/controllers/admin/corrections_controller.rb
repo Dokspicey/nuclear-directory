@@ -32,10 +32,10 @@ class Admin::CorrectionsController < Admin::BaseController
       else
         flash[:alert] = "That report no longer exists; refresh the inbox."
       end
-      redirect_to admin_corrections_path(tab: params[:tab])
+      redirect_after admin_corrections_path(tab: params[:tab])
     rescue CorrectionReport::InvalidTransition => error
       flash[:alert] = "Not changed: #{error.message}. Refresh the inbox."
-      redirect_to admin_corrections_path(tab: params[:tab])
+      redirect_after admin_corrections_path(tab: params[:tab])
     end
 
     # Admin fact pages for the company or plant pages the reports came from,

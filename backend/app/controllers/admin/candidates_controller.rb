@@ -1,21 +1,10 @@
-# The review queue: claims the pipeline found, waiting for a human.
+# Deciding on claims the pipeline found: approve, edit then approve,
+# reject, approve all. They're listed on Checks (#201), where every action
+# goes back to.
 class Admin::CandidatesController < Admin::BaseController
-  QUEUES = %w[recommended needs_review].freeze
-  PAGE = 50
-
+  # The old queue's address leads to Checks.
   def index
-    @queue = params[:queue].presence_in(QUEUES) || "recommended"
-    @reason = params[:reason].presence
-    @run_id = params[:run_id].presence&.to_i
-    @items = DataQuality::Review.candidates(queue: @queue, reason: @reason, run_id: @run_id,
-      after_id: params[:after].presence&.to_i, limit: PAGE)
-    @counts = DataQuality::Review.counts
-    @reasons = DataQuality::Review.reasons(queue: @queue, run_id: @run_id)
-    if @queue == "recommended"
-      ids = DataQuality::Review.candidate_ids(queue: :recommended, reason: @reason, run_id: @run_id)
-      @matching = ids.size
-      @shown = self.class.fingerprint(ids)
-    end
+    redirect_to admin_checks_path
   end
 
   # One claim (candidate_id), or the selected ones (candidate_ids[]): bulk
@@ -25,18 +14,27 @@ class Admin::CandidatesController < Admin::BaseController
     ids = single ? [ params[:candidate_id] ] : Array(params[:candidate_ids])
     if ids.empty?
       flash[:alert] = "Select at least one claim to approve."
-    else
-      flash_results(DataQuality::Review.approve(ids.map(&:to_i), by: actor, only_recommended: !single), "Approved")
+      return redirect_after queue_path
     end
-    redirect_to queue_path
+
+    results = DataQuality::Review.approve(ids.map(&:to_i), by: actor, only_recommended: !single)
+    flash_decision(results, "Approved")
+    # From an item page, on to the next item once it's approved; from the list, or if refused, back to the list.
+    redirect_after after_decision(results, queue_path)
   end
 
-  # Every recommended claim matching the queue's filters, in the background
-  # (DataQuality::ApproveAllJob). Only the recommended queue: claims that
-  # need review each get a look on their own.
+  # Every recommended claim the Checks filter shows (its chip and source), in
+  # the background (DataQuality::ApproveAllJob); or, with reason or run_id,
+  # those that match them. Only recommended claims: claims that need review
+  # each get a look on their own.
   def approve_all
-    ids = DataQuality::Review.candidate_ids(queue: :recommended, reason: params[:reason].presence,
-      run_id: params[:run_id].presence&.to_i)
+    ids =
+      if params[:reason].present? || params[:run_id].present?
+        DataQuality::Review.candidate_ids(queue: :recommended, reason: params[:reason].presence, run_id: params[:run_id].presence&.to_i)
+      else
+        DataQuality::Review.safe_ids(category: params[:category].presence_in(Admin::ChecksController::CATEGORIES) || "all",
+          source_kind: params[:source].presence)
+      end
     if ids.empty?
       flash[:alert] = "Nothing to approve: no recommended claims match these filters."
     elsif params[:shown] != self.class.fingerprint(ids)
@@ -45,10 +43,10 @@ class Admin::CandidatesController < Admin::BaseController
       flash[:alert] = "The queue changed since you opened it, so nothing was approved. Check the count and try again."
     else
       DataQuality::ApproveAllJob.perform_later(ids, by: actor)
-      flash[:notice] = "Approving #{helpers.pluralize(ids.size, 'recommended claim')}. Refresh in a minute to see the queue " \
+      flash[:notice] = "Approving #{helpers.pluralize(ids.size, 'recommended claim')}. Refresh in a minute to see Checks " \
         "clear. Any claim that's changed since it was recommended stays here."
     end
-    redirect_to admin_candidates_path(filters.merge(queue: "recommended"))
+    redirect_after queue_path
   end
 
   # Which claims "Approve all" covered when the page was shown, compared on
@@ -57,13 +55,15 @@ class Admin::CandidatesController < Admin::BaseController
 
   def reject
     id = params.require(:candidate_id).to_i
-    flash_results(DataQuality::Review.reject([ id ], by: actor, reason: params.dig(:reasons, id.to_s).presence), "Rejected")
-    redirect_to queue_path
+    results = DataQuality::Review.reject([ id ], by: actor, reason: params.dig(:reasons, id.to_s).presence)
+    flash_decision(results, params[:kept].present? ? "Kept" : "Rejected")
+    redirect_after after_decision(results, queue_path)
   end
 
   def edit
     @item = DataQuality::Review.candidate(params[:id].to_i) or raise ActiveRecord::RecordNotFound
     @fields = editable_fields(@item)
+    @list = list_position(@item.candidate_id)
   end
 
   def update
@@ -75,22 +75,45 @@ class Admin::CandidatesController < Admin::BaseController
       reason: params[:note].presence)
     if result.ok?
       flash_results([ result ], "Approved")
-      redirect_to queue_path
+      # On to the next claim in the list it was opened from; back to the list after the last.
+      following = list_ids.find { |id| id > item.candidate_id }
+      redirect_after(following ? edit_admin_candidate_path(following, **item_context) : queue_path)
     else
       @item = item
       @fields = editable_fields(item)
+      @list = list_position(item.candidate_id)
       @errors = result.errors
       render :edit, status: :unprocessable_content
     end
   end
 
   private
-    # Back to the queue, with the filters it had.
-    # The queue's filters, carried through edit and back.
-    def filters = params.permit(:queue, :reason, :run_id).to_h.compact_blank
+    # Checks' filter chip and source, carried through edit and back.
+    # reason and run_id narrow Approve all, as before.
+    def filters = params.permit(:category, :source, :reason, :run_id).to_h.compact_blank
     helper_method :filters
 
-    def queue_path = admin_candidates_path(filters)
+    # The list a decision returns to: the one it was opened from (back), else
+    # Checks with the chip and source, at the row after the one decided on
+    # (anchor), so the place on the page isn't lost.
+    def queue_path = with_anchor(back_path(admin_checks_path(filters.slice("category", "source"))))
+
+    # The edit page's list: the claims of the Checks filter it was opened
+    # from, oldest first, for Previous and Next and moving on after approving.
+    def list_ids
+      category = (filters["category"] || list_filters["category"]).presence_in(Admin::ChecksController::CATEGORIES) || "all"
+      DataQuality::Review.check_ids(category:, source_kind: (filters["source"] || list_filters["source"]).presence)
+    end
+
+    def item_context = { back: params[:back].presence, **filters.slice("category", "source").symbolize_keys }.compact
+    helper_method :item_context
+
+    def list_position(id)
+      ids = list_ids
+      index = ids.index(id) or return
+      path = ->(other) { other && edit_admin_candidate_path(other, **item_context) }
+      { index: index + 1, total: ids.size, previous: path.(index.positive? ? ids[index - 1] : nil), next: path.(ids[index + 1]) }
+    end
 
     # The claim's own values; link ends were matched and can't be edited here.
     def editable_fields(item)

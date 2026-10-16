@@ -39,13 +39,13 @@ class SeedsTest < ActiveSupport::TestCase
   test "loads the hand-checked organizations as verified facts with evidence" do
     load_seeds
 
-    assert_equal 50, Organization.verified.count
-    assert_equal 66, OrganizationRole.verified.count
+    assert_equal 53, Organization.verified.count
+    assert_equal 68, OrganizationRole.verified.count
     assert_equal 48, OrganizationTechnology.verified.count
-    assert_equal 52, Relationship.verified.count
-    assert_equal 28, Facility.verified.count
+    assert_equal 57, Relationship.verified.count
+    assert_equal 34, Facility.verified.count
     # 5 plant links wait for a direct quote (owns/operates not stated by the source).
-    assert_equal [ 48, 8 ], [ FacilityRelationship.verified.count, FacilityRelationship.pending.count ]
+    assert_equal [ 54, 8 ], [ FacilityRelationship.verified.count, FacilityRelationship.pending.count ]
     assert_equal 26, FacilityAlias.count
     assert_equal "Kemmerer Unit 1", Directory::Lookup.facility(name: "Kemmerer Unit 1 (Natrium)")&.name, "found by its other name"
     assert_equal [ "human:tosin" ], Relationship.distinct.pluck(:verified_by)
