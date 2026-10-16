@@ -59,7 +59,9 @@ class DataQuality::Plugins::UsaspendingDoeAwards < DataQuality::Plugin
   end
 
   def crawl(_run)
-    reworded = { "reworded" => refresh_open_claims.size, "repaired" => repair_approve_all }.reject { |_, count| count.to_s == "0" }
+    # The repair runs before the refresh, so a name the refresh gives a pending record can't collide with one the repair sets.
+    repaired = repair_approve_all
+    reworded = { "repaired" => repaired, "reworded" => refresh_open_claims.size }.reject { |_, count| count.to_s == "0" }
     index = Source.find_or_create_by!(url: API_URL) do |source|
       source.source_kind = INDEX_SOURCE_KIND
       source.title = "USAspending.gov award search API"
