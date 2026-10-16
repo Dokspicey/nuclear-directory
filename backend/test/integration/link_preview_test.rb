@@ -31,16 +31,17 @@ class LinkPreviewTest < ActionDispatch::IntegrationTest
     assert_select "meta[property='og:description'][content^='Who makes the fuel']"
   end
 
-  test "a company with nothing to summarize still says what its page holds" do
+  test "a company with nothing published yet still gets a plain line, never the old generic one (#292)" do
     company("Kairos Power")
     get company_path(slug: "kairos-power")
     assert_select "meta[property='og:title'][content=?]", "Kairos Power"
-    assert_select "meta[property='og:description'][content=?]", "Plants, sites and deals."
+    assert_select "meta[property='og:description'][content=?]", "Kairos Power, a company in the US nuclear industry."
+    assert_select "meta[name='description'][content=?]", "Kairos Power, a company in the US nuclear industry."
   end
 
   test "a category and the full listing preview with their own description, not the home page's (#246)" do
     get companies_path(category: "reactor-developers")
-    line = "Reactor developers in the US nuclear industry."
+    line = "Companies developing nuclear reactors in the US, including small modular reactors."
     assert_select "meta[name='description'][content=?]", line
     assert_select "meta[property='og:description'][content=?]", line
 
