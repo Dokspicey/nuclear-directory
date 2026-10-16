@@ -41,7 +41,7 @@
       </div>
     <% end %>
     <div class="nd-live__foot">
-      <span class="type-data text-ink-muted">Showing <%= number_with_delimiter(list.total) %></span>
+      <span class="type-data text-ink-muted">Showing <%= number_with_delimiter(list.total) %> <%= Directory::LiveList::TAB_NOUNS.fetch(list.tab)[list.total == 1 ? 0 : 1] %></span>
       <% if list.filtered? %><%= link_to "Clear all", live_path_for(list, clear: true), class: "nd-link type-ui" %><% end %>
     </div>
   </section>

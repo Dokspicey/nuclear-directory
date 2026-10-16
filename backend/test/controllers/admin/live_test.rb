@@ -48,6 +48,29 @@ class Admin::LiveTest < ActionDispatch::IntegrationTest
     assert_select "a", text: "Clear all"
   end
 
+  test "gap and flag counts follow the Status filter: by default, only what visitors see (Data Quality, #283)" do
+    company("Seen Co")
+    company("Gone Lonely Co").unpublish!(by: "human:tosin", reason: "Test")
+    shown = Directory::Checks.find("no-category").ids(Organization) & Organization.published.ids
+
+    get admin_live_path(tab: "companies")
+    assert_select "a.nd-fchip", /No category\s+#{shown.size}\b/
+
+    get admin_live_path(tab: "companies", status: "unpublished")
+    assert_select "a.nd-fchip", /No category\s+1\b/
+    assert_select ".nd-live__foot", /Showing 1 company\b/
+  end
+
+  test "No owner counts operating power plants only, not mines or enrichment plants" do
+    plant = Facility.create!(name: "Ownerless Power Plant", facility_type: "power_reactor", status: "operating", **VERIFIED)
+    mine = Facility.create!(name: "Ownerless Mine", facility_type: "uranium_mine", status: "operating", **VERIFIED)
+
+    ids = Directory::Checks.find("no-owner").ids(Facility)
+
+    assert_includes ids, plant.id
+    assert_not_includes ids, mine.id
+  end
+
   test "a status chip replaces the status; Clear all goes back to Live" do
     company("Gone Co").unpublish!(by: "human:tosin", reason: "Test")
 

@@ -18,6 +18,10 @@ class Directory::LiveList
     "links" => -> { { "Relationship" => Relationship.all, "FacilityRelationship" => FacilityRelationship.all } }
   }.freeze
   TAB_LABELS = { "all" => "All", "companies" => "Companies", "plants" => "Plants", "reactors" => "Reactors", "links" => "Links" }.freeze
+  # What a tab counts, so a count reads as records of that kind (Data Quality, #283).
+  # [one, many]
+  TAB_NOUNS = { "all" => [ "record", "companies and plants" ], "companies" => %w[company companies], "plants" => %w[plant plants],
+    "reactors" => %w[reactor reactors], "links" => %w[link links] }.freeze
   DEFAULT_STATUS = "live"
   PAGE = 50
 

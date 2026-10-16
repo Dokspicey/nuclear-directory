@@ -102,8 +102,10 @@ module Directory::Checks
         [
           Tag.new("no-operator", "No operator", "gaps", nil, "An operating plant or reactor with no live operator",
             { "Facility" => -> { without.call("operates").operating } }),
-          Tag.new("no-owner", "No owner", "gaps", nil, "An operating plant with no live owner",
-            { "Facility" => -> { without.call("owns").operating.where(parent_id: nil) } }),
+          # Power plants only (DATA.md): a mine or enrichment plant is usually
+          # owned by its operator and has no owns link, so it would sit here for good.
+          Tag.new("no-owner", "No owner", "gaps", nil, "An operating power plant with no live owner",
+            { "Facility" => -> { without.call("owns").operating.where(parent_id: nil, facility_type: "power_reactor") } }),
           Tag.new("no-capacity", "No capacity", "gaps", nil, "An operating reactor with no capacity",
             { "Facility" => -> { Facility.operating.where.not(nrc_docket: nil).where(capacity_mw: nil) } }),
           Tag.new("no-location", "No location", "gaps", nil, "A plant or reactor with no coordinates or state",
