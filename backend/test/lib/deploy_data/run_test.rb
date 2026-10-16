@@ -302,4 +302,34 @@ class DeployData::RunTest < ActiveSupport::TestCase
     assert_includes @github.posts.last[:body], "SyntaxError"
     assert_equal 2, DataDeploy.failed.count
   end
+
+  test "if the applied record can't be saved, the data it describes is rolled back too" do
+    run_step
+    write "db/seeds/organizations/terrapower.yml", "name: TerraPower Inc\n"
+    write "db/data/20261017120000_fix.rb", <<~RUBY
+      class Fix < DeployData::Migration
+        BY = "human:tosin"
+        def up = Organization.find_by!(slug: "westinghouse").update!(name: "Fixed")
+      end
+    RUBY
+
+    # The applied record's insert fails; the failed run's own record still saves.
+    DataDeploy.singleton_class.prepend(Module.new do
+      def create!(**attributes)
+        raise ActiveRecord::StatementInvalid, "disk full" if attributes[:status] == :applied && Thread.current[:fail_applied]
+
+        super
+      end
+    end)
+    Thread.current[:fail_applied] = true
+    begin
+      assert_equal :failed, run_step
+    ensure
+      Thread.current[:fail_applied] = nil
+    end
+    assert_equal "Westinghouse Electric Company", organizations(:westinghouse).reload.name
+    assert_equal 0, DataMigration.count
+    assert_equal :applied, run_step, "the next deploy runs it all again"
+    assert_equal "Fixed", organizations(:westinghouse).reload.name
+  end
 end

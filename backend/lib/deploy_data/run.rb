@@ -112,8 +112,12 @@ module DeployData
           migrate
           @report.rows_after = Census.rows
           @report.totals_after = Census.public_totals
+          @report.outcome = rolled_back? ? "would apply" : "applied"
+          # The applied record is the next run's baseline, so it commits with
+          # the data it describes or not at all (a failed insert rolls the
+          # data back too, and the next deploy runs it all again).
+          create_record! unless rolled_back?
         end
-        @report.outcome ||= rolled_back? ? "would apply" : "applied"
       end
 
       def take_backup
@@ -194,27 +198,37 @@ module DeployData
         puts @report
         return @status if @dry_run
 
-        record
+        record unless @recorded
         url = @github.post(@report.to_markdown, pull_request: @report.pull_request, title: @report.title)
         puts "Report posted: #{url}" if url
-        alert if @report.alert?
+        # A report that didn't reach the PR goes to Sentry, so it's never missed.
+        alert(posted: !url.nil?) if @report.alert? || url.nil?
         @status
       end
 
-      def record
+      def create_record!
         backup_tag = @report.backup if @report.backup.to_s.start_with?("backup-")
         DataDeploy.create!(commit: @commit, status: @status, backup_tag:,
           seed_digest: @fingerprint&.digest, files: @fingerprint&.files || {},
           report: { text: @report.to_s, migrations: @report.migrations.map(&:version) },
           error: @error, started_at: @started_at || Time.current, finished_at: Time.current)
+        @recorded = true
+      end
+
+      # Stopped, failed and report-mode runs: nothing they record is a baseline
+      # for "on", so a failure here is only logged.
+      def record
+        create_record!
       rescue StandardError => error
         warn "deploy-data: couldn't record the run: #{error.message}"
       end
 
-      def alert
+      def alert(posted:)
         return unless defined?(Sentry) && Sentry.initialized?
 
-        Sentry.capture_message("Data deploy needs a look: #{@report.outcome}", level: @status == :failed || @status == :stopped ? :error : :warning,
+        problem = @report.alert? ? @report.outcome : "#{@report.outcome}, but the report wasn't posted on GitHub"
+        problem += " (the report wasn't posted on GitHub)" if @report.alert? && !posted
+        Sentry.capture_message("Data deploy needs a look: #{problem}", level: @status == :failed || @status == :stopped ? :error : :warning,
           extra: { report: @report.to_s })
       end
   end
