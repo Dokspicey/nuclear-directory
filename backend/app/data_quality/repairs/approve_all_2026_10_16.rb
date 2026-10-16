@@ -53,12 +53,12 @@ class DataQuality::Repairs::ApproveAll20261016
     106 => [ "LEIDOS, INC.", "Leidos" ],
     108 => [ "LODESTAR RESEARCH CORPORATION", "Lodestar Research" ],
     109 => [ "NUSENICS, LLC", "Nusenics" ],
-    110 => [ "AQWEST, LLC", "AQWest" ],
+    110 => [ "AQWEST, LLC", "Aqwest" ],
     111 => [ "AMPEERS LLC", "Ampeers" ],
     112 => [ "SYDOR INSTRUMENTS, LLC", "Sydor Instruments" ],
     113 => [ "PLASMA PROCESSES, LLC", "Plasma Processes" ],
     114 => [ "XUV LASERS, INC.", "XUV Lasers" ],
-    115 => [ "BRIDGE 12 TECHNOLOGIES, INC.", "Bridge 12 Technologies" ],
+    115 => [ "BRIDGE 12 TECHNOLOGIES, INC.", "Bridge12" ],
     116 => [ "BROOKHAVEN TECHNOLOGY GROUP INC", "Brookhaven Technology Group" ]
   }.freeze
   # One-award link id => [amount, year, award id] as the approve-all wrote them (Data Quality, 16 Oct).
