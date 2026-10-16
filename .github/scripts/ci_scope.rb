@@ -1,7 +1,7 @@
 # Decides which CI jobs a pull request needs, from the files it changes.
 # lint and blueprint always run; this only decides test and lighthouse.
 #
-#   docs only (Markdown, planning/, ops/metabase/questions/) -> neither
+#   docs only (Markdown, planning/)                          -> neither
 #   render.yaml, .github/ (except ci.yml), backup/, compose -> test only
 #   anything else, or nothing listed                         -> both
 #
@@ -11,8 +11,7 @@
 module CiScope
   DOCS = [
     /\.md\z/i,
-    %r{\Aplanning/},
-    %r{\Aops/metabase/questions/}
+    %r{\Aplanning/}
   ].freeze
 
   # Can't change the app or its pages, but tests still cover the scripts
