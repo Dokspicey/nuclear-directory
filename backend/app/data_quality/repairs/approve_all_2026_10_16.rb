@@ -103,8 +103,12 @@ class DataQuality::Repairs::ApproveAll20261016
   def call
     return [] if done?
 
-    changes = plan
+    changes = []
     ActiveRecord::Base.transaction(requires_new: true) do
+      # Every fact it touches is locked first and checked under the lock, so
+      # a correction made meanwhile stops the repair rather than being overwritten.
+      targets.each { |type, id| @directory.lock_fact(type:, id:) }
+      changes = plan
       changes.each do |change|
         result = @directory.decide_fact(change.kind, id: change.id, status: change.status, by: BY, reason: REASON, attributes: change.attributes)
         raise Mismatch, "#{change.kind} #{change.id}: #{result.errors.to_sentence}" if result.errors.any?
@@ -121,6 +125,13 @@ class DataQuality::Repairs::ApproveAll20261016
   end
 
   private
+    # [type, id] of every fact the repair may write, in a fixed order.
+    def targets
+      links = [ *RESTORE.keys, BWXT_LINK[:id], *REWORD.keys ].map { |id| [ "Relationship", id ] }
+      companies = [ BWXT[:id], *RENAME.keys, OUT_OF_SCOPE ].map { |id| [ "Organization", id ] }
+      (companies + links).sort
+    end
+
     # Done, or not this database (a test or local one without these facts).
     def done?
       link = @directory.fact(type: "Relationship", id: RESTORE.keys.first) or return true
