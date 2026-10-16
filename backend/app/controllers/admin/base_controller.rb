@@ -36,6 +36,10 @@ class Admin::BaseController < ApplicationController
       flash[:decided] = true
     end
 
+    # Where a decision goes: on to the next item only when it went through;
+    # when it was refused, back to the list, with the error in the flash.
+    def after_decision(results, fallback) = results.all?(&:ok?) ? next_or(fallback) : fallback
+
     # After a decision on an item page: the next item in its list (next),
     # else the fallback (the list). Only a path inside the admin counts.
     def next_or(fallback)

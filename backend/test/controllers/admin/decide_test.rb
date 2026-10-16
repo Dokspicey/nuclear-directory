@@ -161,6 +161,17 @@ class Admin::DecideTest < ActionDispatch::IntegrationTest
     assert_equal "Not a company", b.reload.notes
   end
 
+  test "a refused decision goes back to the list with why, not on to the next item" do
+    link = FacilityRelationship.create!(organization: organizations(:westinghouse), facility: facilities(:vogtle), relationship_type: "owns")
+    following = admin_fact_path(type: "Organization", id: organizations(:terrapower).id, from: "checks", back: @back)
+
+    post approve_admin_pending_facts_path, params: { type: "FacilityRelationship", id: link.id, back: @back, next: following }
+
+    assert_redirected_to @back
+    assert_match "it has no source", flash[:alert]
+    assert link.reload.pending?
+  end
+
   test "a decided item shows its result instead of the buttons, so Back can't post it twice" do
     a = waiting("Alpha Co")
     post approve_admin_candidates_path, params: { candidate_id: a.id, back: @back }

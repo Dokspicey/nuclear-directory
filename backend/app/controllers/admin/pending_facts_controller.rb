@@ -7,15 +7,15 @@ class Admin::PendingFactsController < Admin::BaseController
   end
 
   def approve
-    flash_decision([ DataQuality::Review.approve_fact(type: fact_type, id: fact_id, by: actor) ], "Approved")
-    redirect_after next_or(list_path)
+    results = [ DataQuality::Review.approve_fact(type: fact_type, id: fact_id, by: actor) ]
+    flash_decision(results, "Approved")
+    redirect_after after_decision(results, list_path)
   end
 
   def reject
-    result = DataQuality::Review.reject_fact(type: fact_type, id: fact_id, by: actor,
-      reason: params.dig(:reasons, fact_id.to_s).presence)
-    flash_decision([ result ], "Rejected")
-    redirect_after next_or(list_path)
+    results = [ DataQuality::Review.reject_fact(type: fact_type, id: fact_id, by: actor, reason: params.dig(:reasons, fact_id.to_s).presence) ]
+    flash_decision(results, "Rejected")
+    redirect_after after_decision(results, list_path)
   end
 
   private
