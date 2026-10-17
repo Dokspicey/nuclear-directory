@@ -100,6 +100,25 @@ class PlantSlugsTest < ActionDispatch::IntegrationTest
     assert_select "tr#unit-palisades-unit #unit-palisades", 1
   end
 
+  test "a pair whose <slug>-unit is already taken is left for a person" do
+    site, unit = clashed("Palisades")
+    plant("Palisades Unit", parent: site)
+
+    assert_empty Facility.give_sites_their_plain_slugs!
+    assert_equal [ "palisades-2", "palisades" ], [ site.reload.slug, unit.reload.slug ]
+  end
+
+  test "grouping a unit keeps that save's own changes, as the fact writer records them" do
+    unit = cite!(plant("Callaway", status: "operating"))
+    site = cite!(plant("Callaway", facility_type: "power_reactor"))
+
+    unit.update!(parent: site, capacity_mw: 1215)
+
+    assert_equal [ "capacity_mw", "parent_id", "updated_at" ], unit.saved_changes.keys.sort
+    assert_equal "callaway-unit", unit.slug, "the caller's record sees its new slug"
+    assert_equal "callaway", site.reload.slug
+  end
+
   # The deploy step's migration for production's four pairs (db/data).
   def run_migration
     migrations = DeployData::Migrations.new

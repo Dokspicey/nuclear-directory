@@ -67,10 +67,17 @@ class Facility < ApplicationRecord
 
     unit ||= where(parent_id: site.id).find_by(slug: plain)
     return unless unit && unit.parent_id == site.id && unit.slug == plain
+    # The unit's new slug must be exactly "<plain>-unit", so its row's old
+    # anchor ("#unit-<plain>") can only be its own (unit_anchors). If that's
+    # taken, leave the pair for a person.
+    return if where(slug: "#{plain}-unit").exists?
 
     moved = [ site, site.slug, unit, unit.slug ]
     transaction do
-      unit.update!(slug: unit.send(:free_slug, "#{plain}-unit"))
+      # Written directly, so a save that grouped this unit keeps its own
+      # saved_changes (the fact writer audits them). The unit's old slug
+      # becomes the site's, so it isn't kept as the unit's former slug.
+      unit.update_columns(slug: "#{plain}-unit", updated_at: Time.current)
       site.update!(slug: plain)
     end
     moved
