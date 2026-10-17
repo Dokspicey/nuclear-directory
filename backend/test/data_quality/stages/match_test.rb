@@ -357,6 +357,19 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
     assert_match "could be the same brand as Urenco or Urenco USA (its domain matches Urenco)", c.notes
   end
 
+  test "a shared brand's note lists the companies in name order, whatever order the lookup returns" do
+    Directory::FactWriter.write(:organization, { name: "Urenco" })
+    Directory::FactWriter.write(:organization, { name: "Urenco USA" })
+    directory = DataQuality::DirectoryClient.new
+    # Descending on purpose: the opposite of the order the note must show.
+    directory.define_singleton_method(:same_brand_organizations) { |name| super(name).sort_by(&:name).reverse }
+    c = candidate("organization", { "name" => "Urenco Nuclear Operations LLC" })
+
+    DataQuality::Stages::Match.call(plugin: DummyPlugin.new, directory:)
+
+    assert_match "could be the same brand as Urenco or Urenco USA", c.reload.notes
+  end
+
   test "brand checks read the plant names once per run, and again after a facility is written" do
     lookup = SimpleDelegator.new(Directory::Lookup)
     reads = 0

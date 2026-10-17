@@ -1,0 +1,10 @@
+A correction came in.
+
+About: <%= @report.subject %>
+Page: <%= root_url.chomp("/") %><%= @report.page_path %>
+
+<%= @report.message %>
+
+Contact: <%= @report.contact.presence || "none given" %>
+
+In the admin: <%= admin_corrections_url(report: @report.id) %>

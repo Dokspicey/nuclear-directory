@@ -1,5 +1,6 @@
 <% content_for :title, "Disclaimer · Nuclear Directory" %>
 <% content_for :head do %>
+  <link rel="canonical" href="<%= disclaimer_url %>">
   <meta name="description" content="Nuclear Directory is built from public sources. It may be incomplete or out of date, and it isn't safety or investment advice.">
 <% end %>
 <%= render "shared/site_header" %>
