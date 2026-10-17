@@ -1,18 +1,16 @@
 # UI previews: label a PR "preview" and its head is pushed to the `preview`
 # branch, which the free nuclear-directory-preview service on Render deploys.
-# One preview at a time; the most recent label or push wins. The preview runs
-# on its own database and never touches production. Runbook: the private
-# backups repo (nuclear-directory-backups).
+# One preview at a time (#328): while another open PR has the label, a new
+# label is taken off again with a comment saying who has the slot. The slot
+# frees when that PR merges, closes or loses the label. A push to the PR
+# holding it redeploys. The preview runs on its own database and never
+# touches production. Runbook: the private backups repo
+# (nuclear-directory-backups).
 name: Preview
 
 on:
   pull_request:
-    types: [labeled, synchronize]
-
-# The newest request wins; an older one still running is cancelled.
-concurrency:
-  group: preview
-  cancel-in-progress: true
+    types: [labeled, synchronize, closed]
 
 permissions:
   contents: write
@@ -21,14 +19,86 @@ permissions:
 env:
   PREVIEW_URL: https://nuclear-directory-preview.onrender.com
 
+# bash with pipefail: a failed API call fails the step, never reads as "free".
+defaults:
+  run:
+    shell: bash
+
 jobs:
-  deploy:
+  # A PR that merges or closes gives up the slot for good: its label comes
+  # off, so reopening it is a new request (label it again), never a return
+  # to its old place.
+  release:
+    if: >-
+      github.event.action == 'closed' &&
+      contains(github.event.pull_request.labels.*.name, 'preview')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Take the preview label off
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: gh api -X DELETE "repos/${GITHUB_REPOSITORY}/issues/${PR}/labels/preview" > /dev/null
+
+  # Outside the deploy's cancelling group, so a request that's refused can
+  # never cancel the holder's deploy.
+  admit:
     # Same-repo PRs only, and only while the PR carries the label.
     if: >-
+      github.event.action != 'closed' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       contains(github.event.pull_request.labels.*.name, 'preview') &&
       (github.event.action != 'labeled' || github.event.label.name == 'preview')
     runs-on: ubuntu-latest
+    # Every waiting admission is kept, so a late or rerun older one can't
+    # replace the latest push's.
+    concurrency:
+      group: preview-admit-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
+      queue: max
+    outputs:
+      free: ${{ steps.slot.outputs.free }}
+    steps:
+      - uses: actions/checkout@v5
+
+      # The holder is the open labelled PR labelled first; the filter is
+      # tested in .github/scripts/preview_slot_test.sh.
+      - name: Check that the preview slot is free
+        id: slot
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          holder="$(.github/scripts/preview_holder.sh "$PR")"
+          if [[ -z "$holder" ]]; then
+            echo "free=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "free=false" >> "$GITHUB_OUTPUT"
+          if [[ "$holder" == "unlabelled" ]]; then
+            echo "::notice::#${PR} no longer has the preview label; not deployed."
+            exit 0
+          fi
+          if gh api -X DELETE "repos/${GITHUB_REPOSITORY}/issues/${PR}/labels/preview" > /dev/null; then
+            removed="so this PR's preview label was taken off and nothing was deployed"
+          else
+            removed="so nothing was deployed (the preview label couldn't be taken off; please remove it)"
+          fi
+          gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body "Preview is in use by #${holder}, ${removed}. Ask the PM for the next turn. The slot frees when #${holder} merges, closes or loses its preview label; then label this PR again."
+          echo "::notice::Preview slot held by #${holder}; not deployed."
+
+  deploy:
+    needs: admit
+    if: needs.admit.outputs.free == 'true'
+    runs-on: ubuntu-latest
+    # One deploy at a time, never cancelled: a run admitted just before a
+    # handoff waits its turn, then finds it no longer holds the slot.
+    # queue: max keeps every waiting deploy (the default keeps only the
+    # newest, which could drop a new holder's deploy for a stale one).
+    concurrency:
+      group: preview
+      cancel-in-progress: false
+      queue: max
     steps:
       # github.sha is the PR merged into the current main (refs/pull/N/merge),
       # so a stale PR still gets main's fixes, NOINDEX included.
@@ -36,12 +106,36 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Checked again inside the deploy group: the slot may have changed
+      # hands since admission.
+      - name: Check this PR still holds the slot
+        id: still
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          EVENT_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          holder="$(.github/scripts/preview_holder.sh "$PR")"
+          head="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR}" --jq .head.sha)"
+          if [[ -n "$holder" ]]; then
+            echo "::notice::The slot changed hands since admission (${holder}); not deployed."
+            echo "holds=false" >> "$GITHUB_OUTPUT"
+          elif [[ "$head" != "$EVENT_HEAD" ]]; then
+            # A newer push's run deploys the newer head; never overwrite it.
+            echo "::notice::#${PR} has newer commits (${head:0:7}); this run's ${EVENT_HEAD:0:7} isn't deployed."
+            echo "holds=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "holds=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Point the preview branch at this PR merged with main
+        if: steps.still.outputs.holds == 'true'
         env:
           SHA: ${{ github.sha }}
         run: git push --force origin "${SHA}:refs/heads/preview"
 
       - name: Comment the link
+        if: steps.still.outputs.holds == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
@@ -49,4 +143,4 @@ jobs:
         run: |
           gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body "Preview of ${SHA:0:7}, merged with main, is deploying: ${PREVIEW_URL}
 
-          Ready in about 5 minutes. The first visit after a quiet spell takes about a minute to wake it up. It runs on a copy of the seed data, not the live database, and search engines are told to ignore it. Labelling another PR replaces this preview."
+          Ready in about 5 minutes. The first visit after a quiet spell takes about a minute to wake it up. It runs on a copy of the seed data, not the live database, and search engines are told to ignore it. No other PR can take the preview until this one merges, closes or loses its preview label."

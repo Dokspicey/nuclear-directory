@@ -1,0 +1,32 @@
+# Sources (#201 part 2b, Design's spec on #166): one row per source,
+# grouped (official records by crawler, hand research by publisher), then
+# every document in one, and a search across all of them. Below the list,
+# folded: what needs attention, the last run per stage and model spend
+# (the admin's view of data_quality:status).
+class Admin::SourcesController < Admin::BaseController
+  STATUS_CHIPS = %w[pending ok blocked needs_human].freeze
+
+  def index
+    @official = SourceCatalog.official
+    @research = SourceCatalog.research
+    @runs_by_kind = DataQuality::Status.by_kind.index_by(&:source_kind)
+    @attention = DataQuality::Status.sources
+    @runs = DataQuality::Status.runs
+    @spend = DataQuality::Status.spend
+    @analytics_url = ENV["POSTHOG_DASHBOARD_URL"].presence
+  end
+
+  def show
+    @entry = SourceCatalog.entry(params[:key]) or raise ActiveRecord::RecordNotFound
+    all = SourceCatalog.documents(@entry.key)
+    @counts = STATUS_CHIPS.index_with { |status| all.count { |document| document.status == status } }
+    @status = params[:status].presence_in(STATUS_CHIPS)
+    @documents = @status ? all.select { |document| document.status == @status } : all
+    @runs = SourceCatalog.runs(@entry.kind) if @entry.kind
+  end
+
+  def search
+    @query = params[:q].to_s.strip
+    @documents = @query.present? ? SourceCatalog.search(@query) : []
+  end
+end
