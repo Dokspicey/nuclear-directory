@@ -7,15 +7,15 @@ fail=0
 check() { if [[ "$2" == "$3" ]]; then echo "ok   $1"; else echo "FAIL $1: expected [$3], got [$2]"; fail=1; fi; }
 holder() { jq -r --argjson pr "$1" -f .github/scripts/preview_holder.jq <<< "$2"; }
 
-pr() { printf '{"number":%s,"state":"%s","pull_request":{},"labels":[%s]}' "$1" "$2" "$3"; }
-preview='{"name":"preview"}'
-other='{"name":"area:infra"}'
+a='{"number":305,"labeled_at":"2026-10-17T01:00:00Z"}'
+b='{"number":324,"labeled_at":"2026-10-17T02:00:00Z"}'
 
-check "free when no other PR has the label" "$(holder 324 "[$(pr 324 open "$preview"), $(pr 300 open "$other")]")" ""
-check "held by another open PR with the label" "$(holder 324 "[$(pr 324 open "$preview"), $(pr 305 open "$preview")]")" "305"
-check "the holder's own push isn't blocked by itself" "$(holder 305 "[$(pr 305 open "$preview")]")" ""
-check "a closed or merged PR frees the slot" "$(holder 324 "[$(pr 324 open "$preview"), $(pr 305 closed "$preview")]")" ""
-issue='{"number":9,"state":"open","labels":[{"name":"preview"}]}'
-check "an issue with the label isn't a PR" "$(holder 324 "[$(pr 324 open "$preview"), $issue]")" ""
+check "free when it's the only labelled PR" "$(holder 324 "[$b]")" ""
+check "a newcomer is refused while another PR holds the slot" "$(holder 324 "[$a, $b]")" "305"
+check "the holder's push deploys while a newcomer still has its label" "$(holder 305 "[$b, $a]")" ""
+check "once the holder merges, closes or loses its label, the next PR may deploy" "$(holder 324 "[$b]")" ""
+check "same time: the lower number holds it" \
+  "$(holder 400 '[{"number":400,"labeled_at":"2026-10-17T02:00:00Z"},{"number":399,"labeled_at":"2026-10-17T02:00:00Z"}]')" "399"
+check "no labelled PRs: free" "$(holder 324 '[]')" ""
 
 exit $fail

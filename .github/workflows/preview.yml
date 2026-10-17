@@ -12,11 +12,6 @@ on:
   pull_request:
     types: [labeled, synchronize]
 
-# Runs one at a time; an older run still going is cancelled by a newer one.
-concurrency:
-  group: preview
-  cancel-in-progress: true
-
 permissions:
   contents: write
   pull-requests: write
@@ -24,31 +19,43 @@ permissions:
 env:
   PREVIEW_URL: https://nuclear-directory-preview.onrender.com
 
+# bash with pipefail: a failed API call fails the step, never reads as "free".
+defaults:
+  run:
+    shell: bash
+
 jobs:
-  deploy:
+  # Outside the deploy's cancelling group, so a request that's refused can
+  # never cancel the holder's deploy.
+  admit:
     # Same-repo PRs only, and only while the PR carries the label.
     if: >-
       github.event.pull_request.head.repo.full_name == github.repository &&
       contains(github.event.pull_request.labels.*.name, 'preview') &&
       (github.event.action != 'labeled' || github.event.label.name == 'preview')
     runs-on: ubuntu-latest
+    concurrency:
+      group: preview-admit-${{ github.event.pull_request.number }}
+    outputs:
+      free: ${{ steps.slot.outputs.free }}
     steps:
-      # github.sha is the PR merged into the current main (refs/pull/N/merge),
-      # so a stale PR still gets main's fixes, NOINDEX included.
       - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
 
-      # Who holds the slot is read from GitHub, with the jq filter from this
-      # checkout (tested in .github/scripts/preview_slot_test.sh).
+      # The holder is the open labelled PR labelled first; the filter is
+      # tested in .github/scripts/preview_slot_test.sh.
       - name: Check that the preview slot is free
         id: slot
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
         run: |
-          holder="$(gh api "repos/${GITHUB_REPOSITORY}/issues?labels=preview&state=open&per_page=100" \
-            | jq -r --argjson pr "$PR" -f .github/scripts/preview_holder.jq)"
+          labelled="[]"
+          for n in $(gh api "repos/${GITHUB_REPOSITORY}/issues?labels=preview&state=open&per_page=100" --jq '.[] | select(.pull_request) | .number'); do
+            at="$(gh api --paginate "repos/${GITHUB_REPOSITORY}/issues/${n}/events?per_page=100" \
+              --jq '[.[] | select(.event == "labeled" and .label.name == "preview") | .created_at] | last // empty' | tail -n 1)"
+            labelled="$(jq -c --argjson n "$n" --arg at "$at" '. + [{number: $n, labeled_at: $at}]' <<< "$labelled")"
+          done
+          holder="$(jq -r --argjson pr "$PR" -f .github/scripts/preview_holder.jq <<< "$labelled")"
           if [[ -z "$holder" ]]; then
             echo "free=true" >> "$GITHUB_OUTPUT"
             exit 0
@@ -58,14 +65,27 @@ jobs:
           gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body "Preview is in use by #${holder}, so this PR's preview label was taken off and nothing was deployed. Ask the PM for the next turn. The slot frees when #${holder} merges, closes or loses its preview label; then label this PR again."
           echo "::notice::Preview slot held by #${holder}; not deployed."
 
+  deploy:
+    needs: admit
+    if: needs.admit.outputs.free == 'true'
+    runs-on: ubuntu-latest
+    # One deploy at a time; a newer one (the holder's next push) cancels an older one.
+    concurrency:
+      group: preview
+      cancel-in-progress: true
+    steps:
+      # github.sha is the PR merged into the current main (refs/pull/N/merge),
+      # so a stale PR still gets main's fixes, NOINDEX included.
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
       - name: Point the preview branch at this PR merged with main
-        if: steps.slot.outputs.free == 'true'
         env:
           SHA: ${{ github.sha }}
         run: git push --force origin "${SHA}:refs/heads/preview"
 
       - name: Comment the link
-        if: steps.slot.outputs.free == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
