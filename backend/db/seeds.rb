@@ -13,6 +13,7 @@ ROLES = [
   [ "enrichment", "Enrichment", "Enriches uranium, including HALEU.", "fuel" ],
   [ "fabrication", "Fuel fabrication", "Makes finished fuel such as fuel assemblies or TRISO particles.", "fuel" ],
   [ "reactor_vendor", "Reactor vendor", "Designs and sells reactors, from large light-water plants to SMRs and microreactors." ],
+  [ "project_developer", "Project developer", "Develops, finances and will own or run new nuclear plants." ],
   [ "reactor_services", "Reactor services", "Maintains, inspects, refuels or upgrades operating reactors." ],
   [ "utility", "Utility", "Sells electricity to customers and owns or plans nuclear generation." ],
   [ "operator", "Operator", "Holds the license and runs a nuclear facility day to day." ],

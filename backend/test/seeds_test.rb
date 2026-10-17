@@ -40,13 +40,13 @@ class SeedsTest < ActiveSupport::TestCase
   test "loads the hand-checked organizations as verified facts with evidence" do
     load_seeds
 
-    assert_equal 68, Organization.verified.count
-    assert_equal 79, OrganizationRole.verified.count
+    assert_equal 69, Organization.verified.count
+    assert_equal 83, OrganizationRole.verified.count
     assert_equal 57, OrganizationTechnology.verified.count
-    assert_equal 70, Relationship.verified.count
+    assert_equal 71, Relationship.verified.count
     assert_equal 35, Facility.verified.count
     # 5 plant links wait for a direct quote (owns/operates not stated by the source).
-    assert_equal [ 55, 8 ], [ FacilityRelationship.verified.count, FacilityRelationship.pending.count ]
+    assert_equal [ 55, 7 ], [ FacilityRelationship.verified.count, FacilityRelationship.pending.count ]
     assert_equal 26, FacilityAlias.count
     assert_equal "Kemmerer Unit 1", Directory::Lookup.facility(name: "Kemmerer Unit 1 (Natrium)")&.name, "found by its other name"
     assert_equal [ "human:tosin" ], Relationship.distinct.pluck(:verified_by)
@@ -125,9 +125,10 @@ class SeedsTest < ActiveSupport::TestCase
     assert_equal [ "American Centrifuge Plant" ], doe.facility_relationships.owns.verified.joins(:facility).pluck("facilities.name")
     assert_equal [ "Advanced Test Reactor", "High Flux Isotope Reactor" ],
       doe.facility_relationships.owns.pending.joins(:facility).pluck("facilities.name").sort
-    long_mott = Organization.find_by!(slug: "long-mott-energy").facility_relationships.owns.sole
-    assert long_mott.pending?
-    assert_equal 1, long_mott.evidence.count, "its quote is kept as evidence"
+    # Long Mott Energy's unsupported owns link was dropped (#322); it's a project developer instead.
+    long_mott = Organization.find_by!(slug: "long-mott-energy")
+    assert_empty long_mott.facility_relationships
+    assert_equal [ "project_developer" ], long_mott.roles.pluck(:key)
   end
 
   test "the approved #63 calls: descriptions and HQs, no NRC description, no Bernhard role" do
