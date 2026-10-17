@@ -45,7 +45,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_17_000000) do
     t.index ["subject_type", "subject_id"], name: "index_candidates_on_subject"
     t.check_constraint "ai_recommendation::text = ANY (ARRAY['recommend_publish'::character varying::text, 'needs_review'::character varying::text])", name: "candidates_ai_recommendation_check"
     t.check_constraint "kind::text = ANY (ARRAY['organization'::character varying::text, 'organization_alias'::character varying::text, 'organization_role'::character varying::text, 'organization_technology'::character varying::text, 'facility'::character varying::text, 'relationship'::character varying::text, 'facility_relationship'::character varying::text])", name: "candidates_kind_check"
-    t.check_constraint "status::text = ANY (ARRAY['new'::character varying, 'matched'::character varying, 'merged'::character varying, 'rejected'::character varying, 'needs_review'::character varying, 'confirmed'::character varying]::text[])", name: "candidates_status_check"
+    t.check_constraint "status::text = ANY (ARRAY['new'::character varying::text, 'matched'::character varying::text, 'merged'::character varying::text, 'rejected'::character varying::text, 'needs_review'::character varying::text, 'confirmed'::character varying::text])", name: "candidates_status_check"
   end
 
   create_table "correction_reports", force: :cascade do |t|
@@ -82,29 +82,29 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_17_000000) do
   end
 
   create_table "data_deploys", force: :cascade do |t|
-    t.string "backup_tag"
     t.string "commit"
-    t.text "error"
-    t.jsonb "files", default: {}, null: false
-    t.datetime "finished_at"
-    t.jsonb "report", default: {}, null: false
-    t.string "seed_digest"
-    t.datetime "started_at", null: false
     t.string "status", null: false
+    t.string "seed_digest"
+    t.jsonb "files", default: {}, null: false
+    t.string "backup_tag"
+    t.jsonb "report", default: {}, null: false
+    t.text "error"
+    t.datetime "started_at", null: false
+    t.datetime "finished_at"
     t.index ["status", "id"], name: "index_data_deploys_on_status_and_id"
   end
-  
+
   create_table "data_migrations", force: :cascade do |t|
-    t.string "by", null: false
-    t.string "commit"
+    t.string "version", null: false
     t.string "name", null: false
+    t.string "by", null: false
+    t.text "reason"
+    t.string "commit"
     t.text "output"
     t.datetime "ran_at", null: false
-    t.text "reason"
-    t.string "version", null: false
     t.index ["version"], name: "index_data_migrations_on_version", unique: true
   end
-  
+
   create_table "evidence", force: :cascade do |t|
     t.string "subject_type", null: false
     t.bigint "subject_id", null: false

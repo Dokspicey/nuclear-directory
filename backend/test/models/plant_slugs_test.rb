@@ -67,4 +67,32 @@ class PlantSlugsTest < ActionDispatch::IntegrationTest
     assert_equal "waterford-3-unit", unit.reload.slug
     assert_equal "waterford-3-2", plant("Waterford 3").slug, "another site's slug is never taken"
   end
+
+  # The deploy step's migration for production's four pairs (db/data).
+  def run_migration
+    migrations = DeployData::Migrations.new
+    pending = migrations.pending.find { |migration| migration.name == "sites_take_their_plain_slugs" }
+    migrations.run(pending, reason: "test", commit: "abc1234")
+  end
+
+  test "the data migration moves the four production pairs once, then has nothing to do" do
+    %w[Callaway Davis-Besse Palisades].each { |name| clashed(name) }
+    clashed("Waterford 3")
+
+    ran = nil
+    assert_output(/Palisades: \/plants\/palisades-2 -> \/plants\/palisades/) { ran = run_migration }
+    assert_equal 4, ran.output.size
+    assert_equal %w[callaway davis-besse palisades waterford-3],
+      Facility.where(parent_id: nil, name: [ "Callaway", "Davis-Besse", "Palisades", "Waterford 3" ]).order(:slug).pluck(:slug)
+    assert DataMigration.exists?(name: "sites_take_their_plain_slugs", by: "human:tosin")
+    assert_empty DeployData::Migrations.new.pending.select { |migration| migration.name == "sites_take_their_plain_slugs" }, "runs once"
+  end
+
+  test "the data migration stops, changing nothing, if another site would move" do
+    clashed("Palisades")
+    clashed("Surprise Station")
+
+    assert_raises(RuntimeError) { capture_io { run_migration } }
+    assert_equal "palisades-2", Facility.find_by!(parent_id: nil, name: "Palisades").slug
+  end
 end
