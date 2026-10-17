@@ -123,7 +123,7 @@ The verb is fixed (VOICE.md). Each link needs a quote that states that relations
 | Waste and decommissioning | Stores, transports and disposes of spent fuel and waste; decommissions plants | `waste_decommissioning` (new key), or the sourced tag "spent-fuel transport" | 0 |
 | Services and engineering | Maintains, builds, licenses or advises, and other professional services to the industry | `reactor_services`, `regulatory_consultant`, or a sourced activity tag: construction (EPC), licensing and consulting, legal, insurance, software | 6 |
 | Power buyers | Buys nuclear power, mostly hyperscalers and data centers | `data_center_offtaker`, or a published power deal as the buyer, **unless the buyer is a utility** (TVA buying from Kairos is a utility deal) | 4 |
-| Investors | Puts money into nuclear companies or projects | `venture_capital`, a sourced investor-type tag (private equity, bank, project finance, corporate fund), or a published `invests_in` or `funds` link as the funder, **unless the funder is a government agency** (DOE grants put DOE in Government and research, not Investors) | 6 |
+| Investors | Puts money into nuclear companies or projects | `venture_capital`, a sourced investor-type tag (private equity, bank, project finance, corporate fund), or a published `invests_in` or `funds` link as the funder, **unless the funder is a government agency** (DOE grants put DOE in Government and research, not Investors) | 9 |
 | Government and research | Agencies, regulators, national labs and universities | `government_agency`, `national_lab`, `university` (new key) | 4 |
 
 **Counting:** buckets overlap (6 of 81 companies are in two or more today). The total is always the number of companies ("81 companies"), never the sum of buckets. A bucket count is labelled "companies that develop reactors", "companies that buy nuclear power", and so on. Charts of buckets are bars, never a pie or a 100% stack.
@@ -250,3 +250,4 @@ The admin's Live screen and the nightly `data_quality:audit` are planned (Admin 
 | Scope is the whole nuclear industry, not only power; isotopes are in | Tosin | #266 |
 | Bucket names and edge cases ("Waste and decommissioning"; universities in Government and research; fusion and uranium as tags; stable URLs) | Tosin, with Founder and GTM | #266 |
 | "Reactor developers" becomes "Developers": reactor designers plus nuclear project developers (`project_developer`), so everything building new nuclear sits together; slug unchanged. A parent never inherits its subsidiaries' buckets | Tosin | #322 |
+| Bernhard Capital Partners is an investor (`venture_capital`): it owns Allied Power, a nuclear services company. Reverses #63's "no Bernhard role" (16 Oct 2026) | Tosin | #63, #322 |

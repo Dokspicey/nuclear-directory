@@ -41,7 +41,7 @@ class SeedsTest < ActiveSupport::TestCase
     load_seeds
 
     assert_equal 69, Organization.verified.count
-    assert_equal 83, OrganizationRole.verified.count
+    assert_equal 84, OrganizationRole.verified.count
     assert_equal 57, OrganizationTechnology.verified.count
     assert_equal 71, Relationship.verified.count
     assert_equal 35, Facility.verified.count
@@ -131,7 +131,7 @@ class SeedsTest < ActiveSupport::TestCase
     assert_equal [ "project_developer" ], long_mott.roles.pluck(:key)
   end
 
-  test "the approved #63 calls: descriptions and HQs, no NRC description, no Bernhard role" do
+  test "the approved #63 calls: descriptions and HQs, no NRC description; Bernhard an investor since 16 Oct" do
     load_seeds
 
     centrus = Organization.find_by!(slug: "centrus-energy")
@@ -141,7 +141,8 @@ class SeedsTest < ActiveSupport::TestCase
     nrc = Organization.find_by!(slug: "us-nuclear-regulatory-commission")
     assert_nil nrc.description
     assert_equal [ "Rockville", "MD" ], [ nrc.hq_city, nrc.hq_state ]
-    assert_empty Organization.find_by!(slug: "bernhard-capital-partners").roles
+    # Tosin reversed #63 on 16 Oct 2026: it owns Allied Power, a nuclear services company.
+    assert_equal [ "venture_capital" ], Organization.find_by!(slug: "bernhard-capital-partners").roles.pluck(:key)
   end
 
   test "CFS and Dominion share one ARC facility" do
