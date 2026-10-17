@@ -98,6 +98,18 @@ class PlantSlugsTest < ActionDispatch::IntegrationTest
 
     assert_select "tr#unit-palisades-unit"
     assert_select "tr#unit-palisades-unit #unit-palisades", 1
+
+    site = Facility.find_by!(slug: "palisades")
+    site.update!(slug: "palisades-plant") # renamed later, or merged under another site
+    get plant_path(slug: "palisades-plant")
+    assert_select "tr#unit-palisades-unit #unit-palisades", 1, "the old anchor stays with the unit"
+  end
+
+  test "a unit really named \"... Unit\" gets no second anchor" do
+    site = cite!(plant("Kemmerer", facility_type: "power_reactor"))
+    unit = cite!(plant("Kemmerer Unit", parent: site, status: "planned"))
+
+    assert_equal [ "unit-kemmerer-unit" ], unit.unit_anchors
   end
 
   test "a pair whose <slug>-unit is already taken is left for a person" do
@@ -137,6 +149,18 @@ class PlantSlugsTest < ActionDispatch::IntegrationTest
       Facility.where(parent_id: nil, name: [ "Callaway", "Davis-Besse", "Palisades", "Waterford 3" ]).order(:slug).pluck(:slug)
     assert DataMigration.exists?(name: "sites_take_their_plain_slugs", by: "human:tosin")
     assert_empty DeployData::Migrations.new.pending.select { |migration| migration.name == "sites_take_their_plain_slugs" }, "runs once"
+  end
+
+  test "the data migration stops, changing nothing, if an expected site can't take its slug" do
+    clashed("Callaway")
+    clashed("Davis-Besse")
+    clashed("Waterford 3")
+    site, = clashed("Palisades")
+    plant("Palisades Unit", parent: site) # holds palisades-unit
+
+    assert_raises(RuntimeError) { capture_io { run_migration } }
+    assert_equal "callaway-2", Facility.find_by!(parent_id: nil, name: "Callaway").slug, "rolled back"
+    assert_not DataMigration.exists?(name: "sites_take_their_plain_slugs"), "so the next deploy tries again"
   end
 
   test "the data migration stops, changing nothing, if another site would move" do

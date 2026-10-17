@@ -12,6 +12,10 @@ class SitesTakeTheirPlainSlugs < DeployData::Migration
     moved = Facility.give_sites_their_plain_slugs!
     unexpected = moved.map { |site, *| site.slug } - EXPECTED
     raise "#333: would also move #{unexpected.join(", ")}; check before running" if unexpected.any?
+    # Every expected site must end at its plain slug (already there counts),
+    # or nothing is kept and the next deploy tries again.
+    missing = EXPECTED - Facility.where(parent_id: nil, slug: EXPECTED).pluck(:slug)
+    raise "#333: #{missing.join(", ")} didn't take its plain slug; check before running" if missing.any?
 
     say "Nothing to move: every site already has its plain slug." if moved.empty?
     moved.each do |site, old, unit, unit_old|
