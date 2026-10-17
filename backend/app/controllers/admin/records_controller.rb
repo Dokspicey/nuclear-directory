@@ -166,9 +166,11 @@ class Admin::RecordsController < Admin::BaseController
     # A site's capacity is the sum of its units, never stored (DATA.md), so a
     # site with units has none to edit; a standalone reactor keeps its own.
     def editable_fields
-      # A link's ends and kind identify it, so they aren't edited (as in Checks).
+      # A link's ends and kind identify it, so they aren't edited (as in
+      # Checks: Review::NOT_EDITABLE). A stored identifier such as a site's
+      # EIA plant ID is a value like any other.
       fields = @fact.values.reject do |name, value|
-        NOT_EDITED.include?(name) || DataQuality::Review::NOT_EDITABLE.include?(name) || name.end_with?("_id") || value.is_a?(Array) || value.is_a?(Hash)
+        NOT_EDITED.include?(name) || DataQuality::Review::NOT_EDITABLE.include?(name) || value.is_a?(Array) || value.is_a?(Hash)
       end.keys
       @fact.type == "Facility" && Facility.exists?(parent_id: @fact.id) ? fields - %w[capacity_mw] : fields
     end

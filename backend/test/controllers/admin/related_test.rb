@@ -254,4 +254,17 @@ class Admin::RelatedTest < ActionDispatch::IntegrationTest
     words = css_select("#item-FacilityRelationship-#{@operates.id} td.nd-related__link a").first["href"]
     assert_includes words, "with_removed=1"
   end
+
+  test "a site's EIA plant ID can be corrected on its Record; a link's ends can't" do
+    @site.update_columns(eia_plant_id: "649")
+
+    get admin_record_edit_path(type: "Facility", id: @site.id)
+    assert_select "input[name=?]", "values[eia_plant_id]"
+    patch admin_record_path(type: "Facility", id: @site.id), params: { values: { eia_plant_id: "6051" } }
+    assert_equal "6051", @site.reload.eia_plant_id
+
+    get admin_fact_edit_path(type: "FacilityRelationship", id: @owns.id)
+    assert_select "input[name=?]", "values[organization_id]", 0
+    assert_select "input[name=?]", "values[facility_id]", 0
+  end
 end
