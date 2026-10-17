@@ -218,6 +218,7 @@
   .nd-cat:hover { border-color: var(--nd-ink); }
   .nd-cat b { display: flex; align-items: center; gap: var(--nd-space-2); font-weight: 600; font-size: 15px; line-height: 20px; }
   .nd-cat b .nd-ic { color: var(--nd-cat, currentColor); }
+  .nd-cat b { overflow-wrap: anywhere; hyphens: auto; } /* "decommissioning" at 390px (Design QA) */
   .nd-cat span { font-size: 13px; line-height: 18px; color: var(--nd-ink-muted); }
 
   .nd-list { list-style: none; margin: 0; padding: 0; }

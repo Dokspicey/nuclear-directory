@@ -86,6 +86,9 @@ class DirectoryHelperTest < ActionView::TestCase
     assert_equal "site-bwr", site_icon_name("power_reactor", reactor_types: [ "BWR" ])
     assert_equal "site-advanced", site_icon_name("power_reactor", reactor_types: [ "Natrium" ])
     assert_equal "site-plant", site_icon_name("power_reactor")
+    assert_equal "site-advanced", site_icon_name("power_reactor", status: "planned"), "Long Mott, before a type is stated"
+    assert_equal "site-advanced", site_icon_name("power_reactor", reactor_types: [ nil ], status: "under_construction"), "Kemmerer, Hermes 2"
+    assert_equal "site-pwr", site_icon_name("power_reactor", reactor_types: [ "AP1000" ], status: "under_construction")
     assert_equal "site-waste", site_icon_name("power_reactor", reactor_types: [ "PWR" ], status: "decommissioning")
     assert_equal "site-research", site_icon_name("research_reactor")
     assert_equal "site-fusion", site_icon_name("fusion_facility")

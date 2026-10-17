@@ -100,8 +100,9 @@ module DirectoryHelper
 
   # The line icon for a kind of site (icons/nd, Design's mapping, #281): by
   # facility type; a power plant by its reactors' types (BWR, PWR, else an
-  # advanced design); a site being decommissioned as a waste site; anything
-  # unknown as a plain plant.
+  # advanced design, as is a planned or under-construction one with no
+  # PWR or BWR, like Kemmerer); a site being decommissioned as a waste
+  # site; anything unknown as a plain plant.
   def site_icon_name(facility_type, reactor_types: [], status: nil)
     return "site-waste" if status.to_s == "decommissioning"
 
@@ -110,7 +111,7 @@ module DirectoryHelper
       types = reactor_types.compact_blank.map(&:upcase)
       if types.any? { |type| type.include?("BWR") } then "site-bwr"
       elsif types.any? { |type| type.match?(/PWR|AP1000/) } then "site-pwr"
-      elsif types.any? then "site-advanced"
+      elsif types.any? || status.to_s.in?(%w[planned under_construction]) then "site-advanced"
       else "site-plant"
       end
     when "research_reactor" then "site-research"

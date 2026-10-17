@@ -147,6 +147,7 @@ class SharedPartialsTest < ActionView::TestCase
     assert_select "a.nd-pill", count: 10
     assert_select "a.nd-pill.nd-bucket--fuel[aria-current='page']", /Fuel and materials/
     assert_select "a.nd-pill.nd-bucket--fuel svg.nd-ic", 1
+    assert_select "nav.nd-pills[data-controller=pill-row]", 1, "scrolls the current pill into view on phones"
     assert_select "a.nd-pill[href=?]:not([class*=nd-bucket--]) svg.nd-ic", "/companies?category=plants", 1, "Plants and sites has no accent"
     assert_select "a.nd-pill[aria-current='page'] .nd-num", "11"
     assert_select "a.nd-pill[href=?]", "/companies?category=plants", text: /Plants and sites/
@@ -165,7 +166,7 @@ class SharedPartialsTest < ActionView::TestCase
 
     assert_select "a.nd-cat", count: 10
     assert_select "a.nd-cat[href=?] span", "/companies?category=fuel", text: "Centrus Energy, Urenco USA"
-    assert_select "a.nd-cat.nd-bucket--fuel b svg.nd-ic", 1, "the bucket's icon beside its name"
+    assert_select "a.nd-cat.nd-bucket--fuel b svg.nd-ic.nd-ic--24", 1, "the bucket's icon beside its name, at 24px"
     assert_select "a.nd-cat[href=?] span", "/companies?category=fusion", count: 0
 
     render partial: "shared/category_boxes", locals: { examples: {}, counts: { "fuel" => 3, "components" => 0 } }
