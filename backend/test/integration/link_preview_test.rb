@@ -122,4 +122,16 @@ class LinkPreviewTest < ActionDispatch::IntegrationTest
     get "/cards/categories/not-a-category/0000000000000000.png"
     assert_response :not_found
   end
+
+  test "the old fusion category's card moves to the default card its tag page uses (#281)" do
+    get "/cards/categories/fusion/0000000000000000.png"
+    assert_response :moved_permanently
+
+    follow_redirect!
+    assert_response :success
+    assert_equal "image/png", response.media_type
+
+    get companies_path(tag: "fusion")
+    assert_match %r{/cards/default/}, og_image, "the tag page uses the default card"
+  end
 end

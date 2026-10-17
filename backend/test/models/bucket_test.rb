@@ -36,6 +36,13 @@ class BucketTest < ActiveSupport::TestCase
     cite!(link(cite!(company("Future Owner")), "owns", @vogtle)).update!(started_on: 1.year.from_now.to_date)
     fuel_plant = cite!(plant("Fuel Plant", facility_type: "fuel_facility", status: "operating"))
     cite!(link(cite!(company("Fuel Plant Operator")), "operates", fuel_plant))
+    # A reactor the public can't see as operating doesn't count: unsourced, or a
+    # pending site marked operating that's public only through a shut-down unit.
+    unsourced = plant("Quiet Reactor", facility_type: "power_reactor", status: "operating")
+    cite!(link(cite!(company("Quiet Owner")), "owns", unsourced))
+    pending = plant("Pending Site", verified: false, facility_type: "power_reactor", status: "operating")
+    cite!(plant("Pending Unit 1", parent: pending, facility_type: "power_reactor", status: "shut_down"))
+    cite!(link(cite!(company("Pending Site Owner")), "owns", pending))
 
     assert_equal [ "Duke Energy", "MEAG Power", "Southern Nuclear" ], in_bucket("utilities")
   end
@@ -47,8 +54,9 @@ class BucketTest < ActiveSupport::TestCase
     cite!(link(cite!(company("Amazon")), "offtakes_from", @vogtle))
     cite!(link(cite!(company("TVA", roles: [ @utility ])), "offtake_with", kairos))
     link(cite!(company("Quiet Buyer")), "offtake_with", kairos)
+    cite!(company("Utility Data Centers", roles: [ @utility, Role.find_by!(key: "data_center_offtaker") ]))
 
-    assert_equal [ "Amazon", "Google", "Switch" ], in_bucket("power-buyers")
+    assert_equal [ "Amazon", "Google", "Switch" ], in_bucket("power-buyers"), "a utility never is one, whatever its roles"
   end
 
   test "investors: the role, or the funder in an invests_in or funds link, unless it's government" do
@@ -58,9 +66,11 @@ class BucketTest < ActiveSupport::TestCase
     cite!(link(cite!(company("Bill Fund")), "funds", kairos))
     doe = cite!(company("US Department of Energy", roles: [ role("government_agency") ]))
     cite!(link(doe, "funds", kairos))
+    cite!(company("State Fund", roles: [ Role.find_by!(key: "government_agency"), Role.find_by!(key: "venture_capital") ]))
 
-    assert_equal [ "Amazon", "Bill Fund", "Khosla Ventures" ], in_bucket("investors")
-    assert_equal [ "US Department of Energy" ], in_bucket("government-research")
+    assert_equal [ "Amazon", "Bill Fund", "Khosla Ventures" ], in_bucket("investors"), "government never is one, whatever its roles"
+    assert_equal [ "State Fund", "US Department of Energy" ], in_bucket("government-research")
+    assert_equal 3, Bucket.counts["investors"]
   end
 
   test "a company is in every bucket it qualifies for, in display order, and totals count it once" do

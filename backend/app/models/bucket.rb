@@ -10,9 +10,11 @@
 #   Utilities and operators: a current owns or operates link to an operating
 #     power reactor, or to a site with one.
 #   Power buyers: the buyer in a power deal (offtake_with, or offtakes_from a
-#     plant), unless the buyer is in Utilities and operators.
-#   Investors: the funder in an invests_in or funds link, unless the funder
-#     is a government agency, national lab or university.
+#     plant). A company in Utilities and operators never is one.
+#   Investors: the funder in an invests_in or funds link. A government
+#     agency, national lab or university never is one.
+# The reactor behind an operating plant must itself be public: published,
+# verified and sourced, as its page shows it.
 # Totals count companies, never the sum of buckets: a company can be in
 # several.
 class Bucket
@@ -37,7 +39,9 @@ class Bucket
   # Organization ids, as a subquery, of published companies in the bucket.
   def ids(category)
     scopes = [ (with_roles(category.role_keys) if category.role_keys.any?), (send(category.links) if category.links) ].compact
-    scopes.map { |ids| Organization.published.where(id: ids) }.reduce { |all, one| all.or(one) }&.select(:id) || Organization.none.select(:id)
+    members = scopes.map { |ids| Organization.published.where(id: ids) }.reduce { |all, one| all.or(one) } || Organization.none
+    excluded = exclusion(category)
+    (excluded ? members.where.not(id: excluded) : members).select(:id)
   end
 
   private
@@ -47,22 +51,28 @@ class Bucket
       sourced(OrganizationRole.published.where(role_id: role_ids)).select(:organization_id)
     end
 
+    # Who can't be in a bucket whatever their roles or links say (DATA.md).
+    def exclusion(category)
+      case category.key
+      when "power-buyers" then ids(Category.find("utilities"))
+      when "investors" then with_roles(GOVERNMENT_ROLES)
+      end
+    end
+
     def operating_plants
-      reactors = Facility.where(facility_type: "power_reactor", status: "operating")
-      plants = Facility.where(id: reactors.select(:id)).or(Facility.where(id: Facility.published.merge(reactors).select(:parent_id)))
+      reactors = sourced(Facility.verified.where(id: Facility.published.select(:id), facility_type: "power_reactor", status: "operating"))
+      plants = Facility.where(id: reactors.select(:id)).or(Facility.where(id: Facility.published.where(id: reactors.where.not(parent_id: nil).select(:parent_id))))
       current(sourced(FacilityRelationship.published).where(relationship_type: %w[owns operates], facility_id: plants.select(:id)))
         .select(:organization_id)
     end
 
     def power_deals
-      buyers = Organization.where(id: sourced(Relationship.published.offtake_with).select(:from_organization_id))
-        .or(Organization.where(id: sourced(FacilityRelationship.published.offtakes_from).select(:organization_id)))
-      buyers.where.not(id: ids(Category.find("utilities"))).select(:id)
+      Organization.where(id: sourced(Relationship.published.offtake_with).select(:from_organization_id))
+        .or(Organization.where(id: sourced(FacilityRelationship.published.offtakes_from).select(:organization_id))).select(:id)
     end
 
     def investments
-      funders = Organization.where(id: sourced(Relationship.published.where(relationship_type: %w[invests_in funds])).select(:from_organization_id))
-      funders.where.not(id: with_roles(GOVERNMENT_ROLES)).select(:id)
+      Organization.where(id: sourced(Relationship.published.where(relationship_type: %w[invests_in funds])).select(:from_organization_id)).select(:id)
     end
 
     # Facts with at least one source.

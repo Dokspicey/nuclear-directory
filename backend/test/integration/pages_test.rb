@@ -75,6 +75,12 @@ class PagesTest < ActionDispatch::IntegrationTest
     assert_equal "https://nuclear-directory.org/bot", DataQuality::Fetcher::USER_AGENT[/\(\+(\S+)\)/, 1]
   end
 
+  test "the sitemap always lists Plants and sites, even with no public site yet" do
+    get "/sitemap.xml"
+
+    assert_includes response.body, "<loc>http://www.example.com/companies?category=plants</loc>"
+  end
+
   test "the sitemap lists public companies and plants, not hidden ones" do
     cite!(company("Kairos Power", roles: [ role("reactor_vendor") ]))
     cite!(company("CFS", techs: [ technology("fusion") ]))
@@ -93,6 +99,7 @@ class PagesTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "<loc>http://www.example.com/companies?tag=fusion</loc>"
     assert_not_includes response.body, "category=components", "an empty bucket isn't listed"
     assert_not_includes response.body, "tag=uranium"
+    assert_includes response.body, "<loc>http://www.example.com/companies?category=plants</loc>"
     assert_not_includes response.body, "<lastmod>"
     assert_not_includes response.body, "hidden"
     assert_not_includes response.body, "unpublished-co"
