@@ -64,8 +64,9 @@ module AdminHelper
     when "built" then tag.span(safe_join([ "Built", (safe_join([ " · ", issue ]) if issue), ", not running yet" ]), class: "text-ink-muted")
     when "planned" then tag.span(safe_join([ "Planned · ", issue ]), class: "text-ink-muted")
     when "hand"
-      documents = pluralize(source.documents.to_i, "document")
-      tag.span(safe_join([ "Hand research · #{documents}", (safe_join([ " · crawler ", issue ]) if issue) ]), class: "text-ink-muted")
+      # A count only where documents are mapped to it; otherwise it isn't known, not zero.
+      documents = (" · #{pluralize(source.documents, 'document')}" if source.documents)
+      tag.span(safe_join([ "Hand research#{documents}", (safe_join([ " · crawler ", issue ]) if issue) ]), class: "text-ink-muted")
     else tag.span(issue ? safe_join([ "Planned · ", issue ]) : "Missing · no issue yet", class: issue ? "text-ink-muted" : "text-critical")
     end
   end

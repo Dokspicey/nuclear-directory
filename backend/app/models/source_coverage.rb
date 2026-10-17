@@ -12,6 +12,10 @@ class SourceCoverage
   FILE = Rails.root.join("config/source_coverage.yml")
   # A crawler is live when it has read something and succeeded this recently.
   LIVE_WITHIN = 3.days
+  # Crawlers that read their documents through another source (an API or
+  # index): a failure there leaves the documents as they were, so the
+  # crawler is live only while that source is healthy too.
+  COMPANIONS = { "usaspending_doe_awards" => %w[usaspending_api], "eia_generators" => %w[eia_860m_index] }.freeze
 
   Source = Data.define(:name, :status, :issue, :kind, :leads, :note, :group, :domain, :documents) do
     def live? = status == "live"
@@ -67,8 +71,12 @@ class SourceCoverage
       @live_kinds ||= begin
         since = LIVE_WITHIN.ago
         crawled = CrawlRun.succeeded.stage_crawl.where(started_at: since..).distinct.pluck(:source_kind).to_set
-        read = ::Source.crawl_ok.where(fetched_at: since.., status_reason: nil).where.not(content_sha256: nil).distinct.pluck(:source_kind).to_set
-        crawled & read
+        healthy = ::Source.crawl_ok.where(fetched_at: since.., status_reason: nil).where.not(content_sha256: nil)
+        read = healthy.distinct.pluck(:source_kind).to_set
+        # A companion is unhealthy when any of its sources has a problem or wasn't fetched lately.
+        failing = ::Source.where(source_kind: COMPANIONS.values.flatten)
+          .where.not(id: healthy.select(:id)).distinct.pluck(:source_kind).to_set
+        (crawled & read).reject { |kind| COMPANIONS.fetch(kind, []).any? { |companion| failing.include?(companion) } }.to_set
       end
     end
 
@@ -85,7 +93,7 @@ class SourceCoverage
 
     def hand_documents(row)
       return ::Source.where(source_kind: SourceCatalog::RESEARCH_KIND, domain: row["domain"]).count if row["domain"]
-      return 0 unless row["group"]
+      return unless row["group"] # not counted: nothing maps it to documents
 
       research[row["group"]]&.documents.to_i
     end

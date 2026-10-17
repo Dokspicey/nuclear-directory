@@ -50,7 +50,7 @@ class Admin::SourcesByCategoryTest < ActionDispatch::IntegrationTest
     run_crawler("usaspending_doe_awards")
     get admin_sources_path(by: "category")
     assert_select "details#government-research summary", /1 of 2.*Live/m
-    assert_select "details#government-research .nd-cov__src a[href=?]", admin_source_path(key: "usaspending_doe_awards"), "DOE awards (USAspending)"
+    assert_select "details#government-research .nd-cov__src a[href=?]", admin_source_path(key: "usaspending_doe_awards", back: admin_sources_path(by: "category")), "DOE awards (USAspending)"
   end
 
   test "an issue number links out to GitHub in a new tab; a source with none is Missing" do
@@ -129,5 +129,44 @@ class Admin::SourcesByCategoryTest < ActionDispatch::IntegrationTest
 
     assert_select "details#utilities summary .sr-only", %w[Live\ sources: Documents: Facts:].size
     assert_select "#general-heading ~ details summary .sr-only", 3
+  end
+
+  test "DOE awards aren't live while the USAspending API they come through is failing" do
+    run_crawler("usaspending_doe_awards")
+    api = run_crawler("usaspending_api")
+    get admin_sources_path(by: "category")
+    assert_select "details#government-research summary", /1 of 2.*Live/m
+
+    api.update!(crawl_status: "blocked", status_reason: "HTTP 403")
+    get admin_sources_path(by: "category")
+    assert_select "details#government-research summary .nd-flag", "No live source", "yesterday's documents, today's API block"
+  end
+
+  test "hand research with no documents mapped to it says so without a count" do
+    get admin_sources_path(by: "category")
+
+    assert_select ".nd-cov__src", /Reddit \(r\/nuclear and others\).*Hand research(?! ·)/m
+    assert_select ".nd-cov__src", { text: /Reddit.*0 documents/m, count: 0 }
+  end
+
+  test "a source opened from the category view, and a search from it, lead back to the category view" do
+    back = admin_sources_path(by: "category")
+    run_crawler("nrc_reactor_list")
+
+    get back
+    assert_select ".nd-cov__src a[href=?]", admin_source_path(key: "nrc_reactor_list", back:), "NRC reactor list"
+    assert_select "form.nd-sources__search input[name=back][value=?]", back
+
+    get admin_source_path(key: "nrc_reactor_list", back:)
+    assert_select ".nd-crumbs a[href=?]", back, "Sources"
+    assert_select "a.nd-fchip[href=?]", admin_source_path(key: "nrc_reactor_list", status: "ok", back:)
+
+    get admin_sources_search_path(q: "nothing-matches-this", back:)
+    assert_select ".nd-crumbs a[href=?]", back, "Sources"
+    assert_select "a[href=?]", back, "Back to Sources"
+    assert_select "form.nd-sources__search input[name=back][value=?]", back
+
+    get admin_sources_search_path(q: "x", back: "https://elsewhere.example/")
+    assert_select ".nd-crumbs a[href=?]", admin_sources_path, "Sources"
   end
 end
