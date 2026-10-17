@@ -49,6 +49,7 @@ class DataQuality::Plugins::UsaspendingDoeAwards < DataQuality::Plugin
   LEGAL_SUFFIX = /,?\s+(?:INC|INCORPORATED|LLC|L\.L\.C|CORP|CORPORATION|COMPANY|CO|LTD|LIMITED|LP|L\.P|LLP|PLLC|PBC)\.?\z/i
   ACRONYMS = %w[BWXT EPRI GE AMS PKMJ NOG USA US HALEU TRISO SMR 3M LLNL ORNL INL].freeze
   SMALL_WORDS = %w[of and the for in on at].freeze
+  UNVERIFIED = { ai_recommendation: nil, ai_reason: nil, ai_confidence: nil, ai_model: nil, ai_checked_at: nil }.freeze
   # Line-of-business words a shared brand drops ("BWXT Nuclear" => "BWXT").
   GENERIC_WORDS = %w[nuclear energy power operations operating group services technologies technology holdings government].freeze
   COLUMNS = %w[award_id recipient_name amount_usd start_date end_date award_type assistance_listing search award_url
@@ -125,14 +126,22 @@ class DataQuality::Plugins::UsaspendingDoeAwards < DataQuality::Plugin
           attributes.delete(:name) if shared.key?(candidate.subject_id) && shared[candidate.subject_id].nil?
           if attributes.any?
             result = directory.write_pending(candidate.kind, attributes.merge(id: record.id), candidate:, crawl_run: nil, evidence: false)
-            # Refused (say its company was rejected meanwhile): left for a person; the crawl goes on.
-            next if result.errors.any?
+            # Refused (its company was rejected meanwhile, or the new name is
+            # another company's alias): left for a person, saying why, once;
+            # the crawl goes on.
+            if result.errors.any?
+              why = "Not reworded: #{result.errors.to_sentence}. Same company?"
+              candidate.update!(notes: [ candidate.notes, why ].compact_blank.join(" · ")) unless candidate.notes.to_s.include?(why)
+              next
+            end
           end
         end
         note = "Reworded for #302 by #{by}#{'; sent back to verify' if reverify}"
         # Back to verify: as matched when attached, else as new (matched needs a record).
         candidate.update!({ payload: candidate.payload.merge(changes), notes: [ candidate.notes, note ].compact_blank.join(" · ") }
-          .merge(reverify ? { status: candidate.subject_id ? "matched" : "new", ai_recommendation: nil, ai_reason: nil, ai_confidence: nil, ai_model: nil, ai_checked_at: nil } : {}))
+          .merge(reverify ? { status: candidate.subject_id ? "matched" : "new" } : {})
+          # A verdict on the old wording no longer holds: verify reads the claim again.
+          .merge(reverify || %w[new matched].include?(candidate.status) ? UNVERIFIED : {}))
         { candidate:, changes:, reverify: }
       end
     end

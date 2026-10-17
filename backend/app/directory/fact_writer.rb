@@ -117,6 +117,15 @@ module Directory
           else row.update!(organization: into) && moved["aliases"] += 1
           end
         end
+        # Its own name too, as merge_facility does (DATA.md D1: every spelling
+        # is an alias), so a source still using it ("BWXT NOG TECHNOLOGIES")
+        # finds into. Not when it's into's name, an alias already, or
+        # another company's name.
+        name = OrganizationAlias.normalize(from.name)
+        others = Organization.where.not(id: [ from.id, into.id ]).pluck(:name).map { |other| OrganizationAlias.normalize(other) }
+        unless name == OrganizationAlias.normalize(into.name) || OrganizationAlias.exists?(normalized_alias: name) || others.include?(name)
+          into.aliases.create!(alias: from.name) && moved["aliases"] += 1
+        end
         if (domain = from.domain)
           from.update_columns(domain: nil)
           into.update!(domain:) && moved["domain"] += 1 if into.domain.blank?
@@ -147,7 +156,7 @@ module Directory
           duplicate = Evidence.where(subject: into, source_id: row.source_id, quote: row.quote).exists?
           duplicate ? row.destroy! : row.update!(subject: into) && moved["evidence"] += 1
         end
-        moved["candidates"] = Candidate.where(subject_type: "Organization", subject_id: from.id).update_all(subject_id: into.id)
+        moved["candidates"] = Candidate.where(subject_type: "Organization", subject_id: from.id).update_all(subject_id: into.id, proposed_subject: false) # they didn't propose into
 
         note = "Merged into #{into.name} (##{into.id})"
         retired.each { |row| row.reject!(by:, reason: "#{note}; #{into.name} already has this, or it would point at itself") unless row.closed? }
@@ -240,7 +249,7 @@ module Directory
           duplicate = Evidence.where(subject: into, source_id: row.source_id, quote: row.quote).exists?
           duplicate ? row.destroy! : row.update!(subject: into) && moved["evidence"] += 1
         end
-        moved["candidates"] = Candidate.where(subject_type: "Facility", subject_id: from.id).update_all(subject_id: into.id)
+        moved["candidates"] = Candidate.where(subject_type: "Facility", subject_id: from.id).update_all(subject_id: into.id, proposed_subject: false) # they didn't propose into
 
         retired.each { |row| row.reject!(by:, reason: "#{note}; #{into.name} already has this link") unless row.closed? }
         summary = moved.select { |_, count| count.positive? }.map { |what, count| "#{count} #{what.tr('_', ' ').then { |label| count == 1 ? label.singularize : label }}" }

@@ -7,6 +7,23 @@ class Admin::CorrectionsControllerTest < ActionDispatch::IntegrationTest
       message: "The headquarters moved to Everett.", **attributes)
   end
 
+  test "the email's link finds a report where it is now: its tab and page, at its row (#317)" do
+    sign_in_as users(:admin)
+    stub_const(Admin::CorrectionsController, :PAGE, 2) do
+      first, second, third = 3.times.map { |n| travel_to(n.hours.ago - 1.day) { report } }.reverse
+
+      get admin_corrections_path(report: third.id)
+      assert_redirected_to admin_corrections_path(page: 2, anchor: "report-#{third.id}")
+
+      get admin_corrections_path(report: first.id)
+      assert_redirected_to admin_corrections_path(anchor: "report-#{first.id}")
+
+      second.close!("fixed", by: "human:tosin")
+      get admin_corrections_path(report: second.id)
+      assert_redirected_to admin_corrections_path(tab: "closed", anchor: "report-#{second.id}")
+    end
+  end
+
   test "needs a signed-in admin" do
     get admin_corrections_path
     assert_redirected_to new_session_path
