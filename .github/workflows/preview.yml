@@ -50,7 +50,10 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
         run: |
           labelled="[]"
-          for n in $(gh api "repos/${GITHUB_REPOSITORY}/issues?labels=preview&state=open&per_page=100" --jq '.[] | select(.pull_request) | .number'); do
+          # Assigned on its own line: a failure inside a for loop's word list
+          # wouldn't stop the step, and an empty list would read as "free".
+          open_prs="$(gh api "repos/${GITHUB_REPOSITORY}/issues?labels=preview&state=open&per_page=100" --jq '.[] | select(.pull_request) | .number')"
+          for n in $open_prs; do
             at="$(gh api --paginate "repos/${GITHUB_REPOSITORY}/issues/${n}/events?per_page=100" \
               --jq '[.[] | select(.event == "labeled" and .label.name == "preview") | .created_at] | last // empty' | tail -n 1)"
             labelled="$(jq -c --argjson n "$n" --arg at "$at" '. + [{number: $n, labeled_at: $at}]' <<< "$labelled")"
