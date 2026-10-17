@@ -54,6 +54,9 @@ module AdminHelper
 
   ISSUES_URL = "https://github.com/tosinoladokun/nuclear-directory/issues".freeze
 
+  # "8 of 9 categories have no live source", "1 of 9 categories has …".
+  def uncovered_line(uncovered, total) = "#{uncovered} of #{total} #{'category'.pluralize(total)} #{uncovered == 1 ? 'has' : 'have'} no live source"
+
   # A source's status on Sources by category (#166): Live with an ink dot;
   # Built, Planned or Missing with its issue (linked, opening GitHub); Hand
   # research with its documents.

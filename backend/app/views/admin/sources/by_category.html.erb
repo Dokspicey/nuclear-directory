@@ -13,7 +13,7 @@
 </div>
 
 <% if uncovered.positive? %>
-  <p class="type-body m-0"><span class="nd-flag"><%= uncovered %> of <%= total %> <%= uncovered == 1 ? "category has" : "categories have" %> no live source</span></p>
+  <p class="type-body m-0"><span class="nd-flag"><%= uncovered_line(uncovered, total) %></span></p>
 <% end %>
 
 <div class="nd-cov" data-controller="open-hash">

@@ -190,4 +190,11 @@ class Admin::SourcesByCategoryTest < ActionDispatch::IntegrationTest
     assert_select "details#power-buyers .nd-cov__src", { text: /crawler #253/, count: 0 }
     assert_select ".nd-cov__src", /Company newsrooms.*Hand research · \d+ documents? · crawler #128/m
   end
+
+  test "the flag line reads right with one category uncovered, or one in all" do
+    helpers = ApplicationController.helpers
+    assert_equal "1 of 9 categories has no live source", helpers.uncovered_line(1, 9)
+    assert_equal "8 of 9 categories have no live source", helpers.uncovered_line(8, 9)
+    assert_equal "1 of 1 category has no live source", helpers.uncovered_line(1, 1)
+  end
 end
