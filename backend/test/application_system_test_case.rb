@@ -16,6 +16,13 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
     options.add_argument("--force-color-profile=srgb")
   end
 
+  # Every test starts on a 1440x900 viewport in light mode: the browser is
+  # reused between tests and keeps whatever size and scheme the last one set.
+  setup do
+    resize_viewport(1440, 900)
+    emulate_color_scheme(:light)
+  end
+
   # Resizes the window so the page's viewport (not the window) is width x height.
   def resize_viewport(width, height)
     page.driver.browser.manage.window.resize_to(width, height)

@@ -17,8 +17,11 @@ class SmokeTest < ApplicationSystemTestCase
     assert_selector ".nd-searchbox__results a", text: "Kairos Power"
   end
 
-  test "the viewport helpers set the size and colour scheme" do
+  test "the viewport helpers set the size and colour scheme, and each test starts at 1440x900 light" do
     visit root_path
+    assert_equal [ 1440, 900 ], page.evaluate_script("[window.innerWidth, window.innerHeight]")
+    assert_not page.evaluate_script("matchMedia('(prefers-color-scheme: dark)').matches")
+
     resize_viewport(390, 844)
     assert_equal [ 390, 844 ], page.evaluate_script("[window.innerWidth, window.innerHeight]")
 
