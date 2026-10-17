@@ -61,6 +61,9 @@ class DataQuality::Stages::Match < DataQuality::Stage
           candidates.status_new.where(kind: kind).find_each { |candidate| match(candidate) }
         end
         sources.crawl_ok.find_each { |source| flag_dropped(source) }
+        # A claim attached while a person merged its record follows the merge (#325).
+        repointed = directory.repoint_merged_claims
+        @stats["repointed"] = repointed if repointed.positive?
       end
 
       @stats
