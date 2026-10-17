@@ -251,6 +251,27 @@ class DataQuality::Plugins::NrcDecommissioningTest < ActiveSupport::TestCase
     assert_nil plugin.dropped("organization")
   end
 
+  test "a site down to one listed unit stays proposed, so only its finished units are suggested as shut down" do
+    with = plugin
+    %w[crawl extract match].each { |stage| DataQuality::Pipeline.run("nrc_decommissioning", plugin: with, only: stage) }
+    # As a person's approval leaves them: every claim decided, every unit and site live.
+    list_source.candidates.update_all(status: "merged")
+    Facility.update_all(verification_status: "verified", verified_by: "human:test")
+    indian_point = Facility.find_by!(name: "Indian Point", parent_id: nil)
+
+    # Units 1 and 2 finish; Unit 3 is still decommissioning.
+    html = list_html.sub(%r{<tr>\s*<td><a href="[^"]*indian-point-unit-1">.*?</tr>\s*<tr>\s*<td><a href="[^"]*/ip2">.*?</tr>\s*}m, "")
+    assert_equal 19, Plugin::List.rows(html).size
+    list_source.update!(content_text: html, content_sha256: Digest::SHA256.hexdigest(html))
+    %w[extract match].each { |stage| DataQuality::Pipeline.run("nrc_decommissioning", plugin: with, only: stage) }
+
+    read = list_source.candidates.where(review_origin: nil)
+    assert read.where(crawl_run_id: read.maximum(:crawl_run_id)).exists?(subject_type: "Facility", subject_id: indian_point.id),
+      "the site is still listed"
+    dropped = list_source.candidates.where(review_origin: "dropped").map { |candidate| Facility.find(candidate.subject_id).nrc_docket }
+    assert_equal %w[05000003 05000247], dropped.sort, "only the finished units, never the site"
+  end
+
   test "tells the verifier what the list states, and only for the list" do
     assert_match "status is decommissioning", plugin.source_facts(Source.new(url: Plugin::LIST_URL))
     assert_nil plugin.source_facts(Source.new(url: CR3_URL))

@@ -179,7 +179,7 @@ class DataQuality::Plugins::NrcDecommissioning < DataQuality::Plugin
       rows = List.rows(source.content_text)
       raise TableMissing, "#{TABLE_MISSING} (#{source.url})" if rows.empty?
 
-      site_candidates_for(rows) + rows.map do |row|
+      site_candidates_for(rows, source) + rows.map do |row|
         name = unit_name(row)
         { kind: "facility", quote: row.line, payload: {
           "name" => name, "nrc_docket" => row.nrc_docket, "facility_type" => "power_reactor",
@@ -193,10 +193,15 @@ class DataQuality::Plugins::NrcDecommissioning < DataQuality::Plugin
     # – Unit 1" to "Unit 3"), so they count as one plant, not three. Proposed
     # first, so match puts the units under it. A unit of a site the directory
     # already has (Dresden 1) is the list's only row for it, so gets none.
-    def site_candidates_for(rows)
+    # A site this list already supports stays while any of its units is
+    # listed: down to one unit, it's still decommissioning, and leaving it
+    # out would have match suggest the whole site as shut down.
+    def site_candidates_for(rows, source)
+      supported = source.candidates.where(kind: "facility", status: %w[merged confirmed])
+        .where("payload ->> 'nrc_docket' IS NULL").pluck(Arel.sql("payload ->> 'name'")).to_set
       rows.reject { |row| UNIT_NAMES.key?(row.nrc_docket) || PLACE_BY_HAND.key?(row.nrc_docket) }
         .group_by { |row| site_name(row) }.filter_map do |name, units|
-          next if name.nil? || units.size < 2
+          next if name.nil? || (units.size < 2 && !supported.include?(name))
 
           places = units.map { |row| [ row.city, row.state ] }.uniq
           city, state = places.one? ? places.first : []
