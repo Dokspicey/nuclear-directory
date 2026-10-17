@@ -177,6 +177,18 @@ class DirectoryTest < ActionDispatch::IntegrationTest
     assert_includes css_select("a[href='/plants/quiet-research-site'] .nd-ring").to_s, "M4 20c1.2-4 1.2-8 0-12h6", "site-plant"
   end
 
+  test "an unsourced site's own status doesn't pick its icon, in the directory or instant search" do
+    plant("Quiet Old Station", facility_type: "power_reactor", status: "decommissioning") # verified, no source
+    waste = "M5 21h14M7 21V6h10v15"
+
+    [ companies_path(category: "plants"), search_path(q: "quiet old") ].each do |path|
+      get path
+      ring = css_select("a[href='/plants/quiet-old-station'] .nd-ring").to_s
+      assert_includes ring, "<svg", path
+      assert_not_includes ring, waste, path
+    end
+  end
+
   test "a site's icon uses only reactor types its page shows: sourced site, sourced units (#281)" do
     sourced = cite!(plant("Sourced Station", facility_type: "power_reactor", status: "operating", reactor_type: "PWR"))
     plant("Sourced Station Unit 9", parent: sourced, reactor_type: "BWR", status: "operating") # verified, no source
