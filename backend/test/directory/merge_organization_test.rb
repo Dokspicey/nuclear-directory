@@ -108,4 +108,25 @@ class Directory::MergeOrganizationTest < ActiveSupport::TestCase
 
     assert_match "already unpublished", merge.errors.join
   end
+
+  test "the merged company's own name becomes an alias of the one kept, so a source still using it finds it (#305)" do
+    nog = Organization.create!(name: "BWXT NOG TECHNOLOGIES")
+    bwxt = Organization.create!(name: "BWXT")
+
+    assert Directory::FactWriter.merge_organization(from_id: nog.id, into_id: bwxt.id, by: BY).ok?
+
+    assert_equal bwxt.id, Directory::Lookup.organization(name: "BWXT NOG TECHNOLOGIES")&.id
+    assert_includes bwxt.aliases.pluck(:alias), "BWXT NOG TECHNOLOGIES"
+  end
+
+  test "a name that's already the kept one's, or another company's, isn't added as an alias" do
+    twin = Organization.create!(name: "ACME")
+    Organization.create!(name: "Acme Steel") # another company's name
+    steel = Organization.create!(name: "ACME STEEL")
+
+    Directory::FactWriter.merge_organization(from_id: twin.id, into_id: @into.id, by: BY)
+    Directory::FactWriter.merge_organization(from_id: steel.id, into_id: @into.id, by: BY)
+
+    assert_equal [ "Acme" ], @into.aliases.pluck(:alias)
+  end
 end

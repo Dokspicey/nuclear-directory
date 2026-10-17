@@ -53,6 +53,9 @@ Rails.application.routes.draw do
       get "/" => "records#show"
       get "edit" => "records#edit", as: :edit
       patch "/" => "records#update"
+      # Merge into… (#142): pick the record it's the same as, see what moves, confirm.
+      get "merge" => "records#merge", as: :merge
+      post "merge" => "records#perform_merge"
     end
     resources :candidates, only: %i[index edit update] do
       collection do
