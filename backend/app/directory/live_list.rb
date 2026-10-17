@@ -17,6 +17,10 @@ class Directory::LiveList
     "reactors" => -> { { "Facility" => Facility.where.not(nrc_docket: nil) } },
     "links" => -> { { "Relationship" => Relationship.all, "FacilityRelationship" => FacilityRelationship.all } }
   }.freeze
+  # All of a source's records (within, on the All tab): every company,
+  # plant, reactor (with or without a docket) and link it backs, as
+  # SourceCatalog counts them, so a Facts count opens to that many.
+  EVERYTHING = -> { { "Organization" => Organization.all, "Facility" => Facility.all, "Relationship" => Relationship.all, "FacilityRelationship" => FacilityRelationship.all } }
   TAB_LABELS = { "all" => "All", "companies" => "Companies", "plants" => "Plants", "reactors" => "Reactors", "links" => "Links" }.freeze
   # What a tab counts, so a count reads as records of that kind (Data Quality, #283).
   # [one, many]
@@ -28,11 +32,13 @@ class Directory::LiveList
   # One record in the list. flags: labels of its flags and gaps, most urgent first.
   Row = Data.define(:type, :id, :name, :kind, :status, :flags, :changed_at)
 
-  attr_reader :tab, :query, :chosen
+  attr_reader :tab, :query, :chosen, :within
 
-  def initialize(tab: "all", query: nil, chosen: {})
+  # within: a Sources row or document key (SourceCatalog), to list only what its sources back.
+  def initialize(tab: "all", query: nil, chosen: {}, within: nil)
     @tab = TABS.key?(tab) ? tab : "all"
     @query = query.to_s.strip.presence
+    @within = within.to_s.presence
     @chosen = Directory::Checks::GROUPS.keys.to_h do |group|
       keys = Array(chosen[group]).map(&:to_s) & Directory::Checks.in_group(group).map(&:key)
       [ group, Directory::Checks::SINGLE.include?(group) ? keys.first(1) : keys ]
@@ -44,7 +50,8 @@ class Directory::LiveList
   def total = @keys ? @keys.size : filtered(nil).values.sum(&:size)
 
   # This tab's records with the chosen status only (its count on the tab).
-  def self.tab_count(tab, status: DEFAULT_STATUS) = new(tab:, chosen: { "status" => [ status ] }).total
+  # Within a source (within), the count of what that source backs in the tab.
+  def self.tab_count(tab, status: DEFAULT_STATUS, within: nil) = new(tab:, chosen: { "status" => [ status ] }, within:).total
 
   # [type, id] of every record shown, in order (newest change first).
   def keys
@@ -77,12 +84,16 @@ class Directory::LiveList
   end
 
   def chosen?(key) = chosen.values.flatten.include?(key)
-  def filtered? = query.present? || chosen.any? { |group, keys| group == "status" ? keys != [ DEFAULT_STATUS ] : keys.any? }
+  # What the footer's count is of: [one, many].
+  def nouns = within && tab == "all" ? %w[record records] : TAB_NOUNS.fetch(tab)
+
+  def filtered? = query.present? || within.present? || chosen.any? { |group, keys| group == "status" ? keys != [ DEFAULT_STATUS ] : keys.any? }
 
   private
     # Each model's ids in this tab and search.
     def base
-      @base ||= TABS.fetch(tab).call.to_h { |type, scope| [ type, search(type, scope).pluck(:id).to_set ] }
+      @base ||= (within && tab == "all" ? EVERYTHING : TABS.fetch(tab)).call
+        .to_h { |type, scope| [ type, sourced(type, search(type, scope)).pluck(:id).to_set ] }
     end
 
     # The base, narrowed by every chosen group except one (nil: all of them).
@@ -100,6 +111,13 @@ class Directory::LiveList
     def tag_ids(tag, type)
       @tag_ids ||= {}
       @tag_ids[[ tag.key, type ]] ||= tag.ids(type.constantize).to_set
+    end
+
+    # Only what a Sources row's or document's sources back (within).
+    def sourced(type, scope)
+      return scope unless within
+
+      scope.where(id: Evidence.where(subject_type: type, source_id: SourceCatalog.source_ids(within)).select(:subject_id))
     end
 
     def search(type, scope)
