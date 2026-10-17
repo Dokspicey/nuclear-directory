@@ -73,7 +73,7 @@ class RelatedItems
     def company_sections
       deals = Relationship.where(from_organization_id: record.id).or(Relationship.where(to_organization_id: record.id))
         .includes(:from_organization, :to_organization).to_a
-      links = FacilityRelationship.where(organization_id: record.id).includes(facility: :parent).to_a
+      links = FacilityRelationship.where(organization_id: record.id).includes(:organization, facility: :parent).to_a
       [
         Section.new("deals", "Deals and links", rows_for(deals.sort_by { |deal| [ DEAL_KINDS.keys.index(deal.relationship_type), other(deal).name.to_s ] }) do |deal|
           { target: [ "Organization", other(deal).id ], name: other(deal).name, words: deal_words(deal),

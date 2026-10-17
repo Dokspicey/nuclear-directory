@@ -110,7 +110,7 @@ class Admin::RelatedTest < ActionDispatch::IntegrationTest
   test "Decide goes through the item's waiting claims, then back to the Record at its row" do
     claim = ->(state) { Candidate.create!(source: @web, kind: "facility", quote: "q", status: "needs_review", notes: "unsure", subject_type: "Facility", subject_id: @u2.id, payload: { "name" => "Vogtle 2", "state" => state }) }
     first, second = claim.("GA"), claim.("AL")
-    here = "#{record(@site)}#item-Facility-#{@u2.id}"
+    here = "#{record(@site, removed: 'units')}#item-Facility-#{@u2.id}"
     context = { claims: 1, from: "record", section: "units", row: "Facility-#{@u2.id}", back: here }
 
     get record(@site)
@@ -228,5 +228,30 @@ class Admin::RelatedTest < ActionDispatch::IntegrationTest
     assert_equal here, Rack::Utils.parse_query(URI.parse(edit).query)["done"]
     patch admin_candidate_path(second.id, **Rack::Utils.parse_query(URI.parse(edit).query).symbolize_keys), params: { values: { state: "AL" } }
     assert_redirected_to here
+  end
+
+  test "rejecting the last claim on a proposed unit comes back to its row, still shown, rejected" do
+    proposed = Facility.create!(name: "Vogtle 5", parent: @site)
+    claim = Candidate.create!(source: @web, kind: "facility", quote: "q", status: "needs_review", notes: "unsure",
+      subject_type: "Facility", subject_id: proposed.id, proposed_subject: true, payload: { "name" => "Vogtle 5" })
+
+    get record(@site)
+    decide = css_select("#item-Facility-#{proposed.id} .nd-rowmenu a").find { |a| a.text == "Decide" }["href"]
+    back = Rack::Utils.parse_query(URI.parse(decide).query)["back"]
+    assert_equal "#{record(@site, removed: 'units')}#item-Facility-#{proposed.id}", back
+
+    post reject_admin_candidates_path, params: { candidate_id: claim.id, back: }
+    assert_redirected_to back
+    assert proposed.reload.rejected?, "rejecting the proposal's last claim retires it"
+    follow_redirect!
+    assert_select "#item-Facility-#{proposed.id} td", /Rejected/
+  end
+
+  test "with removed rows shown, a link's words keep them for Previous and Next" do
+    @owns.unpublish!(by: "human:tosin", reason: "Test")
+
+    get record(@site, removed: "companies")
+    words = css_select("#item-FacilityRelationship-#{@operates.id} td.nd-related__link a").first["href"]
+    assert_includes words, "with_removed=1"
   end
 end

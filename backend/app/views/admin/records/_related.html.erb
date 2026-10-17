@@ -30,7 +30,9 @@
       <tbody>
         <% rows.each do |row| %>
           <% item_type, item_id = row.item %>
-          <% here = "#{record_path_here}##{row.anchor}" %>
+          <%# Back here at the row, with this section's removed rows shown: a decision
+              (Take off, or rejecting a proposal's last claim) can remove it. %>
+          <% here = "#{url_for(request.query_parameters.merge(removed: section.key))}##{row.anchor}" %>
           <tr id="<%= row.anchor %>">
             <td class="type-body nd-related__name"><%= link_to row.name, related_row_path(row, section.key, record_path_here, removed:), class: "nd-link" %></td>
             <% if section.key == "units" %>
@@ -38,7 +40,7 @@
               <td class="type-data"><%= row.details.first %></td>
             <% else %>
               <td class="type-body nd-related__link">
-                <%= link_to row.words, admin_fact_path(type: item_type, id: item_id, from: "record", section: section.key, row: row.item.join("-"), back: record_path_here), class: "nd-link" %>
+                <%= link_to row.words, admin_fact_path(type: item_type, id: item_id, from: "record", section: section.key, row: row.item.join("-"), back: record_path_here, with_removed: (1 if removed)), class: "nd-link" %>
                 <% if row.details.any? %><span class="text-ink-muted"> · <%= row.details.join(" · ") %></span><% end %>
               </td>
             <% end %>
