@@ -47,7 +47,7 @@
 
 
     <% status = @fact.verification_status %>
-    <% if @fact.type == "Facility" && @fact.values["parent_id"].present? && %w[verified pending].include?(status) %>
+    <% if @fact.type == "Facility" && %w[verified pending].include?(status) %>
       <%= link_to "Change status", admin_facility_status_path(id: @fact.id), class: "nd-btn nd-btn--outline type-ui" %>
     <% end %>
     <% if status == "verified" %>

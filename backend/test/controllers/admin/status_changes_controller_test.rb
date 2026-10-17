@@ -16,7 +16,21 @@ class Admin::StatusChangesControllerTest < ActionDispatch::IntegrationTest
   end
 
   def preview(**params) = get admin_facility_status_path(id: @site.id), params: { status: "not_operating", unit_ids: [ @unit.id ], **params }
-  def confirm(**params) = patch admin_facility_status_path(id: @site.id), params: { status: "not_operating", evidence: "nrc", unit_ids: [ @unit.id ], **params }
+  def confirm(**params) = patch admin_facility_status_path(id: @site.id), params: { status: "not_operating", evidence: "nrc", nrc_quote: NRC_LINE, unit_ids: [ @unit.id ], **params }
+
+  # Makes the next write collide with another writer's lock, as the database
+  # would stop one of two transactions waiting on each other.
+  module Collide
+    mattr_accessor :left, default: 0
+
+    def write(*, **)
+      return super unless Collide.left.positive?
+
+      Collide.left -= 1
+      raise ActiveRecord::Deadlocked, "deadlock detected"
+    end
+  end
+  Directory::FactWriter.singleton_class.prepend(Collide)
 
   test "the Record and a unit's fact page offer Change status; Edit no longer changes it" do
     get admin_record_path(type: "Facility", id: @site.id)
@@ -134,5 +148,67 @@ class Admin::StatusChangesControllerTest < ActionDispatch::IntegrationTest
   ensure
     ENV.delete("BY")
     ENV.delete("APPLY")
+  end
+
+  test "a removed unit isn't offered, and a removed record can't be changed (that's Put back)" do
+    removed = Facility.create!(name: "Palisades 2", parent: @site, status: "operating", **VERIFIED)
+    removed.unpublish!(by: "human:tosin", reason: "Test")
+
+    get admin_facility_status_path(id: @site.id)
+    assert_select "input[name='unit_ids[]'][value=?]", removed.id.to_s, false
+
+    confirm(unit_ids: [ @unit.id, removed.id ])
+    assert removed.reload.operating?
+    assert removed.unpublished?, "not put back"
+
+    @site.unpublish!(by: "human:tosin", reason: "Test")
+    confirm(status: "planned")
+    assert_response :unprocessable_content
+    assert_select ".nd-alert li", "Palisades is taken off or rejected. Put it back first."
+    assert @site.reload.unpublished?
+    assert_not @site.planned?
+  end
+
+  test "a malformed unit id selects nothing" do
+    confirm(unit_ids: [ "#{@unit.id}abc", "#{@unit.id}.5" ])
+
+    assert @site.reload.not_operating?
+    assert @unit.reload.operating?
+  end
+
+  test "if NRC's file changed since the preview, it asks for another preview" do
+    get admin_facility_status_path(id: @site.id), params: { status: "not_operating", evidence: "nrc" }
+    assert_select "input[name=nrc_quote][value=?]", NRC_LINE
+
+    confirm(nrc_quote: "10/12/2026 12:00:00 AM|Palisades|100")
+    assert_response :unprocessable_content
+    assert_select ".nd-alert li", "NRC's status file changed since the preview. Preview again to see its newest line."
+    assert @site.reload.operating?
+  end
+
+  test "a reactor without a site has Change status on its page" do
+    lone = Facility.create!(name: "Lone Reactor", nrc_docket: "05000999", status: "operating", **VERIFIED)
+    get admin_fact_path(type: "Facility", id: lone.id)
+    assert_select "a.nd-btn[href=?]", admin_facility_status_path(id: lone.id), "Change status"
+  end
+
+  test "the count counts a plant the change makes public" do
+    planned = Facility.create!(name: "New Plant", status: "planned", verification_status: "pending")
+    before = Facility.published.where(parent_id: nil, status: "operating").count
+
+    get admin_facility_status_path(id: planned.id), params: { status: "operating", evidence: "link", url: "https://example.com/new", quote: "New Plant is operating." }
+    assert_select "p", /operating plants go from #{before} to #{before + 1}/
+  end
+
+  test "a write that collides with another writer says to try again, and changes nothing" do
+    Collide.left = 1
+    confirm
+
+    assert_response :unprocessable_content
+    assert_select ".nd-alert li", "Someone was changing this plant just then. Try again."
+    assert @site.reload.operating?
+    assert @unit.reload.operating?
+  ensure
+    Collide.left = 0
   end
 end

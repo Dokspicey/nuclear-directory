@@ -25,6 +25,11 @@ class Admin::StatusChangesController < Admin::BaseController
     @errors = @status ? evidence_errors : [ "Choose a status" ]
     return render_form if @errors.any?
 
+    # NRC's file may have been fetched again since the preview: only the line previewed is used.
+    if @evidence == "nrc" && @nrc && params[:nrc_quote] != @nrc.last
+      return render_form("NRC's status file changed since the preview. Preview again to see its newest line.")
+    end
+
     source_id, quote = @nrc if @evidence == "nrc"
     result = DataQuality::Review.set_status(ids: chosen_ids, status: @status, by: actor, reason:,
       source_url: (params[:url] if @evidence == "link"), source_id:, quote: (@evidence == "link" ? params[:quote] : quote))
@@ -37,7 +42,8 @@ class Admin::StatusChangesController < Admin::BaseController
   private
     def load_facility
       @facility = Facility.find(params[:id])
-      @units = @facility.parent_id ? [] : Facility.where(parent_id: @facility.id).order(:name, :id).to_a
+      # Open units only: a status change approves, which would put a removed one back.
+      @units = @facility.parent_id ? [] : Facility.where(parent_id: @facility.id).where.not(verification_status: Verifiable::CLOSED_STATUSES).order(:name, :id).to_a
       @nrc = DataQuality::Review.nrc_status_quote(@facility.name)
       # Anything else asked for (an old form's "note") is refused in evidence_errors.
       @evidence = params[:evidence].presence ? params[:evidence].to_s : (@nrc ? "nrc" : "link")
@@ -45,8 +51,9 @@ class Admin::StatusChangesController < Admin::BaseController
 
     # The site and the units ticked, or the unit alone.
     def chosen_ids
-      ticked = Array(params[:unit_ids]).map(&:to_i) & @units.map(&:id)
-      [ @facility.id, *ticked ]
+      # Compared as written, so "12abc" never selects unit 12.
+      asked = Array(params[:unit_ids]).map(&:to_s)
+      [ @facility.id, *@units.map(&:id).select { |id| asked.include?(id.to_s) } ]
     end
     helper_method :chosen_ids
 
