@@ -361,7 +361,8 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
     Directory::FactWriter.write(:organization, { name: "Urenco" })
     Directory::FactWriter.write(:organization, { name: "Urenco USA" })
     directory = DataQuality::DirectoryClient.new
-    directory.define_singleton_method(:same_brand_organizations) { |name| super(name).reverse }
+    # Descending on purpose: the opposite of the order the note must show.
+    directory.define_singleton_method(:same_brand_organizations) { |name| super(name).sort_by(&:name).reverse }
     c = candidate("organization", { "name" => "Urenco Nuclear Operations LLC" })
 
     DataQuality::Stages::Match.call(plugin: DummyPlugin.new, directory:)
