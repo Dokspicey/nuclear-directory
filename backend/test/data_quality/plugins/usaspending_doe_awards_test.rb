@@ -277,6 +277,20 @@ class DataQuality::Plugins::UsaspendingDoeAwardsTest < ActiveSupport::TestCase
 
     assert_nothing_raised { plugin.crawl(nil) }
     assert_equal "old, 2021: X.", claim.reload.payload["description"]
+    assert_match "Not reworded:", claim.notes, "says why, for a person"
+    plugin.refresh_open_claims
+    assert_equal 1, claim.reload.notes.scan("Not reworded:").size, "once"
+  end
+
+  test "a recommended claim whose wording changes loses the old verdict, so it isn't approved in bulk on it" do
+    crawl!
+    claim = Candidate.create!(source: recipient(XENERGY["recipient_id"]), kind: "relationship", quote: "q", status: "new",
+      ai_recommendation: "recommend_publish", ai_confidence: 0.9,
+      payload: { "description" => "1 award from the U.S. Department of Energy totaling $921.7 million, 2021: DENE0009040." })
+
+    plugin.refresh_open_claims
+
+    assert_equal [ "new", nil, nil ], [ claim.reload.status, claim.ai_recommendation, claim.ai_confidence ]
   end
 
   test "a disputed link not attached to a record goes back to verify as new, without stopping the crawl" do

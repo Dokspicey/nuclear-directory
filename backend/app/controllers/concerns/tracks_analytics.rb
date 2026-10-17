@@ -28,9 +28,10 @@ module TracksAnalytics
     def track_company_viewed(slug) = track("company_viewed", slug:)
     def track_power_plant_viewed(slug) = track("power_plant_viewed", slug:)
 
-    # Only what the correction is about, never the message or contact details.
-    def track_correction_submitted(subject_type: nil)
-      track("correction_submitted", subject_type:)
+    # Only what the correction is about (its page, and the company or plant
+    # on it), never the message or contact details.
+    def track_correction_submitted(subject_type: nil, page_path: nil, record_type: nil, record_id: nil)
+      track("correction_submitted", subject_type:, page_path:, record_type:, record_id:)
     end
 
     def track(event, properties)
