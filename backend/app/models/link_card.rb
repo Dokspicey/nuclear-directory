@@ -45,7 +45,7 @@ class LinkCard
     label = [ type, where ].compact.join(" · ").presence
     reactors = %w[power_reactor research_reactor].include?(profile.facility_type.to_s)
     units = profile.units.size
-    capacity = "#{helpers.number_with_precision(profile.capacity_mw, precision: 2, strip_insignificant_zeros: true, delimiter: ",")} MWe" if profile.capacity_mw
+    capacity = "#{helpers.number_with_precision(profile.capacity_mw, precision: 2, strip_insignificant_zeros: true, delimiter: ",")} MW" if profile.capacity_mw
     facts = [ (helpers.pluralize(units, reactors ? "reactor" : "unit") if units.positive?), capacity ].compact.join(" · ").presence
     roles = { "Operated by" => profile.current_companies_for("operates").map(&:name), "Owned by" => profile.current_companies_for("owns").map(&:name) }
     new(squares: [ CATEGORY_COLORS["plants"] ], label:, name: profile.name, subline: roles.values.any?(&:any?) ? [ roles, :role ] : nil,
@@ -84,7 +84,7 @@ class LinkCard
 
   def digest = @digest ||= Digest::SHA256.hexdigest(to_h.to_json)[0, 16]
 
-  # "Plant Vogtle: Power plant · Georgia. 4 reactors · 4,530 MWe." The default card uses its tagline.
+  # "Plant Vogtle: Power plant · Georgia. 4 reactors · 4,530 MW." The default card uses its tagline.
   def alt
     return TAGLINE if subline&.last == :tagline
 
