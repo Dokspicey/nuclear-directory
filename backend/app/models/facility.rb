@@ -21,6 +21,8 @@ class Facility < ApplicationRecord
   has_many :organizations, -> { distinct }, through: :facility_relationships
   has_many :aliases, class_name: "FacilityAlias", dependent: :destroy
 
+  after_save :hand_plain_slug_to_site, if: -> { saved_change_to_parent_id? && parent_id }
+
   normalizes :nrc_docket, with: ->(docket) { docket.strip.presence }
   normalizes :eia_plant_id, with: ->(id) { id.to_s.strip.presence }
   normalizes :country_code, with: ->(code) { code.strip.upcase }
@@ -49,36 +51,43 @@ class Facility < ApplicationRecord
   # A site owns the plain slug of its name (#333). NRC units often came
   # first and took it, leaving the site at "palisades-2"; a unit's page is
   # only a #unit- anchor on its site's, so the unit moves to "<slug>-unit".
+  # Only the site's own unit is ever moved, never another plant's.
   # Returns [[site, old slug, unit, unit's old slug], ...] for what it moved.
   # Safe to run again: a site already at its plain slug is left alone. The
   # old slugs are kept (Sluggable), so they 301 to the site.
   def self.give_sites_their_plain_slugs!
-    where(parent_id: nil).where("slug ~ ?", "-[0-9]+$").order(:id).filter_map do |site|
-      plain = site.name.to_s.parameterize
-      next unless site.slug.match?(/\A#{Regexp.escape(plain)}-\d+\z/)
+    where(parent_id: nil).where("slug ~ ?", "-[0-9]+$").order(:id).filter_map { |site| give_site_its_plain_slug!(site) }
+  end
 
-      unit = where(parent_id: site.id).find_by(slug: plain)
-      next unless unit
+  # The same for one site, or nil when there's nothing to move. unit: the
+  # site's unit already in hand (the one being grouped under it), if any.
+  def self.give_site_its_plain_slug!(site, unit = nil)
+    plain = site.name.to_s.parameterize
+    return unless site.parent_id.nil? && site.slug.to_s.match?(/\A#{Regexp.escape(plain)}-\d+\z/)
 
-      moved = [ site, site.slug, unit, unit.slug ]
-      transaction do
-        unit.update!(slug: unit.send(:free_slug, "#{plain}-unit"))
-        site.update!(slug: plain)
-      end
-      moved
+    unit ||= where(parent_id: site.id).find_by(slug: plain)
+    return unless unit && unit.parent_id == site.id && unit.slug == plain
+
+    moved = [ site, site.slug, unit, unit.slug ]
+    transaction do
+      unit.update!(slug: unit.send(:free_slug, "#{plain}-unit"))
+      site.update!(slug: plain)
     end
+    moved
+  end
+
+  # The plant page's anchor for a unit, and the old one a unit moved by
+  # give_site_its_plain_slug! had ("#unit-palisades"), so old links still
+  # reach its row.
+  def unit_anchors(site_slug)
+    [ "unit-#{slug}", ("unit-#{site_slug}" if slug == "#{site_slug}-unit") ].compact
   end
 
   private
-    # A new site takes its plain slug from a unit holding it (#333), so it
-    # never starts at "-2" for its own unit's sake. Only a unit: another
-    # site's slug is never taken.
-    def free_slug(base)
-      if parent_id.nil? && new_record? && (unit = self.class.where.not(parent_id: nil).find_by(slug: base))
-        unit.update!(slug: unit.send(:free_slug, "#{base}-unit"))
-        return base
-      end
-      super
+    # When a unit is grouped under its site (#333: NRC units usually come
+    # first), the site takes back its plain slug if this unit holds it.
+    def hand_plain_slug_to_site
+      self.class.give_site_its_plain_slug!(parent, self)
     end
 
     # Two levels only: a site, and units under it. Publication (and the

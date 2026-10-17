@@ -11,7 +11,7 @@ class PlantSlugsTest < ActionDispatch::IntegrationTest
     unit = Facility.create!(name:, verification_status: "verified", verified_by: "human:test", status: "operating")
     site = cite!(Facility.create!(name:, slug: "#{name.parameterize}-2", verification_status: "verified", verified_by: "human:test",
       facility_type: "power_reactor", status: "operating"))
-    unit.update!(parent: site)
+    unit.update_column(:parent_id, site.id) # grouped before the guard existed
     cite!(unit)
     [ site, unit ]
   end
@@ -59,13 +59,45 @@ class PlantSlugsTest < ActionDispatch::IntegrationTest
     assert_equal "hermes-2", hermes.reload.slug
   end
 
-  test "a new site takes its plain slug from a unit that holds it" do
-    unit = plant("Waterford 3", parent: plant("Placeholder Site"))
+  test "an NRC unit grouped under its new site hands the site its plain slug" do
+    unit = cite!(plant("Waterford 3", status: "operating")) # NRC first, no site yet
+    site = cite!(plant("Waterford 3", facility_type: "power_reactor"))
+    assert_equal "waterford-3-2", site.slug
+
+    unit.update!(parent: site) # grouped, as DirectoryClient#group_unit does
+
+    assert_equal "waterford-3", site.reload.slug
+    assert_equal "waterford-3-unit", unit.reload.slug
+    get plant_path(slug: "waterford-3-2")
+    assert_redirected_to plant_path(slug: "waterford-3")
+  end
+
+  test "another plant's unit keeps its slug, and the new site takes the next free one" do
+    other = plant("Placeholder Site")
+    unit = plant("Waterford 3", parent: other)
     site = plant("Waterford 3")
 
-    assert_equal "waterford-3", site.slug
-    assert_equal "waterford-3-unit", unit.reload.slug
-    assert_equal "waterford-3-2", plant("Waterford 3").slug, "another site's slug is never taken"
+    assert_equal "waterford-3-2", site.slug
+    assert_equal "waterford-3", unit.reload.slug
+    assert_empty Facility.give_sites_their_plain_slugs!
+  end
+
+  test "checking a new site for errors changes nothing" do
+    unit = plant("Callaway")
+    site = Facility.new(name: "Callaway", verification_status: "verified", verified_by: "human:test")
+
+    assert site.valid?
+    assert_equal "callaway", unit.reload.slug
+    assert_equal 0, FormerSlug.count
+  end
+
+  test "the unit's row keeps its old anchor too, so old links reach it" do
+    clashed("Palisades")
+    Facility.give_sites_their_plain_slugs!
+    get plant_path(slug: "palisades")
+
+    assert_select "tr#unit-palisades-unit"
+    assert_select "tr#unit-palisades-unit #unit-palisades", 1
   end
 
   # The deploy step's migration for production's four pairs (db/data).
