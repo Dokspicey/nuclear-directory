@@ -116,6 +116,9 @@ class DataQuality::Repairs::ApproveAll20261016
       raise ActiveRecord::Rollback if @dry_run
     end
     changes
+  rescue ActiveRecord::Deadlocked, ActiveRecord::LockWaitTimeout
+    # Another writer held one of its facts: nothing was changed; the next crawl tries again.
+    raise Mismatch, "another write held one of its facts just then; nothing changed, it runs again with the next crawl"
   end
 
   # Every change, checked against what the approve-all left; raises Mismatch first.
@@ -125,18 +128,25 @@ class DataQuality::Repairs::ApproveAll20261016
   end
 
   private
-    # [type, id] of every fact the repair may write, in a fixed order.
+    # [type, id] of every fact the repair may write: links first, then
+    # companies, each by id, the order FactWriter locks them in (a link, then
+    # its ends), so a write running alongside never waits on this one while
+    # this one waits on it.
     def targets
-      links = [ *RESTORE.keys, BWXT_LINK[:id], *REWORD.keys ].map { |id| [ "Relationship", id ] }
-      companies = [ BWXT[:id], *RENAME.keys, OUT_OF_SCOPE ].map { |id| [ "Organization", id ] }
-      (companies + links).sort
+      links = [ *RESTORE.keys, BWXT_LINK[:id], *REWORD.keys ].uniq.sort.map { |id| [ "Relationship", id ] }
+      companies = [ BWXT[:id], *RENAME.keys, OUT_OF_SCOPE ].uniq.sort.map { |id| [ "Organization", id ] }
+      links + companies
     end
 
     # Done, or not this database (a test or local one without these facts).
+    # Done when any fact it may write carries its reason: a run records it on
+    # every fact it changes, whichever were left to change (a re-seed that
+    # ran first may have repaired link 45 already).
     def done?
       link = @directory.fact(type: "Relationship", id: RESTORE.keys.first) or return true
-      link.values["from_organization_name"] != "U.S. Department of Energy" ||
-        @directory.verification_history(type: "Relationship", id: link.id).any? { |event| event.reason.to_s.start_with?(REASON) }
+      return true if link.values["from_organization_name"] != "U.S. Department of Energy"
+
+      targets.any? { |type, id| @directory.verification_history(type:, id:).any? { |event| event.reason.to_s.start_with?(REASON) } }
     end
 
     def fact(type, id) = @directory.fact(type:, id:) || raise(Mismatch, "#{type} #{id} is gone")

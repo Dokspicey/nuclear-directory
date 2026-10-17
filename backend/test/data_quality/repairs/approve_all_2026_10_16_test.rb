@@ -74,6 +74,37 @@ class DataQuality::Repairs::ApproveAll20261016Test < ActiveSupport::TestCase
     end
   end
 
+  test "once it has run, it's done, even when link 45 needed nothing and another fact is edited later" do
+    @restored.update_columns(description: "ARDP award (Oct 2020): hand-written.", started_on: nil)
+
+    with_ids do
+      assert_equal 5, Repair.call.size, "every change but link 45's"
+      @reworded.update!(description: "Edited later by hand.", decided_by: "human:tosin")
+
+      assert_empty Repair.call, "done: a later edit isn't checked, or overwritten"
+    end
+    assert_equal "Edited later by hand.", @reworded.reload.description
+  end
+
+  test "it locks links before companies, as FactWriter does" do
+    with_ids do
+      targets = Repair.new.send(:targets)
+      assert_equal %w[Relationship Organization], targets.map(&:first).uniq
+      assert_equal targets.select { |type, _| type == "Relationship" }.sort, targets.select { |type, _| type == "Relationship" }
+    end
+  end
+
+  test "a deadlock with another writer stops it with nothing changed, to run again next crawl" do
+    collide = Module.new { def decide_fact(*, **) = raise(ActiveRecord::Deadlocked, "deadlock detected") }
+    directory = DataQuality::DirectoryClient.new.extend(collide)
+
+    with_ids do
+      error = assert_raises(Repair::Mismatch) { Repair.call(directory:) }
+      assert_match "nothing changed", error.message
+    end
+    assert_equal "TerraPower", @terrapower.reload.name
+  end
+
   test "a value someone fixed by hand stops the repair, and nothing at all is changed" do
     @reworded.update!(description: "Hand-fixed by Tosin.", decided_by: "human:tosin")
 
