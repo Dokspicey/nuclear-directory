@@ -77,11 +77,22 @@ class Admin::StatusChangesControllerTest < ActionDispatch::IntegrationTest
     assert_equal [ "Palisades is not operating." ], @site.evidence.joins(:source).where(sources: { url: "https://example.com/palisades" }).pluck(:quote)
   end
 
-  test "a note alone stands for what a person knows" do
-    confirm(evidence: "note", note: "Told by the operator on a site visit")
+  test "a note alone can't be published: a status needs NRC's line or a link and quote" do
+    get admin_facility_status_path(id: @site.id)
+    assert_select "input[name=evidence][value=note]", false, "no note-only option"
 
-    assert @site.reload.not_operating?
-    assert_equal "Told by the operator on a site visit", VerificationEvent.where(subject: @site).order(:id).last.reason
+    assert_no_difference(-> { VerificationEvent.count }) { confirm(evidence: "note", note: "Told by the operator on a site visit") }
+    assert_response :unprocessable_content
+    assert_select ".nd-alert li", "Add NRC's status line or a link and quote. A note alone can't be published."
+    assert @site.reload.operating?
+
+    preview(evidence: "note", note: "Told by the operator")
+    assert_select ".nd-alert li", "Add NRC's status line or a link and quote. A note alone can't be published."
+    assert_select "button", { text: "Change status", count: 0 }
+
+    result = DataQuality::Review.set_status(ids: [ @site.id ], status: "not_operating", by: users(:admin).actor, reason: "Told by the operator")
+    assert_equal "Give a source and the quote from it that states the status", result.error, "the shared code refuses it too"
+    assert @site.reload.operating?
   end
 
   test "missing evidence is refused, and nothing changes" do
@@ -94,8 +105,6 @@ class Admin::StatusChangesControllerTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_content
     assert_select ".nd-alert li", "Enter a link to a public source, starting with https://"
 
-    confirm(evidence: "note", note: " ")
-    assert_select ".nd-alert li", "Say how you know, in the note"
     assert @site.reload.operating?
   end
 

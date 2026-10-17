@@ -11,7 +11,9 @@
 #
 # Both raise Invalid for an unknown status, malformed or missing ids, or
 # records that aren't one plant (a site and its units): one piece of
-# evidence backs them all. A record already at the status is left alone.
+# evidence backs them all. apply also needs that evidence, a source and its
+# quote: a published status always has one (docs/DATA.md). A record already
+# at the status is left alone.
 module Directory::StatusChange
   class Invalid < StandardError; end
 
@@ -26,17 +28,16 @@ module Directory::StatusChange
   def self.plan(ids:, status:) = plan_for(load(ids, status), status)
 
   # Writes the plan as `by`'s decision, in one transaction under row locks,
-  # and returns it. Evidence is optional: a note (the reason) can stand for
-  # what a person knows.
+  # with the source and quote as evidence, and returns it.
   def self.apply(ids:, status:, by:, reason:, source_id: nil, quote: nil)
     raise Invalid, "Say who made the change" unless by.to_s.match?(/\Ahuman:\S+\z/)
     raise Invalid, "Give a reason" if reason.blank?
-    raise Invalid, "A quote needs its source, and a source its quote" if source_id.present? != quote.present?
+    raise Invalid, "Give a source and the quote from it that states the status" if source_id.blank? || quote.blank?
 
     Facility.transaction do
       facilities = load(ids, status, lock: true)
       plan = plan_for(facilities, status)
-      evidence = source_id ? [ { source_id:, quote:, found_by: "human" } ] : []
+      evidence = [ { source_id:, quote:, found_by: "human" } ]
       plan.changes.each do |change|
         result = Directory::FactWriter.write(:facility, { id: change.id, status: },
           evidence:, verification: { status: "verified", by:, reason: })

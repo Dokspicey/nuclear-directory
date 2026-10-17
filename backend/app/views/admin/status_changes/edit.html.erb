@@ -37,7 +37,7 @@
     <% end %>
 
     <fieldset class="nd-field">
-      <legend class="type-body-strong">Evidence</legend>
+      <legend class="type-body-strong">Source</legend>
       <% if @nrc %>
         <label class="nd-row type-body">
           <%= radio_button_tag :evidence, "nrc", @evidence == "nrc", class: "nd-check" %>
@@ -45,7 +45,6 @@
         </label>
       <% end %>
       <label class="nd-row type-body"><%= radio_button_tag :evidence, "link", @evidence == "link", class: "nd-check" %> A link and a quote</label>
-      <label class="nd-row type-body"><%= radio_button_tag :evidence, "note", @evidence == "note", class: "nd-check" %> A note on how you know</label>
     </fieldset>
 
     <div class="nd-field">
@@ -57,7 +56,7 @@
       <%= text_field_tag :quote, params[:quote], class: "nd-input type-input" %>
     </div>
     <div class="nd-field">
-      <label for="note" class="type-body-strong">Note <span class="type-small text-ink-muted">(kept in the history; needed when it's what you know)</span></label>
+      <label for="note" class="type-body-strong">Note <span class="type-small text-ink-muted">(optional, kept in the admin's history)</span></label>
       <%= text_field_tag :note, params[:note], class: "nd-input type-input" %>
     </div>
 

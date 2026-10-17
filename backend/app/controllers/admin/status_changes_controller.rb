@@ -1,11 +1,13 @@
 # Change status (#316): a plant's or a unit's status as a person's decision,
-# with its evidence, without a console. The same code as
+# with its source, without a console. A published status always has one
+# (docs/DATA.md): NRC's status line, or a link and a quote. A note is only
+# the reason, kept in the admin's history. The same code as
 # `directory:set_status` (Directory::StatusChange, through
 # DataQuality::Review). The form previews with a GET, which reads and writes
 # nothing; Change status confirms it.
 class Admin::StatusChangesController < Admin::BaseController
   STATUSES = DirectoryHelper::FACILITY_STATUS_LABELS.keys.freeze
-  EVIDENCE = %w[nrc link note].freeze
+  NOTE_ALONE = "Add NRC's status line or a link and quote. A note alone can't be published.".freeze
 
   before_action :load_facility
 
@@ -37,7 +39,8 @@ class Admin::StatusChangesController < Admin::BaseController
       @facility = Facility.find(params[:id])
       @units = @facility.parent_id ? [] : Facility.where(parent_id: @facility.id).order(:name, :id).to_a
       @nrc = DataQuality::Review.nrc_status_quote(@facility.name)
-      @evidence = params[:evidence].presence_in(EVIDENCE) || (@nrc ? "nrc" : "link")
+      # Anything else asked for (an old form's "note") is refused in evidence_errors.
+      @evidence = params[:evidence].presence ? params[:evidence].to_s : (@nrc ? "nrc" : "link")
     end
 
     # The site and the units ticked, or the unit alone.
@@ -49,11 +52,11 @@ class Admin::StatusChangesController < Admin::BaseController
 
     def evidence_errors
       case @evidence
-      when "nrc" then @nrc ? [] : [ "NRC's status file doesn't name #{@facility.name}. Give a link and a quote, or a note." ]
+      when "nrc" then @nrc ? [] : [ "NRC's status file doesn't name #{@facility.name}. Give a link and a quote." ]
       when "link"
         [ ("Enter a link to a public source, starting with https://" if params[:url].blank?),
           ("Copy the sentence from the source that states the status" if params[:quote].blank?) ].compact
-      else params[:note].present? ? [] : [ "Say how you know, in the note" ]
+      else [ NOTE_ALONE ]
       end
     end
 
@@ -61,7 +64,7 @@ class Admin::StatusChangesController < Admin::BaseController
       note = params[:note].to_s.strip.presence
       base = case @evidence
       when "nrc" then "NRC's 365-day power status file: #{@nrc.last}"
-      when "link" then "Source: #{params[:url].to_s.strip}"
+      else "Source: #{params[:url].to_s.strip}"
       end
       [ base, note ].compact.join(". ")
     end

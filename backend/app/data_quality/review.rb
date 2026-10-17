@@ -408,9 +408,8 @@ module DataQuality::Review
 
     # Changing a plant's status (#316), the admin's side of
     # `directory:set_status`: what it would change, read only, and then the
-    # change as `by`'s decision. The evidence is a source and its quote (a
-    # link, saved as a source, or NRC's status file by its source_id), or none,
-    # when the reason records what a person knows. Each returns a
+    # change as `by`'s decision. The evidence is a source and its quote: a
+    # link, saved as a source, or NRC's status file by its source_id. Each returns a
     # DirectoryClient::StatusResult.
     def status_change_plan(ids:, status:, directory: DataQuality::DirectoryClient.new) = directory.status_change_plan(ids:, status:)
 
