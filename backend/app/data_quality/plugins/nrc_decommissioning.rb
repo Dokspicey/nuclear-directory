@@ -74,7 +74,10 @@ class DataQuality::Plugins::NrcDecommissioning < DataQuality::Plugin
     end
 
     stats.merge!("units" => rows.size, "site_pages" => Hash.new(0))
-    rows.filter_map(&:page_url).uniq.each do |url|
+    urls = rows.filter_map(&:page_url).uniq
+    withdrawn = withdraw_unlisted_pages(urls)
+    stats["withdrawn"] = withdrawn if withdrawn.positive?
+    urls.each do |url|
       page = source(url, title: "NRC: #{rows.find { |row| row.page_url == url }.name}")
       result = DataQuality::Snapshot.take(page, fetcher: @fetcher).to_s
       stats["site_pages"][result] += 1
@@ -163,6 +166,20 @@ class DataQuality::Plugins::NrcDecommissioning < DataQuality::Plugin
         new_source.source_kind = source_kind
         new_source.title = title
       end
+    end
+
+    # A site page the list no longer links to (its last unit moved to another
+    # page, or left the list) no longer speaks for any unit: its claims
+    # nobody has decided are withdrawn, and one already in a person's review
+    # says so. Returns how many were withdrawn.
+    UNLISTED = "NRC's decommissioning list no longer links this page"
+
+    def withdraw_unlisted_pages(urls)
+      pages = Source.where(source_kind:).where.not(url: [ LIST_URL, *urls ]).select(:id)
+      waiting = Candidate.where(source_id: pages)
+      waiting.where(status: "needs_review").where("notes IS NULL OR notes NOT LIKE ?", "%#{UNLISTED}%")
+        .update_all([ "notes = COALESCE(notes || '. ', '') || ?, updated_at = ?", UNLISTED, Time.current ])
+      waiting.where(status: %w[new matched]).update_all(status: "rejected", notes: UNLISTED, updated_at: Time.current)
     end
 
     # A site page whose units changed on the list (a docket added under it)

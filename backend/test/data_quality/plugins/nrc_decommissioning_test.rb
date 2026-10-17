@@ -142,6 +142,10 @@ class DataQuality::Plugins::NrcDecommissioningTest < ActiveSupport::TestCase
     assert_equal 19, run.stats["site_pages"]["unchanged"], "no page changed (Dresden 1 no longer has its own)"
     assert_equal [ "05000010", "05000302" ], cr3_links.call
     assert_equal calls + 1, licensees.texts.size, "only Crystal River's page is read again"
+    dresden_page = Source.find_by!(url: "https://www.nrc.gov/facilities-safety/facility-finder/decommissioning/power-reactor/dresden-nuclear-power-station-unit-1")
+    assert dresden_page.candidates.any?
+    assert dresden_page.candidates.all? { |c| c.status_rejected? && c.notes == Plugin::UNLISTED }, "the page Dresden 1 left speaks for nothing now"
+    assert_equal dresden_page.candidates.count, run.stats["withdrawn"]
   end
 
   test "a list without its table needs a human" do
@@ -320,5 +324,14 @@ class DataQuality::Plugins::NrcDecommissioningTest < ActiveSupport::TestCase
     assert_equal "recommend_publish", units["05000302"].ai_recommendation
     link = Candidate.where(kind: "facility_relationship").find { |c| c.payload.dig("facility", "nrc_docket") == "05000302" }
     assert link.subject_id, "the link to Crystal River 3 found both ends"
+
+    # Approving a unit fills its site's blank status only when no other unit there differs.
+    Facility.create!(name: "Dresden 2", nrc_docket: "05000237", parent: dresden, status: "operating", facility_type: "power_reactor",
+      country_code: "US", verification_status: "verified", verified_by: "human:test")
+    approved = DataQuality::Review.approve([ units["05000010"].id, units["05000331"].id ], by: "human:test")
+    assert approved.all? { |result| result.errors.empty? }, approved.flat_map(&:errors).to_sentence
+    assert_equal "decommissioning", Facility.find(units["05000010"].subject_id).status
+    assert_nil dresden.reload.status, "Dresden 2 still runs, so the station isn't decommissioning"
+    assert_equal "decommissioning", duane_site.reload.status, "Duane Arnold's one unit speaks for its site"
   end
 end
