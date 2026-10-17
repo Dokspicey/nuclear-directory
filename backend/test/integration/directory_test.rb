@@ -169,6 +169,14 @@ class DirectoryTest < ActionDispatch::IntegrationTest
   PWR_ICON = "M5 20v-7a7 7 0 0 1 14 0v7"
   BWR_ICON = "M4 20V9h10v11"
 
+  test "a pending site whose own type isn't public keeps the plain icon, whatever its units' reactor types" do
+    site = plant("Quiet Research Site", verified: false, facility_type: "research_reactor")
+    cite!(plant("Quiet Research Site Reactor", parent: site, reactor_type: "TRIGA"))
+    get companies_path(category: "plants")
+
+    assert_includes css_select("a[href='/plants/quiet-research-site'] .nd-ring").to_s, "M4 20c1.2-4 1.2-8 0-12h6", "site-plant"
+  end
+
   test "a site's icon uses only reactor types its page shows: sourced site, sourced units (#281)" do
     sourced = cite!(plant("Sourced Station", facility_type: "power_reactor", status: "operating", reactor_type: "PWR"))
     plant("Sourced Station Unit 9", parent: sourced, reactor_type: "BWR", status: "operating") # verified, no source

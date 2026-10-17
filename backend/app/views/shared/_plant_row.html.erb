@@ -16,7 +16,7 @@
 <li>
   <%= link_to plant_url_for(facility), class: "nd-listrow" do %>
     <%# The site's own type and status are public; its reactor type only once sourced, as on its page. %>
-    <span class="nd-ring" aria-hidden="true"><%= icon(site_icon_name((facility.facility_type if own) || ("power_reactor" if facility.try(:units_reactor_types).present?),
+    <span class="nd-ring" aria-hidden="true"><%= icon(site_icon_name((facility.facility_type if own),
           reactor_types: [ (facility.reactor_type if own && facility.try(:site_sourced)), *facility.try(:units_reactor_types) ],
           status: (facility.status if own)), set: :nd, size: 20) %></span>
     <span class="nd-listrow__main">
