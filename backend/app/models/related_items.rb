@@ -29,7 +29,6 @@ class RelatedItems
   # Links read in this order on the page, then by share (high first).
   LINK_ORDER = %w[owns operates vendor_for offtakes_from].freeze
   DEAL_KINDS = { "supplies" => "Supply", "invests_in" => "Investment", "funds" => "Funding", "offtake_with" => "Power deal", "subsidiary_of" => "Subsidiary" }.freeze
-  OPEN = %w[new matched needs_review].freeze
 
   attr_reader :record
 
@@ -43,13 +42,16 @@ class RelatedItems
 
   def section(key) = sections.find { |section| section.key == key }
 
-  # Where a row sits among its section's siblings (removed ones only when
-  # it's removed itself), for Previous and Next on the page it opens.
-  def neighbours(key, item)
+  # Where a row sits among its section's siblings as the Record showed them
+  # (removed ones only when it showed them), for Previous and Next on the
+  # page it opens. A row taken off since counts the removed ones in, so it
+  # keeps its place; removed: says which set was used.
+  def neighbours(key, item, removed: false)
     section = section(key) or return
-    rows = section.shown(section.rows.find { |row| row.item == item }&.removed?)
+    removed ||= section.rows.find { |row| row.item == item }&.removed? || false
+    rows = section.shown(removed)
     index = rows.index { |row| row.item == item } or return
-    { index: index + 1, total: rows.size, previous: (rows[index - 1] if index.positive?), next: rows[index + 1] }
+    { index: index + 1, total: rows.size, previous: (rows[index - 1] if index.positive?), next: rows[index + 1], removed: }
   end
 
   private
@@ -92,8 +94,8 @@ class RelatedItems
 
       model = facts.first.class
       published = model.published.where(id: facts.map(&:id)).pluck(:id).to_set
-      waiting = Candidate.where(status: OPEN, subject_type: model.name, subject_id: facts.map(&:id)).group(:subject_id)
-        .pluck(:subject_id, Arel.sql("COUNT(*)"), Arel.sql("MIN(candidates.id)")).to_h { |id, count, first| [ id, [ count, first ] ] }
+      # Counted as the fact page counts them, so its first claim has a decision bar.
+      waiting = DataQuality::Review.waiting_counts(type: model.name, ids: facts.map(&:id))
       facts.map do |fact|
         count, first = waiting.fetch(fact.id, [ 0, nil ])
         status = fact.verification_status == "verified" && !published.include?(fact.id) ? "Hidden" : STATUS_OF.fetch(fact.verification_status)

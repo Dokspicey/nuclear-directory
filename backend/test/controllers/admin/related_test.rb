@@ -80,6 +80,18 @@ class Admin::RelatedTest < ActionDispatch::IntegrationTest
     assert_match(/\ATaken off: /, flash[:notice])
   end
 
+  test "Take off from a row's menu comes back with the section's removed rows shown, so the row and Put back are there" do
+    get record(@site)
+    takeoff_next = css_select("#item-FacilityRelationship-#{@owns.id} form.nd-rowmenu__takeoff input[name=next]").first["value"]
+    assert_equal "#{record(@site, removed: 'companies')}#item-FacilityRelationship-#{@owns.id}", takeoff_next
+
+    post admin_fact_unpublish_path(type: "FacilityRelationship", id: @owns.id), params: { reason: "Sold its share", next: takeoff_next }
+    assert_redirected_to takeoff_next
+    follow_redirect!
+    assert_select "#item-FacilityRelationship-#{@owns.id} td", /Removed/
+    assert_select "#item-FacilityRelationship-#{@owns.id} button", "Put back"
+  end
+
   test "Edit from a row edits the unit and comes back to its row; a link's ends can't be edited" do
     here = "#{record(@site)}#item-Facility-#{@u1.id}"
 
@@ -137,5 +149,84 @@ class Admin::RelatedTest < ActionDispatch::IntegrationTest
     get record(@georgia, from: "record", section: "companies", row: "FacilityRelationship-#{@owns.id}", back: parent)
     assert_select ".nd-crumbs li a[href=?]", parent, "Plant Vogtle"
     assert_select ".nd-itemnav", /1 of 2/
+  end
+
+  test "Live in the crumbs is still the Live list after going Record to Record (Live → plant → company → its row)" do
+    live = admin_live_path(tab: "plants", q: "vogtle")
+    plant = record(@site, back: live)
+    company = record(@georgia, from: "record", section: "companies", row: "FacilityRelationship-#{@owns.id}", back: plant)
+
+    get admin_fact_path(type: "FacilityRelationship", id: @owns.id, from: "record", section: "plants", row: "FacilityRelationship-#{@owns.id}", back: company)
+
+    assert_select ".nd-crumbs li a[href=?]", live, "Live"
+    assert_select ".nd-crumbs li a[href=?]", company, "Georgia Power"
+  end
+
+  test "a row's link picks its page from its section, without a lookup per row" do
+    get record(@site)
+    assert_select "#item-Facility-#{@u1.id} td.nd-related__name a[href^=?]", admin_fact_path(type: "Facility", id: @u1.id)
+
+    get record(@georgia)
+    assert_select "#plants td.nd-related__name a[href^=?]", record(@site)
+
+    queries = []
+    counter = ->(*, payload) { queries << payload[:sql] if payload[:sql].match?(/FROM "facilities" WHERE "facilities"."id" = .* AND "facilities"."parent_id" IS NULL/) }
+    ActiveSupport::Notifications.subscribed(counter, "sql.active_record") { get record(@site) }
+    assert_empty queries
+  end
+
+  test "Previous and Next keep the section's rows as the Record showed them" do
+    @u1.unpublish!(by: "human:tosin", reason: "Test")
+    parent = record(@site, removed: "units")
+
+    get parent
+    first = css_select("#item-Facility-#{@u1.id} td.nd-related__name a").first["href"]
+    assert_equal admin_fact_path(type: "Facility", id: @u1.id, from: "record", section: "units", row: "Facility-#{@u1.id}", back: record(@site), with_removed: 1), first
+
+    get first
+    assert_select ".nd-itemnav", /1 of 2/
+    following = css_select(".nd-itemnav a[rel=next]").first["href"]
+    get following
+    assert_select ".nd-itemnav", /2 of 2/
+    assert_select ".nd-itemnav a[rel=prev]"
+  end
+
+  test "a lapsed recommendation isn't the row's waiting claim; the one the fact page decides is" do
+    lapsed = Candidate.create!(source: @web, kind: "facility", quote: "q", status: "matched", ai_recommendation: "recommend_publish",
+      ai_source_sha256: "old", subject_type: "Facility", subject_id: @u2.id, payload: { "name" => "Vogtle 2" })
+    open = Candidate.create!(source: @web, kind: "facility", quote: "q", status: "needs_review", notes: "unsure",
+      subject_type: "Facility", subject_id: @u2.id, payload: { "name" => "Vogtle 2", "state" => "AL" })
+    assert lapsed.id < open.id
+
+    get record(@site)
+    assert_select "#item-Facility-#{@u2.id} td", /Live\s+· 1 waiting/
+    decide = css_select("#item-Facility-#{@u2.id} .nd-rowmenu a").find { |a| a.text == "Decide" }["href"]
+    assert_includes decide, "claim=#{open.id}"
+
+    get decide
+    assert_select ".nd-decide button", /Approve/
+  end
+
+  test "editing a claim reached through a row's claims goes on to the next claim, then back to the row" do
+    claim = ->(state) { Candidate.create!(source: @web, kind: "facility", quote: "q", status: "needs_review", notes: "unsure", subject_type: "Facility", subject_id: @u2.id, payload: { "name" => "Vogtle 2", "state" => state }) }
+    first, second = claim.("GA"), claim.("AL")
+    here = "#{record(@site)}#item-Facility-#{@u2.id}"
+    context = { claims: 1, from: "record", section: "units", row: "Facility-#{@u2.id}", back: here }
+    following = admin_fact_path(type: "Facility", id: @u2.id, **context, claim: second.id)
+
+    get admin_fact_path(type: "Facility", id: @u2.id, claim: first.id, **context)
+    edit = css_select("a.nd-decide__edit").first["href"]
+    assert_includes Rack::Utils.parse_query(URI.parse(edit).query)["done"], "claim=#{second.id}"
+
+    get edit
+    assert_select ".nd-crumbs a", "Back"
+    patch admin_candidate_path(first.id, **Rack::Utils.parse_query(URI.parse(edit).query).symbolize_keys), params: { values: { state: "GA" } }
+    assert_redirected_to following
+
+    get following
+    edit = css_select("a.nd-decide__edit").first["href"]
+    assert_equal here, Rack::Utils.parse_query(URI.parse(edit).query)["done"]
+    patch admin_candidate_path(second.id, **Rack::Utils.parse_query(URI.parse(edit).query).symbolize_keys), params: { values: { state: "AL" } }
+    assert_redirected_to here
   end
 end

@@ -82,9 +82,11 @@ class Admin::BaseController < ApplicationController
         if route && route[:controller] == "admin/records" && route[:action] == "show" && (record = route[:type].constantize.find_by(id: route[:id]))
           up = Rack::Utils.parse_query(uri.query.to_s)["back"].to_s
           related = RelatedItems.new(record)
-          position = related.neighbours(params[:section].to_s, params[:row].to_s.split("-", 2).then { |type, id| [ type, id.to_i ] })
-          path = ->(row) { row && related_row_path(row, params[:section], back) }
-          { name: record.name, path: back, live: up.match?(%r{\A/admin(?:[/?#]|\z)}) ? up : admin_live_path,
+          # The section's rows as the Record showed them: with its removed ones only when they were shown.
+          position = related.neighbours(params[:section].to_s, params[:row].to_s.split("-", 2).then { |type, id| [ type, id.to_i ] },
+            removed: params[:with_removed].present?)
+          path = ->(row) { row && related_row_path(row, params[:section], back, removed: position[:removed]) }
+          { name: record.name, path: back, live: list_origin(up),
             list: position&.merge(previous: path.(position[:previous]), next: path.(position[:next])) }
         end
       end
@@ -93,16 +95,33 @@ class Admin::BaseController < ApplicationController
     end
     helper_method :related_context
 
+    # The list a Record was first opened from (Live, filtered), following
+    # the back of each Record it was opened from on the way (Live → plant →
+    # company → …). Live when there's none.
+    def list_origin(path)
+      5.times do
+        return admin_live_path unless path.match?(%r{\A/admin(?:[/?#]|\z)})
+
+        uri = URI.parse(path)
+        route = Rails.application.routes.recognize_path(uri.path)
+        return path unless route[:controller] == "admin/records" && route[:action] == "show"
+
+        path = Rack::Utils.parse_query(uri.query.to_s)["back"].to_s
+      end
+      admin_live_path
+    rescue URI::InvalidURIError, ActionController::RoutingError
+      admin_live_path
+    end
+
     # A related row's page, opened from a Record: a company's or site's
     # Record, else the unit's fact page, with the way back and the section.
-    def related_row_path(row, section, record_path)
+    # Units are the only rows that open a fact page (RelatedItems targets a
+    # plant's site elsewhere). removed: the section showed its removed rows,
+    # so Previous and Next go through them too.
+    def related_row_path(row, section, record_path, removed: false)
       type, id = row.target
-      context = { from: "record", section:, row: row.item.join("-"), back: record_path }
-      if type == "Organization" || (type == "Facility" && Facility.where(id:, parent_id: nil).exists?)
-        admin_record_path(type:, id:, **context)
-      else
-        admin_fact_path(type:, id:, **context)
-      end
+      context = { from: "record", section:, row: row.item.join("-"), back: record_path, with_removed: (1 if removed) }.compact
+      section.to_s == "units" ? admin_fact_path(type:, id:, **context) : admin_record_path(type:, id:, **context)
     end
     helper_method :related_row_path
 

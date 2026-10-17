@@ -32,7 +32,7 @@
           <% item_type, item_id = row.item %>
           <% here = "#{record_path_here}##{row.anchor}" %>
           <tr id="<%= row.anchor %>">
-            <td class="type-body nd-related__name"><%= link_to row.name, related_row_path(row, section.key, record_path_here), class: "nd-link" %></td>
+            <td class="type-body nd-related__name"><%= link_to row.name, related_row_path(row, section.key, record_path_here, removed:), class: "nd-link" %></td>
             <% if section.key == "units" %>
               <td class="type-body"><%= row.words %></td>
               <td class="type-data"><%= row.details.first %></td>
@@ -48,7 +48,7 @@
                 · <%= link_to "#{row.waiting} waiting", admin_fact_path(type: item_type, id: item_id, claim: row.first_claim, claims: 1, from: "record", section: section.key, row: row.item.join("-"), back: here), class: "nd-link type-data" %>
               <% end %>
             </td>
-            <td class="nd-related__actions"><%= render "admin/records/row_menu", row:, section:, here: %></td>
+            <td class="nd-related__actions"><%= render "admin/records/row_menu", row:, section:, here:, removed: %></td>
           </tr>
         <% end %>
       </tbody>

@@ -84,7 +84,7 @@ class Admin::RecordsController < Admin::BaseController
     end
 
     def record_path_here
-      context = params.permit(:from, :section, :row, :back).to_h.symbolize_keys.compact_blank
+      context = params.permit(:from, :section, :row, :back, :with_removed).to_h.symbolize_keys.compact_blank
       fact_page? ? admin_fact_path(type: @fact.type, id: @fact.id, **context) : admin_record_path(type: @fact.type, id: @fact.id, **context)
     end
     helper_method :record_path_here
