@@ -7,14 +7,14 @@ class Admin::LiveController < Admin::BaseController
     @list = live_list(params)
     @page = [ params[:page].to_i, 1 ].max
     @rows = @list.page(@page)
-    @tab_counts = Directory::LiveList::TABS.keys.index_with { |tab| Directory::LiveList.tab_count(tab, status: @list.chosen["status"].first) }
+    @tab_counts = Directory::LiveList::TABS.keys.index_with { |tab| Directory::LiveList.tab_count(tab, status: @list.chosen["status"].first, within: @list.within) }
   end
 
   # The list described by a Live URL's parameters (also for Previous and
   # Next on a record opened from it).
   def self.list_for(params)
     chosen = Directory::Checks::GROUPS.keys.index_with { |group| params[group].to_s.split(",").map(&:strip).compact_blank }
-    Directory::LiveList.new(tab: params[:tab].to_s, query: params[:q], chosen:)
+    Directory::LiveList.new(tab: params[:tab].to_s, query: params[:q], chosen:, within: params[:within].presence)
   end
 
   private

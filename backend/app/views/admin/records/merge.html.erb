@@ -1,0 +1,76 @@
+<% content_for :title, "Merge #{@fact.name}" %>
+<%# Merge into… (#142): pick the record this one is the same as, see what
+    would move (a dry run), give a reason, then merge. %>
+<% noun = @fact.type == "Organization" ? "company" : "plant" %>
+<% back = params[:back].presence %>
+
+<div class="nd-stack max-w-prose">
+  <%= render "admin/crumbs", parent_label: @fact.name.to_s.upcase_first, parent_path: record_path_here, current: "Merge" %>
+  <h1 class="type-admin-h1 m-0">Merge <%= @fact.name %> into…</h1>
+
+  <% if @into %>
+    <div class="nd-panel">
+      <p class="type-kicker text-ink-muted">Into</p>
+      <p class="type-admin-h2"><%= link_to @into.name, admin_record_path(type: @fact.type, id: @into.id), class: "nd-link", target: "_blank", rel: "noopener" %></p>
+      <p class="type-small text-ink-muted">
+        <%= @into.verification_status == "pending" ? "Pending" : "Live" %> ·
+        <%= link_to "Pick another", admin_record_merge_path(type: @fact.type, id: @fact.id, back:), class: "nd-link nd-tap" %>
+      </p>
+    </div>
+
+    <% if @preview.ok? %>
+      <% moved = merge_moved_words(@preview.moved) %>
+      <p class="type-body"><%= moved ? "Moves to #{@into.name}: #{moved}." : "Nothing else moves." %> <%= @fact.name %> is then taken off, and its page leads to <%= @into.name %>.</p>
+      <% unless @into_public %>
+        <p class="type-body"><strong><%= @into.name %> isn't on the public site yet,</strong> so neither page is public until it is.</p>
+      <% end %>
+      <% if @fact.type == "Organization" %>
+        <p class="type-small text-ink-muted">Only merge if they're the same company. A subsidiary with its own brand stays separate (e.g. Nuclear Fuel Services under BWXT).</p>
+      <% end %>
+    <% else %>
+      <div class="nd-alert" role="alert"><p class="type-body">Can't merge: <%= @preview.errors.to_sentence %>.</p></div>
+    <% end %>
+
+    <% if @preview.ok? %>
+      <%= form_with url: admin_record_merge_path(type: @fact.type, id: @fact.id), method: :post, class: "nd-stack" do %>
+        <button type="submit" disabled hidden aria-hidden="true" tabindex="-1"></button>
+        <%= hidden_field_tag :into, @into.id, id: nil %>
+        <%= hidden_field_tag :back, back, id: nil if back %>
+        <% if @errors.present? %>
+          <div class="nd-alert" role="alert"><p class="type-body">Not merged: <%= @errors.to_sentence %>.</p></div>
+        <% end %>
+        <div class="nd-field">
+          <label for="reason" class="type-body-strong">Why they're the same</label>
+          <%= text_field_tag :reason, params[:reason], id: "reason", class: "nd-input type-input", required: true %>
+          <span class="type-small text-ink-muted">Kept in the history</span>
+        </div>
+        <div class="nd-row">
+          <button type="submit" class="nd-btn nd-btn--primary type-ui" data-turbo-confirm="Merge <%= @fact.name %> into <%= @into.name %>? This can't be undone from here.">Merge</button>
+          <%= link_to "Cancel", record_path_here, class: "nd-btn nd-btn--outline type-ui" %>
+        </div>
+      <% end %>
+    <% end %>
+  <% else %>
+    <%= form_with url: admin_record_merge_path(type: @fact.type, id: @fact.id), method: :get, class: "nd-search", role: "search" do %>
+      <%= icon("magnifying-glass", size: 16) %>
+      <%= hidden_field_tag :back, back, id: nil if back %>
+      <label class="sr-only" for="merge-q">Find the <%= noun %> it's the same as</label>
+      <input type="search" id="merge-q" name="q" value="<%= @query %>" placeholder="Find the <%= noun %> it's the same as" class="type-input" autofocus>
+    <% end %>
+
+    <% if @query.length >= 2 %>
+      <% if @choices.empty? %>
+        <p class="type-body text-ink-muted">No <%= noun %> matches “<%= @query %>”.</p>
+      <% else %>
+        <div class="nd-panel">
+          <% @choices.each do |choice| %>
+            <div class="nd-fold__row type-body">
+              <p><%= link_to choice.name, admin_record_merge_path(type: @fact.type, id: @fact.id, into: choice.id, back:), class: "nd-link nd-tap" %></p>
+              <span class="type-small text-ink-muted"><%= choice.verification_status == "pending" ? "Pending" : "Live" %></span>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+    <% end %>
+  <% end %>
+</div>
