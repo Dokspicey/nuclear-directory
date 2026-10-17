@@ -22,7 +22,11 @@ class CorrectionsController < ApplicationController
 
     @report = CorrectionReport.new(report_params)
     if @report.save
-      track_correction_submitted(subject_type: page_kind(@report.page_path))
+      # Its path only: a query string or fragment can hold anything (the report keeps it).
+      path = @report.page_path.split(/[?#]/).first
+      record_type, record_id = record_on(path)
+      track_correction_submitted(subject_type: page_kind(path), page_path: path, record_type:, record_id:)
+      CorrectionMailer.notify(@report)
       redirect_to correction_sent_path(page: @report.page_path)
     else
       render :new, status: :unprocessable_entity
@@ -53,6 +57,14 @@ class CorrectionsController < ApplicationController
       when %r{\A/plants/} then "plant"
       else "other"
       end
+    end
+
+    # The company or plant a page shows, as [type, id], for analytics.
+    def record_on(path)
+      slug = path.to_s[%r{\A/(?:companies|plants)/([\w-]+)\z}, 1] or return
+      model = path.start_with?("/companies/") ? Organization : Facility
+      id = model.find_by(slug:)&.id
+      [ model.name, id ] if id
     end
 
     def too_many
