@@ -136,7 +136,7 @@ module DirectoryHelper
   # Two sentences, with a full stop between them unless the first has one.
   # A plant's link preview and meta description (#246), from published facts
   # only, each left out when it isn't known:
-  #   "Plant Vogtle: Operating power plant in Waynesboro, Georgia. 4 units, 4,536 MWe.
+  #   "Plant Vogtle: Operating power plant in Waynesboro, Georgia. 4 units, 4,536 MW.
   #    Owned by Georgia Power and 3 others; operated by Southern Nuclear."
   # Kept under PREVIEW_LIMIT characters: a long owner list becomes "<first>
   # and <n> others", then the units and capacity go, then owners.
@@ -152,7 +152,7 @@ module DirectoryHelper
     what = kind ? [ kind, (where && "in #{where}") ].compact.join(" ") : (where && "In #{where}")
     what = what ? "#{what}, not operating" : "Not operating" if idle
     units = profile.units.size
-    capacity = "#{number_with_precision(profile.capacity_mw, precision: 2, strip_insignificant_zeros: true, delimiter: ",")} MWe" if profile.capacity_mw
+    capacity = "#{number_with_precision(profile.capacity_mw, precision: 2, strip_insignificant_zeros: true, delimiter: ",")} MW" if profile.capacity_mw
     size = [ (pluralize(units, "unit") if units.positive?), capacity ].compact.join(", ").presence
     owners = profile.current_companies_for("owns").map(&:name)
     operators = profile.current_companies_for("operates").map(&:name)
