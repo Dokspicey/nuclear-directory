@@ -69,11 +69,12 @@ class PlantProfile
     [ (site.reactor_type if site_facts?), *units.map(&:reactor_type) ].compact_blank.uniq
   end
 
-  # The site's own figure, or the sum of its operating units' when each is
-  # known: a unit that's shut down, being decommissioned or not operating
-  # isn't counted (PM, 16 Oct).
+  # Operating capacity only (PM, 16 Oct): a standalone reactor's own figure
+  # while it's operating, or the sum of the operating units' when each is
+  # known. Anything shut down, being decommissioned, not operating or of
+  # unknown status isn't counted.
   def capacity_mw
-    return site.capacity_mw if site_facts? && site.capacity_mw
+    return (site.capacity_mw if site.operating?) if own_capacity?
     capacities = operating_units.map(&:capacity_mw)
     capacities.sum if capacities.any? && capacities.none?(&:nil?)
   end
@@ -81,7 +82,10 @@ class PlantProfile
   def operating_units = units.select(&:operating?)
 
   # True when some units aren't counted in capacity_mw.
-  def capacity_leaves_out_units? = !(site_facts? && site.capacity_mw) && operating_units.size < units.size
+  def capacity_leaves_out_units? = !own_capacity? && operating_units.size < units.size
+
+  # A standalone record that carries its own capacity (DATA.md: until its EIA site exists).
+  def own_capacity? = site_facts? && site.capacity_mw.present?
 
   # When the site was checked, or (for a pending site) its latest unit.
   def verified_at = site.verified? ? site.verified_at : units.filter_map(&:verified_at).max

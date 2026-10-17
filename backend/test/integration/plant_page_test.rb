@@ -148,6 +148,16 @@ class PlantPageTest < ActionDispatch::IntegrationTest
     assert_select "td[data-label='Status']", "Being decommissioned"
   end
 
+  test "a standalone reactor shows its own capacity only while it's operating" do
+    columbia = cite!(plant("Columbia", facility_type: "power_reactor", status: "operating", capacity_mw: 1169), source: @nrc)
+    get plant_path(slug: columbia.slug)
+    assert_select ".nd-overview dd", text: /\A1,169 MW\b.*Net summer capacity, from EIA/m
+
+    columbia.update!(status: "not_operating")
+    get plant_path(slug: columbia.slug)
+    assert_select ".nd-overview dt", text: "Capacity", count: 0
+  end
+
   test "a plant with no capacity has no capacity note" do
     cite!(plant("Clinch River", facility_type: "power_reactor", status: "planned"), source: @nrc)
     get plant_path(slug: "clinch-river")
