@@ -25,6 +25,28 @@ class LinkPreviewTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "every public page names one canonical address, without its query" do
+    cite!(company("Kairos Power"))
+    cite!(plant("Plant Vogtle"))
+    utm = "utm_source=example.com&utm_campaign=feed"
+    {
+      "#{root_path}?#{utm}" => root_url,
+      "#{companies_path}?#{utm}" => companies_url,
+      "#{companies_path}?category=fuel&#{utm}" => companies_url(category: "fuel"),
+      "#{company_path(slug: "kairos-power")}?#{utm}" => company_url(slug: "kairos-power"),
+      "#{plant_path(slug: "plant-vogtle")}?#{utm}" => plant_url(slug: "plant-vogtle"),
+      "#{privacy_path}?#{utm}" => privacy_url,
+      "#{disclaimer_path}?#{utm}" => disclaimer_url,
+      "#{bot_path}?#{utm}" => bot_url
+    }.each do |path, canonical|
+      get path
+
+      assert_response :success, path
+      assert_select "link[rel=canonical]", 1
+      assert_select "link[rel=canonical][href=?]", canonical
+    end
+  end
+
   test "a page's own title and description lead its preview; others fall back to the site's" do
     get privacy_path
     assert_select "meta[property='og:title'][content=?]", "Privacy · Nuclear Directory"
