@@ -36,8 +36,21 @@ class Seed::OrganizationLoaderTest < ActiveSupport::TestCase
 
     acme = Organization.find_by!(slug: "acme-fuel")
     assert_equal %w[enrichment fuel], acme.roles.pluck(:key).sort
-    assert_equal({ created: 2, updated: 0 }, loader.results[:organization_role])
+    assert_equal({ created: 2, changed: 0, unchanged: 0 }, loader.results[:organization_role])
     assert_equal Date.new(2026, 1, 2), Source.find_by!(url: "https://example.com/news").published_on
+  end
+
+  test "a re-seed counts what it changed apart from what it only restated (#301)" do
+    write_file("acme-fuel", org("Acme Fuel, Inc.", website: "https://acmefuel.com", roles: [ item(key: "fuel") ]))
+    Seed::OrganizationLoader.new(@dir).load!
+
+    again = Seed::OrganizationLoader.new(@dir).load!
+    assert_equal({ created: 0, changed: 0, unchanged: 1 }, again.results[:organization], "nothing new: unchanged, not updated")
+    assert_equal({ created: 0, changed: 0, unchanged: 1 }, again.results[:organization_role])
+
+    write_file("acme-fuel", org("Acme Fuel, Inc.", website: "https://acmefuel.org", roles: [ item(key: "fuel") ]))
+    edited = Seed::OrganizationLoader.new(@dir).load!
+    assert_equal 1, edited.results[:organization][:changed]
   end
 
   test "organizations sharing a website get no matching domain" do

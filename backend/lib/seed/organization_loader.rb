@@ -30,7 +30,9 @@ module Seed
     def initialize(dir, facilities: File.join(File.dirname(dir), "facilities.yml"))
       @files = Dir[File.join(dir, "*.yml")].sort
       @facilities_file = facilities
-      @results = Hash.new { |h, kind| h[kind] = { created: 0, updated: 0 } }
+      # Per kind: created, changed (an existing fact the seed changed) and
+      # unchanged (only restated), so a re-seed's report shows what moved (#301).
+      @results = Hash.new { |h, kind| h[kind] = { created: 0, changed: 0, unchanged: 0 } }
       @errors = []
     end
 
@@ -308,7 +310,7 @@ module Seed
         verification = hold ? { status: "pending", by: VERIFICATION[:by], reason: hold } : (VERIFICATION unless pending)
         result = Directory::FactWriter.write(kind, attributes, evidence: Array.wrap(evidence), verification:, remove_aliases:)
         if result.ok?
-          @results[kind][result.created ? :created : :updated] += 1
+          @results[kind][result.created ? :created : (result.changed ? :changed : :unchanged)] += 1
         else
           @errors << "#{slug}: #{kind} #{attributes[:name] || attributes[:role] || attributes[:relationship_type]}: " \
             "#{result.errors.join("; ")}"
