@@ -46,6 +46,7 @@ module DirectoryHelper
     "enrichment" => "Enrichment",
     "fabrication" => "Fuel fabrication",
     "reactor_vendor" => "Reactor developer",
+    "project_developer" => "Project developer",
     "reactor_services" => "Repair and services",
     "utility" => "Utility",
     "operator" => "Plant operator",
