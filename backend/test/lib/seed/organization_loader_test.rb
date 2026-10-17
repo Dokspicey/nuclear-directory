@@ -145,6 +145,24 @@ class Seed::OrganizationLoaderTest < ActiveSupport::TestCase
     assert_includes plant.evidence.pluck(:quote), "Running since 2020."
   end
 
+  test "a plant written field by field counts once: created, then unchanged, then changed (#301)" do
+    write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com", facilities: [ item(name: "Acme Plant", type: "owns") ]))
+    details = ->(status) do
+      File.write(facilities_file, { "facilities" => [ {
+        "name" => "Acme Plant",
+        "status" => { "value" => status, "source_url" => "https://example.com/status", "quote" => "It is #{status}." },
+        "state" => { "value" => "GA", "source_url" => "https://example.com/where", "quote" => "In Georgia." }
+      } ] }.to_yaml)
+    end
+    load = -> { Seed::OrganizationLoader.new(@dir, facilities: facilities_file).load!.results[:facility] }
+
+    details.("operating")
+    assert_equal({ created: 1, changed: 0, unchanged: 0 }, load.call)
+    assert_equal({ created: 0, changed: 0, unchanged: 1 }, load.call, "restated: one unchanged row, not one per field")
+    details.("planned")
+    assert_equal({ created: 0, changed: 1, unchanged: 0 }, load.call, "edited: changed, not also unchanged")
+  end
+
   test "a plant link marked pending is created pending, and a rerun keeps a later decision" do
     write_file("acme-fuel", org("Acme Fuel", website: "https://acmefuel.com",
       facilities: [ item(name: "Acme Plant", type: "owns", pending: true, pending_reason: "quote doesn't say owns") ]))

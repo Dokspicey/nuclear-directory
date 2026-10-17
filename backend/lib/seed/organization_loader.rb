@@ -21,8 +21,8 @@ module Seed
     class Error < StandardError; end
 
     VERIFICATION = { status: "verified", by: "human:tosin" }.freeze
-
-    attr_reader :results
+    # A row's state across its writes: the first listed wins.
+    STATES = %i[created changed unchanged].freeze
 
     FACILITY_FIELDS = %w[facility_type status city state].freeze
 
@@ -30,10 +30,19 @@ module Seed
     def initialize(dir, facilities: File.join(File.dirname(dir), "facilities.yml"))
       @files = Dir[File.join(dir, "*.yml")].sort
       @facilities_file = facilities
-      # Per kind: created, changed (an existing fact the seed changed) and
-      # unchanged (only restated), so a re-seed's report shows what moved (#301).
-      @results = Hash.new { |h, kind| h[kind] = { created: 0, changed: 0, unchanged: 0 } }
+      # What happened to each row written: { [kind, id] => :created | :changed | :unchanged }.
+      @rows = {}
       @errors = []
+    end
+
+    # Per kind, the rows the seed created, changed (an existing fact it
+    # changed) and left unchanged (only restated), so a re-seed's report
+    # shows what moved (#301). Each row counts once, however many writes it
+    # took: created over changed over unchanged.
+    def results
+      @rows.each_with_object(Hash.new { |h, kind| h[kind] = { created: 0, changed: 0, unchanged: 0 } }) do |((kind, _id), state), counts|
+        counts[kind][state] += 1
+      end
     end
 
     # Dry run: every name, alias or domain in the files that the database
@@ -310,7 +319,9 @@ module Seed
         verification = hold ? { status: "pending", by: VERIFICATION[:by], reason: hold } : (VERIFICATION unless pending)
         result = Directory::FactWriter.write(kind, attributes, evidence: Array.wrap(evidence), verification:, remove_aliases:)
         if result.ok?
-          @results[kind][result.created ? :created : (result.changed ? :changed : :unchanged)] += 1
+          state = result.created ? :created : (result.changed ? :changed : :unchanged)
+          key = [ kind, result.id ]
+          @rows[key] = [ state, @rows[key] ].compact.min_by { |seen| STATES.index(seen) }
         else
           @errors << "#{slug}: #{kind} #{attributes[:name] || attributes[:role] || attributes[:relationship_type]}: " \
             "#{result.errors.join("; ")}"

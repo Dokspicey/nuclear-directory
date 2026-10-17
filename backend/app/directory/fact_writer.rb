@@ -503,20 +503,20 @@ module Directory
       end
 
       record = nil
-      created = false
-      before = nil
+      created = changed = false
       ActiveRecord::Base.transaction(requires_new: true) do
         # Checked before anything changes, even for a curated record whose
         # verification won't be applied: a bad key must never pass silently.
         check_verification!(verification) if verification
         record = find(kind, spec[:model], attributes) || spec[:model].new
         created = record.new_record?
-        before = record.attributes.except("updated_at") unless created
         @evidence_changed = @aliases_changed = false
         # Locked, so a human's decision made while this write runs is seen
         # before the checks below, and two decisions at once are recorded in
         # the order they happen.
         record.lock! unless created
+        # What it was, read under the lock, so `changed` is about this write alone.
+        before = record.attributes.except("updated_at") unless created
         # A rejected or unpublished fact only changes by a human's hand:
         # protected writes never change it, and any other write must carry a
         # human's decision (verification: { by: "human:…" }), so the change is
@@ -575,10 +575,10 @@ module Directory
         Array(evidence).each { |item| write_evidence(record, item) }
         apply_verification(record, verification, edited:) if verification && !curated
         record.recompute_confidence!
+        # Still under the lock, so another writer can't make a restatement look like a change, or the reverse.
+        changed = created || @evidence_changed || @aliases_changed || before != record.reload.attributes.except("updated_at")
       end
 
-      changed = created || @evidence_changed || before != record.reload.attributes.except("updated_at") ||
-        @aliases_changed
       Result.new(kind:, id: record.id, created:, errors: [], changed:)
     rescue Conflict => e
       Result.new(kind:, id: e.id, created: false, errors: [ e.message ], conflicts: e.conflicts)
