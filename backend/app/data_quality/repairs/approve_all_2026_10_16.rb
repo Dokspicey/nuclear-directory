@@ -23,17 +23,22 @@ class DataQuality::Repairs::ApproveAll20261016
   REASON = "Repair after the 16 Oct 20:41 approve-all of DOE awards (#302)"
   FUNDER = "1 award from the U.S. Department of Energy totaling "
 
-  # Link id => [the approve-all's description (its start), the hand-written one].
+  # Link id => [the approve-all's description (its start), the hand-written
+  # one, the start date the approve-all set] (Data Quality, 17 Oct backup and
+  # production).
   RESTORE = {
     45 => [ "#{FUNDER}$1.7 billion, 2021: DENE0009054.",
-      "ARDP award (Oct 2020): $80M initial funding to demonstrate Natrium; cost-shared, DOE total up to $3.2B over seven years across both ARDP demos subject to appropriations." ],
+      "ARDP award (Oct 2020): $80M initial funding to demonstrate Natrium; cost-shared, DOE total up to $3.2B over seven years across both ARDP demos subject to appropriations.",
+      Date.new(2021, 5, 3) ],
     46 => [ "4 awards from the U.S. Department of Energy totaling $967.5 million, 2016–2023: DENE0009040, DENE0008472, DENE0008745 and 1 more.",
-      "ARDP award (Oct 2020): $80M initial funding for a four-unit Xe-100 plant and TRISO fuel fabrication facility; cost-shared." ],
+      "ARDP award (Oct 2020): $80M initial funding for a four-unit Xe-100 plant and TRISO fuel fabrication facility; cost-shared.",
+      Date.new(2016, 7, 1) ],
     48 => [ "#{FUNDER}$1.5 million, 2021: DESC0021623.",
-      "Selected (May 2023) in the $46M Milestone-Based Fusion Development Program; payments only on verified milestones." ]
+      "Selected (May 2023) in the $46M Milestone-Based Fusion Development Program; payments only on verified milestones.",
+      Date.new(2021, 3, 1) ]
   }.freeze
   BWXT = { id: 98, was: "BWXT NUCLEAR ENERGY, INC.", name: "BWXT", aliases: [ "BWXT NUCLEAR ENERGY, INC.", "BWXT NUCLEAR OPERATIONS GROUP, INC." ] }.freeze
-  BWXT_LINK = { id: 72, was: "#{FUNDER}$99.9 million, 2023: 89233123FNA400535.", started_on: Date.new(2018, 8, 1),
+  BWXT_LINK = { id: 72, was: "#{FUNDER}$99.9 million, 2023: 89233123FNA400535.", was_started_on: Date.new(2023, 8, 24), started_on: Date.new(2018, 8, 1),
     description: "2 awards from the U.S. Department of Energy totaling $102.6 million (first in 2018, latest in 2023): 89233123FNA400535 and DENE0008744." }.freeze
   # Company id => [its name as the approve-all left it, the name it takes] (Data Quality, 16 Oct).
   RENAME = {
@@ -123,7 +128,7 @@ class DataQuality::Repairs::ApproveAll20261016
 
   # Every change, checked against what the approve-all left; raises Mismatch first.
   def plan
-    [ *RESTORE.filter_map { |id, (was, written)| restore(id, was, written) }, *bwxt,
+    [ *RESTORE.filter_map { |id, (was, written, started)| restore(id, was, written, started) }, *bwxt,
       *RENAME.filter_map { |id, (was, name)| rename(id, was, name) }, *REWORD.filter_map { |id, award| reword(id, *award) }, take_down ].compact
   end
 
@@ -156,20 +161,29 @@ class DataQuality::Repairs::ApproveAll20261016
     # the crawler's start date: that's half done, so only the date is
     # cleared. Anything other than the approve-all's text or the hand-written
     # one stops the repair.
-    def restore(id, was, written)
+    #
+    # Description and date are checked as a pair. The only states it accepts:
+    # the approve-all's (its text and date), after a re-seed (the
+    # hand-written text, the approve-all's date) and repaired (the
+    # hand-written text, no date). A date corrected by hand stops it.
+    def restore(id, was, written, started)
       link = fact("Relationship", id)
-      description = link.values["description"].to_s
-      if description == written
-        return if link.values["started_on"].nil?
-
-        return Change.new(kind: "relationship", id:, attributes: { started_on: nil }, status: link.verification_status,
+      state = [ link.values["description"].to_s, date(link.values["started_on"]) ]
+      case state
+      when [ written, nil ] then nil
+      when [ written, started ]
+        Change.new(kind: "relationship", id:, attributes: { started_on: nil }, status: link.verification_status,
           note: "clears the crawler's start date (the seed already restored the description)")
+      when [ was, started ]
+        Change.new(kind: "relationship", id:, attributes: { description: written, started_on: nil }, status: link.verification_status,
+          note: "restores the hand-written description")
+      else
+        raise Mismatch, "link #{id} reads #{state.first.inspect}, started #{state.last.inspect}: not the approve-all's #{was.inspect}, started #{started}"
       end
-      raise Mismatch, "link #{id} reads #{description.inspect}, not the approve-all's #{was.inspect}" unless description == was
-
-      Change.new(kind: "relationship", id:, attributes: { description: written, started_on: nil }, status: link.verification_status,
-        note: "restores the hand-written description")
     end
+
+    # A date as stored, whether the lookup gives a Date or its ISO text.
+    def date(value) = value.presence && Date.parse(value.to_s)
 
     def bwxt
       company = fact("Organization", BWXT[:id])
@@ -181,9 +195,11 @@ class DataQuality::Repairs::ApproveAll20261016
         changes << Change.new(kind: "organization", id: BWXT[:id], attributes: { name: BWXT[:name], aliases: BWXT[:aliases] },
           status: company.verification_status, note: "renamed BWXT")
       end
-      description = link.values["description"].to_s
-      unless description == BWXT_LINK[:description]
-        raise Mismatch, "link #{BWXT_LINK[:id]} reads #{description.inspect}" unless description == BWXT_LINK[:was]
+      # Description and date as a pair, as in restore: repaired, or exactly as the approve-all left it.
+      state = [ link.values["description"].to_s, date(link.values["started_on"]) ]
+      unless state == [ BWXT_LINK[:description], BWXT_LINK[:started_on] ]
+        raise Mismatch, "link #{BWXT_LINK[:id]} reads #{state.first.inspect}, started #{state.last.inspect}" unless
+          state == [ BWXT_LINK[:was], BWXT_LINK[:was_started_on] ]
 
         changes << Change.new(kind: "relationship", id: BWXT_LINK[:id], status: link.verification_status, note: "both awards",
           attributes: { description: BWXT_LINK[:description], started_on: BWXT_LINK[:started_on] })

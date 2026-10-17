@@ -21,9 +21,9 @@ class DataQuality::Repairs::ApproveAll20261016Test < ActiveSupport::TestCase
 
   # The production ids pinned in the repair, pointed at this test's records.
   def with_ids(&)
-    stub_const(Repair, :RESTORE, { @restored.id => [ "#{Repair::FUNDER}$1.7 billion, 2021: DENE0009054.", "ARDP award (Oct 2020): hand-written." ] }) do
+    stub_const(Repair, :RESTORE, { @restored.id => [ "#{Repair::FUNDER}$1.7 billion, 2021: DENE0009054.", "ARDP award (Oct 2020): hand-written.", Date.new(2021, 1, 1) ] }) do
       stub_const(Repair, :BWXT, Repair::BWXT.merge(id: @bwxt.id)) do
-        stub_const(Repair, :BWXT_LINK, Repair::BWXT_LINK.merge(id: @bwxt_link.id)) do
+        stub_const(Repair, :BWXT_LINK, Repair::BWXT_LINK.merge(id: @bwxt_link.id, was_started_on: Date.new(2023, 1, 1))) do
           stub_const(Repair, :RENAME, { @caps.id => [ "BROOKHAVEN TECHNOLOGY GROUP INC", "Brookhaven Technology Group" ] }) do
             stub_const(Repair, :REWORD, { @reworded.id => [ "$1.2 million", "2018", "DESC0018737" ] }) do
               stub_const(Repair, :OUT_OF_SCOPE, @nas.id, &)
@@ -103,6 +103,28 @@ class DataQuality::Repairs::ApproveAll20261016Test < ActiveSupport::TestCase
       assert_match "nothing changed", error.message
     end
     assert_equal "TerraPower", @terrapower.reload.name
+  end
+
+  test "a start date corrected by hand stops it, with the approve-all's description or the hand-written one" do
+    [ "#{Repair::FUNDER}$1.7 billion, 2021: DENE0009054.", "ARDP award (Oct 2020): hand-written." ].each do |description|
+      @restored.update_columns(description:, started_on: Date.new(2020, 10, 1))
+      with_ids { assert_raises(Repair::Mismatch) { Repair.call } }
+      assert_equal Date.new(2020, 10, 1), @restored.reload.started_on
+    end
+    assert_equal "TerraPower", @terrapower.reload.name
+  end
+
+  test "BWXT's link with the repaired description but another date stops it" do
+    @bwxt_link.update_columns(description: Repair::BWXT_LINK[:description], started_on: Date.new(2019, 1, 1))
+
+    with_ids { assert_raises(Repair::Mismatch) { Repair.call } }
+    assert_equal Date.new(2019, 1, 1), @bwxt_link.reload.started_on
+    assert @nas.reload.verified?, "nothing at all changed"
+  end
+
+  test "the production dates are pinned as Data Quality read them" do
+    assert_equal [ Date.new(2021, 5, 3), Date.new(2016, 7, 1), Date.new(2021, 3, 1) ], Repair::RESTORE.values.map(&:last)
+    assert_equal [ Date.new(2023, 8, 24), Date.new(2018, 8, 1) ], Repair::BWXT_LINK.values_at(:was_started_on, :started_on)
   end
 
   test "a value someone fixed by hand stops the repair, and nothing at all is changed" do
