@@ -215,11 +215,10 @@ class CompanyPageTest < ActionDispatch::IntegrationTest
     get company_path(slug: westinghouse.slug)
 
     assert_select ".nd-overview dt", "Type"
-    assert_select ".nd-overview dd", text: "Developers, Services and engineering, Investors" do
-      assert_select "a[href=?]", "/companies?category=reactor-developers"
-      assert_select "a[href=?]", "/companies?category=services"
-      assert_select "a[href=?]", "/companies?category=investors"
-    end
+    assert_equal [ "Developers", "Services and engineering", "Investors" ], css_select(".nd-overview ul.nd-bucketchips li").map { |li| li.text.strip }
+    assert_select ".nd-overview a.nd-bucketchip.nd-bucket--reactor-developers[href=?] svg", "/companies?category=reactor-developers"
+    assert_select ".nd-overview a.nd-bucketchip.nd-bucket--services[href=?]", "/companies?category=services"
+    assert_select ".nd-overview a.nd-bucketchip.nd-bucket--investors[href=?]", "/companies?category=investors"
     assert_select ".nd-crumbs a[href=?]", "/companies?category=reactor-developers", text: "Developers"
   end
 

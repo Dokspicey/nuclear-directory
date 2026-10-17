@@ -41,7 +41,7 @@ class DirectoryListing
   # Each site also gets #units_count and #units_capacity_mw, from its published units.
   def plants
     ordered(plant_scope.select("facilities.*", "(#{plant_connections_sql}) AS connections_count",
-      "(#{units_sql("COUNT(*)")}) AS units_count", "(#{units_sql("SUM(u.capacity_mw)")}) AS units_capacity_mw"), "facilities.name")
+      "(#{units_sql("COUNT(*)")}) AS units_count", "ARRAY(#{units_sql("u.reactor_type")}) AS units_reactor_types", "(#{units_sql("SUM(u.capacity_mw)")}) AS units_capacity_mw"), "facilities.name")
   end
 
   # Companies are listed unless the Plants and sites category is chosen.
