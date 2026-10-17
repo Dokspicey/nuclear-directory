@@ -189,7 +189,15 @@ class DataQuality::Repairs::ApproveAll20261016
       company = fact("Organization", BWXT[:id])
       link = fact("Relationship", BWXT_LINK[:id])
       changes = []
-      unless company.name == BWXT[:name]
+      if company.name == BWXT[:name]
+        # Renamed already (by hand, say): it's repaired once both legal
+        # spellings find it too; otherwise they're added.
+        missing = BWXT[:aliases].reject { |name| @directory.organization(name:)&.id == BWXT[:id] }
+        if missing.any?
+          changes << Change.new(kind: "organization", id: BWXT[:id], attributes: { aliases: BWXT[:aliases] },
+            status: company.verification_status, note: "adds BWXT's legal names: #{missing.join(', ')}")
+        end
+      else
         raise Mismatch, "company #{BWXT[:id]} is #{company.name.inspect}, not #{BWXT[:was].inspect}" unless company.name == BWXT[:was]
 
         changes << Change.new(kind: "organization", id: BWXT[:id], attributes: { name: BWXT[:name], aliases: BWXT[:aliases] },

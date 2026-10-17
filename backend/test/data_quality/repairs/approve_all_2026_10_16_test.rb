@@ -127,6 +127,17 @@ class DataQuality::Repairs::ApproveAll20261016Test < ActiveSupport::TestCase
     assert_equal [ Date.new(2023, 8, 24), Date.new(2018, 8, 1) ], Repair::BWXT_LINK.values_at(:was_started_on, :started_on)
   end
 
+  test "BWXT renamed by hand without its legal names gets them added" do
+    @bwxt.update_columns(name: "BWXT")
+    @bwxt.aliases.delete_all
+
+    with_ids do
+      Repair.call
+      Repair::BWXT[:aliases].each { |name| assert_equal @bwxt.id, Directory::Lookup.organization(name:)&.id, name }
+      assert_equal "BWXT", @bwxt.reload.name
+    end
+  end
+
   test "a value someone fixed by hand stops the repair, and nothing at all is changed" do
     @reworded.update!(description: "Hand-fixed by Tosin.", decided_by: "human:tosin")
 
