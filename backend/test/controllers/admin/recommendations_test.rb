@@ -216,4 +216,40 @@ class Admin::RecommendationsTest < ActionDispatch::IntegrationTest
     get admin_recommendations_path
     assert_select "#rec-#{a.id}", /It fills in a record's details; decide it on its own page/
   end
+
+  test "two approvals of the same record: Accept takes the first and leaves the other, as the preview says" do
+    first = claim("Alpha Fission Co")
+    match_and_verify
+    second = Candidate.create!(source: @source, kind: "organization", payload: { "name" => "Alpha Fission Co", "website" => "https://alpha.example" },
+      quote: "another quote", crawl_run: first.crawl_run)
+    match_and_verify
+    assert_equal first.reload.subject_id, second.reload.subject_id
+    paste("#{first.id} approve: named on the page\n#{second.id} approve: its website")
+
+    get admin_recommendations_path
+    assert_select "#accept-heading", /To accept\s*1/
+    assert_select "#rec-#{second.id}", /Another recommendation in this list approves the same record/
+  end
+
+  test "a claim removed while Accept waits is skipped, not a crash" do
+    a = claim("Alpha Fission Co")
+    match_and_verify
+    paste("#{a.id} reject: not nuclear")
+    item = DataQuality::Recommendations.plan.accept.sole
+    a.destroy!
+
+    result = DataQuality::Recommendations.accept([ item ], by: users(:admin).actor).sole
+    assert_equal [ "this claim no longer exists" ], result.errors
+  end
+
+  test "a reopened claim needs a fresh recommendation" do
+    c = Candidate.create!(source: @source, kind: "organization", payload: { "name" => "Imaginary Fission Co" }, quote: "a quote")
+    paste("#{c.id} reject: not a real company")
+    DataQuality::Recommendations.accept(DataQuality::Recommendations.plan.accept, by: users(:admin).actor)
+    assert c.reload.status_rejected?
+
+    DataQuality::Review.reopen([ c.id ], by: users(:admin).actor, reason: "Look again")
+    get admin_recommendations_path
+    assert_select "#rec-#{c.id}", /It changed after Data Quality looked at it/
+  end
 end

@@ -72,6 +72,7 @@ module DataQuality::Recommendations
           claim: DataQuality::Claim.describe(candidate), subject_type: candidate.subject_type, subject_id: candidate.subject_id,
           why: why_left(candidate, directory:, **context), waiting: candidate.status_needs_review? || context[:recommended].include?(candidate.id))
       end
+      items = one_approval_per_record(items)
       accept, left = items.partition { |item| item.why.nil? }
       Plan.new(accept:, left:)
     end
@@ -89,11 +90,13 @@ module DataQuality::Recommendations
       items.sort_by(&:candidate_id).map do |item|
         result = nil
         Candidate.transaction do
-          candidate = Candidate.find_by(id: item.candidate_id)
-          result = skipped(item, "this claim no longer exists") and next unless candidate
+          source_id = Candidate.where(id: item.candidate_id).pick(:source_id)
+          result = skipped(item, "this claim no longer exists") and next unless source_id
 
-          ::Source.lock.find(candidate.source_id)
-          candidate.lock!
+          ::Source.lock.find(source_id)
+          # Read again under the source's lock: a crawl's extract can replace the claim meanwhile.
+          candidate = Candidate.lock.find_by(id: item.candidate_id)
+          result = skipped(item, "this claim no longer exists") and next unless candidate
           unless [ candidate.dq_recommendation, candidate.dq_reason, candidate.dq_payload_sha256 ] == [ item.call, item.reason, item.snapshot ]
             result = skipped(item, "Data Quality's call on it changed after the page loaded")
             next
@@ -160,6 +163,20 @@ module DataQuality::Recommendations
 
       def skipped(item, why) = DataQuality::Review::Result.new(candidate_id: item.candidate_id, ref: nil, errors: [ why ])
 
+      # Approving one claim is a person's decision on its record, which then
+      # holds every other claim on it. So Accept takes one approval per
+      # record (the first) and leaves the rest for a person, as the preview
+      # says.
+      def one_approval_per_record(items)
+        seen = Set.new
+        items.map do |item|
+          next item unless item.why.nil? && item.call == "approve" && item.subject_id
+          next item if seen.add?([ item.subject_type, item.subject_id ])
+
+          item.with(why: "another recommendation in this list approves the same record; decide this one after it")
+        end
+      end
+
       # The checks' data for these claims, each read once: the first batches,
       # which claims the verifier recommends now, and which attached records
       # a person decided.
@@ -190,6 +207,7 @@ module DataQuality::Recommendations
       end
 
       # The claim as Data Quality saw it: what it says and what it's attached to.
-      def digest(candidate) = Digest::SHA256.hexdigest([ candidate.payload, candidate.quote, candidate.subject_type, candidate.subject_id ].to_json)
+      # Reopening counts as a change: a reopened claim needs a fresh call.
+      def digest(candidate) = Digest::SHA256.hexdigest([ candidate.payload, candidate.quote, candidate.subject_type, candidate.subject_id, candidate.reopenings ].to_json)
   end
 end
