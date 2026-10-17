@@ -57,6 +57,18 @@ class LinkCardTest < ActiveSupport::TestCase
     assert_equal "Operated by Susquehanna Nuclear… · Owned by Talen Energy + 1", card.role_text
   end
 
+  test "a plant with units of several statuses keeps each status whole on the image, or says it shorter" do
+    dresden = LinkCard.for_plant(vogtle(name: "Dresden", units: [ Unit.new("operating"), Unit.new("operating"), Unit.new("decommissioning") ],
+      capacity_mw: BigDecimal("1845")))
+
+    assert_equal "2 operating reactors, 1 being decommissioned · 1,845 MW", dresden.footer_right
+    assert_equal "3 reactors, 2 operating · 1,845 MW", dresden.send(:footer_drawn).last, "never cut mid-status"
+    assert_includes dresden.alt, "2 operating reactors, 1 being decommissioned · 1,845 MW."
+
+    shut = LinkCard.for_plant(vogtle(units: [ Unit.new("shut_down"), Unit.new("decommissioning") ], capacity_mw: nil))
+    assert_equal "2 reactors", shut.send(:footer_drawn).last
+  end
+
   test "what isn't known is left off, never shown as 0 or blank" do
     card = LinkCard.for_plant(vogtle(facility_type: "fuel_facility", state: nil, units: [], capacity_mw: nil, operators: [], owners: [ "Orano" ]))
     assert_equal [ "Fuel plant", "Owned by Orano", nil ], [ card.label, card.role_text, card.footer_right ]
