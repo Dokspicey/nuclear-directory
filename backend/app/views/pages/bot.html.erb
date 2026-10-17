@@ -1,5 +1,6 @@
 <% content_for :title, "NuclearDirectoryBot · Nuclear Directory" %>
 <% content_for :head do %>
+  <link rel="canonical" href="<%= bot_url %>">
   <meta name="description" content="NuclearDirectoryBot keeps Nuclear Directory up to date from public pages. It follows robots.txt, visits each page at most once a day and stops when blocked.">
 <% end %>
 <%= render "shared/site_header" %>
