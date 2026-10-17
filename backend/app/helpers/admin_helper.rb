@@ -52,6 +52,24 @@ module AdminHelper
     end
   end
 
+  ISSUES_URL = "https://github.com/tosinoladokun/nuclear-directory/issues".freeze
+
+  # A source's status on Sources by category (#166): Live with an ink dot;
+  # Built, Planned or Missing with its issue (linked, opening GitHub); Hand
+  # research with its documents.
+  def coverage_status(source)
+    issue = link_to("##{source.issue}", "#{ISSUES_URL}/#{source.issue}", class: "nd-link", target: "_blank", rel: "noopener") if source.issue
+    case source.status
+    when "live" then tag.span("Live", class: "nd-dot")
+    when "built" then tag.span(safe_join([ "Built", (safe_join([ " · ", issue ]) if issue), ", not running yet" ]), class: "text-ink-muted")
+    when "planned" then tag.span(safe_join([ "Planned · ", issue ]), class: "text-ink-muted")
+    when "hand"
+      documents = pluralize(source.documents.to_i, "document")
+      tag.span(safe_join([ "Hand research · #{documents}", (safe_join([ " · crawler ", issue ]) if issue) ]), class: "text-ink-muted")
+    else tag.span(issue ? safe_join([ "Planned · ", issue ]) : "Missing · no issue yet", class: issue ? "text-ink-muted" : "text-critical")
+    end
+  end
+
   # Text with each match of the query marked (<mark>), escaped.
   def mark_matches(text, query)
     return text.to_s if query.blank?
