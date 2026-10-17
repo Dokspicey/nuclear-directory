@@ -120,6 +120,20 @@ class PlantSlugsTest < ActionDispatch::IntegrationTest
     assert_equal [ "palisades-2", "palisades" ], [ site.reload.slug, unit.reload.slug ]
   end
 
+  test "the unit's new slug drops any other plant's old address of the same text" do
+    other = cite!(plant("Elsewhere Station"))
+    other.remember_slug("palisades-unit")
+    site, unit = clashed("Palisades")
+
+    Facility.give_sites_their_plain_slugs!
+    unit.update_columns(verification_status: "pending") # hidden: its address must not fall through to Elsewhere
+
+    assert_not FormerSlug.exists?(slug: "palisades-unit")
+    get plant_path(slug: "palisades-unit")
+    assert_response :not_found
+    assert_equal "palisades", site.reload.slug
+  end
+
   test "grouping a unit keeps that save's own changes, as the fact writer records them" do
     unit = cite!(plant("Callaway", status: "operating"))
     site = cite!(plant("Callaway", facility_type: "power_reactor"))

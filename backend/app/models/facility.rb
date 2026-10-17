@@ -78,6 +78,9 @@ class Facility < ApplicationRecord
       # saved_changes (the fact writer audits them). The unit's old slug
       # becomes the site's, so it isn't kept as the unit's former slug.
       unit.update_columns(slug: "#{plain}-unit", updated_at: Time.current)
+      # A live slug wins over an old one (as Sluggable does on save), so an
+      # old address of another plant can't redirect there any more.
+      FormerSlug.where(sluggable_type: base_class.name, slug: "#{plain}-unit").delete_all
       site.update!(slug: plain)
     end
     moved
