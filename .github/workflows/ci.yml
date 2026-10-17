@@ -124,6 +124,11 @@ jobs:
       - name: Run tests
         run: bin/rails test
 
+      # Browser tests (#362, #363): layout measured on the page and JavaScript,
+      # in headless Chrome, which ubuntu-latest has.
+      - name: Run system tests
+        run: bin/rails test:system
+
   # #90: Lighthouse on a phone profile (simulated 4G, mid-range CPU) against
   # the production build with seed data. Fails below 95 for performance or
   # accessibility, or when the largest content takes over 2.5 s.
