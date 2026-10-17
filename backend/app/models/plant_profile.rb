@@ -69,12 +69,19 @@ class PlantProfile
     [ (site.reactor_type if site_facts?), *units.map(&:reactor_type) ].compact_blank.uniq
   end
 
-  # The site's own figure, or the sum of its units' when each is known.
+  # The site's own figure, or the sum of its operating units' when each is
+  # known: a unit that's shut down, being decommissioned or not operating
+  # isn't counted (PM, 16 Oct).
   def capacity_mw
     return site.capacity_mw if site_facts? && site.capacity_mw
-    capacities = units.map(&:capacity_mw)
+    capacities = operating_units.map(&:capacity_mw)
     capacities.sum if capacities.any? && capacities.none?(&:nil?)
   end
+
+  def operating_units = units.select(&:operating?)
+
+  # True when some units aren't counted in capacity_mw.
+  def capacity_leaves_out_units? = !(site_facts? && site.capacity_mw) && operating_units.size < units.size
 
   # When the site was checked, or (for a pending site) its latest unit.
   def verified_at = site.verified? ? site.verified_at : units.filter_map(&:verified_at).max

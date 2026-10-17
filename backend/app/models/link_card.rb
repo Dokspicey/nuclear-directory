@@ -42,9 +42,8 @@ class LinkCard
     type = helpers.facility_type_label(profile.facility_type)
     label = [ type, US_STATES[profile.state.to_s] || profile.state.presence ].compact.join(" · ").presence
     reactors = %w[power_reactor research_reactor].include?(profile.facility_type.to_s)
-    units = profile.units.size
     capacity = "#{helpers.number_with_precision(profile.capacity_mw, precision: 2, strip_insignificant_zeros: true, delimiter: ",")} MW" if profile.capacity_mw
-    facts = [ (helpers.pluralize(units, reactors ? "reactor" : "unit") if units.positive?), capacity ].compact.join(" · ").presence
+    facts = [ helpers.units_summary(profile.units.map(&:status), noun: reactors ? "reactor" : "unit"), capacity ].compact.join(" · ").presence
     roles = { "Operated by" => profile.current_companies_for("operates").map(&:name), "Owned by" => profile.current_companies_for("owns").map(&:name) }
     new(squares: [ CATEGORY_COLORS["plants"] ], label:, name: profile.name, subline: roles.values.any?(&:any?) ? [ roles, :role ] : nil,
       footer_right: facts)

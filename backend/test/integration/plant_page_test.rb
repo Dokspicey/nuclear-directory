@@ -139,6 +139,15 @@ class PlantPageTest < ActionDispatch::IntegrationTest
     assert_no_match "MWe", response.body
   end
 
+  test "capacity counts operating units only, and says so when some units are left out" do
+    cite!(plant("Unit 1", parent: @vogtle, capacity_mw: 900, status: "decommissioning"), source: @nrc)
+    get plant_path(slug: "plant-vogtle")
+
+    assert_select ".nd-overview dd", text: /\A2,228 MW\b.*Net summer capacity of operating units, from EIA/m
+    assert_select "td[data-label='Capacity']", "900 MW", "the units table still lists every unit"
+    assert_select "td[data-label='Status']", "Being decommissioned"
+  end
+
   test "a plant with no capacity has no capacity note" do
     cite!(plant("Clinch River", facility_type: "power_reactor", status: "planned"), source: @nrc)
     get plant_path(slug: "clinch-river")

@@ -7,8 +7,10 @@ class LinkCardTest < ActiveSupport::TestCase
     def current_companies_for(type) = { "operates" => operators, "owns" => owners }.fetch(type).to_a.map { |name| Struct.new(:name).new(name) }
   end
 
+  Unit = Struct.new(:status)
+
   def vogtle(**overrides)
-    Plant.new(name: "Plant Vogtle", facility_type: "power_reactor", state: "GA", units: Array.new(4), capacity_mw: BigDecimal("4530"),
+    Plant.new(name: "Plant Vogtle", facility_type: "power_reactor", state: "GA", units: Array.new(4) { Unit.new("operating") }, capacity_mw: BigDecimal("4530"),
       operators: [ "Southern Nuclear" ], owners: [ "Georgia Power", "Oglethorpe Power", "MEAG Power", "Dalton Utilities" ], **overrides)
   end
 
@@ -42,10 +44,10 @@ class LinkCardTest < ActiveSupport::TestCase
 
     assert_equal "Power plant · Georgia", card.label
     assert_equal "Operated by Southern Nuclear · Owned by Georgia Power + 3", card.role_text
-    assert_equal "4 reactors · 4,530 MW", card.footer_right
+    assert_equal "4 operating reactors · 4,530 MW", card.footer_right
     assert_equal [ LinkCard::CATEGORY_COLORS["plants"] ], card.squares
     assert_equal "Plant Vogtle: Power plant · Georgia. Operated by Southern Nuclear · Owned by Georgia Power, Oglethorpe Power, " \
-      "MEAG Power and Dalton Utilities. 4 reactors · 4,530 MW.", card.alt
+      "MEAG Power and Dalton Utilities. 4 operating reactors · 4,530 MW.", card.alt
   end
 
   test "a role line too long even with one name each keeps its counts and shortens the longest name" do
@@ -59,7 +61,7 @@ class LinkCardTest < ActiveSupport::TestCase
     card = LinkCard.for_plant(vogtle(facility_type: "fuel_facility", state: nil, units: [], capacity_mw: nil, operators: [], owners: [ "Orano" ]))
     assert_equal [ "Fuel plant", "Owned by Orano", nil ], [ card.label, card.role_text, card.footer_right ]
 
-    bare = LinkCard.for_plant(vogtle(facility_type: nil, state: nil, units: [ 1 ], capacity_mw: nil, operators: [], owners: []))
+    bare = LinkCard.for_plant(vogtle(facility_type: nil, state: nil, units: [ Unit.new(nil) ], capacity_mw: nil, operators: [], owners: []))
     assert_equal [ nil, nil, "1 unit" ], [ bare.label, bare.subline, bare.footer_right ]
     assert_equal "Plant Vogtle. 1 unit.", bare.alt
   end
@@ -95,7 +97,7 @@ class LinkCardTest < ActiveSupport::TestCase
 
     assert_equal "Operates 1 plant · Owns stakes in 2 plants", card.footer_right, "both facts, for the alt text"
     assert_equal "Operates 1 plant", card.send(:footer_drawn).last, "the second doesn't fit beside the wordmark"
-    assert_equal "4 reactors · 4,530 MW", LinkCard.for_plant(vogtle).send(:footer_drawn).last
+    assert_equal "4 operating reactors · 4,530 MW", LinkCard.for_plant(vogtle).send(:footer_drawn).last
   end
 
   test "a company's HQ shows only when its page shows it (a source backs it)" do
