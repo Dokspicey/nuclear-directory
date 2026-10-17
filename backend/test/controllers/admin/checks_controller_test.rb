@@ -59,10 +59,10 @@ class Admin::ChecksControllerTest < ActionDispatch::IntegrationTest
     assert_select "#claim-#{attached.id}" do
       assert_select ".type-kicker", "Update · EIA"
       assert_select ".type-subject", "Catawba 2"
-      assert_select ".type-change", "1,160 MWe"
+      assert_select ".type-change", "1,160 MW"
     end
     assert_select "#claim-#{waiting.id} .type-subject", "Crane Clean Energy Center unit 1"
-    assert_select "#claim-#{waiting.id} .type-change", "802.8 MWe"
+    assert_select "#claim-#{waiting.id} .type-change", "802.8 MW"
   end
 
   test "a source filter narrows the claims and leaves pending facts out" do

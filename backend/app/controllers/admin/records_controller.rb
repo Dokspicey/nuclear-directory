@@ -12,6 +12,8 @@ class Admin::RecordsController < Admin::BaseController
   # Saving an edit approves the record, which would put a removed one back:
   # that's Put back's job, so a removed or rejected record isn't edited here.
   before_action :editable!, only: %i[edit update]
+  # A removed or rejected record isn't merged from here either.
+  before_action :mergeable!, only: %i[merge perform_merge]
 
   def show
     @record = params[:type].constantize.find(@fact.id)
@@ -62,7 +64,74 @@ class Admin::RecordsController < Admin::BaseController
     end
   end
 
+  # Merge into… (#142, canvas A's Record actions): pick the company or plant
+  # site this one is the same as, see what would move (a dry run), give a
+  # reason, then merge. The same audited merge as the rake tasks: everything
+  # moves to the one kept, this one is taken off, and its address redirects.
+  def merge
+    @query = params[:q].to_s.strip
+    @into = merge_target
+    @choices = merge_choices unless @into
+    @preview = merge_with(@into, dry_run: true) if @into
+    @into_public = public?(@into) if @into
+  end
+
+  def perform_merge
+    into = merge_target or return redirect_after(admin_record_merge_path(type: @fact.type, id: @fact.id, back: params[:back].presence))
+    result = merge_with(into, reason: params[:reason].to_s.strip)
+    if result.ok?
+      flash[:notice] = "Merged into #{into.name}."
+      redirect_after admin_record_path(type: @fact.type, id: into.id, back: params[:back].presence)
+    else
+      @into = into
+      @preview = merge_with(into, dry_run: true)
+      @into_public = public?(into)
+      @errors = result.errors
+      render :merge, status: :unprocessable_content
+    end
+  end
+
   private
+    # On the public site now: a pending site can be, through a live unit.
+    def public?(record) = record.class.published.exists?(record.id)
+
+    def merge_with(into, reason: nil, dry_run: false)
+      DataQuality::Review.merge(type: @fact.type, from_id: @fact.id, into_id: into.id, by: actor, reason:, dry_run:)
+    end
+
+    # Companies, or plant sites (a unit is moved with its site).
+    def merge_scope
+      model = @fact.type.constantize
+      scope = model == Facility ? Facility.where(parent_id: nil) : model.all
+      scope.where.not(id: @fact.id).where.not(verification_status: %w[rejected unpublished])
+    end
+
+    def merge_target = (merge_scope.find_by(id: params[:into]) if params[:into].present?)
+
+    # Live and pending records whose name, another name or docket has the search in it.
+    def merge_choices
+      return [] if @query.length < 2
+
+      pattern = "%#{ActiveRecord::Base.sanitize_sql_like(@query)}%"
+      scope = merge_scope
+      named = scope.where("#{scope.table_name}.name ILIKE ?", pattern)
+      other_names =
+        if @fact.type == "Organization"
+          scope.where(id: OrganizationAlias.where("alias ILIKE ?", pattern).select(:organization_id))
+        else
+          scope.where(id: FacilityAlias.where("alias ILIKE ?", pattern).select(:facility_id))
+            .or(scope.where(id: Facility.where("nrc_docket ILIKE ?", pattern).select(:parent_id)))
+        end
+      named.or(other_names).order(:name).limit(20).to_a
+    end
+
+    def mergeable!
+      return if %w[verified pending].include?(@fact.verification_status)
+
+      flash[:alert] = @fact.verification_status == "unpublished" ? "It's taken off. Put it back first, then merge it." : "It was rejected, so it can't be merged."
+      redirect_after record_path_here
+    end
+
     def load_fact
       raise ActiveRecord::RecordNotFound unless EDITABLE_TYPES.include?(params[:type])
 

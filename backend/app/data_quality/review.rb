@@ -21,6 +21,10 @@
 # write (e.g. an edit that duplicates another fact) comes back as errors,
 # never raises.
 module DataQuality::Review
+  # A merge (#142): errors, or what moved ("3 aliases, 2 evidence").
+  MergeResult = Data.define(:errors, :moved) do
+    def ok? = errors.empty?
+  end
   Result = Data.define(:candidate_id, :ref, :errors) do
     def ok? = errors.empty?
   end
@@ -412,6 +416,18 @@ module DataQuality::Review
     end
 
     def history(type:, id:, directory: DataQuality::DirectoryClient.new) = directory.verification_history(type:, id:)
+
+    # Merges a company or plant site into another, as a person's decision
+    # (#142): a reason is required; dry_run says what would move and changes
+    # nothing. Returns a MergeResult, never raises.
+    def merge(type:, from_id:, into_id:, by:, reason:, dry_run: false, directory: DataQuality::DirectoryClient.new)
+      human!(by)
+      return MergeResult.new(errors: [ "pick the record to merge it into" ], moved: nil) unless into_id
+      return MergeResult.new(errors: [ "say why they're the same" ], moved: nil) if reason.blank? && !dry_run
+
+      result, moved = directory.merge(type, from_id:, into_id:, by:, reason: reason.presence, dry_run:)
+      MergeResult.new(errors: result.errors, moved:)
+    end
 
     # A fact with its decision, values and history, or nil.
     def fact(type:, id:, directory: DataQuality::DirectoryClient.new)
