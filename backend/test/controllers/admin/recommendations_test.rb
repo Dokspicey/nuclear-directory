@@ -36,8 +36,9 @@ class Admin::RecommendationsTest < ActionDispatch::IntegrationTest
     paste("# DOE awards, 18 Oct\n\n#{a.id} approve: the page names Alpha\n#{b.id} Reject: a subcontract\nplease approve the rest\n999999 approve: x")
 
     assert_response :unprocessable_content
-    assert_select ".nd-alert li", /line 5: .*isn't “<claim id> approve: <reason>”/
-    assert_select ".nd-alert li", "line 6: there's no claim 999999"
+    assert_select ".nd-alert p", /Added 2 recommendations\.\s+2 lines weren't added:/
+    assert_select ".nd-alert li", /please approve the rest\s*Line 5: it isn't “<claim id> approve: <reason>”/
+    assert_select ".nd-alert li", /999999 approve: x\s*Line 6: there's no claim 999999/
     assert_equal [ "approve", "the page names Alpha" ], a.reload.slice(:dq_recommendation, :dq_reason).values
     assert_equal "reject", b.reload.dq_recommendation
     assert a.status_matched?, "recording decides nothing"
@@ -67,6 +68,9 @@ class Admin::RecommendationsTest < ActionDispatch::IntegrationTest
     get admin_recommendations_path
 
     assert_select "#accept-heading", /To accept\s*2/
+    assert_select ".nd-recs__accept p", "Each is recorded as yours, with Data Quality's reason."
+    assert_select ".nd-recs__accept button", "Accept: approve 1, reject 1"
+    assert_select "#rec-#{changed.id} .nd-recs__label", "Left because:"
     assert_select "#rec-#{held.id}", /Alpha Fission Co.*Approve.*named on the page/m
     assert_select "#rec-#{rejected.id}", /Reject.*not nuclear/m
     assert_select "#left-heading", /Left for you\s*2/

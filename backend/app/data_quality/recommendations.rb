@@ -26,7 +26,10 @@ module DataQuality::Recommendations
   OPEN = %w[new matched needs_review].freeze
   LINE = /\A\s*#?(\d+)\s+(approve|reject)\s*:\s*(.+?)\s*\z/i
 
+  # errors: [LineError, …], each line that wasn't added: where it was, its
+  # text as pasted, and what's wrong with it.
   Recorded = Data.define(:recorded, :errors)
+  LineError = Data.define(:line, :text, :problem)
   # One recommendation as the preview shows it. why: why it's left for a
   # person (nil when it will be accepted).
   Item = Data.define(:candidate_id, :call, :reason, :claim, :subject_type, :subject_id, :why)
@@ -37,15 +40,15 @@ module DataQuality::Recommendations
 
   class << self
     # Parses the pasted list and records each call on its claim. Returns
-    # Recorded(recorded: count, errors: ["line 3: …"]).
+    # Recorded(recorded: count, errors: [LineError, …]).
     def record(text, by:)
       DataQuality::Review.human!(by)
       calls, errors = parse(text.to_s)
       recorded = 0
-      calls.each do |line, id, call, reason|
+      calls.each do |line, id, call, reason, text|
         candidate = Candidate.find_by(id:)
-        next errors << "line #{line}: there's no claim #{id}" unless candidate
-        next errors << "line #{line}: claim #{id} is already #{candidate.status}" unless OPEN.include?(candidate.status)
+        next errors << LineError.new(line:, text:, problem: "there's no claim #{id}") unless candidate
+        next errors << LineError.new(line:, text:, problem: "claim #{id} is already #{candidate.status}") unless OPEN.include?(candidate.status)
 
         candidate.update!(dq_recommendation: call, dq_reason: reason, dq_by: by, dq_at: Time.current, dq_payload_sha256: digest(candidate))
         recorded += 1
@@ -89,7 +92,7 @@ module DataQuality::Recommendations
     end
 
     private
-      # [[line number, id, call, reason], …] and ["line n: …"] errors.
+      # [[line number, id, call, reason, text], …] and [LineError, …].
       def parse(text)
         return parse_json(text) if text.lstrip.start_with?("[")
 
@@ -99,9 +102,11 @@ module DataQuality::Recommendations
           next if stripped.empty? || (stripped.start_with?("#") && !stripped.match?(/\A#\d/))
 
           match = LINE.match(stripped)
-          next errors << "line #{line}: “#{stripped.truncate(80)}” isn't “<claim id> approve: <reason>” or “… reject: …”" unless match
+          unless match
+            next errors << LineError.new(line:, text: stripped.truncate(120), problem: "it isn't “<claim id> approve: <reason>” or “… reject: …”")
+          end
 
-          calls << [ line, match[1].to_i, match[2].downcase, match[3].truncate(REASON_LIMIT) ]
+          calls << [ line, match[1].to_i, match[2].downcase, match[3].truncate(REASON_LIMIT), stripped.truncate(120) ]
         end
         [ calls, errors ]
       end
@@ -113,15 +118,16 @@ module DataQuality::Recommendations
         calls, errors = [], []
         rows.each.with_index(1) do |row, line|
           id, call, reason = row.is_a?(Hash) ? row.values_at("id", "recommendation", "reason") : []
+          text = row.to_json.truncate(120)
           unless id.to_s.match?(/\A\d+\z/) && CALLS.include?(call.to_s.downcase) && reason.present?
-            next errors << "item #{line}: needs an id, a recommendation (approve or reject) and a reason"
+            next errors << LineError.new(line:, text:, problem: "it needs an id, a recommendation (approve or reject) and a reason")
           end
 
-          calls << [ line, id.to_i, call.to_s.downcase, reason.to_s.strip.truncate(REASON_LIMIT) ]
+          calls << [ line, id.to_i, call.to_s.downcase, reason.to_s.strip.truncate(REASON_LIMIT), text ]
         end
         [ calls, errors ]
       rescue JSON::ParserError => error
-        [ [], [ "the list isn't valid JSON: #{error.message.truncate(80)}" ] ]
+        [ [], [ LineError.new(line: 1, text: text.strip.truncate(120), problem: "the list isn't valid JSON: #{error.message.truncate(80)}") ] ]
       end
 
       # nil when Accept may act on it; otherwise why a person decides it.
