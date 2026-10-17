@@ -2,7 +2,7 @@ require "test_helper"
 
 class CategoryTest < ActiveSupport::TestCase
   test "nine buckets and Plants and sites, in display order" do
-    assert_equal [ "Reactor developers", "Fuel and materials", "Components and manufacturing", "Waste and decommissioning",
+    assert_equal [ "Developers", "Fuel and materials", "Components and manufacturing", "Waste and decommissioning",
       "Utilities and operators", "Plants and sites", "Power buyers", "Services and engineering", "Investors",
       "Government and research" ], Category.all.map(&:name)
     assert_equal 9, Category.buckets.size
@@ -24,7 +24,7 @@ class CategoryTest < ActiveSupport::TestCase
   end
 
   # Keys docs/DATA.md decided that arrive with their first sourced company.
-  DECIDED_KEYS = %w[components waste_decommissioning isotopes university].freeze
+  DECIDED_KEYS = %w[components waste_decommissioning isotopes university project_developer].freeze
 
   test "every role key a bucket uses is a seeded role, or one DATA.md decided" do
     roles_block = File.read(Rails.root.join("db/seeds.rb"))[/^ROLES = \[(.*?)^\]\.freeze/m, 1]

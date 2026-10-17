@@ -41,7 +41,7 @@ class LinkPreviewTest < ActionDispatch::IntegrationTest
 
   test "a category and the full listing preview with their own description, not the home page's (#246)" do
     get companies_path(category: "reactor-developers")
-    line = "Companies developing nuclear reactors in the US, including small modular reactors and fusion."
+    line = "Companies designing reactors or developing new nuclear plants in the US, including small modular reactors and fusion."
     assert_select "meta[name='description'][content=?]", line
     assert_select "meta[property='og:description'][content=?]", line
 

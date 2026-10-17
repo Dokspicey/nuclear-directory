@@ -10,7 +10,7 @@
 # over an older category keeps its slug ("fuel" for Fuel and materials).
 # name is the short heading; title is the page's <title>, in the words people
 # search with (#290); about is what the count in the description counts:
-# "11 companies developing nuclear reactors in the US".
+# "11 companies designing reactors or developing new nuclear plants in the US".
 # role_keys are the roles that put a company in the bucket (child roles
 # count through their parent); links names the rule for the links that do
 # (Bucket).
@@ -26,8 +26,8 @@ Category = Data.define(:key, :name, :title, :about, :role_keys, :links, :plants)
   def to_param = key
 
   # One plain sentence with the count, for the meta and link-preview
-  # description: "11 companies developing nuclear reactors in the US,
-  # including small modular reactors." It says what's on the page, not how
+  # description: "11 companies designing reactors or developing new nuclear
+  # plants in the US, including small modular reactors and fusion." It says what's on the page, not how
   # it's sourced (Tosin, #249). With fewer than two, the same words uncounted.
   def description(count)
     "#{count.to_i > 1 ? "#{count} #{about}" : about.upcase_first}."
@@ -39,9 +39,11 @@ class Category
   # first of its buckets in this order. Plants and sites sits with the
   # utilities that run them.
   ALL = [
-    new(key: "reactor-developers", name: "Reactor developers", role_keys: %w[reactor_vendor],
-      title: "Advanced reactor and SMR developers in the US",
-      about: "companies developing nuclear reactors in the US, including small modular reactors and fusion"),
+    # Tosin, 16 Oct: reactor designers and the companies developing new
+    # nuclear plants. The slug predates the rename and stays.
+    new(key: "reactor-developers", name: "Developers", role_keys: %w[reactor_vendor project_developer],
+      title: "Nuclear reactor and project developers in the US",
+      about: "companies designing reactors or developing new nuclear plants in the US, including small modular reactors and fusion"),
     new(key: "fuel", name: "Fuel and materials", role_keys: %w[fuel coolant isotopes],
       title: "Uranium, nuclear fuel and materials suppliers in the US",
       about: "companies supplying uranium, nuclear fuel, coolant and isotopes in the US"),

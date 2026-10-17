@@ -98,7 +98,7 @@ Home and the directory show the nine buckets of companies (docs/DATA.md section 
 
 | On screen | Slug | What it selects | Order |
 |---|---|---|---|
-| Reactor developers | `reactor-developers` | role `reactor_vendor` | 1 |
+| Developers | `reactor-developers` | roles `reactor_vendor` or `project_developer` (designs reactors or develops new nuclear plants) | 1 |
 | Fuel and materials | `fuel` | roles `fuel`, `coolant` and their children, `isotopes` | 2 |
 | Components and manufacturing | `components` | role `components` | 3 |
 | Waste and decommissioning | `waste-decommissioning` | role `waste_decommissioning` | 4 |

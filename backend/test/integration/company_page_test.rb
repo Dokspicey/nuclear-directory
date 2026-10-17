@@ -41,7 +41,7 @@ class CompanyPageTest < ActionDispatch::IntegrationTest
     assert_select ".nd-profile__desc", /Develops salt-cooled reactors./
     assert_select ".nd-tag", "Reactor developer"
     assert_select ".nd-tag", "Small modular reactor"
-    assert_select ".nd-crumbs a[href=?]", "/companies?category=reactor-developers", text: "Reactor developers"
+    assert_select ".nd-crumbs a[href=?]", "/companies?category=reactor-developers", text: "Developers"
   end
 
   test "deals read left to right, link the other company, and carry sources" do
@@ -215,12 +215,12 @@ class CompanyPageTest < ActionDispatch::IntegrationTest
     get company_path(slug: westinghouse.slug)
 
     assert_select ".nd-overview dt", "Type"
-    assert_select ".nd-overview dd", text: "Reactor developers, Services and engineering, Investors" do
+    assert_select ".nd-overview dd", text: "Developers, Services and engineering, Investors" do
       assert_select "a[href=?]", "/companies?category=reactor-developers"
       assert_select "a[href=?]", "/companies?category=services"
       assert_select "a[href=?]", "/companies?category=investors"
     end
-    assert_select ".nd-crumbs a[href=?]", "/companies?category=reactor-developers", text: "Reactor developers"
+    assert_select ".nd-crumbs a[href=?]", "/companies?category=reactor-developers", text: "Developers"
   end
 
   test "a hidden invests-in deal doesn't make a company an investor" do

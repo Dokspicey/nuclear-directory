@@ -84,10 +84,10 @@ class DirectoryTest < ActionDispatch::IntegrationTest
     get companies_path(category: "reactor-developers")
 
     assert_response :success
-    assert_select "title", "Advanced reactor and SMR developers in the US · Nuclear Directory"
-    assert_select "h1", /Reactor developers/
+    assert_select "title", "Nuclear reactor and project developers in the US · Nuclear Directory"
+    assert_select "h1", /Developers/
     assert_select "h1 .nd-listhead__count", "2 companies"
-    assert_select "a.nd-pill[aria-current=page]", /Reactor developers/
+    assert_select "a.nd-pill[aria-current=page]", /Developers/
     assert_select "a.nd-listrow[href='/companies/kairos-power']", /Develops salt-cooled reactors./
     assert_select "a.nd-listrow", text: /Pending Reactors/, count: 0
   end
@@ -118,7 +118,7 @@ class DirectoryTest < ActionDispatch::IntegrationTest
   test "no results offers to clear the search" do
     get companies_path(category: "reactor-developers", q: "molten salt pump")
 
-    assert_select ".nd-notice", /No results for “molten salt pump” in Reactor developers./
+    assert_select ".nd-notice", /No results for “molten salt pump” in Developers./
     assert_select ".nd-notice a[href=?]", "/companies?category=reactor-developers", text: "Clear search"
   end
 

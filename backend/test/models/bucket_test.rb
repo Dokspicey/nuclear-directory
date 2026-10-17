@@ -23,6 +23,9 @@ class BucketTest < ActiveSupport::TestCase
     assert_equal [ "Centrus Energy" ], in_bucket("fuel")
     assert_equal [ "Holtec" ], in_bucket("waste-decommissioning")
     assert_empty in_bucket("components"), "no company has the role yet"
+
+    cite!(company("Elementl Power", roles: [ role("project_developer") ]))
+    assert_equal [ "Elementl Power" ], in_bucket("reactor-developers"), "Developers includes project developers (Tosin, 16 Oct)"
   end
 
   test "utilities and operators: the role, or a current owns or operates link to an operating power plant" do
@@ -77,7 +80,7 @@ class BucketTest < ActiveSupport::TestCase
     westinghouse = cite!(company("Westinghouse", roles: [ role("reactor_vendor"), role("fuel"), role("reactor_services") ]))
     cite!(company("Oklo", roles: [ Role.find_by!(key: "reactor_vendor") ]))
 
-    assert_equal [ "Reactor developers", "Fuel and materials", "Services and engineering" ], Bucket.for(westinghouse).map(&:name)
+    assert_equal [ "Developers", "Fuel and materials", "Services and engineering" ], Bucket.for(westinghouse).map(&:name)
     counts = Bucket.counts
     assert_equal({ "reactor-developers" => 2, "fuel" => 1, "services" => 1 }, counts.select { |_, n| n.positive? })
     assert_operator counts.values.sum, :>, Organization.published.count, "buckets overlap"

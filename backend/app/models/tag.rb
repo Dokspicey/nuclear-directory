@@ -1,6 +1,6 @@
 # Tags with their own shareable list pages, /companies?tag=fusion (#281).
 # A tag is finer than a bucket and never navigation: fusion sits under
-# Reactor developers, uranium and isotopes under Fuel and materials. Each
+# Developers, uranium and isotopes under Fuel and materials. Each
 # is matched from a published, sourced technology or role (with its children).
 # Data Quality's full public tag set comes with the filters (#263, #267).
 #

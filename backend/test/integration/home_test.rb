@@ -43,7 +43,7 @@ class HomeTest < ActionDispatch::IntegrationTest
   test "category boxes show the most connected verified names" do
     get root_path
 
-    # Reactor developers, Plants and sites, Power buyers: empty buckets are hidden.
+    # Developers, Plants and sites, Power buyers: empty buckets are hidden.
     assert_select "a.nd-cat", 3
     assert_select "a.nd-cat[href=?] span", "/companies?category=reactor-developers", text: "Kairos Power, NuScale Power, Oklo"
     assert_select "a.nd-cat[href=?] span", "/companies?category=fusion", count: 0
