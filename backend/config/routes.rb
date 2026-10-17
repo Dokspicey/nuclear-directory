@@ -41,7 +41,9 @@ Rails.application.routes.draw do
     # facts are approved) and Correction requests. The actions underneath
     # are today's: candidates, pending facts, corrections, facts.
     root "overview#show"
-    get "sources" => "status#show", as: :sources
+    get "sources" => "sources#index", as: :sources
+    get "sources/search" => "sources#search", as: :sources_search
+    get "sources/:key" => "sources#show", as: :source, constraints: { key: /[a-z0-9_-]+/ }
     get "status", to: redirect("/admin/sources")
     get "checks" => "checks#show", as: :checks
     # Live (#201 part 2): every record with Data Quality's tag filters, and

@@ -258,7 +258,9 @@ class DataQuality::Stages::Match < DataQuality::Stage
       brand = name ? directory.same_brand_organizations(name) : []
       if brand.many?
         domain_note = " (its domain matches #{by_domain.name})" if by_domain
-        return Review.new("#{name.inspect} could be the same brand as #{brand.map(&:name).join(' or ')}#{domain_note}. Which one?")
+        # Sorted, so the note reads the same whatever order the lookup returns (#322's flaky test).
+        names = brand.map(&:name).sort_by { |n| [ n.downcase, n ] }
+        return Review.new("#{name.inspect} could be the same brand as #{names.join(' or ')}#{domain_note}. Which one?")
       end
       if by_domain && brand.one? && brand.first.id != by_domain.id
         return Review.new("name is the brand of #{brand.first.name} but domain matches #{by_domain.name}")
