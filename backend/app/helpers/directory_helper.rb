@@ -109,8 +109,10 @@ module DirectoryHelper
     case facility_type.to_s
     when "power_reactor"
       types = reactor_types.compact_blank.map(&:upcase)
-      if types.any? { |type| type.include?("BWR") } then "site-bwr"
-      elsif types.any? { |type| type.match?(/PWR|AP1000/) } then "site-pwr"
+      bwr, pwr = types.any? { |type| type.include?("BWR") }, types.any? { |type| type.match?(/PWR|AP1000/) }
+      if bwr && pwr then "site-plant" # mixed: the generic power plant
+      elsif bwr then "site-bwr"
+      elsif pwr then "site-pwr"
       elsif types.any? || status.to_s.in?(%w[planned under_construction]) then "site-advanced"
       else "site-plant"
       end

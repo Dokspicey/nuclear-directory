@@ -213,12 +213,18 @@
   .nd-bucketchip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px 2px 8px; border-radius: 999px; background: var(--nd-cat-tint); color: var(--nd-cat); font: 500 13px/20px var(--font-text); text-decoration: none; }
   .nd-bucketchip:hover { text-decoration: underline; text-underline-offset: 2px; }
 
-  .nd-cats { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: var(--nd-space-3); }
+  .nd-cats { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--nd-space-3); }
   .nd-cat { display: flex; flex-direction: column; gap: var(--nd-space-1); padding: 14px var(--nd-space-4); border: var(--nd-hairline) solid var(--nd-rule); border-radius: var(--nd-radius-sm); background: var(--nd-paper-raised); color: var(--nd-ink); text-decoration: none; transition: border-color .12s ease-out; }
   .nd-cat:hover { border-color: var(--nd-ink); }
   .nd-cat b { display: flex; align-items: center; gap: var(--nd-space-2); font-weight: 600; font-size: 15px; line-height: 20px; }
-  .nd-cat b .nd-ic { color: var(--nd-cat, currentColor); }
-  .nd-cat b { overflow-wrap: anywhere; hyphens: auto; } /* "decommissioning" at 390px (Design QA) */
+  .nd-cat b .nd-ic { flex: none; color: var(--nd-cat, currentColor); }
+  /* Text in a box never wraps or hyphenates (Tosin): the title shrinks to fit
+     its box, down to 13px, and an ellipsis is only the last resort. */
+  .nd-cat b { min-width: 0; white-space: nowrap; }
+  /* The name's own width (the fit wrapper) over its length in characters;
+     .62em is Roboto Serif's average character at these sizes. */
+  .nd-cat__fit { flex: 1; min-width: 0; container-type: inline-size; }
+  .nd-cat .nd-cat__name { display: block; overflow: hidden; text-overflow: ellipsis; font-size: clamp(13px, calc(100cqi / (var(--chars) * 0.62)), 15px); color: inherit; line-height: 20px; }
   .nd-cat span { font-size: 13px; line-height: 18px; color: var(--nd-ink-muted); }
 
   .nd-list { list-style: none; margin: 0; padding: 0; }
@@ -300,7 +306,7 @@
   /* 55px tall matches 64px Anton; 34px (40px Anton) on phones. */
   .nd-home__wordmark .nd-wordmark__svg { height: 55px; max-width: 100%; }
   .nd-home__search { width: 100%; max-width: 720px; display: flex; flex-direction: column; gap: var(--nd-space-4); }
-  .nd-home__cats { width: 100%; max-width: 880px; margin-top: var(--nd-space-6); }
+  .nd-home__cats { width: 100%; max-width: 960px; margin-top: var(--nd-space-6); }
 
   .nd-searchbox { position: relative; width: 100%; }
   .nd-sitebar .nd-searchbox { flex: 1 1 320px; max-width: 560px; }
@@ -333,7 +339,7 @@
     .nd-home { min-height: 0; padding-top: max(var(--nd-space-12), env(safe-area-inset-top)); gap: var(--nd-space-6); }
     .nd-searchbox__results { max-height: 60vh; }
     .nd-searchbox--large .nd-search { height: 52px; padding: 0 var(--nd-space-4); gap: var(--nd-space-3); }
-    .nd-cats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--nd-space-2); }
+    .nd-cats { grid-template-columns: minmax(0, 1fr); gap: var(--nd-space-2); }
     .nd-cat { padding: var(--nd-space-3); }
     /* One scrolling row of pills, faded at the edge so more is visible. */
     .nd-pills { flex-wrap: nowrap; scroll-snap-type: x proximity; padding-right: var(--nd-space-8);

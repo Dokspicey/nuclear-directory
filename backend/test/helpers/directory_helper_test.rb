@@ -84,6 +84,7 @@ class DirectoryHelperTest < ActionView::TestCase
     assert_equal "site-pwr", site_icon_name("power_reactor", reactor_types: [ "PWR", nil ])
     assert_equal "site-pwr", site_icon_name("power_reactor", reactor_types: [ "AP1000" ])
     assert_equal "site-bwr", site_icon_name("power_reactor", reactor_types: [ "BWR" ])
+    assert_equal "site-plant", site_icon_name("power_reactor", reactor_types: [ "BWR", "PWR" ]), "mixed types: the generic plant"
     assert_equal "site-advanced", site_icon_name("power_reactor", reactor_types: [ "Natrium" ])
     assert_equal "site-plant", site_icon_name("power_reactor")
     assert_equal "site-advanced", site_icon_name("power_reactor", status: "planned"), "Long Mott, before a type is stated"
