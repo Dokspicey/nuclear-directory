@@ -34,6 +34,23 @@ class DirectoryTest < ActionDispatch::IntegrationTest
     assert_select "form.nd-filters input[type=hidden][name=tag][value=fusion]"
   end
 
+  test "a company in no bucket still lists, turns up in search and has its page" do
+    cite!(company("NextEra Energy", description: "Utility holding company."))
+    nextera = Organization.find_by!(name: "NextEra Energy")
+    assert_empty Bucket.for(nextera)
+
+    get companies_path
+    assert_select "a.nd-listrow[href='/companies/#{nextera.slug}']"
+
+    get companies_path(q: "NextEra")
+    assert_select "a.nd-listrow[href='/companies/#{nextera.slug}']"
+
+    get company_path(slug: nextera.slug)
+    assert_response :success
+    assert_select ".nd-overview dt", text: "Type", count: 0
+    assert_select ".nd-crumbs a", count: 0
+  end
+
   test "an unknown tag lists every company" do
     get companies_path(tag: "nope")
 
