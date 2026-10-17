@@ -10,7 +10,7 @@ name: Preview
 
 on:
   pull_request:
-    types: [labeled, synchronize]
+    types: [labeled, synchronize, closed]
 
 permissions:
   contents: write
@@ -25,17 +25,37 @@ defaults:
     shell: bash
 
 jobs:
+  # A PR that merges or closes gives up the slot for good: its label comes
+  # off, so reopening it is a new request (label it again), never a return
+  # to its old place.
+  release:
+    if: >-
+      github.event.action == 'closed' &&
+      contains(github.event.pull_request.labels.*.name, 'preview')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Take the preview label off
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: gh api -X DELETE "repos/${GITHUB_REPOSITORY}/issues/${PR}/labels/preview" > /dev/null
+
   # Outside the deploy's cancelling group, so a request that's refused can
   # never cancel the holder's deploy.
   admit:
     # Same-repo PRs only, and only while the PR carries the label.
     if: >-
+      github.event.action != 'closed' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       contains(github.event.pull_request.labels.*.name, 'preview') &&
       (github.event.action != 'labeled' || github.event.label.name == 'preview')
     runs-on: ubuntu-latest
+    # Every waiting admission is kept, so a late or rerun older one can't
+    # replace the latest push's.
     concurrency:
       group: preview-admit-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
+      queue: max
     outputs:
       free: ${{ steps.slot.outputs.free }}
     steps:
