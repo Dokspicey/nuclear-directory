@@ -15,14 +15,14 @@
   <p class="nd-record__tags">
     <% [ facility_type_label(shown.facility_type), facility_status_label(shown.status), *technologies ].compact.each do |tag| %><span class="nd-tag"><%= tag %></span><% end %>
   </p>
-  <dl class="nd-kv type-body">
-    <% [ [ "Location", place(shown.city, shown.state) ], [ p.companies_for("owns").size > 1 ? "Owners" : "Owner", names.("owns") ],
-         [ "Operator", names.("operates") ], [ "Reactor type", reactor_types.join(", ").presence ], [ "Capacity", capacity ],
-         [ "NRC docket", shown.nrc_docket ] ].each do |label, value| %>
-      <% next if value.blank? %>
-      <dt class="type-label"><%= label %></dt><dd><%= value %></dd>
-    <% end %>
-  </dl>
+  <% facts = [ [ "Location", place(shown.city, shown.state) ], [ p.companies_for("owns").size > 1 ? "Owners" : "Owner", names.("owns") ],
+               [ "Operator", names.("operates") ], [ "Reactor type", reactor_types.join(", ").presence ], [ "Capacity", capacity ],
+               [ "NRC docket", shown.nrc_docket ] ].reject { |_, value| value.blank? } %>
+  <% if facts.any? %>
+    <dl class="nd-kv type-body">
+      <% facts.each do |label, value| %><dt class="type-label"><%= label %></dt><dd><%= value %></dd><% end %>
+    </dl>
+  <% end %>
   <div class="nd-fold__row type-body"><span>Units</span><span class="type-data"><%= p.units.size %></span></div>
   <div class="nd-fold__row type-body"><span>Companies</span><span class="type-data"><%= p.links.map(&:organization_id).uniq.size %></span></div>
 </div>

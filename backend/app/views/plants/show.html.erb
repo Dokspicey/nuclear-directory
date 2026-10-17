@@ -7,7 +7,7 @@
   cited = ->(type) { p.links.select { |l| l.relationship_type == type }.flat_map { |l| p.citations_for(l) }.uniq(&:first) }
   # Technology, reactor type and capacity come from the site and its units.
   details_cited = (p.site_citations + p.units.flat_map { |u| p.citations_for(u) }).uniq(&:first)
-  capacity = "#{number_with_precision(p.capacity_mw, precision: 2, strip_insignificant_zeros: true, delimiter: ",")} MWe" if p.capacity_mw
+  capacity = "#{number_with_precision(p.capacity_mw, precision: 2, strip_insignificant_zeros: true, delimiter: ",")} MW" if p.capacity_mw
   content_for :title, "#{plant_title(p)} · Nuclear Directory"
   content_for :og_title, p.name
   @link_card = [ LinkCard.for_plant(p), "plants", p.slug ] # its preview image (#245)
@@ -42,7 +42,7 @@
             [ buyers.size > 1 ? "Power buyers" : "Power buyer", company_links.(buyers), cited.("offtakes_from") ],
             [ "Technology", p.technologies.join(", ").presence, details_cited ],
             [ p.reactor_types.size > 1 ? "Reactor types" : "Reactor type", p.reactor_types.join(", ").presence, details_cited ],
-            [ "Capacity", capacity, details_cited ],
+            [ "Capacity", capacity, details_cited, "Net summer capacity, from EIA" ],
             [ "NRC docket", p.nrc_docket, p.site_citations ]
           ] %>
     </div>
