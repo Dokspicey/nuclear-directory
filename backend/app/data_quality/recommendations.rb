@@ -108,6 +108,9 @@ module DataQuality::Recommendations
             else
               DataQuality::Review.reject([ candidate.id ], by:, reason:, directory:).first
             end
+          # The decision's own rollback only reaches this transaction's end:
+          # undo all of it, so a failed one stays open to try again.
+          raise ActiveRecord::Rollback unless result.ok?
         end
         result
       rescue ActiveRecord::Deadlocked, ActiveRecord::LockWaitTimeout
@@ -172,6 +175,9 @@ module DataQuality::Recommendations
       def why_left(candidate, directory:, firsts:, recommended:, decided:)
         return "it's already #{candidate.status}" unless OPEN.include?(candidate.status)
         return "it changed after Data Quality looked at it" unless candidate.dq_payload_sha256 == digest(candidate)
+        # Filling in another record's details (an "identify" claim) is a change
+        # to a record a person decides on its own page, with its own history.
+        return "it fills in a record's details; decide it on its own page" if directory.enrichment?(candidate)
         return if candidate.dq_recommendation == "reject"
 
         return "the verifier didn't recommend it" unless candidate.ai_recommendation == "recommend_publish"

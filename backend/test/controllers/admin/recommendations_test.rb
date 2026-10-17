@@ -190,4 +190,30 @@ class Admin::RecommendationsTest < ActionDispatch::IntegrationTest
     assert_select "a.nd-btn[href=?]", admin_recommendations_path, "Data Quality's recommendations (1)"
     assert_select "#claim-#{a.id}", /Data Quality recommends approving:\s*named on the page/
   end
+
+  test "a rejection that fails is undone, so the claim stays open to try again" do
+    c = Candidate.create!(source: @source, kind: "organization", payload: { "name" => "Imaginary Fission Co" }, quote: "a quote")
+    DataQuality::Pipeline.run("dummy", plugin: DummyPlugin.new, only: "match") # proposes a new company
+    assert c.reload.proposed_subject
+    paste("#{c.id} reject: not a real company")
+    failing = Class.new(DataQuality::DirectoryClient) do
+      def decide_fact(*, **) = DataQuality::DirectoryClient::WriteResult.new(ref: nil, errors: [ "database busy" ])
+    end.new
+
+    result = DataQuality::Recommendations.accept(DataQuality::Recommendations.plan.accept, by: users(:admin).actor, directory: failing).sole
+
+    assert_equal [ "database busy" ], result.errors
+    assert c.reload.status_matched?, "still open"
+    assert DataQuality::Recommendations.accept(DataQuality::Recommendations.plan.accept, by: users(:admin).actor).sole.ok?, "a retry works"
+  end
+
+  test "a claim that fills in a record's details is left for its own page" do
+    a = claim("Alpha Fission Co")
+    match_and_verify
+    a.reload.update_columns(payload: a.payload.merge("identify" => { "nrc_docket" => "05000999" }))
+    paste("#{a.id} approve: the docket matches")
+
+    get admin_recommendations_path
+    assert_select "#rec-#{a.id}", /It fills in a record's details; decide it on its own page/
+  end
 end
