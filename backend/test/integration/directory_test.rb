@@ -165,6 +165,27 @@ class DirectoryTest < ActionDispatch::IntegrationTest
     assert_select "#plants-heading", count: 0
   end
 
+  # Path data of the site icons, to tell which one a ring holds.
+  PWR_ICON = "M5 20v-7a7 7 0 0 1 14 0v7"
+  BWR_ICON = "M4 20V9h10v11"
+
+  test "a site's icon uses only reactor types its page shows: sourced site, sourced units (#281)" do
+    sourced = cite!(plant("Sourced Station", facility_type: "power_reactor", status: "operating", reactor_type: "PWR"))
+    plant("Sourced Station Unit 9", parent: sourced, reactor_type: "BWR", status: "operating") # verified, no source
+    plant("Quiet Station", facility_type: "power_reactor", status: "operating", reactor_type: "BWR") # verified, no source
+
+    [ companies_path(category: "plants"), search_path(q: "station") ].each do |path|
+      get path
+      sourced_ring = css_select("a[href='/plants/sourced-station'] .nd-ring").to_s
+      quiet_ring = css_select("a[href='/plants/quiet-station'] .nd-ring").to_s
+
+      assert_includes sourced_ring, PWR_ICON, path
+      assert_not_includes sourced_ring, BWR_ICON, "#{path}: an unsourced unit doesn't change it"
+      assert_includes quiet_ring, "<svg", path
+      assert_not_includes quiet_ring, BWR_ICON, "#{path}: an unsourced site's own reactor type isn't used"
+    end
+  end
+
   test "a site row shows its verified units and their total capacity" do
     vogtle = Facility.find_by!(name: "Plant Vogtle")
     plant("Vogtle Unit 3", parent: vogtle, capacity_mw: 1117)

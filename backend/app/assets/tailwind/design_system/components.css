@@ -208,6 +208,7 @@
   .nd-bucket--government-research { --nd-cat: var(--nd-cat-government-research); --nd-cat-tint: var(--nd-cat-government-research-tint); }
   .nd-pill .nd-ic { align-self: center; color: var(--nd-cat, currentColor); }
   .nd-pill[class*="nd-bucket--"][aria-current="page"] { background: var(--nd-cat-tint); border-color: var(--nd-cat); color: var(--nd-cat); }
+  .nd-pill[class*="nd-bucket--"][aria-current="page"] .nd-num { opacity: 1; } /* 4.5:1 on the tint needs the full accent */
   .nd-bucketchips { display: flex; flex-wrap: wrap; gap: var(--nd-space-1) var(--nd-space-2); margin: 0; padding: 0; list-style: none; }
   .nd-bucketchip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px 2px 8px; border-radius: 999px; background: var(--nd-cat-tint); color: var(--nd-cat); font: 500 13px/20px var(--font-text); text-decoration: none; }
   .nd-bucketchip:hover { text-decoration: underline; text-underline-offset: 2px; }
