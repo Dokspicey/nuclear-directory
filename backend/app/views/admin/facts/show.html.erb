@@ -48,7 +48,7 @@
 
     <% status = @fact.verification_status %>
     <% if @fact.type == "Facility" && %w[verified pending].include?(status) %>
-      <%= link_to "Change status", admin_facility_status_path(id: @fact.id, back: params[:back].presence), class: "nd-btn nd-btn--outline type-ui" %>
+      <%= link_to "Change status", admin_facility_status_path(id: @fact.id, page: "fact", **context), class: "nd-btn nd-btn--outline type-ui" %>
     <% end %>
     <% if status == "verified" %>
       <details class="nd-takeoff">

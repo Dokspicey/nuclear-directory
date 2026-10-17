@@ -87,10 +87,25 @@ class Admin::StatusChangesController < Admin::BaseController
       "Status changed to #{helpers.facility_status_label(@status).downcase} for #{helpers.pluralize(plan.changes.size, 'record')}."
     end
 
-    # The site's Record, or the unit's fact page, with the list it was opened from (back).
+    # The page Change status was opened from (a site's Record, or a unit's
+    # or reactor's fact page: page=fact), as it was opened: where from, the
+    # list to go back to and its place in it, so its crumbs and Previous and
+    # Next still work.
     def back_here
-      back = params[:back].presence if back_path(nil)
-      @facility.parent_id ? admin_fact_path(type: "Facility", id: @facility.id, back:) : admin_record_path(type: "Facility", id: @facility.id, back:)
+      fact = @facility.parent_id || params[:page] == "fact"
+      fact ? admin_fact_path(type: "Facility", id: @facility.id, **return_context) : admin_record_path(type: "Facility", id: @facility.id, **return_context)
     end
     helper_method :back_here
+
+    # from, section, row and with_removed as the page had them, and back
+    # when it's a path inside the admin; page says which page it was.
+    def return_context
+      context = params.permit(:from, :section, :row, :with_removed, :page).to_h.symbolize_keys.compact_blank
+      context[:back] = params[:back] if back_path(nil)
+      context.except(:page)
+    end
+
+    # Carried by both forms, so Preview and Change status keep the way back.
+    def carried = params.permit(:from, :section, :row, :with_removed, :page, :back).to_h.compact_blank
+    helper_method :carried
 end

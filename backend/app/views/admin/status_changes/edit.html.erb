@@ -20,7 +20,7 @@
 
   <%# Preview lands on "What changes", so it's in view on a phone. %>
   <%= form_with url: admin_facility_status_path(id: @facility.id, anchor: "preview-heading"), method: :get, class: "nd-stack", data: { turbo: false } do %>
-    <%= hidden_field_tag :back, params[:back], id: nil if params[:back].present? %>
+    <% carried.each do |name, value| %><%= hidden_field_tag name, value, id: nil %><% end %>
     <div class="nd-field">
       <label for="status" class="type-body-strong">New status</label>
       <%= select_tag :status, options_for_select(DirectoryHelper::FACILITY_STATUS_LABELS.invert, @status || params[:status]), include_blank: "Choose a status", class: "nd-input type-input", required: true %>
@@ -87,7 +87,7 @@
         <% end %>
 
         <%= form_with url: admin_facility_status_path(id: @facility.id), method: :patch do %>
-          <%= hidden_field_tag :back, params[:back], id: nil if params[:back].present? %>
+          <% carried.each do |name, value| %><%= hidden_field_tag name, value, id: nil %><% end %>
           <%= hidden_field_tag :status, @status, id: nil %>
           <%= hidden_field_tag :evidence, @evidence, id: nil %>
           <%= hidden_field_tag :nrc_quote, @nrc&.last, id: nil if @evidence == "nrc" %>

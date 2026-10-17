@@ -36,7 +36,7 @@ class Admin::StatusChangesControllerTest < ActionDispatch::IntegrationTest
     get admin_record_path(type: "Facility", id: @site.id)
     assert_select "a.nd-btn[href=?]", admin_facility_status_path(id: @site.id), "Change status"
     get admin_fact_path(type: "Facility", id: @unit.id)
-    assert_select "a.nd-btn[href=?]", admin_facility_status_path(id: @unit.id), "Change status"
+    assert_select "a.nd-btn[href=?]", admin_facility_status_path(id: @unit.id, page: "fact"), "Change status"
     get admin_record_edit_path(type: "Facility", id: @site.id)
     assert_select "input[name='values[status]']", false
   end
@@ -189,7 +189,7 @@ class Admin::StatusChangesControllerTest < ActionDispatch::IntegrationTest
   test "a reactor without a site has Change status on its page" do
     lone = Facility.create!(name: "Lone Reactor", nrc_docket: "05000999", status: "operating", **VERIFIED)
     get admin_fact_path(type: "Facility", id: lone.id)
-    assert_select "a.nd-btn[href=?]", admin_facility_status_path(id: lone.id), "Change status"
+    assert_select "a.nd-btn[href=?]", admin_facility_status_path(id: lone.id, page: "fact"), "Change status"
   end
 
   test "the count counts a plant the change makes public" do
@@ -229,5 +229,29 @@ class Admin::StatusChangesControllerTest < ActionDispatch::IntegrationTest
 
     confirm(back: "https://elsewhere.example/")
     assert_redirected_to admin_record_path(type: "Facility", id: @site.id), "only a way back inside the admin"
+  end
+
+  test "a unit opened from Live goes back to its page in Live, with Previous and Next, after Cancel or Change status" do
+    live = admin_live_path(tab: "reactors")
+    unit_page = admin_fact_path(type: "Facility", id: @unit.id, from: "live", back: live)
+
+    get unit_page
+    link = admin_facility_status_path(id: @unit.id, page: "fact", from: "live", back: live)
+    assert_select "a.nd-btn[href=?]", link, "Change status"
+
+    get link
+    assert_select "a.nd-btn[href=?]", unit_page, "Cancel"
+    assert_select "form[method=get] input[name=from][value=live]"
+
+    patch admin_facility_status_path(id: @unit.id), params: { status: "not_operating", evidence: "nrc", nrc_quote: NRC_LINE, page: "fact", from: "live", back: live }
+    assert_redirected_to unit_page
+    follow_redirect!
+    assert_select ".nd-crumbs a[href=?]", live, "Live"
+  end
+
+  test "a reactor without a site, opened on its fact page, goes back to it" do
+    lone = Facility.create!(name: "Lone Reactor", nrc_docket: "05000999", status: "operating", **VERIFIED)
+    get admin_facility_status_path(id: lone.id, page: "fact")
+    assert_select "a.nd-btn[href=?]", admin_fact_path(type: "Facility", id: lone.id), "Cancel"
   end
 end
