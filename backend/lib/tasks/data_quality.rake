@@ -140,16 +140,36 @@ namespace :data_quality do
   end
 
   # The DOE crawl runs this repair itself (once); this shows what it would
-  # change, for Data Quality's rehearsal on a restored backup.
+  # change, for Data Quality's rehearsal on a restored backup. Like a crawl,
+  # it writes holding the data write lock shared (#301), so never during a
+  # deploy's data steps.
   desc "Show (or with APPLY=1 make) the one-time repair of the 16 Oct approve-all: bin/rails data_quality:repair_approve_all"
   task repair_approve_all: :environment do
     apply = ENV["APPLY"] == "1"
-    changes = DataQuality::Repairs::ApproveAll20261016.call(dry_run: !apply)
+    changes = DataQuality::WriteLock.shared { DataQuality::Repairs::ApproveAll20261016.call(dry_run: !apply) }
     changes.each { |change| puts "#{change.kind} #{change.id.to_s.ljust(4)} #{change.note}: #{change.attributes.inspect}" }
     puts changes.empty? ? "Nothing to repair: already done." : "#{changes.size} changes #{apply ? 'made' : 'would be made'}."
     puts "Dry run: nothing changed. The next DOE crawl makes these changes itself." unless apply || changes.empty?
   rescue DataQuality::Repairs::ApproveAll20261016::Mismatch => error
     abort "Stopped, nothing changed: #{error.message}"
+  rescue DataQuality::WriteLock::Busy => error
+    abort "Not run: #{error.message}"
+  end
+
+  # For bin/deploy-data (#301): its data steps in one process, holding the
+  # data write lock exclusively, so no crawl writes meanwhile. The lock
+  # belongs to this process's database session, so the steps run here, one
+  # after another, rather than as separate commands.
+  desc "Run rake tasks holding the data write lock (#301): TASKS=\"seed:check db:seed\" [WAIT_MINUTES=30] bin/rails data_quality:with_write_lock"
+  task with_write_lock: :environment do
+    tasks = ENV["TASKS"].to_s.split
+    abort "Usage: TASKS=\"task another:task\" [WAIT_MINUTES=30] bin/rails data_quality:with_write_lock" if tasks.empty?
+
+    DataQuality::WriteLock.exclusive(timeout: ENV.fetch("WAIT_MINUTES", "30").to_i.minutes) do
+      tasks.each { |name| Rake::Task[name].invoke }
+    end
+  rescue DataQuality::WriteLock::Busy => error
+    abort "Not run: #{error.message}"
   end
 
   desc "Check the OpenRouter key works, without a model call: bin/rails data_quality:check_key"
