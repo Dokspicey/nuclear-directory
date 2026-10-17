@@ -1,7 +1,8 @@
 <% content_for :title, "Data Quality's recommendations" %>
 <%
+  # A fact page decides the claims waiting on it (recommended or needing review); any other claim is decided on its own page.
   claim_path = ->(item) do
-    item.subject_id ? admin_fact_path(type: item.subject_type, id: item.subject_id, claim: item.candidate_id, from: "checks", back: admin_recommendations_path) :
+    item.subject_id && item.waiting ? admin_fact_path(type: item.subject_type, id: item.subject_id, claim: item.candidate_id, from: "checks", back: admin_recommendations_path) :
       edit_admin_candidate_path(item.candidate_id, back: admin_recommendations_path)
   end
   call_word = { "approve" => "Approve", "reject" => "Reject" }
@@ -23,8 +24,6 @@
         <% end %>
       </ul>
     </div>
-  <% elsif @recorded %>
-    <p class="nd-flash type-body" role="status">Added <%= pluralize(@recorded, "recommendation") %>. Nothing is decided until you accept.</p>
   <% end %>
 
   <section class="nd-stack" aria-labelledby="accept-heading">

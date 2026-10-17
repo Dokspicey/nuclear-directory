@@ -17,22 +17,26 @@
 #
 #   DataQuality::Recommendations.record(text, by: "human:tosin")  # => Recorded
 #   DataQuality::Recommendations.plan                             # => Plan (accept: […], left: […])
-#   DataQuality::Recommendations.accept(ids, by: "human:tosin")    # => [Review::Result, …]
+#   DataQuality::Recommendations.accept(plan.accept, by: "human:tosin") # => [Review::Result, …]
 module DataQuality::Recommendations
   CALLS = %w[approve reject].freeze
   REASON_LIMIT = 500
   # What every accepted decision's history says, before Data Quality's reason.
   ACCEPTED = "Accepted Data Quality's recommendation".freeze
   OPEN = %w[new matched needs_review].freeze
-  LINE = /\A\s*#?(\d+)\s+(approve|reject)\s*:\s*(.+?)\s*\z/i
+  LINE = /\A(\d+)\s+(approve|reject)\s*:\s*(.+?)\z/i
 
   # errors: [LineError, …], each line that wasn't added: where it was, its
   # text as pasted, and what's wrong with it.
   Recorded = Data.define(:recorded, :errors)
   LineError = Data.define(:line, :text, :problem)
-  # One recommendation as the preview shows it. why: why it's left for a
-  # person (nil when it will be accepted).
-  Item = Data.define(:candidate_id, :call, :reason, :claim, :subject_type, :subject_id, :why)
+  # One recommendation as the preview shows it. snapshot: the claim's digest
+  # when Data Quality made its call (part of the fingerprint, and checked
+  # again under the decision's locks). why: why it's left for a person (nil
+  # when it will be accepted). waiting: it's in the queue a fact page
+  # decides from (recommended or needs review); otherwise it's decided on
+  # the claim's own page.
+  Item = Data.define(:candidate_id, :call, :reason, :snapshot, :claim, :subject_type, :subject_id, :why, :waiting)
   Plan = Data.define(:accept, :left) do
     # The exact list Accept will act on, compared on the click (as Approve all's).
     def fingerprint = DataQuality::Recommendations.fingerprint(accept)
@@ -58,36 +62,56 @@ module DataQuality::Recommendations
 
     # Every open claim with a recommendation: those Accept will act on, and
     # those left for a person, each with why.
+    # The checks it needs are read for the whole list at once (a few
+    # queries, however many recommendations), as Approve all's are.
     def plan(directory: DataQuality::DirectoryClient.new)
-      firsts = DataQuality::Review.first_batches
-      items = Candidate.where(status: OPEN).where.not(dq_recommendation: nil).includes(:source).order(:id).map do |candidate|
-        Item.new(candidate_id: candidate.id, call: candidate.dq_recommendation, reason: candidate.dq_reason,
+      claims = Candidate.where(status: OPEN).where.not(dq_recommendation: nil).includes(:source).order(:id).to_a
+      context = context_for(claims, directory:)
+      items = claims.map do |candidate|
+        Item.new(candidate_id: candidate.id, call: candidate.dq_recommendation, reason: candidate.dq_reason, snapshot: candidate.dq_payload_sha256,
           claim: DataQuality::Claim.describe(candidate), subject_type: candidate.subject_type, subject_id: candidate.subject_id,
-          why: why_left(candidate, directory:, firsts:))
+          why: why_left(candidate, directory:, **context), waiting: candidate.status_needs_review? || context[:recommended].include?(candidate.id))
       end
       accept, left = items.partition { |item| item.why.nil? }
       Plan.new(accept:, left:)
     end
 
-    def fingerprint(items) = Digest::SHA256.hexdigest(items.map { |item| [ item.candidate_id, item.call, item.reason ] }.to_json)
+    # What the person saw: each claim, its call and reason, and the claim as Data Quality saw it.
+    def fingerprint(items) = Digest::SHA256.hexdigest(items.map { |item| [ item.candidate_id, item.call, item.reason, item.snapshot ] }.to_json)
 
-    # Accepts the recommendations on these claims as `by`'s decision, each
-    # checked again as it's decided; one that no longer qualifies is skipped
-    # with why. Returns a Review::Result per claim.
-    def accept(candidate_ids, by:, directory: DataQuality::DirectoryClient.new)
+    # Accepts these recommendations (a plan's items) as `by`'s decision. Each
+    # is locked as a decision locks it (its source, then the claim), checked
+    # again under those locks against what the person saw (the same call,
+    # reason and claim) and decided while they're held. One that no longer
+    # qualifies is skipped with why. Returns a Review::Result per claim.
+    def accept(items, by:, directory: DataQuality::DirectoryClient.new)
       DataQuality::Review.human!(by)
-      firsts = DataQuality::Review.first_batches
-      Candidate.where(id: candidate_ids).includes(:source).order(:id).map do |candidate|
-        if (why = why_left(candidate, directory:, firsts:))
-          next DataQuality::Review::Result.new(candidate_id: candidate.id, ref: nil, errors: [ why ])
-        end
+      items.sort_by(&:candidate_id).map do |item|
+        result = nil
+        Candidate.transaction do
+          candidate = Candidate.find_by(id: item.candidate_id)
+          result = skipped(item, "this claim no longer exists") and next unless candidate
 
-        reason = "#{ACCEPTED}: #{candidate.dq_reason}"
-        if candidate.dq_recommendation == "approve"
-          DataQuality::Review.approve([ candidate.id ], by:, reason:, only_recommended: true, data_quality_reviewed: true, directory:).first
-        else
-          DataQuality::Review.reject([ candidate.id ], by:, reason:, directory:).first
+          ::Source.lock.find(candidate.source_id)
+          candidate.lock!
+          unless [ candidate.dq_recommendation, candidate.dq_reason, candidate.dq_payload_sha256 ] == [ item.call, item.reason, item.snapshot ]
+            result = skipped(item, "Data Quality's call on it changed after the page loaded")
+            next
+          end
+          why = why_left(candidate, directory:, **context_for([ candidate ], directory:))
+          result = skipped(item, why) and next if why
+
+          reason = "#{ACCEPTED}: #{candidate.dq_reason}"
+          result =
+            if candidate.dq_recommendation == "approve"
+              DataQuality::Review.approve([ candidate.id ], by:, reason:, only_recommended: true, data_quality_reviewed: true, directory:).first
+            else
+              DataQuality::Review.reject([ candidate.id ], by:, reason:, directory:).first
+            end
         end
+        result
+      rescue ActiveRecord::Deadlocked, ActiveRecord::LockWaitTimeout
+        skipped(item, "someone was deciding on it just then; try again")
       end
     end
 
@@ -99,7 +123,8 @@ module DataQuality::Recommendations
         calls, errors = [], []
         text.each_line.with_index(1) do |raw, line|
           stripped = raw.strip
-          next if stripped.empty? || (stripped.start_with?("#") && !stripped.match?(/\A#\d/))
+          # A comment, or a recommendation commented out ("#1234 …"): skipped.
+          next if stripped.empty? || stripped.start_with?("#")
 
           match = LINE.match(stripped)
           unless match
@@ -130,18 +155,31 @@ module DataQuality::Recommendations
         [ [], [ LineError.new(line: 1, text: text.strip.truncate(120), problem: "the list isn't valid JSON: #{error.message.truncate(80)}") ] ]
       end
 
+      def skipped(item, why) = DataQuality::Review::Result.new(candidate_id: item.candidate_id, ref: nil, errors: [ why ])
+
+      # The checks' data for these claims, each read once: the first batches,
+      # which claims the verifier recommends now, and which attached records
+      # a person decided.
+      def context_for(claims, directory:)
+        recommended = Candidate.recommended.where(id: claims.map(&:id)).pluck(:id).to_set
+        decided = claims.select(&:subject_id).group_by(&:subject_type).flat_map do |type, group|
+          directory.human_decided_ids(type:, ids: group.map(&:subject_id)).map { |id| [ type, id ] }
+        end.to_set
+        { firsts: DataQuality::Review.first_batches, recommended:, decided: }
+      end
+
       # nil when Accept may act on it; otherwise why a person decides it.
-      def why_left(candidate, directory:, firsts:)
+      def why_left(candidate, directory:, firsts:, recommended:, decided:)
         return "it's already #{candidate.status}" unless OPEN.include?(candidate.status)
         return "it changed after Data Quality looked at it" unless candidate.dq_payload_sha256 == digest(candidate)
         return if candidate.dq_recommendation == "reject"
 
         return "the verifier didn't recommend it" unless candidate.ai_recommendation == "recommend_publish"
         return "it's waiting for a person's review" if candidate.status_needs_review?
-        return "its source changed after the verifier checked it" unless Candidate.recommended.exists?(candidate.id)
+        return "its source changed after the verifier checked it" unless recommended.include?(candidate.id)
         return "its company or plant isn't settled yet" unless candidate.subject_id
 
-        held = DataQuality::Review.held_reason(candidate, directory:, firsts:)
+        held = DataQuality::Review.held_reason(candidate, directory:, firsts:, decided: decided.include?([ candidate.subject_type, candidate.subject_id ]))
         held unless held == DataQuality::Review::FIRST_BATCH
       end
 

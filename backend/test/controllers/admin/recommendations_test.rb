@@ -45,14 +45,63 @@ class Admin::RecommendationsTest < ActionDispatch::IntegrationTest
     assert_equal users(:admin).actor, a.dq_by
   end
 
-  test "JSON works too" do
+  test "JSON works too; a list read in full goes back to the plan" do
     a = claim("Alpha Fission Co")
     match_and_verify
 
     paste([ { id: a.id, recommendation: "approve", reason: "named on the page" } ].to_json)
 
-    assert_response :success
+    assert_redirected_to admin_recommendations_path
+    assert_equal "Added 1 recommendation. Nothing is decided until you accept.", flash[:notice]
+    follow_redirect!
+    assert_select "#rec-#{a.id}", /named on the page/
     assert_equal "approve", a.reload.dq_recommendation
+  end
+
+  test "a recommendation commented out is skipped" do
+    a = claim("Alpha Fission Co")
+    match_and_verify
+
+    paste("#{a.id} approve: ok\n##{a.id} reject: changed my mind\n# #{a.id} reject: also commented")
+
+    assert_redirected_to admin_recommendations_path
+    assert_equal "approve", a.reload.dq_recommendation
+  end
+
+  test "a claim that changed, then was recommended again the same way, isn't accepted from the old page" do
+    a = claim("Alpha Fission Co")
+    match_and_verify
+    paste("#{a.id} approve: named on the page")
+    get admin_recommendations_path
+    shown = css_select("form[action='#{admin_recommendations_accept_path}'] input[name=shown]").first["value"]
+
+    a.update!(quote: "a different quote")
+    paste("#{a.id} approve: named on the page") # the same call, on the changed claim
+
+    post admin_recommendations_accept_path, params: { shown: }
+    assert_match "The list changed since you opened it", flash[:alert]
+    assert a.reload.status_matched?
+  end
+
+  test "Accept checks the call again under the decision's locks" do
+    a = claim("Alpha Fission Co")
+    match_and_verify
+    paste("#{a.id} approve: named on the page")
+    item = DataQuality::Recommendations.plan.accept.sole
+    a.update!(dq_recommendation: "reject") # changed between the check and the decision
+
+    result = DataQuality::Recommendations.accept([ item ], by: users(:admin).actor).sole
+    assert_equal [ "Data Quality's call on it changed after the page loaded" ], result.errors
+    assert a.reload.status_matched?
+  end
+
+  test "a left claim that isn't in the queue links to its own page, where it can be decided" do
+    a = claim("Alpha Fission Co")
+    DataQuality::Pipeline.run("dummy", plugin: DummyPlugin.new, only: "match") # attached, never verified
+    paste("#{a.id} approve: ok")
+
+    get admin_recommendations_path
+    assert_select "#rec-#{a.id} a[href=?]", edit_admin_candidate_path(a.id, back: admin_recommendations_path)
   end
 
   test "the preview lists exactly what Accept decides, and what's left with why" do
@@ -125,7 +174,7 @@ class Admin::RecommendationsTest < ActionDispatch::IntegrationTest
 
     plan = DataQuality::Recommendations.plan
     assert_empty plan.accept
-    assert_equal [ "it would change a record a person decided" ], DataQuality::Recommendations.accept([ a.id ], by: users(:admin).actor).first.errors
+    assert_equal [ "it would change a record a person decided" ], DataQuality::Recommendations.accept(plan.left, by: users(:admin).actor).first.errors
     assert a.reload.status_matched?
   end
 

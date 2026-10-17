@@ -7,14 +7,20 @@ class Admin::RecommendationsController < Admin::BaseController
     @plan = DataQuality::Recommendations.plan
   end
 
-  # Records the pasted list (decides nothing), then shows the plan with any
-  # lines that couldn't be read.
+  # Records the pasted list (decides nothing). All of it read: back to the
+  # plan (a redirect, which Turbo follows). Lines it couldn't add: the plan
+  # with them listed, and the list kept in the box to fix.
   def create
     recorded = DataQuality::Recommendations.record(params[:list].to_s, by: actor)
+    if recorded.errors.empty?
+      flash[:notice] = "Added #{helpers.pluralize(recorded.recorded, 'recommendation')}. Nothing is decided until you accept."
+      return redirect_after admin_recommendations_path
+    end
+
     @plan = DataQuality::Recommendations.plan
     @recorded = recorded.recorded
     @errors = recorded.errors
-    render :show, status: (@errors.any? ? :unprocessable_content : :ok)
+    render :show, status: :unprocessable_content
   end
 
   # Only the list the page showed: if anything was added, decided or changed
@@ -26,7 +32,7 @@ class Admin::RecommendationsController < Admin::BaseController
     elsif params[:shown] != plan.fingerprint
       flash[:alert] = "The list changed since you opened it, so nothing was accepted. Check it and try again."
     else
-      results = DataQuality::Recommendations.accept(plan.accept.map(&:candidate_id), by: actor)
+      results = DataQuality::Recommendations.accept(plan.accept, by: actor)
       done, failed = results.partition(&:ok?)
       flash[:notice] = "Accepted #{helpers.pluralize(done.size, 'recommendation')}." if done.any?
       flash[:alert] = failed.map { |result| "Claim #{result.candidate_id}: #{result.errors.to_sentence}" }.join(" ") if failed.any?
