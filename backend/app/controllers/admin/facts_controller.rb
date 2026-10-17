@@ -77,7 +77,8 @@ class Admin::FactsController < Admin::BaseController
 
     # This page again, with where it was opened from.
     def fact_path_here = admin_fact_path(type: params[:type], id: params[:id], **context, claim: params[:claim].presence)
-    def context = params.permit(:from, :section, :row, :back, :with_removed).to_h.symbolize_keys.compact_blank
+    # claims: opened through a Record row's waiting claims, kept by Take off and Put back too.
+    def context = params.permit(:from, :section, :row, :back, :with_removed, :claims).to_h.symbolize_keys.compact_blank
     helper_method :context
 
     # Where this item (the fact, or one claim on it) sits in the Checks list

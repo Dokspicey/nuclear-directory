@@ -99,7 +99,9 @@ class Admin::BaseController < ApplicationController
     # the back of each Record it was opened from on the way (Live → plant →
     # company → …). Live when there's none.
     def list_origin(path)
-      5.times do
+      seen = Set.new
+      # However many Records deep; each back is shorter than the path holding it, so this ends.
+      while seen.add?(path)
         return admin_live_path unless path.match?(%r{\A/admin(?:[/?#]|\z)})
 
         uri = URI.parse(path)

@@ -267,4 +267,32 @@ class Admin::RelatedTest < ActionDispatch::IntegrationTest
     assert_select "input[name=?]", "values[organization_id]", 0
     assert_select "input[name=?]", "values[facility_id]", 0
   end
+
+  test "Live in the crumbs survives any number of Records deep" do
+    live = admin_live_path(tab: "plants", q: "vogtle")
+    path = record(@site, back: live)
+    companies = (1..7).map { |n| sourced(Organization.create!(name: "Hop #{n} Co", **VERIFIED)) }
+    companies.each { |company| path = record(company, from: "record", section: "deals", row: "Relationship-0", back: path) }
+
+    get admin_fact_path(type: "FacilityRelationship", id: @owns.id, from: "record", section: "plants", row: "FacilityRelationship-#{@owns.id}", back: path)
+
+    assert_select ".nd-crumbs li a[href=?]", live, "Live"
+  end
+
+  test "Take off and Put back on a claim reached through a row's claims keep going through its claims" do
+    Candidate.create!(source: @web, kind: "facility", quote: "q", status: "needs_review", notes: "unsure", subject_type: "Facility", subject_id: @u2.id, payload: { "name" => "Vogtle 2" })
+    here = "#{record(@site, removed: 'units')}#item-Facility-#{@u2.id}"
+    get admin_fact_path(type: "Facility", id: @u2.id, claims: 1, from: "record", section: "units", row: "Facility-#{@u2.id}", back: here)
+
+    assert_includes css_select("form[action*='unpublish']").first["action"], "claims=1"
+  end
+
+  test "Edit on a Record opened from a row keeps the way back to that row's Record" do
+    parent = record(@site, back: admin_live_path)
+    company = record(@georgia, from: "record", section: "companies", row: "FacilityRelationship-#{@owns.id}", back: parent)
+
+    get company
+    assert_select "a.nd-btn[href=?]", admin_record_edit_path(type: "Organization", id: @georgia.id, from: "record", section: "companies",
+      row: "FacilityRelationship-#{@owns.id}", back: parent), "Edit"
+  end
 end
