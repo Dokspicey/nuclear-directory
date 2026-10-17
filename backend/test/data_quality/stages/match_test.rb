@@ -193,6 +193,16 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
     assert_equal "TerraPower", terrapower.name
   end
 
+  test "a company is found by another spelling it came under, as a plant is (#302)" do
+    organizations(:terrapower).aliases.create!(alias: "TERRAPOWER ISOTOPES DIVISION")
+    c = candidate("organization", { "name" => "Terrapower Holdings", "aliases" => [ "TERRAPOWER ISOTOPES DIVISION" ] })
+
+    match!
+
+    assert_equal organizations(:terrapower).id, c.reload.subject_id
+    assert_match "by name", c.notes
+  end
+
   test "the name a match was found under becomes an alias only once it's approved" do
     c = candidate("organization", { "name" => "TP Nuclear Holdings", "domain" => "terrapower.com" })
 
@@ -345,6 +355,19 @@ class DataQuality::Stages::MatchTest < ActiveSupport::TestCase
 
     assert c.reload.status_needs_review?
     assert_match "could be the same brand as Urenco or Urenco USA (its domain matches Urenco)", c.notes
+  end
+
+  test "a shared brand's note lists the companies in name order, whatever order the lookup returns" do
+    Directory::FactWriter.write(:organization, { name: "Urenco" })
+    Directory::FactWriter.write(:organization, { name: "Urenco USA" })
+    directory = DataQuality::DirectoryClient.new
+    # Descending on purpose: the opposite of the order the note must show.
+    directory.define_singleton_method(:same_brand_organizations) { |name| super(name).sort_by(&:name).reverse }
+    c = candidate("organization", { "name" => "Urenco Nuclear Operations LLC" })
+
+    DataQuality::Stages::Match.call(plugin: DummyPlugin.new, directory:)
+
+    assert_match "could be the same brand as Urenco or Urenco USA", c.reload.notes
   end
 
   test "brand checks read the plant names once per run, and again after a facility is written" do

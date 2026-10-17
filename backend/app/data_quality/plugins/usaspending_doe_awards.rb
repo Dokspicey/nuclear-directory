@@ -45,6 +45,13 @@ class DataQuality::Plugins::UsaspendingDoeAwards < DataQuality::Plugin
   FIELDS = [ "Award ID", "Recipient Name", "Award Amount", "Start Date", "End Date", "Description", "generated_internal_id", "recipient_id" ].freeze
   # USAspending's recipient hash and level, e.g. "1f4e2b…-C".
   RECIPIENT_ID = /\A[0-9a-f-]+-[A-Z]\z/i
+  # Legal suffixes a display name leaves out (DATA.md D1), and words kept as written.
+  LEGAL_SUFFIX = /,?\s+(?:INC|INCORPORATED|LLC|L\.L\.C|CORP|CORPORATION|COMPANY|CO|LTD|LIMITED|LP|L\.P|LLP|PLLC|PBC)\.?\z/i
+  ACRONYMS = %w[BWXT EPRI GE AMS PKMJ NOG USA US HALEU TRISO SMR 3M LLNL ORNL INL].freeze
+  SMALL_WORDS = %w[of and the for in on at].freeze
+  UNVERIFIED = { ai_recommendation: nil, ai_reason: nil, ai_confidence: nil, ai_model: nil, ai_checked_at: nil }.freeze
+  # Line-of-business words a shared brand drops ("BWXT Nuclear" => "BWXT").
+  GENERIC_WORDS = %w[nuclear energy power operations operating group services technologies technology holdings government].freeze
   COLUMNS = %w[award_id recipient_name amount_usd start_date end_date award_type assistance_listing search award_url
     generated_award_id recipient_id description].freeze
 
@@ -53,6 +60,7 @@ class DataQuality::Plugins::UsaspendingDoeAwards < DataQuality::Plugin
   end
 
   def crawl(_run)
+    reworded = { "reworded" => refresh_open_claims.size }.reject { |_, count| count.zero? }
     index = Source.find_or_create_by!(url: API_URL) do |source|
       source.source_kind = INDEX_SOURCE_KIND
       source.title = "USAspending.gov award search API"
@@ -72,9 +80,69 @@ class DataQuality::Plugins::UsaspendingDoeAwards < DataQuality::Plugin
         record(index, failure)
       end
     end
-    return { "api" => result.to_s } unless result == :ok
+    return { "api" => result.to_s }.merge(reworded) unless result == :ok
 
-    { "api" => "ok" }.merge(stats)
+    { "api" => "ok" }.merge(stats).merge(reworded)
+  end
+
+  # Claims still open from earlier crawls take this plug-in's current
+  # wording and names (#302), as do the pending records the crawler made for
+  # them (never one a person decided). A link whose wording changed after the
+  # verifier disputed it goes back to verify, which this run's verify stage
+  # then reads. A claim waiting on a person's same-company call keeps its
+  # place. Once reworded, a claim reads the same again, so this changes
+  # nothing on later runs. A pending company several claims share is named
+  # after the words their names share ("BWXT" for "BWXT Nuclear Energy" and
+  # "BWXT Nuclear Operations Group"), each spelling kept as an alias.
+  # Returns what changed: [{ candidate:, changes:, reverify: }].
+  def refresh_open_claims(by: "agent:#{source_kind}")
+    directory = DataQuality::DirectoryClient.new
+    open = Candidate.joins(:source).where(sources: { source_kind: }, status: %w[new matched needs_review]).includes(:source).order(:id).to_a
+    fresh = open.to_h { |candidate| [ candidate.id, extract(candidate.source, nil).find { |item| item[:kind] == candidate.kind } ] }
+    shared = open.select { |candidate| candidate.kind == "organization" && candidate.subject_id && fresh[candidate.id] }
+      .group_by(&:subject_id).transform_values { |claims| shared_name(claims.map { |claim| fresh[claim.id][:payload]["name"] }) }
+    open.filter_map do |loaded|
+      item = fresh[loaded.id] or next
+
+      Candidate.transaction do
+        # Locked and read again: a claim a person decided meanwhile is left as decided.
+        candidate = Candidate.lock.find_by(id: loaded.id)
+        next unless candidate && %w[new matched needs_review].include?(candidate.status)
+
+        payload = item[:payload]
+        payload = payload.merge("name" => shared[candidate.subject_id]) if candidate.kind == "organization" && shared[candidate.subject_id]
+        # The whole claim as extracted now, so its values stay consistent with each other.
+        changes = payload.reject { |key, value| candidate.payload[key] == value }
+        next if changes.empty?
+
+        reverify = changes.key?("description") && candidate.status == "needs_review" && candidate.ai_recommendation.present?
+        # Only a record this claim proposed: an existing company it was matched to keeps its name.
+        record = directory.attached_record(candidate) if candidate.proposed_subject
+        if record&.verification_status == "pending" && !record.verified_by.to_s.start_with?("human:")
+          attributes = changes.slice(*(candidate.kind == "organization" ? %w[name aliases] : %w[description started_on])).symbolize_keys
+          # Claims sharing it with no name in common: it keeps its own.
+          attributes.delete(:name) if shared.key?(candidate.subject_id) && shared[candidate.subject_id].nil?
+          if attributes.any?
+            result = directory.write_pending(candidate.kind, attributes.merge(id: record.id), candidate:, crawl_run: nil, evidence: false)
+            # Refused (its company was rejected meanwhile, or the new name is
+            # another company's alias): left for a person, saying why, once;
+            # the crawl goes on.
+            if result.errors.any?
+              why = "Not reworded: #{result.errors.to_sentence}. Same company?"
+              candidate.update!(notes: [ candidate.notes, why ].compact_blank.join(" · ")) unless candidate.notes.to_s.include?(why)
+              next
+            end
+          end
+        end
+        note = "Reworded for #302 by #{by}#{'; sent back to verify' if reverify}"
+        # Back to verify: as matched when attached, else as new (matched needs a record).
+        candidate.update!({ payload: candidate.payload.merge(changes), notes: [ candidate.notes, note ].compact_blank.join(" · ") }
+          .merge(reverify ? { status: candidate.subject_id ? "matched" : "new" } : {})
+          # A verdict on the old wording no longer holds: verify reads the claim again.
+          .merge(reverify || %w[new matched].include?(candidate.status) ? UNVERIFIED : {}))
+        { candidate:, changes:, reverify: }
+      end
+    end
   end
 
   # The facts every row's source states, which a single row doesn't repeat.
@@ -90,17 +158,23 @@ class DataQuality::Plugins::UsaspendingDoeAwards < DataQuality::Plugin
   # The link's total, award count and first year come from every row, so the
   # verifier sees the recipient's whole table, header included, rather than
   # a passage around one award.
-  def verification_context(source, _quote) = source.content_text.to_s
+  # The count is stated, so the header line isn't taken for an award (#302).
+  def verification_context(source, _quote)
+    text = source.content_text.to_s
+    rows = CSV.parse(text, headers: true).count { |row| row["recipient_name"].present? }
+    "#{rows} #{rows == 1 ? 'award' : 'awards'}, one per row after the header line:\n#{text}"
+  end
 
   def extract(source, _run)
     rows = CSV.parse(source.content_text.to_s, headers: true).select { |row| row["recipient_name"].present? }
     return [] if rows.empty?
 
     recipient = rows.first["recipient_name"]
+    name = display_name(recipient)
     largest = rows.max_by { |row| row["amount_usd"].to_d }
     quote = largest.to_csv.chomp
     [
-      { kind: "organization", payload: { "name" => recipient }, quote: },
+      { kind: "organization", payload: { "name" => name, "aliases" => ([ recipient ] if name != recipient) }.compact, quote: },
       { kind: "relationship", quote:, payload: {
         "from_organization" => { "name" => FUNDER }, "to_organization" => { "name" => recipient },
         "relationship_type" => "funds", "description" => summary(rows),
@@ -109,7 +183,43 @@ class DataQuality::Plugins::UsaspendingDoeAwards < DataQuality::Plugin
     ]
   end
 
+  # A company's name as people read it, from the award's spelling (DATA.md
+  # D1, #302): an all-capitals name in title case, its legal suffix dropped
+  # ("BROOKHAVEN TECHNOLOGY GROUP INC" => "Brookhaven Technology Group"),
+  # acronyms kept ("BWXT NUCLEAR ENERGY, INC." => "BWXT Nuclear Energy").
+  # A name already in mixed case is the company's own and is kept.
+  def display_name(spelling)
+    spelling = spelling.to_s.squish
+    return spelling unless spelling.match?(/[A-Z]/) && spelling == spelling.upcase
+
+    name = spelling
+    name = name.sub(LEGAL_SUFFIX, "") while name.match?(LEGAL_SUFFIX) && name.sub(LEGAL_SUFFIX, "").present?
+    words = name.split(/(\s+|-|\/)/)
+    words.each_with_index.map do |word, index|
+      next word if word.match?(/\A(?:\s+|-|\/)\z/)
+      next word if ACRONYMS.include?(word.delete(".,")) || (word.match?(/\A[A-Z&]{2,5}\z/) && !word.match?(/[AEIOU]/))
+      next word.downcase if index.positive? && SMALL_WORDS.include?(word.downcase)
+
+      word.capitalize
+    end.join.delete_suffix(",").presence || spelling
+  end
+
   private
+    # One name for claims that share a company: theirs when they agree, else
+    # the words they all start with, without a trailing "and" or legal word;
+    # nil when they share none (the record keeps its name).
+    def shared_name(names)
+      names = names.compact.uniq
+      return names.first if names.size <= 1
+
+      words = names.map(&:split)
+      common = words.first.each_with_index.take_while { |word, index| words.all? { |other| other[index] == word } }.map(&:first)
+      common.pop while common.any? && SMALL_WORDS.include?(common.last.downcase)
+      # "BWXT Nuclear" is still BWXT: the brand, not the line of business.
+      common.pop while common.size > 1 && GENERIC_WORDS.include?(common.last.downcase)
+      common.join(" ").presence
+    end
+
     # [rows, nil], or [nil, the Response that stopped it].
     def search_all
       rows = {}
@@ -220,15 +330,23 @@ class DataQuality::Plugins::UsaspendingDoeAwards < DataQuality::Plugin
       stats
     end
 
-    # "3 awards from the U.S. Department of Energy totaling $2.62 billion,
-    # 2019–2026: DENE0009054, DENE0009040 and DENE0008928."
+    # "3 awards from the U.S. Department of Energy totaling $2.62 billion
+    # (first in 2019, latest in 2026): DENE0009054, DENE0009040 and DENE0008928."
+    # The years are when awards started, said so they can't be read as the
+    # period the awards run (#302).
     def summary(rows)
       total = rows.sum { |row| row["amount_usd"].to_d }
-      years = rows.filter_map { |row| row["start_date"].to_s[0, 4].presence }.minmax.uniq.join("–")
+      first, latest = rows.filter_map { |row| row["start_date"].to_s[0, 4].presence }.minmax
+      years =
+        if first.nil? then nil
+        elsif rows.one? then " (#{first})"
+        elsif first == latest then " (all in #{first})"
+        else " (first in #{first}, latest in #{latest})"
+        end
       ids = rows.sort_by { |row| -row["amount_usd"].to_d }.map { |row| row["award_id"] }
       listed = ids.size > 3 ? "#{ids.first(3).join(', ')} and #{ids.size - 3} more" : ids.to_sentence(last_word_connector: " and ")
       noun = rows.size == 1 ? "award" : "awards"
-      "#{rows.size} #{noun} from the #{FUNDER} totaling #{dollars(total)}#{", #{years}" if years.present?}: #{listed}."
+      "#{rows.size} #{noun} from the #{FUNDER} totaling #{dollars(total)}#{years}: #{listed}."
     end
 
     def dollars(amount)
