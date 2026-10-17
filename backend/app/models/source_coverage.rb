@@ -18,7 +18,8 @@ class SourceCoverage
   end
 
   # documents and facts: what its single-category crawlers have read and
-  # back; nil ("—") until #281 can tell which records are in it.
+  # back (each fact once); nil ("—") until #281 can tell which records are
+  # in it.
   Category = Data.define(:key, :name, :sources, :documents, :facts) do
     def live_count = sources.count(&:live?)
     def live? = live_count.positive?
@@ -36,10 +37,11 @@ class SourceCoverage
       kind_counts = entries.flat_map { |entry| entry["sources"].filter_map { |row| row["kind"] } }.tally
       entries.map do |entry|
         sources = entry.fetch("sources").map { |row| source(row) }
-        own = sources.select { |row| row.live? && row.kind && kind_counts[row.kind] == 1 }.map { |row| catalog[row.kind] }.compact
+        # Whatever they've read, live or not: freshness is the Coverage column's.
+        own = sources.select { |row| row.kind && kind_counts[row.kind] == 1 }.map { |row| catalog[row.kind] }.compact.uniq
         key = entry.fetch("key")
         Category.new(key:, name: display_name(key, entry.fetch("name")), sources:,
-          documents: (own.sum(&:documents) if own.any?), facts: (own.sum(&:facts) if own.any?))
+          documents: (own.sum(&:documents) if own.any?), facts: (SourceCatalog.facts_backed_by(own.map(&:key)) if own.any?))
       end
     end
   end
@@ -56,10 +58,17 @@ class SourceCoverage
         note: row["note"], group: row["group"], domain: row["domain"], documents: (hand_documents(row) if status == "hand"))
     end
 
-    # Crawler kinds that have documents and a successful run in LIVE_WITHIN.
+    # Crawler kinds that have read something within LIVE_WITHIN: a crawl run
+    # that succeeded, and a document it fetched with content and an OK status.
+    # Re-processing old documents (extract, match, verify) or a blocked
+    # fetch doesn't count.
     def live_kinds
-      @live_kinds ||= CrawlRun.succeeded.where(started_at: LIVE_WITHIN.ago..).distinct.pluck(:source_kind).to_set &
-        ::Source.distinct.pluck(:source_kind).to_set
+      @live_kinds ||= begin
+        since = LIVE_WITHIN.ago
+        crawled = CrawlRun.succeeded.stage_crawl.where(started_at: since..).distinct.pluck(:source_kind).to_set
+        read = ::Source.crawl_ok.where(fetched_at: since..).where.not(content_sha256: nil).distinct.pluck(:source_kind).to_set
+        crawled & read
+      end
     end
 
     def catalog = @catalog ||= SourceCatalog.official.index_by(&:kind)

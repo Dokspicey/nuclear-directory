@@ -6,9 +6,12 @@ class Admin::SourcesByCategoryTest < ActionDispatch::IntegrationTest
   setup { sign_in_as users(:admin) }
 
   # Runs a crawler, so its sources are live.
-  def run_crawler(kind, at: 1.hour.ago)
-    Source.create!(url: "https://example.gov/#{kind}-#{SecureRandom.hex(3)}", source_kind: kind)
+  # A crawler's run, and the document it read (fetched with content, OK), so it's live.
+  def run_crawler(kind, at: 1.hour.ago, read: true, crawl_status: "ok")
+    source = Source.create!(url: "https://example.gov/#{kind}-#{SecureRandom.hex(3)}", source_kind: kind, crawl_status:,
+      fetched_at: (at if read), content_sha256: (SecureRandom.hex(32) if read))
     CrawlRun.create!(stage: "crawl", source_kind: kind, status: "succeeded", started_at: at)
+    source
   end
 
   def category(key) = css_select("details##{key}").first
@@ -78,5 +81,46 @@ class Admin::SourcesByCategoryTest < ActionDispatch::IntegrationTest
     assert_equal SourceCoverage.new.categories.find { |category| category.key == "reactor-developers" }.sources, renamed.sources
     assert_equal %w[utilities reactor-developers fuel components waste-decommissioning services power-buyers investors government-research],
       SourceCoverage.new.categories.map(&:key), "the buckets' slugs (#322), in DATA.md order"
+  end
+
+  test "live means a crawl read something lately: not re-processing old documents, nor a blocked fetch" do
+    run_crawler("nrc_reactor_list", at: 5.days.ago)
+    CrawlRun.create!(stage: "match", source_kind: "nrc_reactor_list", status: "succeeded", started_at: 1.hour.ago)
+    get admin_sources_path(by: "category")
+    assert_select "details#utilities .nd-cov__src", /NRC reactor list.*Built/m, "a recent match over old documents isn't a read"
+
+    run_crawler("eia_generators", crawl_status: "blocked")
+    get admin_sources_path(by: "category")
+    assert_select "details#utilities .nd-cov__src", /EIA-860M generators.*Built/m, "a blocked fetch isn't a read"
+    assert_select "details#utilities summary .nd-flag", "No live source"
+  end
+
+  test "a category's facts count each fact once, and its counts stay when a crawler goes stale" do
+    unit = Facility.create!(name: "Shared Unit", verification_status: "verified", verified_by: "human:tosin")
+    nrc = run_crawler("nrc_reactor_list")
+    eia = run_crawler("eia_generators", at: 5.days.ago)
+    [ nrc, eia ].each { |source| Evidence.create!(subject: unit, source:, quote: "Shared Unit", found_by: "crawler") }
+
+    utilities = SourceCoverage.new.categories.find { |category| category.key == "utilities" }
+
+    assert_equal 1, utilities.facts, "backed by NRC and EIA, counted once"
+    assert_equal Source.where(source_kind: %w[nrc_reactor_list eia_generators]).count, utilities.documents, "EIA's stale document still counts"
+    assert_equal 1, utilities.live_count
+  end
+
+  test "names with commas keep all of them; an empty hand-research group isn't linked" do
+    get admin_sources_path(by: "category")
+
+    assert_select ".nd-cov__src", /DOE program pages \(ARDP, GAIN vouchers, Fusion Milestone\)/
+    assert_select ".nd-cov__src", /SEC Form D, 8-K and 10-K/
+    assert_select ".nd-cov__src", /World Nuclear News/
+    assert_select ".nd-cov__src a", { text: "World Nuclear News", count: 0 }, "no documents, no page to link to"
+  end
+
+  test "each count says what it counts to a screen reader" do
+    get admin_sources_path(by: "category")
+
+    assert_select "details#utilities summary .sr-only", %w[Live\ sources: Documents: Facts:].size
+    assert_select "#general-heading ~ details summary .sr-only", 3
   end
 end
