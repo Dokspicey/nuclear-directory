@@ -223,13 +223,16 @@ module Seed
         @rows[key] = [ state, @rows[key] ].compact.min_by { |seen| STATES.index(seen) }
       end
 
-      # A merge changes both companies, and moves the former one's links:
-      # each counts as changed, even when a later write only restates it.
+      # A merge changes both companies, and moves (or rejects, as a
+      # duplicate) the former one's open links: each counts as changed, even
+      # when a later write only restates it. A rejected or unpublished link
+      # stays as it was decided, so it isn't counted.
       def count_merge(former_id, target_id)
         former = Organization.find(former_id)
-        moved = { organization_role: former.organization_roles.ids, organization_technology: former.organization_technologies.ids,
-          facility_relationship: former.facility_relationships.ids,
-          relationship: Relationship.where(from_organization_id: former_id).or(Relationship.where(to_organization_id: former_id)).ids }
+        open = ->(scope) { scope.where.not(verification_status: Verifiable::CLOSED_STATUSES).ids }
+        moved = { organization_role: open.(former.organization_roles), organization_technology: open.(former.organization_technologies),
+          facility_relationship: open.(former.facility_relationships),
+          relationship: open.(Relationship.where(from_organization_id: former_id).or(Relationship.where(to_organization_id: former_id))) }
         yield.tap do |result|
           next unless result.ok?
 

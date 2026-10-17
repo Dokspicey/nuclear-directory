@@ -301,6 +301,21 @@ class Seed::OrganizationLoaderTest < ActiveSupport::TestCase
     assert_equal({ created: 0, changed: 0, unchanged: 1 }, again.results[:facility_relationship])
   end
 
+  test "a merge counts the links it moved, not one that stays as it was decided (#301)" do
+    write_file("acme", org("Acme", website: "https://acme.com"))
+    write_file("acme-usa", org("Acme USA", website: "https://acme.com/usa",
+      facilities: [ item(name: "Acme Plant", type: "operates"), item(name: "Other Plant", type: "owns") ]))
+    Seed::OrganizationLoader.new(@dir).load!
+    old = Organization.find_by!(slug: "acme-usa")
+    old.facility_relationships.joins(:facility).find_by!(facilities: { name: "Other Plant" }).unpublish!(by: "human:tosin", reason: "Sold")
+
+    File.delete(File.join(@dir, "acme-usa.yml"))
+    write_file("acme", org("Acme", website: "https://acme.com", merges: [ "Acme USA" ], aliases: [ "Acme USA" ]))
+    merged = Seed::OrganizationLoader.new(@dir).load!
+
+    assert_equal({ created: 0, changed: 1, unchanged: 0 }, merged.results[:facility_relationship], "the taken-off link isn't counted")
+  end
+
   test "the dry run lists a name another organization already has" do
     write_file("acme", org("Acme", website: "https://acme.com"))
     write_file("acme-usa", org("Acme USA", website: "https://acme.com/usa"))
