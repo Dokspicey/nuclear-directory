@@ -37,7 +37,8 @@ class SourceCoverage
       entries.map do |entry|
         sources = entry.fetch("sources").map { |row| source(row) }
         own = sources.select { |row| row.live? && row.kind && kind_counts[row.kind] == 1 }.map { |row| catalog[row.kind] }.compact
-        Category.new(key: entry.fetch("name").parameterize, name: entry.fetch("name"), sources:,
+        key = entry.fetch("key")
+        Category.new(key:, name: display_name(key, entry.fetch("name")), sources:,
           documents: (own.sum(&:documents) if own.any?), facts: (own.sum(&:facts) if own.any?))
       end
     end
@@ -62,6 +63,15 @@ class SourceCoverage
     end
 
     def catalog = @catalog ||= SourceCatalog.official.index_by(&:kind)
+
+    # Matched by the bucket's stable slug, never its name, so a rename
+    # ("Reactor developers" to "Developers", #322) doesn't break it. Once the
+    # app has buckets (::Category.buckets, #322), their names are shown;
+    # until then, the lookup's.
+    def display_name(key, fallback)
+      bucket = ::Category.find(key) if ::Category.respond_to?(:buckets)
+      bucket&.name || fallback
+    end
 
     def hand_documents(row)
       return ::Source.where(source_kind: SourceCatalog::RESEARCH_KIND, domain: row["domain"]).count if row["domain"]

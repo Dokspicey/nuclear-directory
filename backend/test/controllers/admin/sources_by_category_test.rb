@@ -32,29 +32,29 @@ class Admin::SourcesByCategoryTest < ActionDispatch::IntegrationTest
     flagged = css_select("details.nd-cov__cat summary .nd-flag").size
     assert_equal 8, flagged
     assert_select "p .nd-flag", "8 of 9 categories have no live source"
-    assert_select "details#utilities-and-operators[open] summary", /1 of 4.*Live/m
-    assert_select "details#waste-and-decommissioning:not([open]) summary .nd-flag", "No live source"
+    assert_select "details#utilities[open] summary", /1 of 4.*Live/m
+    assert_select "details#waste-decommissioning:not([open]) summary .nd-flag", "No live source"
   end
 
   test "a built source isn't live until its crawler has read something and run lately" do
     get admin_sources_path(by: "category")
-    assert_select "details#government-and-research .nd-cov__src", /DOE awards \(USAspending\).*Built · #260, not running yet/m
+    assert_select "details#government-research .nd-cov__src", /DOE awards \(USAspending\).*Built · #260, not running yet/m
 
     run_crawler("usaspending_doe_awards", at: 5.days.ago)
     get admin_sources_path(by: "category")
-    assert_select "details#government-and-research summary .nd-flag", "No live source", "a run 5 days ago isn't live"
+    assert_select "details#government-research summary .nd-flag", "No live source", "a run 5 days ago isn't live"
 
     run_crawler("usaspending_doe_awards")
     get admin_sources_path(by: "category")
-    assert_select "details#government-and-research summary", /1 of 2.*Live/m
-    assert_select "details#government-and-research .nd-cov__src a[href=?]", admin_source_path(key: "usaspending_doe_awards"), "DOE awards (USAspending)"
+    assert_select "details#government-research summary", /1 of 2.*Live/m
+    assert_select "details#government-research .nd-cov__src a[href=?]", admin_source_path(key: "usaspending_doe_awards"), "DOE awards (USAspending)"
   end
 
   test "an issue number links out to GitHub in a new tab; a source with none is Missing" do
     get admin_sources_path(by: "category")
 
-    assert_select "details#waste-and-decommissioning a[href=?][target=_blank]", "https://github.com/tosinoladokun/nuclear-directory/issues/274", "#274"
-    assert_select "details#government-and-research .text-critical", "Missing · no issue yet"
+    assert_select "details#waste-decommissioning a[href=?][target=_blank]", "https://github.com/tosinoladokun/nuclear-directory/issues/274", "#274"
+    assert_select "details#government-research .text-critical", "Missing · no issue yet"
     assert_select "details#reactor-developers .nd-cov__src", /GAIN directory\s*leads only/
   end
 
@@ -67,5 +67,16 @@ class Admin::SourcesByCategoryTest < ActionDispatch::IntegrationTest
     assert_select ".nd-cov__src", /World Nuclear News.*Hand research · 1 document\b/m
     assert_select ".nd-cov__src", /Daily lead researcher\s*leads for Data Quality, not facts.*Planned · #278/m
     assert_select "p", "Hand-research pages count in the category of the company or plant they back."
+  end
+
+  test "categories are matched by their stable slug, so renaming one keeps its sources" do
+    config = YAML.load_file(SourceCoverage::FILE)
+    config["categories"].find { |entry| entry["key"] == "reactor-developers" }["name"] = "Developers"
+    renamed = SourceCoverage.new(config).categories.find { |category| category.key == "reactor-developers" }
+
+    assert_equal "Developers", renamed.name
+    assert_equal SourceCoverage.new.categories.find { |category| category.key == "reactor-developers" }.sources, renamed.sources
+    assert_equal %w[utilities reactor-developers fuel components waste-decommissioning services power-buyers investors government-research],
+      SourceCoverage.new.categories.map(&:key), "the buckets' slugs (#322), in DATA.md order"
   end
 end
