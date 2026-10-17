@@ -133,7 +133,9 @@ class Admin::SourcesByCategoryTest < ActionDispatch::IntegrationTest
 
   test "DOE awards aren't live while the USAspending API they come through is failing" do
     run_crawler("usaspending_doe_awards")
+    # As the plug-in records it: fetched and OK, with no content of its own.
     api = run_crawler("usaspending_api")
+    api.update!(content_sha256: nil)
     get admin_sources_path(by: "category")
     assert_select "details#government-research summary", /1 of 2.*Live/m
 

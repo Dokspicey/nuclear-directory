@@ -71,11 +71,13 @@ class SourceCoverage
       @live_kinds ||= begin
         since = LIVE_WITHIN.ago
         crawled = CrawlRun.succeeded.stage_crawl.where(started_at: since..).distinct.pluck(:source_kind).to_set
-        healthy = ::Source.crawl_ok.where(fetched_at: since.., status_reason: nil).where.not(content_sha256: nil)
-        read = healthy.distinct.pluck(:source_kind).to_set
-        # A companion is unhealthy when any of its sources has a problem or wasn't fetched lately.
+        fetched = ::Source.crawl_ok.where(fetched_at: since.., status_reason: nil)
+        read = fetched.where.not(content_sha256: nil).distinct.pluck(:source_kind).to_set
+        # A companion is unhealthy when any of its sources has a problem or
+        # wasn't fetched lately. It needn't store content itself (the
+        # USAspending API's results are stored on the recipients' documents).
         failing = ::Source.where(source_kind: COMPANIONS.values.flatten)
-          .where.not(id: healthy.select(:id)).distinct.pluck(:source_kind).to_set
+          .where.not(id: fetched.select(:id)).distinct.pluck(:source_kind).to_set
         (crawled & read).reject { |kind| COMPANIONS.fetch(kind, []).any? { |companion| failing.include?(companion) } }.to_set
       end
     end
