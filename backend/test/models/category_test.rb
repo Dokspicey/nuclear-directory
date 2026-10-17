@@ -24,7 +24,7 @@ class CategoryTest < ActiveSupport::TestCase
   end
 
   # Keys docs/DATA.md decided that arrive with their first sourced company.
-  DECIDED_KEYS = %w[components waste_decommissioning isotopes university project_developer].freeze
+  DECIDED_KEYS = %w[components waste_decommissioning isotopes university project_developer research_organization].freeze
 
   test "every role key a bucket uses is a seeded role, or one DATA.md decided" do
     roles_block = File.read(Rails.root.join("db/seeds.rb"))[/^ROLES = \[(.*?)^\]\.freeze/m, 1]

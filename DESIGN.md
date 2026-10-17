@@ -107,7 +107,7 @@ Home and the directory show the nine buckets of companies (docs/DATA.md section 
 | Power buyers | `power-buyers` | role `data_center_offtaker`, or the buyer in a power deal, unless it's a utility | 7 |
 | Services and engineering | `services` | roles `reactor_services` or `regulatory_consultant` | 8 |
 | Investors | `investors` | role `venture_capital`, or the funder in an *invests in* or *funds* link, unless it's government | 9 |
-| Government and research | `government-research` | roles `government_agency`, `national_lab` or `university` | 10 |
+| Government and research | `government-research` | roles `government_agency`, `national_lab`, `university` or `research_organization` (EPRI) | 10 |
 
 Where one label fits (the breadcrumb, a company's link card), a company shows its first bucket in this order. Its page lists them all under "Type".
 

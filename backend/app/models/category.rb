@@ -69,8 +69,9 @@ class Category
     new(key: "investors", name: "Investors", role_keys: %w[venture_capital], links: :investments,
       title: "Investors in US nuclear and fusion companies",
       about: "investors in US nuclear and fusion companies"),
-    new(key: "government-research", name: "Government and research", role_keys: %w[government_agency national_lab university],
-      title: "US nuclear agencies, national labs and universities",
-      about: "government agencies, national labs and universities in US nuclear energy")
+    # Independent research organizations such as EPRI too (Tosin, 17 Oct).
+    new(key: "government-research", name: "Government and research", role_keys: %w[government_agency national_lab university research_organization],
+      title: "US nuclear agencies, labs and research organizations",
+      about: "government agencies, national labs, universities and research organizations in US nuclear energy")
   ].freeze
 end

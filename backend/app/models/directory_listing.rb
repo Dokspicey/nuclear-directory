@@ -38,10 +38,12 @@ class DirectoryListing
     ordered(company_scope.select("organizations.*", "(#{company_connections_sql}) AS connections_count"), "organizations.name")
   end
 
-  # Each site also gets #units_count and #units_capacity_mw, from its published units.
+  # Each site also gets #units_statuses (one per published unit, for
+  # units_summary) and #units_capacity_mw, the sum of its operating units'.
   def plants
     ordered(plant_scope.select("facilities.*", "(#{plant_connections_sql}) AS connections_count",
-      "(#{units_sql("COUNT(*)")}) AS units_count", "(#{units_sql("SUM(u.capacity_mw)")}) AS units_capacity_mw",
+      "ARRAY(#{units_sql("u.status")}) AS units_statuses",
+      "(#{units_sql("SUM(u.capacity_mw) FILTER (WHERE u.status = 'operating')")}) AS units_capacity_mw",
       # For the site's icon: its sourced units' reactor types, and whether the
       # site's own facts are sourced, as its page decides (PlantProfile).
       "ARRAY(#{units_sql("u.reactor_type")} AND #{sourced_sql("u.id")}) AS units_reactor_types",

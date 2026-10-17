@@ -73,6 +73,8 @@ class BucketTest < ActiveSupport::TestCase
 
     assert_equal [ "Amazon", "Bill Fund", "Khosla Ventures" ], in_bucket("investors"), "government never is one, whatever its roles"
     assert_equal [ "State Fund", "US Department of Energy" ], in_bucket("government-research")
+    cite!(company("EPRI", roles: [ role("research_organization") ]))
+    assert_includes in_bucket("government-research"), "EPRI", "independent research organizations too (Tosin, 17 Oct)"
     assert_equal 3, Bucket.counts["investors"]
   end
 
