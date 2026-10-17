@@ -87,9 +87,10 @@ class Admin::StatusChangesController < Admin::BaseController
       "Status changed to #{helpers.facility_status_label(@status).downcase} for #{helpers.pluralize(plan.changes.size, 'record')}."
     end
 
-    # The site's Record, or the unit's fact page.
+    # The site's Record, or the unit's fact page, with the list it was opened from (back).
     def back_here
-      @facility.parent_id ? admin_fact_path(type: "Facility", id: @facility.id) : admin_record_path(type: "Facility", id: @facility.id)
+      back = params[:back].presence if back_path(nil)
+      @facility.parent_id ? admin_fact_path(type: "Facility", id: @facility.id, back:) : admin_record_path(type: "Facility", id: @facility.id, back:)
     end
     helper_method :back_here
 end

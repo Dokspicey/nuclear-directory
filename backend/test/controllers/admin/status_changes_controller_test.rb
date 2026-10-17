@@ -211,4 +211,23 @@ class Admin::StatusChangesControllerTest < ActionDispatch::IntegrationTest
   ensure
     Collide.left = 0
   end
+
+  test "Design's fixes: Preview lands on What changes, the link's hint, 44px choices, and the way back to Live" do
+    live = admin_live_path(tab: "plants")
+    get admin_record_path(type: "Facility", id: @site.id, back: live)
+    assert_select "a.nd-btn[href=?]", admin_facility_status_path(id: @site.id, back: live), "Change status"
+
+    get admin_facility_status_path(id: @site.id, back: live)
+    assert_select "form[method=get][action=?]", admin_facility_status_path(id: @site.id, anchor: "preview-heading")
+    assert_select "form[method=get] input[name=back][value=?]", live
+    assert_select "label[for=url] span", "(a public page that states the status)"
+    assert_select "label.nd-choice input[name=evidence]", 2
+    assert_select ".nd-crumbs a[href=?]", admin_record_path(type: "Facility", id: @site.id, back: live)
+
+    confirm(back: live)
+    assert_redirected_to admin_record_path(type: "Facility", id: @site.id, back: live)
+
+    confirm(back: "https://elsewhere.example/")
+    assert_redirected_to admin_record_path(type: "Facility", id: @site.id), "only a way back inside the admin"
+  end
 end

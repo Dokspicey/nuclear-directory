@@ -18,7 +18,9 @@
     </div>
   <% end %>
 
-  <%= form_with url: admin_facility_status_path(id: @facility.id), method: :get, class: "nd-stack", data: { turbo: false } do %>
+  <%# Preview lands on "What changes", so it's in view on a phone. %>
+  <%= form_with url: admin_facility_status_path(id: @facility.id, anchor: "preview-heading"), method: :get, class: "nd-stack", data: { turbo: false } do %>
+    <%= hidden_field_tag :back, params[:back], id: nil if params[:back].present? %>
     <div class="nd-field">
       <label for="status" class="type-body-strong">New status</label>
       <%= select_tag :status, options_for_select(DirectoryHelper::FACILITY_STATUS_LABELS.invert, @status || params[:status]), include_blank: "Choose a status", class: "nd-input type-input", required: true %>
@@ -28,7 +30,7 @@
       <fieldset class="nd-field">
         <legend class="type-body-strong">Also change its units</legend>
         <% @units.each do |unit| %>
-          <label class="nd-row type-body">
+          <label class="nd-row nd-choice type-body">
             <%= check_box_tag "unit_ids[]", unit.id, ticked.include?(unit.id), id: "unit_#{unit.id}", class: "nd-check" %>
             <%= unit.name %> <span class="type-small text-ink-muted"><%= unit.status ? facility_status_label(unit.status) : "No status" %></span>
           </label>
@@ -39,16 +41,16 @@
     <fieldset class="nd-field">
       <legend class="type-body-strong">Source</legend>
       <% if @nrc %>
-        <label class="nd-row type-body">
+        <label class="nd-row nd-choice type-body">
           <%= radio_button_tag :evidence, "nrc", @evidence == "nrc", class: "nd-check" %>
           NRC's power status file: <span class="type-data"><%= @nrc.last %></span>
         </label>
       <% end %>
-      <label class="nd-row type-body"><%= radio_button_tag :evidence, "link", @evidence == "link", class: "nd-check" %> A link and a quote</label>
+      <label class="nd-row nd-choice type-body"><%= radio_button_tag :evidence, "link", @evidence == "link", class: "nd-check" %> A link and a quote</label>
     </fieldset>
 
     <div class="nd-field">
-      <label for="url" class="type-body-strong">Link <span class="type-small text-ink-muted">(with a link and a quote)</span></label>
+      <label for="url" class="type-body-strong">Link <span class="type-small text-ink-muted">(a public page that states the status)</span></label>
       <%= url_field_tag :url, params[:url], class: "nd-input type-input", placeholder: "https://" %>
     </div>
     <div class="nd-field">
@@ -85,6 +87,7 @@
         <% end %>
 
         <%= form_with url: admin_facility_status_path(id: @facility.id), method: :patch do %>
+          <%= hidden_field_tag :back, params[:back], id: nil if params[:back].present? %>
           <%= hidden_field_tag :status, @status, id: nil %>
           <%= hidden_field_tag :evidence, @evidence, id: nil %>
           <%= hidden_field_tag :nrc_quote, @nrc&.last, id: nil if @evidence == "nrc" %>
