@@ -1,0 +1,122 @@
+<% content_for :title, "Sources" %>
+<% num = ->(n) { n.nil? ? "—" : number_with_delimiter(n) } %>
+
+<div class="nd-shell__head">
+  <h1 class="type-admin-h1">Sources <span class="type-count"><%= number_with_delimiter(SourceCatalog.total) %></span></h1>
+  <%= render "admin/sources/search_box", query: nil %>
+</div>
+
+<div class="overflow-x-auto">
+  <table class="nd-numtable nd-stack-table nd-sources nd-sources--list">
+    <thead>
+      <tr><th scope="col">Source</th><th scope="col">Documents</th><th scope="col">Facts</th><th scope="col">Last read</th><th scope="col" class="nd-l">Status</th></tr>
+    </thead>
+    <tbody>
+      <tr class="nd-sources__group"><td colspan="5">Official records <span class="type-data"><%= @official.reject(&:soon).sum(&:documents) %></span></td></tr>
+      <% @official.each do |entry| %>
+        <% run = @runs_by_kind[entry.kind] %>
+        <tr>
+          <td class="type-body">
+            <% if entry.soon %>
+              <span class="text-ink-muted"><%= entry.name %></span>
+            <% else %>
+              <%= link_to entry.name, admin_source_path(key: entry.key), class: "nd-link" %>
+            <% end %>
+            <% if entry.note %><span class="type-data-sm text-ink-muted"> · <%= entry.note %></span><% end %>
+            <% if run && !entry.soon %>
+              <details class="nd-sources__run">
+                <summary class="type-small text-ink-muted">Last run</summary>
+                <% if (failure = SourceCatalog.failure(entry.kind)) %>
+                  <p class="type-data">The last read failed<% if failure.error.present? %>: <%= failure.error.truncate(120) %><% end %>. These are an earlier run's counts.</p>
+                <% end %>
+                <p class="type-data text-ink-muted">
+                  Read <%= num.(run.read) %> · Same <%= num.(run.same) %> · Changed <%= num.(run.read && run.read.to_i - run.same.to_i) %>
+                  <% if run.changed.positive? %> · <%= link_to "#{run.changed} waiting", admin_checks_path(source: entry.kind), class: "nd-link" %><% end %>
+                </p>
+              </details>
+            <% end %>
+          </td>
+          <% if entry.soon %>
+            <%# On phones a Soon row is its name and "Soon" only. %>
+            <td class="type-cell-num nd-sources__blank">—</td><td class="type-cell-num nd-sources__blank">—</td><td class="type-data text-ink-muted nd-sources__blank">—</td><td class="nd-l"><span class="nd-tag">Soon</span></td>
+          <% else %>
+            <td class="type-cell-num" data-unit="<%= entry.documents == 1 ? "document" : "documents" %>"><%= num.(entry.documents) %></td>
+            <td class="type-cell-num nd-sources__facts" data-unit="<%= entry.facts == 1 ? "fact" : "facts" %>"><% if entry.facts.positive? %><%= link_to number_with_delimiter(entry.facts), admin_live_path(within: entry.key), class: "nd-link" %><span class="nd-sources__plain"><%= number_with_delimiter(entry.facts) %></span><% else %>0<% end %></td>
+            <td class="type-data text-ink-muted"><%= entry.last_read_at&.strftime("%-d %b %H:%M") || "—" %></td>
+            <td class="type-body nd-l"><%= entry.documents.zero? ? tag.span("Not read yet", class: "text-ink-muted") : source_status(entry.status, research: false) %></td>
+          <% end %>
+        </tr>
+      <% end %>
+
+      <tr class="nd-sources__group"><td colspan="5">Hand research <span class="type-data"><%= @research.sum(&:documents) %></span></td></tr>
+      <% @research.each do |entry| %>
+        <tr>
+          <td class="type-body"><%= link_to entry.name, admin_source_path(key: entry.key), class: "nd-link" %></td>
+          <td class="type-cell-num" data-unit="<%= entry.documents == 1 ? "document" : "documents" %>"><%= num.(entry.documents) %></td>
+          <td class="type-cell-num nd-sources__facts" data-unit="<%= entry.facts == 1 ? "fact" : "facts" %>"><% if entry.facts.positive? %><%= link_to number_with_delimiter(entry.facts), admin_live_path(within: entry.key), class: "nd-link" %><span class="nd-sources__plain"><%= number_with_delimiter(entry.facts) %></span><% else %>0<% end %></td>
+          <td class="type-data text-ink-muted"><%= entry.last_read_at&.strftime("%-d %b %H:%M") || "—" %></td>
+          <td class="type-body nd-l"><%= source_status(entry.status, research: true) %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+</div>
+
+<details class="nd-fold">
+  <summary class="type-body">Needs attention <span class="type-data nd-num"><%= @attention.attention.size %></span></summary>
+  <div class="nd-fold__body">
+    <% if @attention.attention.empty? %>
+      <p class="nd-fold__row type-body text-ink-muted">Nothing. <%= safe_join(@attention.by_status.map { |status, n| "#{crawl_status_label(status)} #{n}" }, " · ") %></p>
+    <% end %>
+    <% @attention.attention.each do |source| %>
+      <% url = safe_url(source.url) %>
+      <div class="nd-fold__row type-body" id="source-<%= source.id %>">
+        <p>
+          <%= crawl_status_label(source.crawl_status) %>:
+          <% if url %><%= link_to url, class: "nd-link", target: "_blank", rel: "noopener" do %><%= source.title.presence || source_host(url) %> <%= icon("arrow-square-out", size: 12) %><% end %><% else %><%= source.url %><% end %>
+          <br><span class="type-small text-ink-muted"><%= source.status_reason.presence || "No reason recorded." %><% if source.blocked_streak.to_i.positive? %> Blocked <%= pluralize(source.blocked_streak, "day") %> in a row.<% end %></span>
+        </p>
+        <span class="type-data text-ink-muted"><%= source.fetched_at&.utc&.strftime("%-d %b %H:%M") %></span>
+      </div>
+    <% end %>
+  </div>
+</details>
+
+<details class="nd-fold">
+  <summary class="type-body">Last run per stage <span class="type-data nd-num"><%= @runs.running.size + @runs.latest.size %></span></summary>
+  <div class="nd-fold__body">
+    <% if @runs.latest.empty? && @runs.running.empty? %>
+      <p class="nd-fold__row type-body text-ink-muted">No runs yet.</p>
+    <% end %>
+    <% (@runs.running + @runs.latest).each do |run| %>
+      <div class="nd-fold__row type-body">
+        <p>
+          <span class="type-data"><%= run.source_kind %></span> · <%= run.stage.humanize %> ·
+          <% if run.failed? %><span class="text-critical"><%= icon("warning-circle") %> Failed</span><% else %><%= run.status.humanize %><% end %>
+          <br><span class="type-small text-ink-muted"><%= run.failed? ? run.error.to_s.truncate(160) : run_detail(run.stats) %></span>
+        </p>
+        <span class="type-data text-ink-muted"><%= run.started_at.utc.strftime("%-d %b %H:%M") %> · <%= run_duration(run.duration) %></span>
+      </div>
+    <% end %>
+  </div>
+</details>
+
+<details class="nd-fold">
+  <summary class="type-body">Model spend <span class="type-data nd-num"><%= money(@spend.cost) %></span></summary>
+  <div class="nd-fold__body">
+    <p class="nd-fold__row type-body">
+      <span><%= Time.current.strftime("%B %Y") %>: <span class="nd-num"><%= number_with_delimiter(@spend.calls) %></span> <%= "call".pluralize(@spend.calls) %>, <span class="nd-num"><%= number_with_delimiter(@spend.total_tokens) %></span> <%= "token".pluralize(@spend.total_tokens) %></span>
+      <span class="type-data"><%= money(@spend.cost) %> of $<%= format("%.2f", @spend.budget) %> (<%= (@spend.share * 100).floor %>%)</span>
+    </p>
+    <%# Present when the page loads, so status rather than alert (an alert is for the result of an action). %>
+    <% if @spend.share >= 1 %>
+      <p class="nd-fold__row type-body" role="status">The budget is used up. Model calls are refused until next month or until the budget is raised.</p>
+    <% elsif @spend.share >= 0.8 %>
+      <p class="nd-fold__row type-body"><%= money(@spend.cost).upcase_first %> of <%= money(@spend.budget) %> used; model calls stop at 100%.</p>
+    <% end %>
+  </div>
+</details>
+
+<% if @analytics_url %>
+  <p class="type-body"><%= link_to @analytics_url, class: "nd-link", target: "_blank", rel: "noopener" do %>Visitors on PostHog <%= icon("arrow-square-out", size: 12) %><% end %></p>
+<% end %>
