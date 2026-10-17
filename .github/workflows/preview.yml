@@ -49,33 +49,33 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
         run: |
-          labelled="[]"
-          # Assigned on its own line: a failure inside a for loop's word list
-          # wouldn't stop the step, and an empty list would read as "free".
-          open_prs="$(gh api "repos/${GITHUB_REPOSITORY}/issues?labels=preview&state=open&per_page=100" --jq '.[] | select(.pull_request) | .number')"
-          for n in $open_prs; do
-            at="$(gh api --paginate "repos/${GITHUB_REPOSITORY}/issues/${n}/events?per_page=100" \
-              --jq '[.[] | select(.event == "labeled" and .label.name == "preview") | .created_at] | last // empty' | tail -n 1)"
-            labelled="$(jq -c --argjson n "$n" --arg at "$at" '. + [{number: $n, labeled_at: $at}]' <<< "$labelled")"
-          done
-          holder="$(jq -r --argjson pr "$PR" -f .github/scripts/preview_holder.jq <<< "$labelled")"
+          holder="$(.github/scripts/preview_holder.sh "$PR")"
           if [[ -z "$holder" ]]; then
             echo "free=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           echo "free=false" >> "$GITHUB_OUTPUT"
-          gh api -X DELETE "repos/${GITHUB_REPOSITORY}/issues/${PR}/labels/preview" > /dev/null || true
-          gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body "Preview is in use by #${holder}, so this PR's preview label was taken off and nothing was deployed. Ask the PM for the next turn. The slot frees when #${holder} merges, closes or loses its preview label; then label this PR again."
+          if [[ "$holder" == "unlabelled" ]]; then
+            echo "::notice::#${PR} no longer has the preview label; not deployed."
+            exit 0
+          fi
+          if gh api -X DELETE "repos/${GITHUB_REPOSITORY}/issues/${PR}/labels/preview" > /dev/null; then
+            removed="so this PR's preview label was taken off and nothing was deployed"
+          else
+            removed="so nothing was deployed (the preview label couldn't be taken off; please remove it)"
+          fi
+          gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body "Preview is in use by #${holder}, ${removed}. Ask the PM for the next turn. The slot frees when #${holder} merges, closes or loses its preview label; then label this PR again."
           echo "::notice::Preview slot held by #${holder}; not deployed."
 
   deploy:
     needs: admit
     if: needs.admit.outputs.free == 'true'
     runs-on: ubuntu-latest
-    # One deploy at a time; a newer one (the holder's next push) cancels an older one.
+    # One deploy at a time, never cancelled: a run admitted just before a
+    # handoff waits its turn, then finds it no longer holds the slot.
     concurrency:
       group: preview
-      cancel-in-progress: true
+      cancel-in-progress: false
     steps:
       # github.sha is the PR merged into the current main (refs/pull/N/merge),
       # so a stale PR still gets main's fixes, NOINDEX included.
@@ -83,12 +83,30 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Checked again inside the deploy group: the slot may have changed
+      # hands since admission.
+      - name: Check this PR still holds the slot
+        id: still
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          holder="$(.github/scripts/preview_holder.sh "$PR")"
+          if [[ -n "$holder" ]]; then
+            echo "::notice::The slot changed hands since admission (${holder}); not deployed."
+            echo "holds=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "holds=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Point the preview branch at this PR merged with main
+        if: steps.still.outputs.holds == 'true'
         env:
           SHA: ${{ github.sha }}
         run: git push --force origin "${SHA}:refs/heads/preview"
 
       - name: Comment the link
+        if: steps.still.outputs.holds == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
