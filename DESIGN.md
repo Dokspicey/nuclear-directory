@@ -64,6 +64,16 @@ Fonts come from techequity.us.
 - **Roboto Mono** (`mono`), from the same Roboto family, for everything you compare or copy: `data` and `data-sm`. Docket numbers, capacities, dates, counts and source domains.
 - Never set running text or a number in Anton, and never set a heading in mono. One exception: the 404 page's large "404" (`type-numeral`), a decorative display element hidden from screen readers, with the page's real heading in Roboto Serif below it.
 
+#### Text in a box stays on one line
+Text inside a box (a card title, chip, pill, button, tab, badge, table header, map label or node name) never wraps and never hyphenates. If it doesn't fit, the type gets smaller. Long-form paragraphs (descriptions, notes, prose pages) are exempt and wrap normally.
+1. **One line:** `white-space: nowrap`. Never use `hyphens: auto` anywhere in the interface, and never `overflow-wrap: anywhere` on a label.
+2. **Fit to the box:** the box is a size container (`container-type: inline-size`). The text's size comes from the box width and the label's length, clamped between the floor and its normal size. The server sets the label's character count as `--chars`:
+   `font-size: clamp(13px, calc(100cqi / (var(--chars) * 0.56)), 15px)`. The 0.56 is Roboto Serif's average glyph width at semibold; use 0.6 for mono.
+3. **Floors:** 13px for names, labels and body text in a box; 11px for counts and mono data.
+4. **Below the floor:** use the record's or category's short name, if it has one (`short_name`, or the category's `short`).
+5. **Last resort:** cut with an ellipsis (`overflow: hidden; text-overflow: ellipsis`), and keep the full text in `title` and the accessible name. Every ellipsis is a layout bug to fix with a short name, not a design choice.
+6. **Checked:** a test at 1440, 1280 and 390 fails when a one-line element's `scrollWidth` is greater than its `clientWidth`, or when its computed font size is below the floor. `/design` shows each component with its longest real label.
+
 ### Spacing and layout
 - 4px base: `space-1` 4 · `space-2` 8 · `space-3` 12 · `space-4` 16 · `space-6` 24 · `space-8` 32 · `space-12` 48 · `space-16` 64.
 - Pages max out at `content-max`; running text at `prose-max`.
