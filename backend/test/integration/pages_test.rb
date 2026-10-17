@@ -76,7 +76,8 @@ class PagesTest < ActionDispatch::IntegrationTest
   end
 
   test "the sitemap lists public companies and plants, not hidden ones" do
-    company("Kairos Power")
+    cite!(company("Kairos Power", roles: [ role("reactor_vendor") ]))
+    cite!(company("CFS", techs: [ technology("fusion") ]))
     company("Hidden Co", verified: false)
     company("Unpublished Co").unpublish!(by: "human:test")
     plant("Plant Vogtle")
@@ -89,6 +90,9 @@ class PagesTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "<loc>http://www.example.com/companies/kairos-power</loc>"
     assert_includes response.body, "<loc>http://www.example.com/plants/plant-vogtle</loc>"
     assert_includes response.body, "<loc>http://www.example.com/companies?category=reactor-developers</loc>"
+    assert_includes response.body, "<loc>http://www.example.com/companies?tag=fusion</loc>"
+    assert_not_includes response.body, "category=components", "an empty bucket isn't listed"
+    assert_not_includes response.body, "tag=uranium"
     assert_not_includes response.body, "<lastmod>"
     assert_not_includes response.body, "hidden"
     assert_not_includes response.body, "unpublished-co"

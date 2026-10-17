@@ -209,6 +209,20 @@ class CompanyPageTest < ActionDispatch::IntegrationTest
     assert_select ".nd-crumbs a[href=?]", "/companies?category=investors", text: "Investors"
   end
 
+  test "every bucket the company is in is listed in its key facts, each linked (#281)" do
+    westinghouse = cite!(company("Westinghouse", roles: [ Role.find_by(key: "reactor_vendor") || role("reactor_vendor"), role("reactor_services") ]))
+    cite!(link(westinghouse, "invests_in", @kairos))
+    get company_path(slug: westinghouse.slug)
+
+    assert_select ".nd-overview dt", "Type"
+    assert_select ".nd-overview dd", text: "Reactor developers, Services and engineering, Investors" do
+      assert_select "a[href=?]", "/companies?category=reactor-developers"
+      assert_select "a[href=?]", "/companies?category=services"
+      assert_select "a[href=?]", "/companies?category=investors"
+    end
+    assert_select ".nd-crumbs a[href=?]", "/companies?category=reactor-developers", text: "Reactor developers"
+  end
+
   test "a hidden invests-in deal doesn't make a company an investor" do
     backer = cite!(company("Quiet Fund"))
     link(backer, "invests_in", @kairos)

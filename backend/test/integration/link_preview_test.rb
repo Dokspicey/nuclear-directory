@@ -41,7 +41,7 @@ class LinkPreviewTest < ActionDispatch::IntegrationTest
 
   test "a category and the full listing preview with their own description, not the home page's (#246)" do
     get companies_path(category: "reactor-developers")
-    line = "Companies developing nuclear reactors in the US, including small modular reactors."
+    line = "Companies developing nuclear reactors in the US, including small modular reactors and fusion."
     assert_select "meta[name='description'][content=?]", line
     assert_select "meta[property='og:description'][content=?]", line
 
@@ -71,6 +71,9 @@ class LinkPreviewTest < ActionDispatch::IntegrationTest
 
     get companies_path(category: "not-a-category")
     assert_select "meta[property='og:url'][content=?]", "http://www.example.com/companies"
+
+    get companies_path(tag: "fusion", state: "CA")
+    assert_select "meta[property='og:url'][content=?]", "http://www.example.com/companies?tag=fusion"
 
     company("Kairos Power")
     get company_path(slug: "kairos-power", category: "fuel")

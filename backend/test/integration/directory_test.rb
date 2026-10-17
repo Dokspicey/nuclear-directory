@@ -8,9 +8,37 @@ class DirectoryTest < ActionDispatch::IntegrationTest
     vendor = role("reactor_vendor")
     @kairos = company("Kairos Power", city: "Alameda", state: "CA", roles: [ vendor ],
       description: "Develops salt-cooled reactors.")
-    company("Oklo", roles: [ vendor ])
-    company("Pending Reactors", roles: [ vendor ], verified: false)
+    @oklo = company("Oklo", roles: [ vendor ])
+    cite!(@kairos, @oklo, company("Pending Reactors", roles: [ vendor ], verified: false))
     plant("Plant Vogtle", state: "GA", facility_type: "power_reactor", status: "operating")
+  end
+
+  test "the old fusion category moves for good to the fusion tag page, keeping filters (#281)" do
+    get companies_path(category: "fusion", state: "CA", sort: "connections")
+
+    assert_response :moved_permanently
+    assert_redirected_to companies_url(state: "CA", sort: "connections", tag: "fusion")
+  end
+
+  test "a tag page lists the companies with that tag, under its own title and address" do
+    cite!(company("Helion", techs: [ technology("fusion", "Fusion") ]))
+    get companies_path(tag: "fusion")
+
+    assert_response :success
+    assert_select "title", "Fusion energy companies in the US · Nuclear Directory"
+    assert_select "h1", /Fusion/
+    assert_select "h1 .nd-listhead__count", "1 company"
+    assert_select "a.nd-listrow[href='/companies/helion']"
+    assert_select "a.nd-listrow[href='/companies/kairos-power']", count: 0
+    assert_select "link[rel=canonical][href=?]", "http://www.example.com/companies?tag=fusion", 1
+    assert_select "form.nd-filters input[type=hidden][name=tag][value=fusion]"
+  end
+
+  test "an unknown tag lists every company" do
+    get companies_path(tag: "nope")
+
+    assert_response :success
+    assert_select "h1", /All companies/
   end
 
   test "a pending site's row shows its name and verified units, not its own type or place" do
