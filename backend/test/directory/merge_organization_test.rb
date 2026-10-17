@@ -50,6 +50,13 @@ class Directory::MergeOrganizationTest < ActiveSupport::TestCase
     assert_equal @into.id, Directory::Lookup.organization(name: "Acme USA").id
   end
 
+  test "two pieces of evidence with the same source and quote move as one, in the preview too (#325)" do
+    2.times { Evidence.create!(subject: @from, source: sources(:press_release), quote: "Acme USA runs it.", found_by: "human") }
+
+    assert merge.ok?
+    assert_equal 1, Evidence.where(subject: @into).count
+  end
+
   test "what into already has, and a link to itself, stay behind rejected" do
     @into.organization_roles.create!(role: @role)
     @into.facility_relationships.create!(facility: @plant, relationship_type: "operates")

@@ -768,26 +768,30 @@ module Directory
       end
 
       def evidence_and_claims(from, into, moved)
-        Evidence.where(subject: from).each do |row|
-          moved["evidence"] += 1 unless Evidence.where(subject: into, source_id: row.source_id, quote: row.quote).exists?
+        # As the merges do: the first row of each source and quote moves, the rest are dropped.
+        seen = Evidence.where(subject: into).pluck(:source_id, :quote).to_set
+        Evidence.where(subject: from).order(:id).each do |row|
+          moved["evidence"] += 1 if seen.add?([ row.source_id, row.quote ])
         end
         moved["candidates"] = Candidate.where(subject_type: from.class.name, subject_id: from.id).count
       end
 
       # The record a merged-away one now lives in: its latest unpublishing
-      # names where it was merged into, followed while that one was merged
-      # away too. nil when it was taken off for another reason.
+      # names where it was merged into, followed to the end of the chain
+      # however long. nil when one along the way was taken off for another
+      # reason, or the chain loops.
       def kept_after_merges(type, id)
         model = type.constantize
-        5.times do
+        visited = Set[id]
+        loop do
           event = VerificationEvent.where(subject_type: type, subject_id: id, to_status: "unpublished").order(:id).last
           into = event&.context.to_h.dig("merged_into", "id") or return
           record = model.find_by(id: into) or return
           return record.id unless record.unpublished?
+          return unless visited.add?(record.id)
 
           id = record.id
         end
-        nil
       end
 
       def failure(kind, errors)
