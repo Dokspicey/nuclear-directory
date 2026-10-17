@@ -7,7 +7,8 @@
 # to PRs, so it must never check out or run the fork's code: it only makes
 # one API call with the PR's node id. The GraphQL requestReviews call with
 # Copilot's bot id works with GITHUB_TOKEN; REST requested_reviewers
-# silently does nothing for the bot (tested 17 Oct, #356).
+# silently does nothing for the bot (tested 17 Oct, #356). union: true adds
+# Copilot without replacing anyone else already asked to review.
 name: Copilot review for forks
 
 on:
@@ -32,6 +33,6 @@ jobs:
           COPILOT: BOT_kgDOCnlnWA
         run: |
           gh api graphql -f query='mutation($pr: ID!, $bot: ID!) {
-            requestReviews(input: {pullRequestId: $pr, botIds: [$bot]}) { clientMutationId }
+            requestReviews(input: {pullRequestId: $pr, botIds: [$bot], union: true}) { clientMutationId }
           }' -f pr="$NODE" -f bot="$COPILOT" > /dev/null
           echo "Copilot review requested."
