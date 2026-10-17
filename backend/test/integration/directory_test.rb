@@ -19,7 +19,7 @@ class DirectoryTest < ActionDispatch::IntegrationTest
     get companies_path(category: "plants")
 
     assert_select ".nd-listrow", text: /Quiet Station/ do
-      assert_select ".nd-listrow__desc", "1 unit · 300 MWe"
+      assert_select ".nd-listrow__desc", "1 unit · 300 MW"
     end
     assert_select "body", text: /Nowhere|Planned/, count: 0
   end
@@ -127,7 +127,7 @@ class DirectoryTest < ActionDispatch::IntegrationTest
     plant("Vogtle Unit 5", parent: vogtle, capacity_mw: 999, verified: false)
     get companies_path(category: "plants")
 
-    assert_select "a.nd-listrow[href='/plants/plant-vogtle'] .nd-listrow__desc", "Power plant · Operating · 2 units · 2,234.5 MWe"
+    assert_select "a.nd-listrow[href='/plants/plant-vogtle'] .nd-listrow__desc", "Power plant · Operating · 2 units · 2,234.5 MW"
   end
 
   test "an unknown filter value is ignored, not applied behind an Any control" do

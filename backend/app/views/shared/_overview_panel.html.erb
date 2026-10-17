@@ -1,5 +1,6 @@
 <%# The side panel of key facts on company and power plant pages. Locals:
-    rows:        [[label, value, citations], ...]; a row with a blank value is skipped
+    rows:        [[label, value, citations, note], ...]; a row with a blank value is
+                 skipped. The note (optional) is a line of small print under the value
     verified_at: when the record was last checked
     verified:    false for a page whose own record isn't verified yet (a pending
                  site shown for its units): the date is labelled as the units' (optional)
@@ -8,9 +9,9 @@
 <aside class="nd-overview" aria-label="Key facts">
   <% if shown.any? %>
     <dl>
-      <% shown.each do |label, value, citations| %>
+      <% shown.each do |label, value, citations, note| %>
         <dt><%= label %></dt>
-        <dd><%= value %><% Array(citations).each do |number, source| %><%= render "shared/source_chip", number:, source:, compact: true %><% end %></dd>
+        <dd><%= value %><% Array(citations).each do |number, source| %><%= render "shared/source_chip", number:, source:, compact: true %><% end %><% if note %><span class="block mt-1 type-small text-ink-muted"><%= note %></span><% end %></dd>
       <% end %>
     </dl>
   <% end %>

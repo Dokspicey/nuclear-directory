@@ -10,7 +10,7 @@
 <% capacity = facility.try(:units_capacity_mw) %>
 <% kind = [ (facility_type_label(facility.facility_type) if own), (facility_status_label(facility.status) if own),
             (pluralize(units, "unit") if units.positive?),
-            ("#{number_with_precision(capacity, precision: 2, strip_insignificant_zeros: true, delimiter: ",")} MWe" if capacity.present?) ].compact.join(" · ").presence %>
+            ("#{number_with_precision(capacity, precision: 2, strip_insignificant_zeros: true, delimiter: ",")} MW" if capacity.present?) ].compact.join(" · ").presence %>
 <% where = place(facility.city, facility.state) if own %>
 <% connections = local_assigns[:connections] %>
 <li>
