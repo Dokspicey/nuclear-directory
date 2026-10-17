@@ -9,8 +9,12 @@ class Facility < ApplicationRecord
     .index_by(&:itself),
     validate: { allow_nil: true }
   # not_operating: licensed, but producing no power (not shut down for good).
-  enum :status, %w[operating not_operating under_construction planned shut_down decommissioning].index_by(&:itself),
-    validate: { allow_nil: true }
+  # Rails' own scopes are off: they'd add "not_<status>" opposites, and its
+  # not_operating (status isn't operating) would collide with this status.
+  # One scope per status instead, so Facility.not_operating is exactly that.
+  STATUSES = %w[operating not_operating under_construction planned shut_down decommissioning].freeze
+  enum :status, STATUSES.index_by(&:itself), validate: { allow_nil: true }, scopes: false
+  STATUSES.each { |status| scope status, -> { where(status:) } }
 
   belongs_to :technology, optional: true
   has_many :facility_relationships, dependent: :destroy

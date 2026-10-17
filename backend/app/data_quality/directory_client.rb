@@ -29,6 +29,13 @@ class DataQuality::DirectoryClient
     def conflict? = conflicts.any?
   end
 
+  # A plant's status change (#316): plan is Directory::StatusChange's Plan
+  # (changes, unchanged, operating_before, operating_after), or error says
+  # why it can't be made.
+  StatusResult = Data.define(:plan, :error) do
+    def ok? = error.nil?
+  end
+
   # Kinds whose payload names other records instead of carrying attributes;
   # the match stage resolves those names to ids and writes the fact.
   LINK_KINDS = %w[organization_role organization_technology relationship facility_relationship].freeze
@@ -311,6 +318,36 @@ class DataQuality::DirectoryClient
   # Every verification decision on a fact, newest first (Directory::VerificationEventRef).
   def verification_history(type:, id:) = lookup.verification_history(type:, id:)
 
+  MERGES = { "Organization" => :merge_organization, "Facility" => :merge_facility }.freeze
+
+  # A person's merge of one company or plant site into another (#142), as the
+  # merge rake tasks do it: everything moves to into, from is unpublished
+  # with a reason saying what moved, and its address redirects. With
+  # dry_run it's done and rolled back, to say what it would move. Returns
+  # [WriteResult, what moved ("3 aliases, 2 evidence") or nil].
+  def merge(type, from_id:, into_id:, by:, reason: nil, dry_run: false)
+    method = MERGES.fetch(type)
+    result = moved = nil
+    ActiveRecord::Base.transaction(requires_new: true) do
+      # The claims on both records are locked first, in the order an approval
+      # takes (source, claim, then the fact), so a merge and an approval of
+      # one of those claims never wait on each other.
+      # A site's units too: approving a unit's claim locks the unit, then its site.
+      units = type == "Facility" ? lookup.unit_ids(site_ids: [ from_id, into_id ]) : []
+      claims = ::Candidate.where(subject_type: type, subject_id: [ from_id, into_id, *units ])
+      ::Source.where(id: claims.select(:source_id)).order(:id).lock.to_a
+      claims.order(:id).lock.to_a
+      result = write_result(fact_writer.public_send(method, from_id:, into_id:, by:, reason:))
+      # In the admin's words: candidates are claims.
+      moved = verification_history(type:, id: from_id).first&.reason.to_s[/Moved: (.*)\z/, 1]&.gsub(/\bcandidate(s?)\b/, "claim\\1") if result.errors.empty?
+      raise ActiveRecord::Rollback if dry_run
+    end
+    @plant_names = nil unless dry_run
+    [ result, moved ]
+  rescue ActiveRecord::Deadlocked, ActiveRecord::LockWaitTimeout
+    [ WriteResult.new(ref: nil, errors: [ "someone was deciding on one of its claims just then; try again" ]), nil ]
+  end
+
   # A human's decision on a directory fact: status "verified" (approve or
   # republish, optionally with edited attributes), "rejected" or
   # "unpublished". Human writes aren't protected; the reason and context go
@@ -320,6 +357,19 @@ class DataQuality::DirectoryClient
       verification: { status:, by:, reason:, context: }.compact)
     write_result(result)
   end
+
+  # What setting these plant records (a site and its units) to status would
+  # change, without writing. Returns a StatusResult.
+  def status_change_plan(ids:, status:) = status_result { status_change.plan(ids:, status:) }
+
+  # Sets their status as `by`'s decision (Directory::StatusChange.apply).
+  # Returns a StatusResult.
+  def set_status(ids:, status:, by:, reason:, source_id: nil, quote: nil)
+    status_result { status_change.apply(ids:, status:, by:, reason:, source_id:, quote:) }
+  end
+
+  # NRC's power status file's newest line for this plant: [source_id, quote], or nil.
+  def nrc_status_quote(name) = status_change.nrc_quote(name)
 
   # A human removes one piece of evidence from a fact (see
   # Directory::FactWriter#remove_evidence). Returns a WriteResult.
@@ -373,6 +423,13 @@ class DataQuality::DirectoryClient
     # Resolved lazily so the module has no load-time dependency on the directory.
     def lookup = @lookup ||= "Directory::Lookup".constantize
     def fact_writer = @fact_writer ||= "Directory::FactWriter".constantize
+    def status_change = "Directory::StatusChange".constantize
+
+    def status_result
+      StatusResult.new(plan: yield, error: nil)
+    rescue status_change::Invalid => error
+      StatusResult.new(plan: nil, error: error.message)
+    end
 
     # Read once and reused for every brand check, until a facility or company is written.
     def plant_names = @plant_names ||= lookup.plant_names(owners: owner_hints)

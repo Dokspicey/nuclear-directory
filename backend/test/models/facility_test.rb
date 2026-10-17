@@ -3,6 +3,19 @@ require "test_helper"
 class FacilityTest < ActiveSupport::TestCase
   setup { @site = facilities(:vogtle) }
 
+  test "each status scope is exactly that status: not_operating isn't 'everything but operating'" do
+    idle = Facility.create!(name: "Idle Plant", status: "not_operating")
+    planned = Facility.create!(name: "Planned Plant", status: "planned")
+    running = Facility.create!(name: "Running Plant", status: "operating")
+
+    assert_includes Facility.not_operating, idle
+    assert_not_includes Facility.not_operating, planned
+    assert_not_includes Facility.not_operating, running
+    assert_equal [ running.id ], Facility.operating.where(id: [ idle.id, planned.id, running.id ]).ids
+    assert idle.not_operating?
+    assert_not Facility.respond_to?(:not_planned), "no generated opposites"
+  end
+
   test "a unit belongs to its site" do
     unit = Facility.create!(name: "Vogtle Unit 3", parent: @site, facility_type: "power_reactor", status: "operating")
     assert_equal "vogtle-unit-3", unit.slug

@@ -176,6 +176,9 @@ module Directory
     private_constant :LINK_VERBS, :ROLE_WORDS
 
     # Any fact's current decision (Directory::FactStateRef), or nil.
+    # The ids of these sites' units.
+    def unit_ids(site_ids:) = Facility.where(parent_id: site_ids).ids
+
     # Of these facts of one type, the ids a person decided, in one query.
     def human_decided_ids(type:, ids:)
       raise ArgumentError, "not a fact type: #{type.inspect}" unless FACT_TYPES.include?(type.to_s)
