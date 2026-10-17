@@ -40,8 +40,8 @@ class SeedsTest < ActiveSupport::TestCase
   test "loads the hand-checked organizations as verified facts with evidence" do
     load_seeds
 
-    assert_equal 86, Organization.verified.count
-    assert_equal 97, OrganizationRole.verified.count
+    assert_equal 87, Organization.verified.count
+    assert_equal 98, OrganizationRole.verified.count
     assert_equal 57, OrganizationTechnology.verified.count
     assert_equal 72, Relationship.verified.count
     assert_equal 36, Facility.verified.count
@@ -140,7 +140,7 @@ class SeedsTest < ActiveSupport::TestCase
     alabama = Organization.find_by!(name: "Alabama Power")
     assert_equal [ "Joseph M Farley" ], alabama.facility_relationships.owns.joins(:facility).pluck("facilities.name")
     assert_equal alabama.id, Directory::Lookup.organization(name: "Alabama Power Co").id, "EIA's spelling still finds it"
-    assert_equal %w[components isotopes university waste_decommissioning], Role.where(key: %w[components isotopes waste_decommissioning university]).pluck(:key).sort
+    assert_equal %w[components isotopes research_organization university waste_decommissioning], Role.where(key: %w[components isotopes waste_decommissioning university research_organization]).pluck(:key).sort
   end
 
   test "the approved #63 calls: descriptions and HQs, no NRC description, no Bernhard role" do

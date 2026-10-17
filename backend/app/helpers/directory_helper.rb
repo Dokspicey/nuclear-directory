@@ -59,6 +59,7 @@ module DirectoryHelper
     "government_agency" => "Government agency",
     "national_lab" => "National lab",
     "university" => "University",
+    "research_organization" => "Research organization",
     "molten_salt" => "Molten salt coolant",
     "water" => "Water coolant",
     "helium" => "Helium coolant",

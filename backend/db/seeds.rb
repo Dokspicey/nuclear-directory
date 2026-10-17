@@ -31,7 +31,8 @@ ROLES = [
   [ "venture_capital", "Venture capital", "Invests equity in nuclear companies." ],
   [ "government_agency", "Government agency", "Regulates or funds the industry, e.g. NRC, DOE." ],
   [ "national_lab", "National lab", "National laboratory doing nuclear research or running test reactors." ],
-  [ "university", "University", "University doing nuclear research or running a research reactor." ]
+  [ "university", "University", "University doing nuclear research or running a research reactor." ],
+  [ "research_organization", "Research organization", "Independent research organization doing nuclear research and development." ]
 ].freeze
 
 TECHNOLOGIES = [
