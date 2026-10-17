@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_16_180000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_17_000000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -79,6 +79,30 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_16_180000) do
     t.index ["stage", "started_at"], name: "index_crawl_runs_on_stage_and_started_at"
     t.check_constraint "stage::text = ANY (ARRAY['crawl'::character varying::text, 'extract'::character varying::text, 'match'::character varying::text, 'verify'::character varying::text])", name: "crawl_runs_stage_check"
     t.check_constraint "status::text = ANY (ARRAY['running'::character varying::text, 'succeeded'::character varying::text, 'failed'::character varying::text])", name: "crawl_runs_status_check"
+  end
+
+  create_table "data_deploys", force: :cascade do |t|
+    t.string "commit"
+    t.string "status", null: false
+    t.string "seed_digest"
+    t.jsonb "files", default: {}, null: false
+    t.string "backup_tag"
+    t.jsonb "report", default: {}, null: false
+    t.text "error"
+    t.datetime "started_at", null: false
+    t.datetime "finished_at"
+    t.index ["status", "id"], name: "index_data_deploys_on_status_and_id"
+  end
+
+  create_table "data_migrations", force: :cascade do |t|
+    t.string "version", null: false
+    t.string "name", null: false
+    t.string "by", null: false
+    t.text "reason"
+    t.string "commit"
+    t.text "output"
+    t.datetime "ran_at", null: false
+    t.index ["version"], name: "index_data_migrations_on_version", unique: true
   end
 
   create_table "evidence", force: :cascade do |t|

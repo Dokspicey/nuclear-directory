@@ -21,15 +21,18 @@ class DirectoryListingTest < ActiveSupport::TestCase
     @vogtle = plant("Plant Vogtle", state: "GA", facility_type: "power_reactor")
     @unit = plant("Vogtle Unit 3", parent: @vogtle)
 
-    link(@amazon, "invests_in", @kairos)
+    cite!(link(@amazon, "invests_in", @kairos))
     link(@kairos, "owns", @unit)
     link(@centrus, "supplies", @kairos, verified: false)
+    # Buckets and tags count sourced facts only (#281).
+    cite!(@centrus, @kairos, @cfs, @khosla, @amazon, @pending)
   end
 
   def names(listing) = listing.companies.map(&:name)
 
-  test "a category includes child roles and only verified companies" do
-    assert_equal [ "Centrus Energy" ], names(DirectoryListing.new(category: "fuel"))
+  test "a bucket includes child roles and only verified companies" do
+    # Centrus through enrichment (under fuel); Kairos through its molten salt coolant (under coolant).
+    assert_equal [ "Centrus Energy", "Kairos Power" ], names(DirectoryListing.new(category: "fuel"))
     assert_equal [ "Kairos Power" ], names(DirectoryListing.new(category: "reactor-developers"))
   end
 
@@ -37,8 +40,13 @@ class DirectoryListingTest < ActiveSupport::TestCase
     assert_equal [ "Amazon", "Khosla Ventures" ], names(DirectoryListing.new(category: "investors"))
   end
 
-  test "fusion is a technology category" do
-    assert_equal [ "Commonwealth Fusion Systems" ], names(DirectoryListing.new(category: "fusion"))
+  test "fusion is a tag with its own list, of companies only" do
+    listing = DirectoryListing.new(tag: "fusion")
+
+    assert_equal [ "Commonwealth Fusion Systems" ], names(listing)
+    assert_empty listing.plants
+    assert_equal [ "Commonwealth Fusion Systems" ], names(DirectoryListing.new(tag: "fusion", q: "fusion")), "search within a tag"
+    assert_nil DirectoryListing.new(category: "fusion").category, "no longer a category"
   end
 
   test "power plants lists sites, not units, and no companies" do
@@ -222,12 +230,13 @@ class DirectoryListingTest < ActiveSupport::TestCase
   end
 
   test "sites carry their verified units' count and capacity" do
-    @unit.update!(capacity_mw: 1117)
-    plant("Vogtle Unit 4", parent: @vogtle, capacity_mw: 1117)
-    plant("Vogtle Unit 5", parent: @vogtle, capacity_mw: 500, verified: false)
+    @unit.update!(capacity_mw: 1117, status: "operating")
+    plant("Vogtle Unit 4", parent: @vogtle, capacity_mw: 1117, status: "operating")
+    plant("Vogtle Unit 5", parent: @vogtle, capacity_mw: 500, status: "operating", verified: false)
+    plant("Vogtle Unit 1", parent: @vogtle, capacity_mw: 400, status: "shut_down")
     site = DirectoryListing.new(category: "plants").plants.first
 
-    assert_equal 2, site.units_count
+    assert_equal %w[operating operating shut_down], site.units_statuses.sort
     assert_equal 2234, site.units_capacity_mw
   end
 
@@ -247,7 +256,7 @@ class DirectoryListingTest < ActiveSupport::TestCase
   end
 
   test "search within a category" do
-    assert_empty names(DirectoryListing.new(category: "fuel", q: "kairos"))
+    assert_empty names(DirectoryListing.new(category: "reactor-developers", q: "centrus"))
   end
 
   test "technology filter takes a technology or a coolant" do
@@ -287,7 +296,7 @@ class DirectoryListingTest < ActiveSupport::TestCase
   test "category counts for the pills" do
     counts = DirectoryListing.category_counts
 
-    assert_equal 1, counts["fuel"]
+    assert_equal 2, counts["fuel"]
     assert_equal 2, counts["investors"]
     assert_equal 1, counts["plants"]
     assert_equal 0, counts["power-buyers"]
@@ -335,6 +344,6 @@ class DirectoryListingTest < ActiveSupport::TestCase
     second.unpublish!(by: "human:test")
 
     site = DirectoryListing.new(category: "plants").plants.first
-    assert_equal 1, site.units_count
+    assert_equal 1, site.units_statuses.size
   end
 end
