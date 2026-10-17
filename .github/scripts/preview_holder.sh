@@ -11,7 +11,7 @@ cd "$(dirname "$0")/../.."
 
 # Assigned on its own line: a failure inside a for loop's word list wouldn't
 # stop the script, and an empty list would read as "free".
-open_prs="$(gh api "repos/${GITHUB_REPOSITORY}/issues?labels=preview&state=open&per_page=100" --jq '.[] | select(.pull_request) | .number')"
+open_prs="$(gh api --paginate "repos/${GITHUB_REPOSITORY}/issues?labels=preview&state=open&per_page=100" --jq '.[] | select(.pull_request) | .number')"
 if ! grep -qx "$pr" <<< "$open_prs"; then
   echo unlabelled
   exit 0
