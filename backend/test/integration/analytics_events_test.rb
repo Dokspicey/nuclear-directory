@@ -79,6 +79,16 @@ class AnalyticsEventsTest < ActionDispatch::IntegrationTest
       "never the message or contact"
   end
 
+  test "a page address with a query or fragment is tracked by its path only; the report keeps it all" do
+    post corrections_path, params: { subject: "Plant Vogtle", page_path: "/plants/vogtle?contact=reader@example.com#note", message: "Fix it." },
+      headers: { "User-Agent" => BROWSER }
+
+    event = posthog.events.sole
+    assert_equal [ "/plants/vogtle", "Facility", facilities(:vogtle).id ], event[:properties].values_at("page_path", "record_type", "record_id")
+    assert_not event[:properties].values.any? { |value| value.to_s.include?("reader@example.com") }
+    assert_equal "/plants/vogtle?contact=reader@example.com#note", CorrectionReport.last.page_path
+  end
+
   test "a directory search goes through the shared tracking: country added, bots skipped (#205)" do
     GeoCountry.reader, previous = FakeGeoReader.new, GeoCountry.reader
     get companies_path(q: "kairos"), headers: { "User-Agent" => BROWSER }, env: { "REMOTE_ADDR" => "81.2.69.142" }

@@ -7,4 +7,4 @@ Page: <%= root_url.chomp("/") %><%= @report.page_path %>
 
 Contact: <%= @report.contact.presence || "none given" %>
 
-In the admin: <%= admin_corrections_url(anchor: "report-#{@report.id}") %>
+In the admin: <%= admin_corrections_url(report: @report.id) %>

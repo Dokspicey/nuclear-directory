@@ -33,7 +33,7 @@ class CorrectionMailerTest < ActionMailer::TestCase
     assert_match "Unit 4 started in 2024.", body
     assert_match "reader@example.com", body
     assert_match "/plants/plant-vogtle", body
-    assert_match "/admin/corrections#report-#{sent.id}", body
+    assert_match "/admin/corrections?report=#{sent.id}", body
   end
 
   test "without the address or Resend's key, nothing is queued and the skip is logged" do

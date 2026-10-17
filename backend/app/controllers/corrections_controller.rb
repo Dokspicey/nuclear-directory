@@ -22,8 +22,10 @@ class CorrectionsController < ApplicationController
 
     @report = CorrectionReport.new(report_params)
     if @report.save
-      record_type, record_id = record_on(@report.page_path)
-      track_correction_submitted(subject_type: page_kind(@report.page_path), page_path: @report.page_path, record_type:, record_id:)
+      # Its path only: a query string or fragment can hold anything (the report keeps it).
+      path = @report.page_path.split(/[?#]/).first
+      record_type, record_id = record_on(path)
+      track_correction_submitted(subject_type: page_kind(path), page_path: path, record_type:, record_id:)
       CorrectionMailer.notify(@report)
       redirect_to correction_sent_path(page: @report.page_path)
     else
