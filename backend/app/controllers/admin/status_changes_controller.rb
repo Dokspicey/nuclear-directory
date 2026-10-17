@@ -97,15 +97,15 @@ class Admin::StatusChangesController < Admin::BaseController
     end
     helper_method :back_here
 
-    # from, section, row and with_removed as the page had them, and back
+    # from, section, row, with_removed and the claim shown (claim, claims) as the page had them, and back
     # when it's a path inside the admin; page says which page it was.
     def return_context
-      context = params.permit(:from, :section, :row, :with_removed, :page).to_h.symbolize_keys.compact_blank
+      context = params.permit(:from, :section, :row, :with_removed, :claim, :claims, :page).to_h.symbolize_keys.compact_blank
       context[:back] = params[:back] if back_path(nil)
       context.except(:page)
     end
 
     # Carried by both forms, so Preview and Change status keep the way back.
-    def carried = params.permit(:from, :section, :row, :with_removed, :page, :back).to_h.compact_blank
+    def carried = params.permit(:from, :section, :row, :with_removed, :claim, :claims, :page, :back).to_h.compact_blank
     helper_method :carried
 end

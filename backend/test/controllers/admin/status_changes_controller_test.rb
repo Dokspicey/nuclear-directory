@@ -254,4 +254,20 @@ class Admin::StatusChangesControllerTest < ActionDispatch::IntegrationTest
     get admin_facility_status_path(id: lone.id, page: "fact")
     assert_select "a.nd-btn[href=?]", admin_fact_path(type: "Facility", id: lone.id), "Cancel"
   end
+
+  test "a unit's page opened on one claim comes back on that claim" do
+    first = Candidate.create!(source: @file, kind: "facility", quote: "q", status: "needs_review", notes: "unsure", subject_type: "Facility", subject_id: @unit.id, payload: { "name" => "Palisades" })
+    asked = Candidate.create!(source: @file, kind: "facility", quote: "q2", status: "needs_review", notes: "unsure", subject_type: "Facility", subject_id: @unit.id, payload: { "name" => "Palisades", "state" => "MI" })
+    page = admin_fact_path(type: "Facility", id: @unit.id, from: "checks", back: "/admin/checks", claim: asked.id)
+    assert first.id < asked.id
+
+    get page
+    link = css_select("a.nd-btn").find { |a| a.text == "Change status" }["href"]
+    assert_includes link, "claim=#{asked.id}"
+
+    get link
+    assert_select "a.nd-btn[href=?]", page, "Cancel"
+    patch admin_facility_status_path(id: @unit.id), params: { status: "not_operating", evidence: "nrc", nrc_quote: NRC_LINE, page: "fact", from: "checks", back: "/admin/checks", claim: asked.id }
+    assert_redirected_to page
+  end
 end
