@@ -17,7 +17,7 @@ class SourceCoverage
   # crawler is live only while that source is healthy too.
   COMPANIONS = { "usaspending_doe_awards" => %w[usaspending_api], "eia_generators" => %w[eia_860m_index] }.freeze
 
-  Source = Data.define(:name, :status, :issue, :kind, :leads, :note, :group, :domain, :documents) do
+  Source = Data.define(:name, :status, :issue, :crawler, :kind, :leads, :note, :group, :domain, :documents) do
     def live? = status == "live"
   end
 
@@ -58,7 +58,7 @@ class SourceCoverage
     def source(row)
       status = row.fetch("status")
       status = live_kinds.include?(row["kind"]) ? "live" : status if row["kind"]
-      Source.new(name: row.fetch("name"), status:, issue: row["issue"], kind: row["kind"], leads: row["leads"] == true,
+      Source.new(name: row.fetch("name"), status:, issue: row["issue"], crawler: row["crawler"] == true, kind: row["kind"], leads: row["leads"] == true,
         note: row["note"], group: row["group"], domain: row["domain"], documents: (hand_documents(row) if status == "hand"))
     end
 
@@ -78,8 +78,17 @@ class SourceCoverage
         # USAspending API's results are stored on the recipients' documents).
         failing = ::Source.where(source_kind: COMPANIONS.values.flatten)
           .where.not(id: fetched.select(:id)).distinct.pluck(:source_kind).to_set
-        (crawled & read).reject { |kind| COMPANIONS.fetch(kind, []).any? { |companion| failing.include?(companion) } }.to_set
+        (crawled & read).select { |kind| latest_read?(kind, fetched) }
+          .reject { |kind| COMPANIONS.fetch(kind, []).any? { |companion| failing.include?(companion) } }.to_set
       end
+    end
+
+    # Its most recent fetch attempt read something: an older document read
+    # fine doesn't make it live when the newest (EIA's new monthly workbook)
+    # was blocked.
+    def latest_read?(kind, fetched)
+      latest = ::Source.where(source_kind: kind).where.not(fetched_at: nil).order(fetched_at: :desc, id: :desc).first
+      latest && fetched.where.not(content_sha256: nil).exists?(latest.id)
     end
 
     def catalog = @catalog ||= SourceCatalog.official.index_by(&:kind)

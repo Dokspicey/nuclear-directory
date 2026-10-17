@@ -171,4 +171,23 @@ class Admin::SourcesByCategoryTest < ActionDispatch::IntegrationTest
     get admin_sources_search_path(q: "x", back: "https://elsewhere.example/")
     assert_select ".nd-crumbs a[href=?]", admin_sources_path, "Sources"
   end
+
+  test "EIA isn't live when its newest workbook was blocked, though an older one read fine" do
+    run_crawler("eia_860m_index")
+    run_crawler("eia_generators", at: 1.day.ago)
+    get admin_sources_path(by: "category")
+    assert_select "details#utilities .nd-cov__src", /EIA-860M generators.*Live/m
+
+    run_crawler("eia_generators", crawl_status: "blocked").update!(fetched_at: 1.hour.ago, status_reason: "HTTP 403", content_sha256: nil)
+    get admin_sources_path(by: "category")
+    assert_select "details#utilities .nd-cov__src", /EIA-860M generators.*Built/m
+  end
+
+  test "a hand-research task's issue isn't called a crawler; a crawler's is" do
+    get admin_sources_path(by: "category")
+
+    assert_select "details#power-buyers .nd-cov__src", /Hand research · #253/
+    assert_select "details#power-buyers .nd-cov__src", { text: /crawler #253/, count: 0 }
+    assert_select ".nd-cov__src", /Company newsrooms.*Hand research · \d+ documents? · crawler #128/m
+  end
 end

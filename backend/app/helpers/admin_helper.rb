@@ -66,7 +66,8 @@ module AdminHelper
     when "hand"
       # A count only where documents are mapped to it; otherwise it isn't known, not zero.
       documents = (" · #{pluralize(source.documents, 'document')}" if source.documents)
-      tag.span(safe_join([ "Hand research#{documents}", (safe_join([ " · crawler ", issue ]) if issue) ]), class: "text-ink-muted")
+      # Its issue is the crawler that will take it over (crawler: true), or the research task.
+      tag.span(safe_join([ "Hand research#{documents}", (safe_join([ source.crawler ? " · crawler " : " · ", issue ]) if issue) ]), class: "text-ink-muted")
     else tag.span(issue ? safe_join([ "Planned · ", issue ]) : "Missing · no issue yet", class: issue ? "text-ink-muted" : "text-critical")
     end
   end
