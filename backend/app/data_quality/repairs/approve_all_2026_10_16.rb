@@ -141,10 +141,20 @@ class DataQuality::Repairs::ApproveAll20261016
 
     def fact(type, id) = @directory.fact(type:, id:) || raise(Mismatch, "#{type} #{id} is gone")
 
+    # A re-seed that ran first (DQ, 17 Oct) has already written the
+    # hand-written description back from the DOE seed file, but not cleared
+    # the crawler's start date: that's half done, so only the date is
+    # cleared. Anything other than the approve-all's text or the hand-written
+    # one stops the repair.
     def restore(id, was, written)
       link = fact("Relationship", id)
       description = link.values["description"].to_s
-      return if description == written && link.values["started_on"].nil?
+      if description == written
+        return if link.values["started_on"].nil?
+
+        return Change.new(kind: "relationship", id:, attributes: { started_on: nil }, status: link.verification_status,
+          note: "clears the crawler's start date (the seed already restored the description)")
+      end
       raise Mismatch, "link #{id} reads #{description.inspect}, not the approve-all's #{was.inspect}" unless description == was
 
       Change.new(kind: "relationship", id:, attributes: { description: written, started_on: nil }, status: link.verification_status,

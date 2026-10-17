@@ -56,6 +56,24 @@ class DataQuality::Repairs::ApproveAll20261016Test < ActiveSupport::TestCase
     end
   end
 
+  test "after a re-seed wrote the hand-written description back, it clears the start date and carries on" do
+    # As the seed writes it: the DOE file's text, as human:tosin, the crawler's started_on left.
+    Directory::FactWriter.write(:relationship, { id: @restored.id, description: "ARDP award (Oct 2020): hand-written." },
+      verification: { status: "verified", by: "human:tosin" })
+    assert_equal Date.new(2021, 1, 1), @restored.reload.started_on
+
+    with_ids do
+      changes = Repair.call
+      assert_equal 6, changes.size, "the date, and every other change"
+      assert_equal [ "ARDP award (Oct 2020): hand-written.", nil ], [ @restored.reload.description, @restored.started_on ]
+      assert_equal "BWXT", @bwxt.reload.name
+      assert_equal "Brookhaven Technology Group", @caps.reload.name
+      assert @nas.reload.unpublished?
+
+      assert_empty Repair.call, "once"
+    end
+  end
+
   test "a value someone fixed by hand stops the repair, and nothing at all is changed" do
     @reworded.update!(description: "Hand-fixed by Tosin.", decided_by: "human:tosin")
 
