@@ -41,7 +41,7 @@ class SeedsTest < ActiveSupport::TestCase
     load_seeds
 
     assert_equal 88, Organization.verified.count
-    assert_equal 100, OrganizationRole.verified.count
+    assert_equal 101, OrganizationRole.verified.count
     assert_equal 57, OrganizationTechnology.verified.count
     assert_equal 73, Relationship.verified.count
     assert_equal 36, Facility.verified.count
@@ -140,6 +140,7 @@ class SeedsTest < ActiveSupport::TestCase
     alabama = Organization.find_by!(name: "Alabama Power")
     assert_equal [ "Joseph M Farley" ], alabama.facility_relationships.owns.joins(:facility).pluck("facilities.name")
     assert_equal alabama.id, Directory::Lookup.organization(name: "Alabama Power Co").id, "EIA's spelling still finds it"
+    assert_equal [ "utility" ], alabama.roles.pluck(:key)
     assert_equal %w[components isotopes research_organization university waste_decommissioning], Role.where(key: %w[components isotopes waste_decommissioning university research_organization]).pluck(:key).sort
   end
 
