@@ -1,0 +1,30 @@
+# Seed research for #253 batch 2 (hyperscaler power deals) - 2026-10-15. Quotes copied from raw page text fetched this session.
+name: Oklo
+aliases:
+- Oklo Inc.
+website: https://www.oklo.com
+hq:
+  city: Santa Clara
+  state: CA
+  source_url: https://www.sec.gov/Archives/edgar/data/0001849056/000162828026054571/oklo-20260630.htm
+  quote: 3190 Coronado Dr. Santa Clara , CA
+  confidence: 0.9
+country_code: US
+status: active
+roles:
+- key: reactor_vendor
+  source_url: https://www.oklo.com/about/company-overview
+  quote: Oklo is an advanced nuclear technology company developing fast fission power plants to deliver clean, reliable, and affordable energy at global scale.
+  confidence: 1.0
+technologies:
+- key: fission
+  source_url: https://www.oklo.com/about/company-overview
+  quote: Oklo is an advanced nuclear technology company developing fast fission power plants to deliver clean, reliable, and affordable energy at global scale.
+  confidence: 1.0
+relationships: []
+facilities: []
+notes: 'HQ quote is the "Address of principal executive offices" on the cover of Oklo''s 10-Q for the quarter ended June 30, 2026 (SEC, not char-verified live; matched against a copy fetched earlier this session). The company overview page lists Santa Clara first among "Offices" but does not say headquarters. Power deals with Meta, Switch, Equinix and Prometheus Hyperscale are recorded in the buyers'' files (#253).'
+description:
+  text: Advanced nuclear company developing fast fission power plants.
+  source_url: https://www.oklo.com/about/company-overview
+  quote: Oklo is an advanced nuclear technology company developing fast fission power plants to deliver clean, reliable, and affordable energy at global scale.

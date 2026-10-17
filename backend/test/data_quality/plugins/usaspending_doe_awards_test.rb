@@ -95,10 +95,12 @@ class DataQuality::Plugins::UsaspendingDoeAwardsTest < ActiveSupport::TestCase
     candidates = plugin.extract(recipient("d527144c-7fea-82ff-aff0-e95e5fd6e488-C"), nil)
 
     company, link = candidates
-    assert_equal({ "name" => "AMERICAN CENTRIFUGE OPERATING, LLC" }, company[:payload])
+    assert_equal({ "name" => "American Centrifuge Operating", "aliases" => [ "AMERICAN CENTRIFUGE OPERATING, LLC" ] }, company[:payload],
+      "a readable name, the award's spelling kept as an alias (DATA.md D1, #302)")
     assert_equal({ "from_organization" => { "name" => "U.S. Department of Energy" }, "to_organization" => { "name" => "AMERICAN CENTRIFUGE OPERATING, LLC" },
       "relationship_type" => "funds", "started_on" => "2019-05-31",
-      "description" => "2 awards from the U.S. Department of Energy totaling $505.0 million, 2019–2022: 89243223CNE000030 and 89303519CNE000005." },
+      "description" => "2 awards from the U.S. Department of Energy totaling $505.0 million (first in 2019, latest in 2022): " \
+        "89243223CNE000030 and 89303519CNE000005." },
       link[:payload])
     assert_includes recipient("d527144c-7fea-82ff-aff0-e95e5fd6e488-C").content_text, link[:quote], "quotes its largest award's row"
     assert plugin.quote_in_source?(recipient("d527144c-7fea-82ff-aff0-e95e5fd6e488-C"), link[:quote])
@@ -110,9 +112,9 @@ class DataQuality::Plugins::UsaspendingDoeAwardsTest < ActiveSupport::TestCase
     @answers[[ "nuclear_energy_rd", 2 ]] = { "results" => [ sfr ], "page_metadata" => { "hasNext" => false } }
     crawl!
 
-    assert_equal "1 award from the U.S. Department of Energy totaling $921.7 million, 2021: DENE0009040.",
+    assert_equal "1 award from the U.S. Department of Energy totaling $921.7 million (2021): DENE0009040.",
       plugin.extract(recipient(XENERGY["recipient_id"]), nil).last[:payload]["description"]
-    assert_equal "1 award from the U.S. Department of Energy totaling $1.7 billion, 2021: DENE0009054.",
+    assert_equal "1 award from the U.S. Department of Energy totaling $1.7 billion (2021): DENE0009054.",
       plugin.extract(recipient(sfr["recipient_id"]), nil).last[:payload]["description"]
   end
 
@@ -212,8 +214,109 @@ class DataQuality::Plugins::UsaspendingDoeAwardsTest < ActiveSupport::TestCase
 
     context = plugin.verification_context(source, link[:quote])
 
-    assert context.start_with?(Plugin::COLUMNS.join(","))
-    assert_equal 41, CSV.parse(context, headers: true).size
+    header, table = context.split("\n", 2)
+    assert_equal "41 awards, one per row after the header line:", header, "the count is said, so the header isn't taken for an award (#302)"
+    assert table.start_with?(Plugin::COLUMNS.join(","))
+    assert_equal 41, CSV.parse(table, headers: true).size
+  end
+
+  test "a crawl rewords claims still open from an earlier one, once, with no shell step (#302)" do
+    crawl!
+    source = recipient(XENERGY["recipient_id"])
+    old = Candidate.create!(source:, kind: "relationship", quote: "q", status: "new",
+      payload: { "description" => "1 award from the U.S. Department of Energy totaling $921.7 million, 2021: DENE0009040." })
+
+    stats = plugin.crawl(nil)
+
+    assert_equal 1, stats["reworded"]
+    assert_equal "1 award from the U.S. Department of Energy totaling $921.7 million (2021): DENE0009040.", old.reload.payload["description"]
+    assert_match "Reworded for #302", old.notes
+    assert_empty plugin.refresh_open_claims, "a second run finds nothing to change"
+  end
+
+  test "a pending company two claims share is named after the brand they share, not whichever ran last" do
+    company = Organization.create!(name: "BWXT NUCLEAR ENERGY, INC.")
+    claim = lambda do |spelling, recipient_id, proposed|
+      text = CSV.generate do |csv|
+        csv << Plugin::COLUMNS
+        csv << [ "DE#{recipient_id}", spelling, "2000000.0", "2021-01-01", "2026-01-01", "contract", nil, "haleu_fuel_contracts", "u", "CONT_#{recipient_id}", "#{recipient_id}-C", "Work" ]
+      end
+      source = Source.create!(url: "https://www.usaspending.gov/recipient/#{recipient_id}-C/latest", source_kind: "usaspending_doe_awards", content_text: text)
+      Candidate.create!(source:, kind: "organization", quote: "q", status: "needs_review", payload: { "name" => spelling },
+        subject_type: "Organization", subject_id: company.id, proposed_subject: proposed)
+    end
+    energy = claim.("BWXT NUCLEAR ENERGY, INC.", "aaa1", true)
+    operations = claim.("BWXT NUCLEAR OPERATIONS GROUP, INC.", "aaa2", false)
+
+    plugin.refresh_open_claims
+
+    assert_equal "BWXT", company.reload.name
+    assert_equal [ "BWXT", "BWXT" ], [ energy.reload.payload["name"], operations.reload.payload["name"] ]
+    assert_empty plugin.refresh_open_claims, "and it stays that way"
+  end
+
+  test "an existing company a claim was matched to keeps its name; only a record the claim proposed is renamed" do
+    crawl!
+    existing = Organization.create!(name: "X-energy LLC", verification_status: "pending")
+    claim = Candidate.create!(source: recipient(XENERGY["recipient_id"]), kind: "organization", quote: "q", status: "needs_review",
+      payload: { "name" => "X-ENERGY, LLC" }, subject_type: "Organization", subject_id: existing.id, proposed_subject: false)
+
+    plugin.refresh_open_claims
+
+    assert_equal "X-energy LLC", existing.reload.name
+    refute_equal "X-ENERGY, LLC", claim.reload.payload["name"], "the claim itself is reworded"
+  end
+
+  test "a write the directory refuses (its company was rejected) skips that claim; the crawl goes on" do
+    crawl!
+    company = Organization.create!(name: "Gone Co", verification_status: "rejected", verified_by: "human:tosin")
+    doe = Organization.create!(name: "U.S. Department of Energy")
+    link = Relationship.create!(from_organization: doe, to_organization: company, relationship_type: "funds", description: "old, 2021: X.")
+    claim = Candidate.create!(source: recipient(XENERGY["recipient_id"]), kind: "relationship", quote: "q", status: "matched",
+      payload: { "description" => "old, 2021: X." }, subject_type: "Relationship", subject_id: link.id, proposed_subject: true)
+
+    assert_nothing_raised { plugin.crawl(nil) }
+    assert_equal "old, 2021: X.", claim.reload.payload["description"]
+    assert_match "Not reworded:", claim.notes, "says why, for a person"
+    plugin.refresh_open_claims
+    assert_equal 1, claim.reload.notes.scan("Not reworded:").size, "once"
+  end
+
+  test "a recommended claim whose wording changes loses the old verdict, so it isn't approved in bulk on it" do
+    crawl!
+    claim = Candidate.create!(source: recipient(XENERGY["recipient_id"]), kind: "relationship", quote: "q", status: "new",
+      ai_recommendation: "recommend_publish", ai_confidence: 0.9,
+      payload: { "description" => "1 award from the U.S. Department of Energy totaling $921.7 million, 2021: DENE0009040." })
+
+    plugin.refresh_open_claims
+
+    assert_equal [ "new", nil, nil ], [ claim.reload.status, claim.ai_recommendation, claim.ai_confidence ]
+  end
+
+  test "a disputed link not attached to a record goes back to verify as new, without stopping the crawl" do
+    crawl!
+    claim = Candidate.create!(source: recipient(XENERGY["recipient_id"]), kind: "relationship", quote: "q", status: "needs_review",
+      ai_recommendation: "needs_review", payload: { "description" => "1 award from the U.S. Department of Energy totaling $921.7 million, 2021: DENE0009040." })
+
+    assert_nothing_raised { plugin.crawl(nil) }
+    assert_equal [ "new", nil ], [ claim.reload.status, claim.ai_recommendation ]
+  end
+
+  test "a company's readable name: title case, no legal suffix, acronyms kept; a mixed-case name is its own" do
+    {
+      "BROOKHAVEN TECHNOLOGY GROUP INC" => "Brookhaven Technology Group", "BWXT NUCLEAR ENERGY, INC." => "BWXT Nuclear Energy",
+      "3M COMPANY" => "3M", "ELECTRIC POWER RESEARCH INSTITUTE, INC." => "Electric Power Research Institute",
+      "NATIONAL ACADEMY OF SCIENCES" => "National Academy of Sciences", "X-ENERGY, LLC" => "X-Energy", "TerraPower, LLC" => "TerraPower, LLC"
+    }.each { |spelling, name| assert_equal name, plugin.display_name(spelling), spelling }
+  end
+
+  test "award years say when the awards started, so they can't be read as the award period (#302)" do
+    same_year = XENERGY.merge("Award ID" => "DENE0009999", "Start Date" => "2021-09-01", "generated_internal_id" => "ASST_NON_DENE0009999_089")
+    @answers[[ "nuclear_energy_rd", 2 ]] = { "results" => [ same_year ], "page_metadata" => { "hasNext" => false } }
+    crawl!
+
+    assert_match(/\A2 awards from the U\.S\. Department of Energy totaling \$[\d.]+ (?:million|billion) \(all in 2021\): /,
+      plugin.extract(recipient(XENERGY["recipient_id"]), nil).last[:payload]["description"])
   end
 
   test "match links an existing company to DOE; the link waits for a person" do

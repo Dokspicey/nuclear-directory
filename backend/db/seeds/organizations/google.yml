@@ -101,6 +101,41 @@ relationships:
   quote: 'to bring 890 megawatts (MW) of new, reliable nuclear capacity onto the PJM Interconnection grid'
   published: '2026-10-06'
   confidence: 1.0
+- type: offtake_with
+  to: Elementl Power
+  description: 'Strategic agreement with early-stage capital (May 2025): Google funds Elementl to prepare three US sites for advanced nuclear projects of at least 600 MW each, with an option to buy power once they are built.'
+  source_url: https://blog.google/feed/google-and-elementl-nuclear-energy-site-development/
+  quote: Google will provide early-stage capital to help Elementl prepare three potential sites in the U.S. for advanced nuclear projects, each aiming for at least 600 MW of capacity.
+  published: '2025-05-07'
+  confidence: 1.0
+- type: offtake_with
+  to: Georgia Power
+  description: 'Agreement, pending Georgia PSC approval (Sept 2026): Google supports uprates adding about 96 MW at Plants Vogtle and Hatch and subscribes to the new Nuclear Uprate (NU-1) tariff for the uprates'' zero-emission credits.'
+  source_url: https://www.georgiapower.com/news-hub/press-releases/agreement-with-google-provides-$900-million-customer-benefits-advances-nuclear-energy.html
+  quote: Google will support uprates on Georgia Power’s owned portion of the nuclear units at Plants Vogtle and Hatch that will allow the facilities to add approximately 96 megawatts of new capacity to the electric grid
+  published: '2026-09-21'
+  confidence: 1.0
+- type: offtake_with
+  to: Elementl Power
+  description: 'Strategic agreement with early-stage capital (May 2025): Google funds Elementl to prepare three US sites for advanced nuclear projects of at least 600 MW each, with an option to buy power once they are built.'
+  source_url: https://blog.google/feed/google-and-elementl-nuclear-energy-site-development/
+  quote: with Google having the option for commercial off-take once projects are complete
+  published: '2025-05-07'
+  confidence: 1.0
+- type: offtake_with
+  to: Georgia Power
+  description: 'Agreement, pending Georgia PSC approval (Sept 2026): Google supports uprates adding about 96 MW at Plants Vogtle and Hatch and subscribes to the new Nuclear Uprate (NU-1) tariff for the uprates'' zero-emission credits.'
+  source_url: https://www.georgiapower.com/news-hub/press-releases/agreement-with-google-provides-$900-million-customer-benefits-advances-nuclear-energy.html
+  quote: Google will subscribe to the new NU-1 tariff and receive the Zero-Emission Credits (ZECs)
+  published: '2026-09-21'
+  confidence: 1.0
+- type: offtake_with
+  to: Georgia Power
+  description: 'Agreement, pending Georgia PSC approval (Sept 2026): Google supports uprates adding about 96 MW at Plants Vogtle and Hatch and subscribes to the new Nuclear Uprate (NU-1) tariff for the uprates'' zero-emission credits.'
+  source_url: https://www.georgiapower.com/news-hub/press-releases/agreement-with-google-provides-$900-million-customer-benefits-advances-nuclear-energy.html
+  quote: which is subject to approval by the Georgia Public Service Commission (PSC)
+  published: '2026-09-21'
+  confidence: 1.0
 facilities:
 - name: Fall Line Fusion Power Station
   type: offtakes_from
@@ -114,7 +149,7 @@ facilities:
   quote: 'Google will purchase power from the 615-MW plant'
   published: '2025-10-27'
   confidence: 1.0
-notes: 'Google is also listed as a CFS investor (corporate, not VC). blog.google announcement URL returned 404. HQ not verified. Google also has a PPA with Constellation (890 MW) per Constellation newsroom headline; not researched. #63: "Technology company" is not in the quote; about.google has no clean one-line description. HQ not added: about.google/locations lists the Googleplex address (Mountain View, CA) among many offices without calling it headquarters.'
+notes: 'Google is also listed as a CFS investor (corporate, not VC). blog.google announcement URL returned 404. HQ not verified. #63: "Technology company" is not in the quote; about.google has no clean one-line description. HQ not added: about.google/locations lists the Googleplex address (Mountain View, CA) among many offices without calling it headquarters.'
 description:
   text: Power buyer that agreed to buy power from multiple Kairos Power small modular reactors.
   source_url: https://blog.google/outreach-initiatives/sustainability/google-kairos-power-nuclear-energy-agreement/

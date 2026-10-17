@@ -62,6 +62,20 @@ relationships:
   quote: 'The new additional uprate capacity at each of them, totaling 433 MW, is expected to come online in the early 2030s'
   published: '2026-01-09'
   confidence: 1.0
+- type: offtake_with
+  to: Oklo
+  description: 'Prepayment agreement (Jan 2026) toward a power campus of up to 1.2 GW in Pike County, Ohio, which may come online as early as 2030.'
+  source_url: https://about.fb.com/news/2026/01/meta-nuclear-energy-projects-power-american-ai-leadership/
+  quote: This advanced nuclear technology campus — which may come online as early as 2030 — is poised to add up to 1.2 GW of clean baseload power directly into the PJM market and support our operations in the region.
+  published: '2026-01-09'
+  confidence: 1.0
+- type: offtake_with
+  to: Oklo
+  description: 'Prepayment agreement (Jan 2026) toward a power campus of up to 1.2 GW in Pike County, Ohio, which may come online as early as 2030.'
+  source_url: https://www.sec.gov/Archives/edgar/data/0001849056/000162828026054571/oklo-20260630.htm
+  quote: 'On January 5, 2026, we entered into a prepayment agreement (the "Prepayment Agreement") with Meta Platforms, Inc. ("Meta") that advances plans to develop a 1.2 gigawatt power campus in Pike County, Ohio'
+  published: '2026-08-06'
+  confidence: 1.0
 facilities:
 - name: Clinton Clean Energy Center
   type: offtakes_from
@@ -87,7 +101,7 @@ facilities:
   quote: 'in addition to the energy from expansions (uprates) at these two Ohio plants and a third Vistra nuclear plant in Pennsylvania (Beaver Valley)'
   published: '2026-01-09'
   confidence: 1.0
-notes: 'Meta also signed PPAs with Vistra (Perry, Davis-Besse, Beaver Valley uprates) and an agreement with Oklo (Pike County, OH) in Jan 2026; those counterparties are not in this seed. HQ not verified. #63: Clinton is an operating (fission) nuclear plant. Meta also ran a nuclear RFP (https://sustainability.atmeta.com/blog/2024/12/03/accelerating-the-next-wave-of-nuclear-to-power-ai-innovation/). HQ (Menlo Park) stated only in SEC 10-K (blocked, 403).'
+notes: 'HQ not verified. #63: Clinton is an operating (fission) nuclear plant. Meta also ran a nuclear RFP (https://sustainability.atmeta.com/blog/2024/12/03/accelerating-the-next-wave-of-nuclear-to-power-ai-innovation/). HQ (Menlo Park) stated only in SEC 10-K (blocked, 403).'
 description:
   text: Technology company behind Facebook, Messenger, Instagram and WhatsApp.
   source_url: https://about.meta.com/company-info/

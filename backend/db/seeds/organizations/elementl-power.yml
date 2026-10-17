@@ -1,0 +1,17 @@
+# Seed research for #253 batch 2 (hyperscaler power deals) - 2026-10-15. Quotes copied from raw page text fetched this session.
+name: Elementl Power
+aliases:
+- Elementl
+website: https://www.elementlpower.com
+hq: null
+country_code: null
+status: active
+roles: []
+technologies: []
+relationships: []
+facilities: []
+notes: 'Project developer, not a reactor vendor: its FAQ says "Elementl is not a reactor manufacturer (OEM) or a construction contractor (EPC)" and that it is technology-agnostic, so no category is given. Its site lists a project in Meigs County, Ohio (not researched). The Google deal is recorded in google.yml (#253).'
+description:
+  text: Nuclear project developer that develops, finances and delivers new nuclear power projects, from siting and licensing through commercial operation.
+  source_url: https://www.elementlpower.com/faq
+  quote: Elementl develops, finances, and delivers next-generation nuclear power projects, from early siting and licensing through construction and commercial operation.

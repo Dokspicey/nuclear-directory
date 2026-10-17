@@ -122,6 +122,10 @@ services:
       # CONNECTION LIMIT 3.
       - key: RAILS_MAX_THREADS
         value: "1"
+      # Puma in single mode: Render's default ran it as a 1-worker cluster,
+      # an extra process on a 512 MB free instance.
+      - key: WEB_CONCURRENCY
+        value: "0"
       # Lets db:schema:load reset this (non-production) database.
       - key: DISABLE_DATABASE_ENVIRONMENT_CHECK
         value: "1"

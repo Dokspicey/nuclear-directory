@@ -87,6 +87,8 @@ class Admin::FactsControllerTest < ActionDispatch::IntegrationTest
     assert_select "form[action=?]", admin_fact_unpublish_path(type: "Organization", id: terrapower.id) do
       assert_select "input[name=reason][required]"
       assert_select "button", "Take off"
+      # Enter in the reason submits through the form's first button, so it must be Take off itself.
+      assert_select "button[type=submit]:first-of-type:not([disabled])[data-turbo-confirm]", "Take off"
     end
 
     post admin_fact_unpublish_path(type: "Organization", id: terrapower.id), params: { reason: "   " }

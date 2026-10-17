@@ -1,0 +1,36 @@
+# Seed research for #253 batch 2 (hyperscaler power deals) - 2026-10-15. Quotes copied from raw page text fetched this session.
+name: Oracle
+aliases:
+- Oracle Corporation
+website: https://www.oracle.com
+hq: null
+country_code: null
+status: active
+roles:
+- key: data_center_offtaker
+  source_url: https://www.oracle.com/news/announcement/oracle-announces-commitment-to-absorb-rising-point-beach-energy-costs-2026-10-02/
+  quote: The planned commitment builds on Oracle’s broader investment in Wisconsin through Project Lighthouse , its data center development in Port Washington.
+  published: '2026-10-02'
+  confidence: 1.0
+technologies: []
+relationships: []
+facilities:
+- name: Point Beach Nuclear Plant
+  type: offtakes_from
+  note: 'Planned subscription to part of the plant''s output, pending Wisconsin PSC approval (Oct 2026).'
+  source_url: https://www.oracle.com/news/announcement/oracle-announces-commitment-to-absorb-rising-point-beach-energy-costs-2026-10-02/
+  quote: Oracle today announced a commitment to subscribe to a portion of the existing Point Beach Nuclear Plant’s electricity generation
+  published: '2026-10-02'
+  confidence: 1.0
+- name: Point Beach Nuclear Plant
+  type: offtakes_from
+  note: 'Planned subscription to part of the plant''s output, pending Wisconsin PSC approval (Oct 2026).'
+  source_url: https://www.oracle.com/news/announcement/oracle-announces-commitment-to-absorb-rising-point-beach-energy-costs-2026-10-02/
+  quote: Oracle’s planned subscription to a portion of the Point Beach purchase power arrangement remains subject to approval by the Public Service Commission of Wisconsin.
+  published: '2026-10-02'
+  confidence: 1.0
+notes: 'The subscription is to a portion of the Point Beach purchase power arrangement between We Energies and NextEra Energy (owner of Point Beach); the Oracle release names neither company, so only the plant link is recorded (no company link). MW from trade press only (WPR, 2026-10-06, https://www.wpr.org): "Oracle would pay for 125 to 250 megawatts of power purchased from the Point Beach Nuclear Plant". The space before the comma in the role quote ("Project Lighthouse , its") is in the page text. HQ not added: the release dateline is Austin, Texas, but no page fetched says headquarters. No technology tag: buying power doesn''t make Oracle a fission company.'
+description:
+  text: Software and cloud company offering business applications and Oracle Cloud infrastructure.
+  source_url: https://www.oracle.com/news/announcement/oracle-announces-commitment-to-absorb-rising-point-beach-energy-costs-2026-10-02/
+  quote: Oracle offers integrated suites of applications plus secure, autonomous infrastructure in the Oracle Cloud.

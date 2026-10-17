@@ -52,7 +52,7 @@ if preview
   # hand. No fromDatabase, fromService or fromGroup anywhere: any of them could
   # hand production's connection string or secrets to preview code, under
   # whatever name.
-  allowed = %w[DATABASE_URL NOINDEX DISABLE_DATABASE_ENVIRONMENT_CHECK SECRET_KEY_BASE RAILS_MAX_THREADS PREVIEW_ADMIN_PASSWORD]
+  allowed = %w[DATABASE_URL NOINDEX DISABLE_DATABASE_ENVIRONMENT_CHECK SECRET_KEY_BASE RAILS_MAX_THREADS WEB_CONCURRENCY PREVIEW_ADMIN_PASSWORD]
   references = %w[fromDatabase fromService fromGroup]
   entries.each do |var|
     if !var.is_a?(Hash) || var["key"].to_s.empty? || references.any? { |ref| var.key?(ref) }
