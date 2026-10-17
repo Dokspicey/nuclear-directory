@@ -86,7 +86,29 @@ class Admin::MergeTest < ActionDispatch::IntegrationTest
 
     get admin_record_merge_path(type: "Organization", id: live.id, into: pending.id)
 
-    assert_select "p", /Pending Brand Co isn't approved yet,\s+so neither page is public until it is/
+    assert_select "p", /Pending Brand Co isn't on the public site yet,\s+so neither page is public until it is/
+  end
+
+  test "a pending site that's public through a live unit gets no warning" do
+    duplicate = sourced(Facility.create!(name: "Old Name Plant", **VERIFIED))
+    site = Facility.create!(name: "Half Live Plant")
+    sourced(Facility.create!(name: "Half Live 1", parent: site, **VERIFIED))
+    assert Facility.published.exists?(site.id)
+
+    get admin_record_merge_path(type: "Facility", id: duplicate.id, into: site.id)
+
+    assert_select "p", text: /isn't on the public site yet/, count: 0
+  end
+
+  test "claims moved by a merge didn't propose the record kept, so rejecting one later never retires it" do
+    kept = sourced(Organization.create!(name: "Kept Brand", **VERIFIED))
+    duplicate = Organization.create!(name: "Kept Brand Holdings")
+    claim = Candidate.create!(source: @web, kind: "organization", quote: "q", status: "needs_review", payload: { "name" => "Kept Brand Holdings" },
+      subject_type: "Organization", subject_id: duplicate.id, proposed_subject: true)
+
+    post admin_record_merge_path(type: "Organization", id: duplicate.id), params: { into: kept.id, reason: "Same company" }
+
+    assert_equal [ kept.id, false ], [ claim.reload.subject_id, claim.proposed_subject ]
   end
 
   test "a removed record isn't merged from here, nor merged into" do

@@ -67,6 +67,7 @@ class Admin::RecordsController < Admin::BaseController
     @into = merge_target
     @choices = merge_choices unless @into
     @preview = merge_with(@into, dry_run: true) if @into
+    @into_public = public?(@into) if @into
   end
 
   def perform_merge
@@ -78,12 +79,16 @@ class Admin::RecordsController < Admin::BaseController
     else
       @into = into
       @preview = merge_with(into, dry_run: true)
+      @into_public = public?(into)
       @errors = result.errors
       render :merge, status: :unprocessable_content
     end
   end
 
   private
+    # On the public site now: a pending site can be, through a live unit.
+    def public?(record) = record.class.published.exists?(record.id)
+
     def merge_with(into, reason: nil, dry_run: false)
       DataQuality::Review.merge(type: @fact.type, from_id: @fact.id, into_id: into.id, by: actor, reason:, dry_run:)
     end

@@ -156,7 +156,7 @@ module Directory
           duplicate = Evidence.where(subject: into, source_id: row.source_id, quote: row.quote).exists?
           duplicate ? row.destroy! : row.update!(subject: into) && moved["evidence"] += 1
         end
-        moved["candidates"] = Candidate.where(subject_type: "Organization", subject_id: from.id).update_all(subject_id: into.id)
+        moved["candidates"] = Candidate.where(subject_type: "Organization", subject_id: from.id).update_all(subject_id: into.id, proposed_subject: false) # they didn't propose into
 
         note = "Merged into #{into.name} (##{into.id})"
         retired.each { |row| row.reject!(by:, reason: "#{note}; #{into.name} already has this, or it would point at itself") unless row.closed? }
@@ -249,7 +249,7 @@ module Directory
           duplicate = Evidence.where(subject: into, source_id: row.source_id, quote: row.quote).exists?
           duplicate ? row.destroy! : row.update!(subject: into) && moved["evidence"] += 1
         end
-        moved["candidates"] = Candidate.where(subject_type: "Facility", subject_id: from.id).update_all(subject_id: into.id)
+        moved["candidates"] = Candidate.where(subject_type: "Facility", subject_id: from.id).update_all(subject_id: into.id, proposed_subject: false) # they didn't propose into
 
         retired.each { |row| row.reject!(by:, reason: "#{note}; #{into.name} already has this link") unless row.closed? }
         summary = moved.select { |_, count| count.positive? }.map { |what, count| "#{count} #{what.tr('_', ' ').then { |label| count == 1 ? label.singularize : label }}" }
