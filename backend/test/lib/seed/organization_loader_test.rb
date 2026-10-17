@@ -283,7 +283,9 @@ class Seed::OrganizationLoaderTest < ActiveSupport::TestCase
     write_file("acme", org("Acme", website: "https://acme.com", merges: [ "Acme USA" ], aliases: [ "Acme USA", "AUSA" ],
       facilities: [ item(name: "Acme Plant", type: "operates") ]))
     assert_empty Seed::OrganizationLoader.new(@dir).collisions, "a merged name isn't a collision"
-    Seed::OrganizationLoader.new(@dir).load!
+    merged = Seed::OrganizationLoader.new(@dir).load!
+    assert_equal({ created: 0, changed: 2, unchanged: 0 }, merged.results[:organization], "both companies changed (#301)")
+    assert_equal({ created: 0, changed: 1, unchanged: 0 }, merged.results[:facility_relationship], "the moved link changed, though restated")
 
     acme = Organization.find_by!(slug: "acme")
     assert old.reload.unpublished?
@@ -293,8 +295,10 @@ class Seed::OrganizationLoaderTest < ActiveSupport::TestCase
     assert_equal [ "Acme Plant" ], acme.facility_relationships.map { |link| link.facility.name }
     assert_empty old.aliases
 
-    Seed::OrganizationLoader.new(@dir).load!
+    again = Seed::OrganizationLoader.new(@dir).load!
     assert_equal 1, Organization.where(slug: "acme").count, "a second run has nothing to merge"
+    assert_equal({ created: 0, changed: 0, unchanged: 1 }, again.results[:organization])
+    assert_equal({ created: 0, changed: 0, unchanged: 1 }, again.results[:facility_relationship])
   end
 
   test "the dry run lists a name another organization already has" do

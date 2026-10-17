@@ -217,6 +217,27 @@ module Seed
       # merged into this one, attributed to the seed's human, so its aliases
       # and facts move here instead of colliding. Nothing to do on a fresh
       # database, or once merged.
+      # One row's state, keeping the strongest seen this load (STATES).
+      def count(kind, id, state)
+        key = [ kind, id ]
+        @rows[key] = [ state, @rows[key] ].compact.min_by { |seen| STATES.index(seen) }
+      end
+
+      # A merge changes both companies, and moves the former one's links:
+      # each counts as changed, even when a later write only restates it.
+      def count_merge(former_id, target_id)
+        former = Organization.find(former_id)
+        moved = { organization_role: former.organization_roles.ids, organization_technology: former.organization_technologies.ids,
+          facility_relationship: former.facility_relationships.ids,
+          relationship: Relationship.where(from_organization_id: former_id).or(Relationship.where(to_organization_id: former_id)).ids }
+        yield.tap do |result|
+          next unless result.ok?
+
+          [ former_id, target_id ].each { |id| count(:organization, id, :changed) }
+          moved.each { |kind, ids| ids.each { |id| count(kind, id, :changed) } }
+        end
+      end
+
       def merge_former_organizations(slug, doc)
         Array(doc["merges"]).each do |name|
           former = Directory::Lookup.organization(name:) or next
@@ -225,8 +246,10 @@ module Seed
           next if former.verification_status == "unpublished" # merged on an earlier load
           next @errors << "#{slug}: can't merge #{name.inspect}: #{doc["name"].inspect} isn't loaded yet" unless target
 
-          result = Directory::FactWriter.merge_organization(from_id: former.id, into_id: target.id, by: VERIFICATION[:by],
-            reason: "One company per brand (decision #23): #{name} is part of #{doc["name"]}")
+          result = count_merge(former.id, target.id) do
+            Directory::FactWriter.merge_organization(from_id: former.id, into_id: target.id, by: VERIFICATION[:by],
+              reason: "One company per brand (decision #23): #{name} is part of #{doc["name"]}")
+          end
           @errors << "#{slug}: merging #{name.inspect}: #{result.errors.join("; ")}" unless result.ok?
         end
       end
@@ -319,9 +342,7 @@ module Seed
         verification = hold ? { status: "pending", by: VERIFICATION[:by], reason: hold } : (VERIFICATION unless pending)
         result = Directory::FactWriter.write(kind, attributes, evidence: Array.wrap(evidence), verification:, remove_aliases:)
         if result.ok?
-          state = result.created ? :created : (result.changed ? :changed : :unchanged)
-          key = [ kind, result.id ]
-          @rows[key] = [ state, @rows[key] ].compact.min_by { |seen| STATES.index(seen) }
+          count(kind, result.id, result.created ? :created : (result.changed ? :changed : :unchanged))
         else
           @errors << "#{slug}: #{kind} #{attributes[:name] || attributes[:role] || attributes[:relationship_type]}: " \
             "#{result.errors.join("; ")}"
