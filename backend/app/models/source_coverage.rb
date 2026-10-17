@@ -59,14 +59,15 @@ class SourceCoverage
     end
 
     # Crawler kinds that have read something within LIVE_WITHIN: a crawl run
-    # that succeeded, and a document it fetched with content and an OK status.
-    # Re-processing old documents (extract, match, verify) or a blocked
-    # fetch doesn't count.
+    # that succeeded, and a document it fetched with content and an OK status,
+    # with no problem since (a failed fetch keeps the old content but records
+    # its reason, Snapshot.take). Re-processing old documents (extract,
+    # match, verify), a blocked fetch or a 503 doesn't count.
     def live_kinds
       @live_kinds ||= begin
         since = LIVE_WITHIN.ago
         crawled = CrawlRun.succeeded.stage_crawl.where(started_at: since..).distinct.pluck(:source_kind).to_set
-        read = ::Source.crawl_ok.where(fetched_at: since..).where.not(content_sha256: nil).distinct.pluck(:source_kind).to_set
+        read = ::Source.crawl_ok.where(fetched_at: since.., status_reason: nil).where.not(content_sha256: nil).distinct.pluck(:source_kind).to_set
         crawled & read
       end
     end
@@ -84,7 +85,11 @@ class SourceCoverage
 
     def hand_documents(row)
       return ::Source.where(source_kind: SourceCatalog::RESEARCH_KIND, domain: row["domain"]).count if row["domain"]
+      return 0 unless row["group"]
 
-      SourceCatalog.research.find { |entry| entry.key == row["group"] }&.documents.to_i
+      research[row["group"]]&.documents.to_i
     end
+
+    # The Sources page's hand-research groups, read once per page.
+    def research = @research ||= SourceCatalog.research.index_by(&:key)
 end

@@ -93,6 +93,13 @@ class Admin::SourcesByCategoryTest < ActionDispatch::IntegrationTest
     get admin_sources_path(by: "category")
     assert_select "details#utilities .nd-cov__src", /EIA-860M generators.*Built/m, "a blocked fetch isn't a read"
     assert_select "details#utilities summary .nd-flag", "No live source"
+
+    # Read OK days ago; today's fetch got a 503, which keeps the old content and records why.
+    doe = run_crawler("usaspending_doe_awards", at: 4.days.ago)
+    doe.update!(fetched_at: 1.hour.ago, status_reason: "HTTP 503")
+    CrawlRun.create!(stage: "crawl", source_kind: "usaspending_doe_awards", status: "succeeded", started_at: 1.hour.ago)
+    get admin_sources_path(by: "category")
+    assert_select "details#government-research summary .nd-flag", "No live source", "a failed fetch over old content isn't a read"
   end
 
   test "a category's facts count each fact once, and its counts stay when a crawler goes stale" do
