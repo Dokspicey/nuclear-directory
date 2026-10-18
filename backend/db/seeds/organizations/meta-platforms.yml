@@ -45,7 +45,14 @@ relationships:
   to: TerraPower, LLC
   description: 'Funding agreement (Jan 2026): Meta funds early development of two Natrium units (up to 690 MW, as early as 2032) and has rights to energy from up to six more units (2.1 GW by 2035).'
   source_url: https://www.terrapower.com/terrapower-announces-deal-with-meta
-  quote: 'TerraPower, a nuclear innovation company, and Meta announced today an agreement to develop up to 8 Natrium reactor'
+  quote: 'Under this commercial agreement, Meta will provide funding to support the deployment of the Natrium plants, with delivery of initial units as early as 2032.'
+  published: '2026-01-09'
+  confidence: 1.0
+- type: funds
+  to: TerraPower, LLC
+  description: 'Funding agreement (Jan 2026): Meta funds early development of two Natrium units (up to 690 MW, as early as 2032) and has rights to energy from up to six more units (2.1 GW by 2035).'
+  source_url: https://www.terrapower.com/terrapower-announces-deal-with-meta
+  quote: 'This agreement supports the early development activities for two new Natrium units with rights for energy provided to Meta for up to six additional Natrium units.'
   published: '2026-01-09'
   confidence: 1.0
 - type: offtake_with
