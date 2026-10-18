@@ -152,7 +152,7 @@ Everyone in one part of the industry (e.g. fuel and materials), most connected f
 
 ### Company profile (`/companies/terrapower`)
 
-Everything sourced about one company, and who it deals with. **For:** Someone checking a company: a journalist, an investor, a job seeker, a competitor.
+Everything sourced about one company, and who it deals with. This is the shared frame; the key facts and sections that follow it depend on the category (next section). **For:** Someone checking a company: a journalist, an investor, a job seeker, a competitor.
 
 - **Questions, in order:** 1. What does it do? (one line) 2. What kind of company is it? 3. Who does it deal with, and how? (owns, operates, supplies, sells power to, funds) 4. Which plants and sites is it tied to? 5. For reactor developers: how far along is licensing? 6. Where's the proof?
 - **Sections, top to bottom:** Header; Crumbs: Category / Name; Mark, name, one-line description with sources; Key facts: Type chips, Website, Also known as, Legal name, Role, Technology, Headquarters, Parent company, Licensing stage (developers); Connections map (#363); Deals and links (n); Plants and sites (n); Sources (n); Report a correction; Footer.
@@ -161,6 +161,35 @@ Everything sourced about one company, and who it deals with. **For:** Someone ch
 - **Links in:** Lists, categories, search; Other profiles' deals and maps; Plant pages' Companies. **Links out:** Partners' profiles; Plants; Sources (external); Report a correction.
 - **Cut:** The role tag row under the name: it repeats the Role fact and the Type chip; "Not verified yet" as a section heading: fold it into one muted line.
 - **Spec:** #363, #369
+
+### Company profile: one layout per category
+
+Every company page shares one frame. Its first key facts and its sections follow its category, most important first (Tosin, 18 Oct). Each category has a board on the canvas, with 390 and 1440 wireframes.
+
+- **Shared by every company:** crumbs; mark, name and the one-line summary with its sources; Type chips; the always-on key facts (Website, Headquarters, Parent company, Also known as, Legal name) after the category's own; the connections map (#363); Sources; Report a correction.
+- **Varies by category:** the first 2 to 3 key facts; the sections after the map, and their order; each section's table columns.
+- **Empty states, only what's sourced:**
+  - A key fact with no source is left out: no row, never "unknown".
+  - A section with nothing sourced is left out.
+  - The exception is the category's first section. It stays, with one muted line ("No sourced projects yet.") and a Report a correction link, so the page still answers its main question.
+  - Never infer one fact from another.
+- **A company in several categories:**
+  - Its first category (the one in its crumbs) sets the layout.
+  - Its other categories' sections follow, once each, in their own order.
+  - The key facts add each other category's first fact. Amazon: Nuclear power deals, Contracted MW, then Companies funded.
+- **Plants and sites** isn't a company category; it has the plant profile. Isotopes and coolant sit inside Fuel and materials.
+
+| Category | First key facts | Sections after the map, in order | Sources for its facts |
+|---|---|---|---|
+| Developers | Technology, Licensing stage, First project | Projects and sites; Licensing; Funding; Power deals; Suppliers | Technology: the reactor design and type (e.g. sodium-cooled fast reactor); Licensing stage: from the NRC docket (Data Quality defines the field); First project: the earliest site with a sourced stage; Funding and deals: signed facts only; MOUs are Notes (#363) |
+| Power plant owners and operators | Plants operated, Plants owned, Operating capacity | Plants; Units by status; Power deals; Suppliers and services | Plants operated and owned: from the operates and owns links (shares from the source); Operating capacity: operating units only (PM, 16 Oct); Units by status: counts from the units table |
+| Fuel and materials | What it makes, Facilities, Capacity | Facilities; Who it supplies; Funding and awards | What it makes: from its roles and facility types; Capacity: as the source states it, with its unit (e.g. SWU a year), never converted; Customers: from supplies links |
+| Components and manufacturing | What it makes, Customers, Facilities | Who it supplies; Facilities | What it makes: from its roles and its supplies links' details; Customers: from supplies links |
+| Services and engineering | Services, Clients, Plants served | Clients and contracts; Plants served | Services: from its roles (reactor services, regulatory consultant) and contract details; Clients and plants: from supplies links, dated |
+| Waste and decommissioning | Services, Sites, Plants being decommissioned | Sites and projects; Clients | Sites: from its links to facilities (decommissioning status from the site); Clients: from supplies links |
+| Power buyers | Nuclear power deals, Contracted MW, Sellers | Power deals; Investments (when it also invests) | Deals: signed only; early-stage ones are Notes with their stage (#363); Contracted MW: the sum of sourced amounts, labelled "sourced deals"; left out if any amount is missing |
+| Investors | Companies funded, Focus, Total disclosed | Investments; Invests alongside | Investments: from invests_in and funds links; Total disclosed: the sum of disclosed amounts only, labelled so; Focus: from the funded companies' technologies |
+| Government and research | Kind, Programs, Awards given | Awards and funding given; Programs; Labs and research sites; Research partners | Awards: from funds links; amounts from USAspending or the award page; Labs and sites: from its facilities (research reactors, test sites) |
 
 ### Plant profile (`/plants/plant-vogtle`)
 
@@ -208,7 +237,7 @@ Everyone working on one technology (SMR, HALEU, fusion, molten salt). **For:** S
 - **Key facts and sources:** Definition: plain, one line (VOICE.md); Companies tagged with the technology; plants whose units use it.
 - **Links in:** Technology tags on profiles; Homepage suggestions (HALEU, SMR); Search engines, only when it has 5+ results. **Links out:** Profiles; The full list with the filter.
 - **Cut:** Indexing a technology page with fewer than 5 results (noindex).
-- **Spec:** new
+- **Spec:** new, confirmed by Tosin on 18 Oct
 
 ### The data (`/data (coming)`)
 
