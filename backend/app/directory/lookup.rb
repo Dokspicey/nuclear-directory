@@ -91,6 +91,13 @@ module Directory
       end.sort_by { |row| -row[:checked_at].to_f }
     end
 
+    # A fact's evidence, as Directory::EvidenceRef values.
+    def evidence(type:, id:)
+      raise ArgumentError, "not a fact type: #{type.inspect}" unless FACT_TYPES.include?(type.to_s)
+
+      Evidence.where(subject_type: type.to_s, subject_id: id).order(:id).map { |row| EvidenceRef.from(row) }
+    end
+
     # How many public facts (any type) have evidence from these sources.
     def published_count_backed_by(source_ids:)
       return 0 if source_ids.empty?
