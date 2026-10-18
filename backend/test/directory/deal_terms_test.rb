@@ -133,6 +133,24 @@ class Directory::DealTermsTest < ActiveSupport::TestCase
     assert_match "2 lead investors", duplicate.verification_events.order(:id).last.reason
   end
 
+  test "a merge locks a retiring link before reading its terms, so a term written meanwhile can't stay behind" do
+    duplicate = Organization.create!(name: "X-energy LLC", verification_status: "verified", verified_by: BY)
+    retired = Relationship.create!(from_organization: @doe, to_organization: duplicate, relationship_type: "funds",
+      verification_status: "verified", verified_by: BY)
+    DealTerm.create!(link: retired, term_type: "award", external_id: "ASST_LOCK", amount_usd: 5, starts_on: "2024-01-01")
+    sql = []
+    record = ->(*, payload) { sql << payload[:sql] }
+
+    ActiveSupport::Notifications.subscribed(record, "sql.active_record") do
+      assert Directory::FactWriter.merge_organization(from_id: duplicate.id, into_id: @xenergy.id, by: BY).ok?
+    end
+
+    lock = sql.index { |q| q.match?(/FROM "relationships" WHERE "relationships"."id" = \$1.*FOR UPDATE/m) && q.include?("relationships") }
+    read = sql.index { |q| q.match?(/FROM "deal_terms" WHERE "deal_terms"."link_type"/) }
+    assert lock && read && lock < read, "the retiring link is locked before its terms are read"
+    assert_equal @funds, DealTerm.find_by!(external_id: "ASST_LOCK").link
+  end
+
   test "the merge preview counts the terms and lead investors the merge moves" do
     duplicate = Organization.create!(name: "X-energy LLC", verification_status: "verified", verified_by: BY)
     retired = Relationship.create!(from_organization: @doe, to_organization: duplicate, relationship_type: "funds",

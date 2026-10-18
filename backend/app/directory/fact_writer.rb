@@ -857,7 +857,13 @@ module Directory
       # one; its open deal terms (#256) move to that link first, so awards
       # aren't hidden with it. A term the kept link already has (same kind
       # and award ID) stays and is retired with its link. Returns how many moved.
+      # Locked first and held until the merge retires it, so a term written
+      # to it meanwhile either lands before this reads (and moves) or waits
+      # and finds the link closed. A term write that already holds the
+      # term's lock can deadlock with this; the database stops one and the
+      # admin's merge says to try again.
       def move_deal_terms(retired_link, kept_link)
+        retired_link.lock!
         deal_terms_moving(retired_link, kept_link).each { |term| term.update!(link: kept_link) }.size
       end
 
