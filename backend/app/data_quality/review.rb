@@ -21,6 +21,10 @@
 # write (e.g. an edit that duplicates another fact) comes back as errors,
 # never raises.
 module DataQuality::Review
+  # A merge (#142): errors, or what moved ("3 aliases, 2 evidence").
+  MergeResult = Data.define(:errors, :moved) do
+    def ok? = errors.empty?
+  end
   Result = Data.define(:candidate_id, :ref, :errors) do
     def ok? = errors.empty?
   end
@@ -32,9 +36,11 @@ module DataQuality::Review
   # source's value. found_by: the model of the run that extracted it (nil for
   # hand-made ones).
   # category: which of the Checks screen's groups it's in (CATEGORIES).
+  # held: why it waits for Data Quality rather than being approved in bulk
+  # (held_reason), or nil.
   Item = Data.define(:candidate_id, :kind, :status, :claim, :payload, :quote, :source, :notes,
     :ai_recommendation, :ai_reason, :ai_confidence, :ai_model, :ai_checked_at, :verify_run_id,
-    :subject_type, :subject_id, :record, :differences, :found_by, :crawl_run_id, :category)
+    :subject_type, :subject_id, :record, :differences, :found_by, :crawl_run_id, :category, :held)
   Source = Data.define(:id, :url, :title, :source_kind)
   EvidenceItem = Data.define(:source, :quote, :found_by, :confidence)
   PendingFact = Data.define(:type, :id, :kind, :attributes, :evidence, :created_at, :last_event)
@@ -107,8 +113,44 @@ module DataQuality::Review
 
     # The recommended claims a Checks filter shows, oldest first: what
     # "Approve N safe" counts, fingerprints and approves on that filter.
-    def safe_ids(category: "all", source_kind: nil)
-      category_scope(category, source_kind:).where(id: Candidate.recommended.select(:id)).order(:id).pluck(:id)
+    # Only truly safe ones: a claim that waits for Data Quality (held_reason)
+    # is never approved in bulk, however it's recommended.
+    def safe_ids(category: "all", source_kind: nil, directory: DataQuality::DirectoryClient.new)
+      firsts = first_batches
+      claims = category_scope(category, source_kind:).where(id: Candidate.recommended.select(:id)).includes(:source).order(:id).to_a
+      # Which attached records a person decided, one query per kind of record.
+      decided = claims.select(&:subject_id).group_by(&:subject_type).flat_map do |type, group|
+        directory.human_decided_ids(type:, ids: group.map(&:subject_id)).map { |id| [ type, id ] }
+      end.to_set
+      claims.reject { |candidate| held_reason(candidate, directory:, firsts:, decided: decided.include?([ candidate.subject_type, candidate.subject_id ])) }
+        .map(&:id)
+    end
+
+    # Why a claim waits for Data Quality instead of being approved in bulk
+    # (Tosin, 16 Oct, after an approve-all replaced hand-written descriptions):
+    # - its record is one a person decided, so approving would change a value
+    #   they chose; it's decided one at a time (Keep ours or Take theirs)
+    # - it came in its source's first batch, which Data Quality reviews
+    # - it isn't attached to a record yet: approving could find a record a
+    #   person decided by its name and change it
+    # nil when it's safe. decided: whether a person decided its record, when already known.
+    def held_reason(candidate, directory: DataQuality::DirectoryClient.new, record: :lookup, firsts: first_batches, decided: nil)
+      return "it isn't attached to a record yet" unless candidate.subject_id
+
+      if decided.nil?
+        record = directory.attached_record(candidate) if record == :lookup
+        # Any decision a person made: approved, rejected or taken off.
+        decided = record&.verified_by.to_s.start_with?("human:")
+      end
+      return "it would change a record a person decided" if decided || candidate.notes.to_s.match?(/\Ahuman-verified /i)
+      return "it's from this source's first batch" if candidate.crawl_run_id && firsts[candidate.source.source_kind] == candidate.crawl_run_id
+
+      nil
+    end
+
+    # Each kind of source's first batch: { "usaspending_doe_awards" => crawl run id }.
+    def first_batches
+      Candidate.joins(:source).where.not(crawl_run_id: nil).group("sources.source_kind").minimum(:crawl_run_id)
     end
 
     # The claims waiting on one fact (both queues), oldest first, for its
@@ -116,6 +158,13 @@ module DataQuality::Review
     def waiting_for(type:, id:, directory: DataQuality::DirectoryClient.new)
       waiting_scope.where(subject_type: type.to_s, subject_id: id).includes(:source, :crawl_run).order(:id)
         .map { |candidate| item(candidate, directory) }
+    end
+
+    # How many claims wait on each of these facts, and the first, counted as
+    # waiting_for counts them: { id => [count, first_candidate_id] }.
+    def waiting_counts(type:, ids:)
+      waiting_scope.where(subject_type: type.to_s, subject_id: ids).group(:subject_id)
+        .pluck(:subject_id, Arel.sql("COUNT(*)"), Arel.sql("MIN(candidates.id)")).to_h { |id, count, first| [ id, [ count, first ] ] }
     end
 
     # The last decision a person made on a claim about one fact, for the
@@ -187,9 +236,10 @@ module DataQuality::Review
     # (a refused item is a Result with errors, not an error).
     def approve(candidate_ids, by:, reason: nil, only_recommended: false, directory: DataQuality::DirectoryClient.new)
       human!(by)
+      firsts = first_batches if only_recommended # once per bulk approval
       Candidate.transaction do
         Candidate.where(id: candidate_ids).includes(:crawl_run, :verify_run).order(:id).map do |candidate|
-          approve_one(candidate, by:, reason:, directory:, only_recommended:)
+          approve_one(candidate, by:, reason:, directory:, only_recommended:, firsts:)
         end
       end
     end
@@ -341,6 +391,20 @@ module DataQuality::Review
       decide_fact(type, id, "verified", by:, reason:, attributes:, directory:, require_source: true)
     end
 
+    # Put back: the status it had before it was taken off. A record that was
+    # pending (a site public through a verified unit) goes back to pending,
+    # its own fields still unapproved; anything else is approved again.
+    # Only while it's still taken off, so an old form can't undo a newer decision.
+    def republish(type:, id:, by:, reason: nil, directory: DataQuality::DirectoryClient.new)
+      now = directory.fact(type:, id:)&.verification_status
+      return Result.new(candidate_id: nil, ref: nil, errors: [ "it's #{now || 'gone'} now, so it wasn't changed" ]) unless now == "unpublished"
+
+      before = directory.verification_history(type:, id:).find { |event| event.to_status == "unpublished" }&.from_status
+      return decide_fact(type, id, "pending", by:, reason:, directory:) if before == "pending"
+
+      approve_fact(type:, id:, by:, reason:, directory:)
+    end
+
     def reject_fact(type:, id:, by:, reason: nil, directory: DataQuality::DirectoryClient.new)
       decide_fact(type, id, "rejected", by:, reason:, directory:)
     end
@@ -352,6 +416,37 @@ module DataQuality::Review
     end
 
     def history(type:, id:, directory: DataQuality::DirectoryClient.new) = directory.verification_history(type:, id:)
+
+    # Changing a plant's status (#316), the admin's side of
+    # `directory:set_status`: what it would change, read only, and then the
+    # change as `by`'s decision. The evidence is a source and its quote: a
+    # link, saved as a source, or NRC's status file by its source_id. Each returns a
+    # DirectoryClient::StatusResult.
+    def status_change_plan(ids:, status:, directory: DataQuality::DirectoryClient.new) = directory.status_change_plan(ids:, status:)
+
+    def set_status(ids:, status:, by:, reason:, source_url: nil, source_id: nil, quote: nil, directory: DataQuality::DirectoryClient.new)
+      if source_url.present?
+        source = DataQuality::Sources.find_or_create(url: source_url.strip)
+        return DataQuality::DirectoryClient::StatusResult.new(plan: nil, error: "Enter a link to a public source, starting with https://") unless source.ok?
+
+        source_id = source.ref.id
+      end
+      directory.set_status(ids:, status:, by:, reason:, source_id:, quote: quote.presence)
+    end
+
+    def nrc_status_quote(name, directory: DataQuality::DirectoryClient.new) = directory.nrc_status_quote(name)
+
+    # Merges a company or plant site into another, as a person's decision
+    # (#142): a reason is required; dry_run says what would move and changes
+    # nothing. Returns a MergeResult, never raises.
+    def merge(type:, from_id:, into_id:, by:, reason:, dry_run: false, directory: DataQuality::DirectoryClient.new)
+      human!(by)
+      return MergeResult.new(errors: [ "pick the record to merge it into" ], moved: nil) unless into_id
+      return MergeResult.new(errors: [ "say why they're the same" ], moved: nil) if reason.blank? && !dry_run
+
+      result, moved = directory.merge(type, from_id:, into_id:, by:, reason: reason.presence, dry_run:)
+      MergeResult.new(errors: result.errors, moved:)
+    end
 
     # A fact with its decision, values and history, or nil.
     def fact(type:, id:, directory: DataQuality::DirectoryClient.new)
@@ -393,12 +488,19 @@ module DataQuality::Review
       # fact still waiting for approval.
       # only_recommended (bulk approval): checked under the lock, so a claim a
       # verify run moved to review a moment ago isn't published in bulk.
-      def approve_one(candidate, by:, reason:, directory:, edited: false, only_recommended: false)
+      def approve_one(candidate, by:, reason:, directory:, edited: false, only_recommended: false, firsts: nil)
         Candidate.transaction do
           lock_for_decision(candidate)
           next Result.new(candidate_id: candidate.id, ref: nil, errors: [ already(candidate) ]) unless open?(candidate)
           if only_recommended && !(candidate.ai_recommendation == "recommend_publish" && !candidate.status_needs_review?)
             next Result.new(candidate_id: candidate.id, ref: nil, errors: [ "it isn't recommended, so approve it on its own" ])
+          end
+          # Checked again when a bulk approval runs: the record may have been
+          # decided since the page loaded. Its row stays locked through the
+          # write, so a person's approval can't land in between.
+          directory.lock_fact(type: candidate.subject_type, id: candidate.subject_id) if only_recommended && candidate.subject_id
+          if only_recommended && (held = held_reason(candidate, directory:, firsts: firsts || first_batches))
+            next Result.new(candidate_id: candidate.id, ref: nil, errors: [ "it waits for Data Quality: #{held}" ])
           end
           # A link is written onto the record match attached, which needs both
           # ends found. One whose company or plant is still a question has no
@@ -556,7 +658,8 @@ module DataQuality::Review
           ai_recommendation: candidate.ai_recommendation, ai_reason: candidate.ai_reason, ai_confidence: candidate.ai_confidence,
           ai_model: candidate.ai_model, ai_checked_at: candidate.ai_checked_at, verify_run_id: candidate.verify_run_id,
           subject_type: candidate.subject_type, subject_id: candidate.subject_id, record:, differences:,
-          found_by: candidate.crawl_run&.model, crawl_run_id: candidate.crawl_run_id, category: category_of(candidate))
+          found_by: candidate.crawl_run&.model, crawl_run_id: candidate.crawl_run_id, category: category_of(candidate),
+          held: held_reason(candidate, directory:, record:))
       end
 
       # The same rules as category_scope, for one candidate.

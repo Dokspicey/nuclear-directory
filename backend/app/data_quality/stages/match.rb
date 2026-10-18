@@ -242,6 +242,8 @@ class DataQuality::Stages::Match < DataQuality::Stage
       # FactWriter derives a domain from the website unless domain was supplied.
       domain = payload.key?("domain") ? payload["domain"].presence : payload["website"].presence
       by_name = directory.organization(name:) if name
+      # Its other spellings (an award's legal name) find it too, as for a plant.
+      by_name ||= Array(payload["aliases"]).compact_blank.lazy.filter_map { |other| directory.organization(name: other) }.first
       by_domain = directory.organization(domain:) if domain
 
       if by_name && by_domain && by_name.id != by_domain.id
@@ -256,7 +258,9 @@ class DataQuality::Stages::Match < DataQuality::Stage
       brand = name ? directory.same_brand_organizations(name) : []
       if brand.many?
         domain_note = " (its domain matches #{by_domain.name})" if by_domain
-        return Review.new("#{name.inspect} could be the same brand as #{brand.map(&:name).join(' or ')}#{domain_note}. Which one?")
+        # Sorted, so the note reads the same whatever order the lookup returns (#322's flaky test).
+        names = brand.map(&:name).sort_by { |n| [ n.downcase, n ] }
+        return Review.new("#{name.inspect} could be the same brand as #{names.join(' or ')}#{domain_note}. Which one?")
       end
       if by_domain && brand.one? && brand.first.id != by_domain.id
         return Review.new("name is the brand of #{brand.first.name} but domain matches #{by_domain.name}")

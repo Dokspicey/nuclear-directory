@@ -95,7 +95,7 @@ The verb is fixed (VOICE.md). Each link needs a quote that states that relations
 | Field | Rule |
 |---|---|
 | Capacity | **MW, net summer**, from EIA-860M's "Net Summer Capacity (MW)", stored to 0.1 MW. Shown as "MW", with the note "Net summer capacity, from EIA" on plant pages (Tosin, D2). Nameplate is never mixed in. A site's capacity is the sum of its units, never stored. |
-| Plant status | `operating`, `under_construction`, `planned`, `shut_down`, `decommissioning`. Blank means not stated, shown as "Not stated". Never guessed |
+| Plant status | `operating`, `not_operating`, `under_construction`, `planned`, `shut_down`, `decommissioning`. Blank means not stated, shown as "Not stated". Never guessed. A power reactor is `operating` if NRC lists it and its daily status report shows power above 0% on at least one of the last 365 days; a refuelling outage doesn't change that. It's `not_operating` ("Not operating") if it's licensed but at 0% on all 365 days, like Palisades in 2026. That isn't permanent, which is `shut_down`. A restart plan goes only in a sourced note (#296) |
 | Company status | `active`, `acquired`, `defunct`, each with a quote when it isn't `active` |
 | Dates | ISO `2026-10-09` in data. A month-only source date is stored as the 1st, with the description saying "October 2026" |
 | State | Two-letter USPS code. For power plants in EIA-860M, from EIA (not NRC's "nearest city", which put Salem in Delaware, #197). For any other site (test reactors, fuel plants, mines, fusion plants), from the operator's, owner's or an agency's page that states it (e.g. HFIR from DOE OSTI) |
@@ -110,25 +110,25 @@ The verb is fixed (VOICE.md). Each link needs a quote that states that relations
 
 **Scope: the whole US nuclear industry, not only power** (Tosin): fission and fusion, fuel, isotopes, equipment, waste, services, buyers, investors and research.
 
-**A company sits in every bucket its sourced categories and links support.** Westinghouse is in Reactor developers, Fuel and materials, and Services and engineering; Amazon is in Power buyers and Investors. A bucket is never stored and never chosen by a person: it's computed from facts that already have sources, so it can't drift from them. **Tags** carry the finer detail (venture capital, SMR, molten salt, fuel-cycle stage) for filters and explanations.
+**A company sits in every bucket its sourced categories and links support.** Westinghouse is in Developers, Fuel and materials, and Services and engineering; Amazon is in Power buyers and Investors. A bucket is never stored and never chosen by a person: it's computed from facts that already have sources, so it can't drift from them. **Tags** carry the finer detail (venture capital, SMR, molten salt, fuel-cycle stage) for filters and explanations.
 
 **The 9 buckets** (a bucket with no companies stays hidden; industry groups become the 10th with #162; counts from 15 Oct):
 
 | Bucket | Means | A company is in it when it has | Today |
 |---|---|---|---|
 | Utilities and operators | Owns or runs nuclear power plants | `utility` or `operator`, or a published owns/operates link to an **operating power plant** | 33 |
-| Reactor developers | Designs or sells reactors, fission or fusion | `reactor_vendor` | 11 |
+| Developers | Builds new nuclear: designs or sells reactors (fission or fusion), or develops, finances and will own or run new nuclear plants. Its slug stays `reactor-developers` | `reactor_vendor` or `project_developer` | 19 |
 | Fuel and materials | Mines, converts, enriches or fabricates fuel; ships fresh fuel; supplies materials such as coolant; produces isotopes (medical and industrial) | `fuel` or its stages, `coolant` or its kinds, `isotopes` (new key), or the sourced tag "fresh-fuel transport" | 11 |
 | Components and manufacturing | Makes equipment: pumps, valves, forgings, steam generators, instrumentation and control hardware, naval and defense nuclear components | `components` (new key) | 0 |
 | Waste and decommissioning | Stores, transports and disposes of spent fuel and waste; decommissions plants | `waste_decommissioning` (new key), or the sourced tag "spent-fuel transport" | 0 |
 | Services and engineering | Maintains, builds, licenses or advises, and other professional services to the industry | `reactor_services`, `regulatory_consultant`, or a sourced activity tag: construction (EPC), licensing and consulting, legal, insurance, software | 6 |
 | Power buyers | Buys nuclear power, mostly hyperscalers and data centers | `data_center_offtaker`, or a published power deal as the buyer, **unless the buyer is a utility** (TVA buying from Kairos is a utility deal) | 4 |
-| Investors | Puts money into nuclear companies or projects | `venture_capital`, a sourced investor-type tag (private equity, bank, project finance, corporate fund), or a published `invests_in` or `funds` link as the funder, **unless the funder is a government agency** (DOE grants put DOE in Government and research, not Investors) | 6 |
-| Government and research | Agencies, regulators, national labs and universities | `government_agency`, `national_lab`, `university` (new key) | 4 |
+| Investors | Puts money into nuclear companies or projects | `venture_capital`, a sourced investor-type tag (private equity, bank, project finance, corporate fund), or a published `invests_in` or `funds` link as the funder, **unless the funder is a government agency** (DOE grants put DOE in Government and research, not Investors) | 9 |
+| Government and research | Agencies, regulators, national labs, universities and independent research organizations | `government_agency`, `national_lab`, `university`, `research_organization` | 4 |
 
 **Counting:** buckets overlap (6 of 81 companies are in two or more today). The total is always the number of companies ("81 companies"), never the sum of buckets. A bucket count is labelled "companies that develop reactors", "companies that buy nuclear power", and so on. Charts of buckets are bars, never a pie or a 100% stack.
 
-**One label, where only one fits:** cramped spots (link-preview cards, search results) show the company's first bucket in this display order: Reactor developers, Fuel and materials, Components and manufacturing, Waste and decommissioning, Utilities and operators, Power buyers, Services and engineering, Investors, Government and research. It's for display only: never stored, counted or exported. The company's page and the dataset list all its buckets.
+**One label, where only one fits:** cramped spots (link-preview cards, search results) show the company's first bucket in this display order: Developers, Fuel and materials, Components and manufacturing, Waste and decommissioning, Utilities and operators, Power buyers, Services and engineering, Investors, Government and research. It's for display only: never stored, counted or exported. The company's page and the dataset list all its buckets.
 
 **Where edge cases go** (the bucket, then the tag that says more):
 
@@ -155,7 +155,7 @@ The verb is fixed (VOICE.md). Each link needs a quote that states that relations
 | Fuel-cycle stage | Uranium (mining and milling), conversion, enrichment, fabrication |
 | Activity | Isotopes, fresh-fuel transport, spent-fuel transport (each from a quote that says which fuel it carries), construction (EPC), licensing and consulting, legal, insurance, software |
 | Sector | University, national lab, agency |
-| Technology | Fission, fusion, SMR (design types are on the roadmap, #263). Fusion is a tag under Reactor developers, never its own bucket |
+| Technology | Fission, fusion, SMR (design types are on the roadmap, #263). Fusion is a tag under Developers, never its own bucket |
 | Coolant | Molten salt, water, helium, sodium, lead, heavy water |
 | From its links (computed) | Operates a plant, owns a plant, buys power, invests, has deals |
 
@@ -218,6 +218,7 @@ The admin's Live screen and the nightly `data_quality:audit` are planned (Admin 
 | duplicate site | High | Two live sites share an EIA plant ID or coordinates within 50 m |
 | duplicate company | High | Two live companies share a normalized name, alias or domain |
 | `single-source` | Low | Rests on one source |
+| `idle-all-year` | High | A reactor marked `operating` that NRC's daily status report shows at 0% on all of the last 365 days (#296) |
 | `no-operator` | Medium | An operating reactor or plant with no published operator, on it or its site |
 | `no-capacity` | Medium | An operating reactor with no capacity |
 | `no-location` | Medium | Any plant or reactor without coordinates or a state |
@@ -244,6 +245,10 @@ The admin's Live screen and the nightly `data_quality:audit` are planned (Admin 
 | Capacity is shown as "MW", noted "Net summer capacity, from EIA" on plant pages (D2) | Tosin | #238 |
 | A counted deal is a signed power deal; frameworks and MOUs are listed separately by stage | Tosin | #253, #255 |
 | Nuclear Capital Partners is venture capital (#250) | Tosin | #250 |
+| Government and research includes independent research organizations (`research_organization`), e.g. EPRI | Tosin | #322, #341 |
+| A licensed reactor that produces no power is "Not operating", not "Restarting"; a restart plan is a sourced note | Tosin | #296 |
 | 9 company buckets; a company is in every bucket its facts support, with no stored main bucket; tags for detail | Tosin | #266 |
 | Scope is the whole nuclear industry, not only power; isotopes are in | Tosin | #266 |
 | Bucket names and edge cases ("Waste and decommissioning"; universities in Government and research; fusion and uranium as tags; stable URLs) | Tosin, with Founder and GTM | #266 |
+| "Reactor developers" becomes "Developers": reactor designers plus nuclear project developers (`project_developer`), so everything building new nuclear sits together; slug unchanged. A parent never inherits its subsidiaries' buckets | Tosin | #322 |
+| Bernhard Capital Partners is an investor (`venture_capital`): it owns Allied Power, a nuclear services company. Reverses #63's "no Bernhard role" (16 Oct 2026) | Tosin | #63, #322 |

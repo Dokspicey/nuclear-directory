@@ -195,10 +195,30 @@
   .nd-pill[aria-current="page"] { background: var(--nd-inverse); border-color: var(--nd-inverse); color: var(--nd-on-inverse); }
   .nd-pill .nd-num { font-size: 11px; line-height: 1; opacity: .7; }
 
+  /* Bucket colours (#281): a bucket's accent and tint, set by nd-bucket--<slug>.
+     Colour only marks a category, always beside its icon and name. */
+  .nd-bucket--utilities { --nd-cat: var(--nd-cat-utilities); --nd-cat-tint: var(--nd-cat-utilities-tint); }
+  .nd-bucket--reactor-developers { --nd-cat: var(--nd-cat-reactor-developers); --nd-cat-tint: var(--nd-cat-reactor-developers-tint); }
+  .nd-bucket--fuel { --nd-cat: var(--nd-cat-fuel); --nd-cat-tint: var(--nd-cat-fuel-tint); }
+  .nd-bucket--components { --nd-cat: var(--nd-cat-components); --nd-cat-tint: var(--nd-cat-components-tint); }
+  .nd-bucket--waste-decommissioning { --nd-cat: var(--nd-cat-waste-decommissioning); --nd-cat-tint: var(--nd-cat-waste-decommissioning-tint); }
+  .nd-bucket--services { --nd-cat: var(--nd-cat-services); --nd-cat-tint: var(--nd-cat-services-tint); }
+  .nd-bucket--power-buyers { --nd-cat: var(--nd-cat-power-buyers); --nd-cat-tint: var(--nd-cat-power-buyers-tint); }
+  .nd-bucket--investors { --nd-cat: var(--nd-cat-investors); --nd-cat-tint: var(--nd-cat-investors-tint); }
+  .nd-bucket--government-research { --nd-cat: var(--nd-cat-government-research); --nd-cat-tint: var(--nd-cat-government-research-tint); }
+  .nd-pill .nd-ic { align-self: center; color: var(--nd-cat, currentColor); }
+  .nd-pill[class*="nd-bucket--"][aria-current="page"] { background: var(--nd-cat-tint); border-color: var(--nd-cat); color: var(--nd-cat); }
+  .nd-pill[class*="nd-bucket--"][aria-current="page"] .nd-num { opacity: 1; } /* 4.5:1 on the tint needs the full accent */
+  .nd-bucketchips { display: flex; flex-wrap: wrap; gap: var(--nd-space-1) var(--nd-space-2); margin: 0; padding: 0; list-style: none; }
+  .nd-bucketchip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px 2px 8px; border-radius: 999px; background: var(--nd-cat-tint); color: var(--nd-cat); font: 500 13px/20px var(--font-text); text-decoration: none; }
+  .nd-bucketchip:hover { text-decoration: underline; text-underline-offset: 2px; }
+
   .nd-cats { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: var(--nd-space-3); }
   .nd-cat { display: flex; flex-direction: column; gap: var(--nd-space-1); padding: 14px var(--nd-space-4); border: var(--nd-hairline) solid var(--nd-rule); border-radius: var(--nd-radius-sm); background: var(--nd-paper-raised); color: var(--nd-ink); text-decoration: none; transition: border-color .12s ease-out; }
   .nd-cat:hover { border-color: var(--nd-ink); }
-  .nd-cat b { font-weight: 600; font-size: 15px; line-height: 20px; }
+  .nd-cat b { display: flex; align-items: center; gap: var(--nd-space-2); font-weight: 600; font-size: 15px; line-height: 20px; }
+  .nd-cat b .nd-ic { color: var(--nd-cat, currentColor); }
+  .nd-cat b { overflow-wrap: anywhere; hyphens: auto; } /* "decommissioning" at 390px (Design QA) */
   .nd-cat span { font-size: 13px; line-height: 18px; color: var(--nd-ink-muted); }
 
   .nd-list { list-style: none; margin: 0; padding: 0; }
@@ -343,6 +363,8 @@
 
   /* .nd-field and .nd-input are the shared ones from the corrections form (#103). */
   .nd-check { width: 18px; height: 18px; accent-color: var(--nd-ink); cursor: pointer; }
+  /* A checkbox or radio with its words: the whole row is a 44px tap area (Design, #316). */
+  .nd-choice { min-height: 44px; cursor: pointer; }
 
   .nd-items { list-style: none; margin: 0; padding: 0; border-top: var(--nd-hairline) solid var(--nd-rule); }
   .nd-item { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: var(--nd-space-3) var(--nd-space-4); padding: var(--nd-space-4) 0; border-bottom: var(--nd-hairline) solid var(--nd-rule); }
@@ -465,6 +487,43 @@
   .nd-fchips { display: flex; flex-wrap: wrap; gap: var(--nd-space-2); }
   .nd-fchip { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 var(--nd-space-3); border: var(--nd-hairline) solid var(--nd-rule); background: var(--nd-paper-raised); color: var(--nd-ink); text-decoration: none; }
   .nd-fchip:hover, .nd-fchip[aria-current="page"] { border-color: var(--nd-ink); }
+  .nd-fchip[aria-current="true"] { border-color: var(--nd-ink); box-shadow: inset 0 0 0 1px var(--nd-ink); }
+  .nd-fchip--zero .nd-num { color: var(--nd-ink-muted); }
+  .nd-fchip--tab { min-height: 44px; padding: 0 var(--nd-space-4); }
+  .nd-fchip--tab[aria-current="page"] { background: var(--nd-inverse); border-color: var(--nd-inverse); color: var(--nd-on-inverse); }
+
+  /* Live (#201 part 2): tabs and search, then the tag groups (Data Quality's
+     #238), one row per group; on phones they fold behind "Filters (N)". */
+  .nd-live__bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--nd-space-2); }
+  .nd-live__search { flex: 1 1 200px; display: flex; }
+  .nd-live__search .nd-input { width: 100%; min-height: 44px; border-radius: 0; }
+  .nd-live__filters > summary { display: none; }
+  .nd-live__groups { padding: var(--nd-space-1) var(--nd-space-4) 6px; gap: 0; }
+  .nd-live__group { display: grid; grid-template-columns: 7rem minmax(0, 1fr); gap: var(--nd-space-2) var(--nd-space-3); align-items: start; padding: 10px 0; border-top: var(--nd-hairline) solid var(--nd-rule); }
+  .nd-live__group:first-child { border-top: 0; }
+  .nd-live__group > .type-kicker { padding-top: 9px; }
+  .nd-live__group .nd-fchip { min-height: 34px; padding: 0 10px; }
+  .nd-live__foot { display: flex; justify-content: space-between; align-items: center; padding: var(--nd-space-2) 0 var(--nd-space-1); border-top: var(--nd-hairline) solid var(--nd-rule); }
+  .nd-live__table td:first-child { white-space: normal; }
+  .nd-live__table td { text-align: left; }
+  .nd-live__table th { text-align: left; }
+  @media (max-width: 560px) {
+    .nd-live__filters > summary { display: inline-flex; list-style: none; }
+    .nd-live__filters > summary::-webkit-details-marker { display: none; }
+    .nd-live__filters[open] > summary { margin-bottom: var(--nd-space-2); }
+    .nd-live__group { grid-template-columns: minmax(0, 1fr); }
+    .nd-live__group > .type-kicker { padding-top: 0; }
+    .nd-live__group .nd-fchip { min-height: 44px; }
+    .nd-live__table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    .nd-live__table, .nd-live__table tbody { display: block; }
+    .nd-live__table tr { display: flex; flex-wrap: wrap; gap: var(--nd-space-1) var(--nd-space-3); padding: var(--nd-space-3) 14px; border-top: var(--nd-hairline) solid var(--nd-rule); }
+    .nd-live__table td { display: block; padding: 0; border: 0; white-space: normal; }
+    .nd-live__table td:first-child { flex-basis: 100%; }
+    /* The whole stacked row is the link (44px and more), not just the name. */
+    .nd-live__table tr { position: relative; min-height: 44px; }
+    .nd-live__table td:first-child a::after { content: ""; position: absolute; inset: 0; }
+    .nd-live__foot a, .nd-split__main > .nd-shell__head a { display: inline-flex; align-items: center; min-height: 44px; }
+  }
 
   /* One waiting item: what it is, its value, its buttons. */
   .nd-waits { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--nd-space-2); }
@@ -493,9 +552,41 @@
   .nd-fold__row { display: flex; justify-content: space-between; gap: var(--nd-space-3); padding: 9px 0; border-top: var(--nd-hairline) solid var(--nd-rule); }
   .nd-fold__row > * { margin: 0; min-width: 0; overflow-wrap: anywhere; }
   .nd-fold__body { padding-bottom: var(--nd-space-2); }
+  .nd-record__tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; }
+  .nd-split__side span.nd-btn[aria-disabled] { cursor: default; justify-content: space-between; }
   .nd-takeoff > summary { list-style: none; }
   .nd-takeoff > summary::-webkit-details-marker { display: none; }
   .nd-takeoff__form { margin-top: var(--nd-space-2); }
+
+  /* A Record's related items (#201, Design's spec on #166): a table per
+     section, each row with its actions menu; on phones, rows stack and the
+     menu opens as a sheet from the bottom. */
+  .nd-related { display: flex; flex-direction: column; gap: var(--nd-space-2); margin-top: var(--nd-space-6); }
+  .nd-related__table th, .nd-related__table td { text-align: left; vertical-align: middle; }
+  .nd-related__table td.nd-related__name, .nd-related__table td.nd-related__link { white-space: normal; }
+  .nd-related__actions { width: 44px; padding-block: 0; text-align: right; }
+  .nd-rowmenu { position: relative; display: inline-block; }
+  .nd-rowmenu > summary { list-style: none; display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; padding: 0; }
+  .nd-rowmenu > summary::-webkit-details-marker { display: none; }
+  .nd-rowmenu:not([open]) > .nd-rowmenu__panel { display: none; }
+  .nd-rowmenu__panel { position: absolute; right: 0; top: 100%; z-index: 20; min-width: 240px; display: flex; flex-direction: column; padding: var(--nd-space-1) 0; background: var(--nd-paper-raised); border: var(--nd-hairline) solid var(--nd-rule); border-radius: var(--nd-radius-sm); text-align: left; }
+  .nd-rowmenu__item { display: flex; align-items: center; min-height: 44px; padding: 0 var(--nd-space-4); color: var(--nd-ink); text-decoration: none; }
+  .nd-rowmenu__item:hover, .nd-rowmenu__item:focus-visible { background: var(--nd-paper-sunken); }
+  .nd-rowmenu__takeoff { display: flex; flex-direction: column; gap: var(--nd-space-2); padding: var(--nd-space-3) var(--nd-space-4); border-top: var(--nd-hairline) solid var(--nd-rule); }
+  .nd-rowmenu__takeoff .nd-btn { min-height: 44px; justify-content: center; }
+  @media (max-width: 560px) {
+    .nd-related__table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    .nd-related__table, .nd-related__table tbody { display: block; }
+    .nd-related__table tr { display: grid; grid-template-columns: minmax(0, 1fr) auto 44px; gap: var(--nd-space-1) var(--nd-space-3); align-items: center; padding: var(--nd-space-2) 0 var(--nd-space-2) 14px; border-top: var(--nd-hairline) solid var(--nd-rule); }
+    .nd-related__table td { display: block; padding: 0; border: 0; grid-column: 1 / 3; color: var(--nd-ink-muted); }
+    .nd-related__table td.nd-related__name { grid-column: 1; grid-row: 1; color: var(--nd-ink); }
+    .nd-related__table td.nd-related__status { grid-column: 2; grid-row: 1; color: var(--nd-ink); }
+    .nd-related__table td.nd-related__actions { grid-column: 3; grid-row: 1 / span 3; align-self: start; width: auto; }
+    .nd-related__name a { display: inline-flex; align-items: center; min-height: 44px; }
+    /* Inline, so muted details after it wrap as text; the padding makes it 44px to tap. */
+    .nd-related__link a { padding-block: 12px; }
+    .nd-rowmenu__panel { position: fixed; left: 0; right: 0; top: auto; bottom: 0; min-width: 0; border-bottom: 0; border-radius: var(--nd-radius-md) var(--nd-radius-md) 0 0; padding-bottom: max(var(--nd-space-4), env(safe-area-inset-bottom)); }
+  }
 
   /* Phones: the nav folds behind Menu at the top, stage tiles become rows. */
   @media (max-width: 767px) {
@@ -672,5 +763,57 @@
 
   @media (any-pointer: coarse) {
     .nd-filterwrap__open, .nd-filtersheet__head .nd-btn { min-height: 44px; }
+  }
+}
+
+/* Sources (#201 part 2b): grouped rows, a domain's documents folded under
+   it, status words with an ink dot for OK, and a stacked table on phones. */
+@layer components {
+  .nd-l { text-align: left !important; }
+  .nd-dot::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--nd-ink); margin-right: var(--nd-space-2); vertical-align: 1px; }
+  .nd-sources__group td { background: var(--nd-paper); font: 600 11px/16px var(--font-text); letter-spacing: .08em; text-transform: uppercase; color: var(--nd-ink-muted); }
+  .nd-sources__group .type-data { letter-spacing: 0; margin-left: 6px; }
+  .nd-sources__domain .nd-sources__group td { text-transform: none; letter-spacing: normal; padding: 0; }
+  .nd-sources__toggle { display: flex; gap: var(--nd-space-2); align-items: center; width: 100%; min-height: 44px; padding: 0 14px; border: 0; background: transparent; color: var(--nd-ink); cursor: pointer; text-align: left; }
+  .nd-sources__toggle::after { margin-left: auto; color: var(--nd-ink-muted); }
+  .nd-sources__toggle[aria-expanded="false"]::after { content: "+"; }
+  .nd-sources__toggle[aria-expanded="true"]::after { content: "–"; }
+  .nd-sources__run { margin-top: var(--nd-space-1); }
+  .nd-sources__run > summary { cursor: pointer; width: fit-content; }
+  .nd-sources__run p { margin: var(--nd-space-1) 0 0; }
+  .nd-sources__search { flex: none; width: 100%; max-width: 520px; height: 44px; }
+  .nd-shell__head .nd-sources__search { flex: 1 1 320px; width: auto; }
+  .nd-shell mark { background: var(--nd-paper-sunken); color: var(--nd-ink); font-weight: 600; }
+  .nd-sources__search input { flex: 1; border: 0; background: transparent; min-width: 0; }
+  /* The input fills its 44px box, so a tap anywhere in it focuses it; the icon sits over it. */
+  .nd-sources__search { position: relative; padding: 0; }
+  .nd-sources__search svg { position: absolute; left: var(--nd-space-4); pointer-events: none; }
+  .nd-sources__search input { align-self: stretch; height: 100%; padding: 0 var(--nd-space-4) 0 44px; }
+  .nd-sources__plain { display: none; }
+  .nd-sources td:first-child { width: 100%; }
+
+  @media (max-width: 560px) {
+    .nd-stack-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    .nd-stack-table, .nd-stack-table tbody { display: block; }
+    .nd-stack-table tr { display: flex; flex-wrap: wrap; gap: var(--nd-space-1) var(--nd-space-3); padding: var(--nd-space-3) 14px; border-top: var(--nd-hairline) solid var(--nd-rule); }
+    .nd-stack-table tr[hidden] { display: none; }
+    .nd-stack-table td { display: block; padding: 0; border: 0; white-space: normal; text-align: left; width: auto; }
+    .nd-stack-table td:first-child { flex-basis: 100%; }
+    .nd-stack-table .nd-sources__group { padding: 0; }
+    .nd-stack-table .nd-sources__group td { flex-basis: 100%; padding: var(--nd-space-2) 14px; }
+    .nd-sources__search { max-width: none; flex-basis: 100%; }
+    /* What a bare number counts, said after it. */
+    .nd-stack-table td[data-unit]::after { content: " " attr(data-unit); font: 400 13px/18px var(--font-text); color: var(--nd-ink-muted); }
+    /* Sources (Design, #285): a stacked row is one link to its source; the
+       facts count is plain text there, and "Last run" still opens. A Soon
+       row is its name and "Soon" only. */
+    .nd-sources--list tbody tr { position: relative; min-height: 44px; }
+    .nd-sources--list td:first-child > a.nd-link::after { content: ""; position: absolute; inset: 0; }
+    /* The facts count is plain text: its Live link is out of the tab order too. */
+    .nd-sources--list .nd-sources__facts a { display: none; }
+    .nd-sources--list .nd-sources__facts .nd-sources__plain { display: inline; }
+    .nd-sources--list .nd-sources__run { position: relative; z-index: 1; }
+    .nd-sources--list .nd-sources__run > summary { min-height: 44px; display: flex; align-items: center; }
+    .nd-sources__blank { display: none !important; }
   }
 }

@@ -1,0 +1,29 @@
+<%# One source document (#201 part 2b): its title, else its path, opening the
+    page in a new tab; the facts it backs (to Live); when it was last read;
+    its status, with the reason when it's blocked or needs a person.
+    Locals: document (SourceCatalog::Document), publisher (show the domain
+    column, linking to its row on Sources), query (to mark). %>
+<% research = document.research? %>
+<% url = safe_url(document.url) %>
+<tr id="document-<%= document.id %>">
+  <td class="type-body">
+    <% if url %>
+      <%= link_to url, class: "nd-link", target: "_blank", rel: "noopener", title: document.url do %><%= mark_matches(document.text, local_assigns[:query]) %> <span aria-hidden="true">↗</span><span class="sr-only">(opens in a new tab)</span><% end %>
+    <% else %>
+      <%= document.text %>
+    <% end %>
+    <% query = local_assigns[:query] %>
+    <% if query.present? && [ document.text, document.domain ].none? { |text| text.to_s.downcase.include?(query.downcase) } %>
+      <p class="type-small text-ink-muted wrap-anywhere"><%= mark_matches(document.url, query) %></p>
+    <% end %>
+    <% if %w[blocked needs_human].include?(document.status) && document.status_reason.present? %>
+      <p class="type-small text-ink-muted"><%= document.status_reason %></p>
+    <% end %>
+  </td>
+  <% if local_assigns[:publisher] %>
+    <td class="type-body nd-l"><%= link_to mark_matches(document.domain.presence || source_host(document.url), local_assigns[:query]), admin_source_path(key: document.entry_key), class: "nd-link" %></td>
+  <% end %>
+  <td class="type-cell-num" data-unit="<%= document.facts == 1 ? "fact" : "facts" %>"><%= document.facts.positive? ? link_to(number_with_delimiter(document.facts), admin_live_path(within: "doc-#{document.id}"), class: "nd-link") : 0 %></td>
+  <td class="type-data text-ink-muted"><%= document.last_read_at&.strftime("%-d %b %H:%M") || "—" %></td>
+  <td class="type-body nd-l"><%= source_status(document.status, research:) %></td>
+</tr>

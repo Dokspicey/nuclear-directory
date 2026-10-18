@@ -23,7 +23,8 @@ class SeedsTest < ActiveSupport::TestCase
     urenco = Organization.find_by!(slug: "urenco")
     assert Organization.find_by!(slug: "urenco-usa").unpublished?, "merged into Urenco"
     assert_equal urenco.id, Directory::Lookup.organization(name: "Urenco USA").id
-    assert_equal [ "Meta" ], Organization.find_by!(slug: "meta-platforms").aliases.pluck(:alias)
+    # The legal name stays as an alias once a quote names it (Oklo's 10-Q).
+    assert_equal [ "Meta", "Meta Platforms, Inc." ], Organization.find_by!(slug: "meta-platforms").aliases.pluck(:alias).sort
   end
 
   test "seeds roles and technologies" do
@@ -39,13 +40,13 @@ class SeedsTest < ActiveSupport::TestCase
   test "loads the hand-checked organizations as verified facts with evidence" do
     load_seeds
 
-    assert_equal 53, Organization.verified.count
-    assert_equal 68, OrganizationRole.verified.count
-    assert_equal 48, OrganizationTechnology.verified.count
-    assert_equal 57, Relationship.verified.count
-    assert_equal 34, Facility.verified.count
+    assert_equal 89, Organization.verified.count
+    assert_equal 106, OrganizationRole.verified.count
+    assert_equal 57, OrganizationTechnology.verified.count
+    assert_equal 74, Relationship.verified.count
+    assert_equal 36, Facility.verified.count
     # 5 plant links wait for a direct quote (owns/operates not stated by the source).
-    assert_equal [ 54, 8 ], [ FacilityRelationship.verified.count, FacilityRelationship.pending.count ]
+    assert_equal [ 56, 7 ], [ FacilityRelationship.verified.count, FacilityRelationship.pending.count ]
     assert_equal 26, FacilityAlias.count
     assert_equal "Kemmerer Unit 1", Directory::Lookup.facility(name: "Kemmerer Unit 1 (Natrium)")&.name, "found by its other name"
     assert_equal [ "human:tosin" ], Relationship.distinct.pluck(:verified_by)
@@ -112,6 +113,10 @@ class SeedsTest < ActiveSupport::TestCase
       hermes.slice(:facility_type, :status, :city, :state).values
     assert hermes.evidence.count >= 4, "one evidence row per sourced field"
 
+    # A city only where a source says the site is in it (#225); "near" a town isn't a city.
+    assert_equal [ "Palo", "IA" ], Facility.find_by!(name: "Duane Arnold Energy Center").slice(:city, :state).values
+    assert_nil Facility.find_by!(name: "White Mesa Mill").city, "its source says only near Blanding"
+
     vogtle = Facility.find_by!(name: "Plant Vogtle")
     shares = vogtle.facility_relationships.owns.includes(:organization).to_h { |l| [ l.organization.name, l.ownership_pct.to_f ] }
     assert_equal({ "Georgia Power" => 45.7, "Oglethorpe Power" => 30.0, "MEAG Power" => 22.7, "Dalton Utilities" => 1.6 }, shares)
@@ -124,12 +129,27 @@ class SeedsTest < ActiveSupport::TestCase
     assert_equal [ "American Centrifuge Plant" ], doe.facility_relationships.owns.verified.joins(:facility).pluck("facilities.name")
     assert_equal [ "Advanced Test Reactor", "High Flux Isotope Reactor" ],
       doe.facility_relationships.owns.pending.joins(:facility).pluck("facilities.name").sort
-    long_mott = Organization.find_by!(slug: "long-mott-energy").facility_relationships.owns.sole
-    assert long_mott.pending?
-    assert_equal 1, long_mott.evidence.count, "its quote is kept as evidence"
+    # Long Mott Energy's unsupported owns link was dropped (#322); it's a project developer instead.
+    long_mott = Organization.find_by!(slug: "long-mott-energy")
+    assert_empty long_mott.facility_relationships
+    assert_equal [ "project_developer" ], long_mott.roles.pluck(:key)
   end
 
-  test "the approved #63 calls: descriptions and HQs, no NRC description, no Bernhard role" do
+  test "DOE-funded companies carry sourced categories; new category keys exist (#322)" do
+    load_seeds
+
+    assert_equal %w[components fuel], Organization.find_by!(name: "BWXT").roles.pluck(:key).sort
+    assert_equal [ "waste_decommissioning" ], Organization.find_by!(name: "NAC International").roles.pluck(:key)
+    nfs = Organization.find_by!(name: "Nuclear Fuel Services")
+    assert_equal "BWXT", Relationship.find_by!(from_organization: nfs, relationship_type: "subsidiary_of").to_organization.name
+    alabama = Organization.find_by!(name: "Alabama Power")
+    assert_equal [ "Joseph M Farley" ], alabama.facility_relationships.owns.joins(:facility).pluck("facilities.name")
+    assert_equal alabama.id, Directory::Lookup.organization(name: "Alabama Power Co").id, "EIA's spelling still finds it"
+    assert_equal [ "utility" ], alabama.roles.pluck(:key)
+    assert_equal %w[components isotopes research_organization university waste_decommissioning], Role.where(key: %w[components isotopes waste_decommissioning university research_organization]).pluck(:key).sort
+  end
+
+  test "the approved #63 calls: descriptions and HQs, no NRC description; Bernhard an investor since 16 Oct" do
     load_seeds
 
     centrus = Organization.find_by!(slug: "centrus-energy")
@@ -139,7 +159,8 @@ class SeedsTest < ActiveSupport::TestCase
     nrc = Organization.find_by!(slug: "us-nuclear-regulatory-commission")
     assert_nil nrc.description
     assert_equal [ "Rockville", "MD" ], [ nrc.hq_city, nrc.hq_state ]
-    assert_empty Organization.find_by!(slug: "bernhard-capital-partners").roles
+    # Tosin reversed #63 on 16 Oct 2026: it owns Allied Power, a nuclear services company.
+    assert_equal [ "venture_capital" ], Organization.find_by!(slug: "bernhard-capital-partners").roles.pluck(:key)
   end
 
   test "CFS and Dominion share one ARC facility" do

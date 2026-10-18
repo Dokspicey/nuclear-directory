@@ -1,0 +1,109 @@
+<% content_for :title, @fact.name.to_s.upcase_first %>
+<%
+  public_path = public_page_path(@fact)
+  status_word =
+    case @fact.verification_status
+    when "verified" then @fact.published ? "Live" : "Hidden"
+    when "pending" then @fact.published ? "Pending, shown with its units" : "Pending"
+    when "unpublished" then "Removed"
+    else "Rejected"
+    end
+  back = back_path(admin_live_path)
+%>
+
+<div class="nd-shell__head">
+  <% trail = [ [ "Live", related_context[:live] ], [ related_context[:name], related_context[:path] ] ] if related_context %>
+  <%= render "admin/crumbs", parent_label: "Live", parent_path: back, trail:, current: @fact.name.to_s.upcase_first %>
+  <%= render "admin/itemnav", list: @list if @list %>
+</div>
+
+<div class="nd-split">
+  <section class="nd-split__main" aria-label="Public page">
+    <div class="nd-shell__head">
+      <p class="type-kicker text-ink-muted">Public page</p>
+      <% if public_path %>
+        <%= link_to public_path, class: "nd-link type-ui", target: "_blank", rel: "noopener" do %>Open <%= icon("arrow-square-out", size: 12) %><% end %>
+      <% else %>
+        <span class="type-small text-ink-muted">Not on the site</span>
+      <% end %>
+    </div>
+    <%= render(@record.is_a?(Organization) ? "admin/records/company_card" : "admin/records/plant_card", p: @profile, record: @record, shown: (@fact.published ? @profile : @record)) %>
+  </section>
+
+  <aside class="nd-split__side" aria-label="Actions">
+    <div class="nd-panel">
+      <p class="type-kicker text-ink-muted">Status</p>
+      <p class="type-admin-h2"><%= status_word %></p>
+      <% if @fact.verified_by %>
+        <p class="type-small text-ink-muted"><%= { "verified" => "Approved", "rejected" => "Rejected", "unpublished" => "Taken off" }.fetch(@fact.verification_status, "Decided") %> by <%= who(@fact.verified_by) %><% if @fact.verified_at %> · <span class="type-data"><%= @fact.verified_at.strftime("%-d %b %H:%M") %></span><% end %></p>
+      <% end %>
+      <% if @waiting.any? %>
+        <p class="type-small"><%= link_to "#{@waiting.size} waiting in Checks", admin_fact_path(type: @fact.type, id: @fact.id, claim: @waiting.first.candidate_id, back: record_path_here), class: "nd-link" %></p>
+      <% end %>
+    </div>
+
+    <% if %w[verified pending].include?(@fact.verification_status) %>
+      <%= link_to "Edit", admin_record_edit_path(type: @fact.type, id: @fact.id, **params.permit(:from, :section, :row, :back, :with_removed).to_h.symbolize_keys.compact_blank), class: "nd-btn nd-btn--primary type-ui" %>
+      <% if @fact.type == "Facility" %>
+        <%= link_to "Change status", admin_facility_status_path(id: @fact.id, **params.permit(:from, :section, :row, :with_removed, :back).to_h.symbolize_keys.compact_blank), class: "nd-btn nd-btn--outline type-ui" %>
+      <% end %>
+    <% end %>
+    <span class="nd-btn nd-btn--outline type-ui text-ink-muted" aria-disabled="true" title="Adding facts comes with #202">Add fact <span class="nd-tag">Soon</span></span>
+    <% if %w[verified pending].include?(@fact.verification_status) %>
+      <%= link_to "Merge into…", admin_record_merge_path(type: @fact.type, id: @fact.id, back: params[:back].presence), class: "nd-btn nd-btn--outline type-ui" %>
+    <% end %>
+
+    <% if @fact.verification_status == "verified" || @fact.published %>
+      <details class="nd-takeoff">
+        <summary class="nd-btn nd-btn--danger type-ui">Take off</summary>
+        <%= form_with url: admin_fact_unpublish_path(type: @fact.type, id: @fact.id), class: "nd-panel nd-takeoff__form" do %>
+          <%# Enter in the reason submits it too, after the confirm. %>
+          <%= hidden_field_tag :next, record_path_here, id: nil %>
+          <div class="nd-field">
+            <label for="reason" class="type-body-strong">Reason</label>
+            <%= text_field_tag :reason, nil, class: "nd-input type-input", required: true %>
+          </div>
+          <button type="submit" class="nd-btn nd-btn--danger type-ui" data-turbo-confirm="Take this off the public site? It stays off until you put it back.">Take off</button>
+        <% end %>
+      </details>
+    <% elsif @fact.verification_status == "unpublished" %>
+      <%= form_with url: admin_fact_republish_path(type: @fact.type, id: @fact.id) do %>
+        <%= hidden_field_tag :next, record_path_here, id: nil %>
+        <button type="submit" class="nd-btn nd-btn--primary type-ui">Put back</button>
+      <% end %>
+    <% end %>
+
+    <details class="nd-fold">
+      <summary class="type-body">Sources <span class="type-data nd-num"><%= @sources.size %></span></summary>
+      <div class="nd-fold__body">
+        <% if @sources.empty? %><p class="nd-fold__row type-small text-ink-muted">No source yet.</p><% end %>
+        <% @sources.each do |source| %>
+          <% url = safe_url(source[:url]) %>
+          <div class="nd-fold__row type-small">
+            <p><% if url %><%= link_to url, class: "nd-link", target: "_blank", rel: "noopener", title: source[:url] do %><%= source[:title].presence || source_host(url) %> <%= icon("arrow-square-out", size: 12) %><% end %><% else %><%= source[:title].presence || source[:url] %><% end %></p>
+            <span class="type-data text-ink-muted"><%= source[:checked_at]&.strftime("%-d %b") %></span>
+          </div>
+        <% end %>
+      </div>
+    </details>
+
+    <details class="nd-fold">
+      <summary class="type-body">History <span class="type-data nd-num"><%= @fact.history.size %></span></summary>
+      <div class="nd-fold__body">
+        <% if @fact.history.empty? %><p class="nd-fold__row type-small text-ink-muted">No decisions yet.</p><% end %>
+        <% @fact.history.each do |event| %>
+          <div class="nd-fold__row type-small">
+            <p>
+              <%= change_text(event).upcase_first %> · <%= who(event.by) %>
+              <% if event.reason.present? %><br><span class="text-ink-muted"><%= event.reason %></span><% end %>
+              <% if (changes = changes_text(event.changed_values)).present? %><br><span class="text-ink-muted"><%= changes %></span><% end %>
+            </p>
+            <span class="type-data text-ink-muted"><%= data_date(event.at) %></span>
+          </div>
+        <% end %>
+      </div>
+    </details>
+  </aside>
+</div>
+
+<%= render "admin/records/related", related: @related %>

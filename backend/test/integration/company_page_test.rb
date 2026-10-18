@@ -35,13 +35,13 @@ class CompanyPageTest < ActionDispatch::IntegrationTest
     get company_path(slug: "kairos-power")
 
     assert_response :success
-    assert_select "title", "Kairos Power · Nuclear Directory"
+    assert_select "title", "Kairos Power: reactor developer, plants and deals · Nuclear Directory"
     assert_select "main", 1
     assert_select "h1#profile-name", "Kairos Power"
     assert_select ".nd-profile__desc", /Develops salt-cooled reactors./
     assert_select ".nd-tag", "Reactor developer"
     assert_select ".nd-tag", "Small modular reactor"
-    assert_select ".nd-crumbs a[href=?]", "/companies?category=reactor-developers", text: "Reactor developers"
+    assert_select ".nd-crumbs a[href=?]", "/companies?category=reactor-developers", text: "Developers"
   end
 
   test "deals read left to right, link the other company, and carry sources" do
@@ -209,6 +209,19 @@ class CompanyPageTest < ActionDispatch::IntegrationTest
     assert_select ".nd-crumbs a[href=?]", "/companies?category=investors", text: "Investors"
   end
 
+  test "every bucket the company is in is listed in its key facts, each linked (#281)" do
+    westinghouse = cite!(company("Westinghouse", roles: [ Role.find_by(key: "reactor_vendor") || role("reactor_vendor"), role("reactor_services") ]))
+    cite!(link(westinghouse, "invests_in", @kairos))
+    get company_path(slug: westinghouse.slug)
+
+    assert_select ".nd-overview dt", "Type"
+    assert_equal [ "Developers", "Services and engineering", "Investors" ], css_select(".nd-overview ul.nd-bucketchips li").map { |li| li.text.strip }
+    assert_select ".nd-overview a.nd-bucketchip.nd-bucket--reactor-developers[href=?] svg", "/companies?category=reactor-developers"
+    assert_select ".nd-overview a.nd-bucketchip.nd-bucket--services[href=?]", "/companies?category=services"
+    assert_select ".nd-overview a.nd-bucketchip.nd-bucket--investors[href=?]", "/companies?category=investors"
+    assert_select ".nd-crumbs a[href=?]", "/companies?category=reactor-developers", text: "Developers"
+  end
+
   test "a hidden invests-in deal doesn't make a company an investor" do
     backer = cite!(company("Quiet Fund"))
     link(backer, "invests_in", @kairos)
@@ -240,8 +253,9 @@ class CompanyPageTest < ActionDispatch::IntegrationTest
     get company_path(slug: "kairos-power")
 
     assert_select "meta[property='og:title'][content='Kairos Power']"
-    assert_select "meta[property='og:description'][content='Develops salt-cooled reactors.']"
-    assert_select "meta[name=description][content=?]", "Kairos Power: Develops salt-cooled reactors. Plants, sites and deals."
+    line = "Kairos Power: Develops salt-cooled reactors. Owns Hermes."
+    assert_select "meta[property='og:description'][content=?]", line
+    assert_select "meta[name=description][content=?]", line
     assert_select "link[rel=canonical][href=?]", "http://www.example.com/companies/kairos-power"
   end
 

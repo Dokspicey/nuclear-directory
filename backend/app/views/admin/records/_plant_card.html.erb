@@ -1,0 +1,28 @@
+<%# A plant as its public page shows it (#201): name, type and status, the
+    key facts, and how many units and companies it has. A public site shows
+    only what visitors see (its own fields once verified and sourced); one
+    that isn't public yet shows its own values. Links count only when
+    published, as on the site. Locals: p (PlantProfile), record (Facility),
+    shown (p when public, else record). %>
+<% own = !shown.equal?(p) %>
+<% capacity_mw = (record.capacity_mw if own) || p.capacity_mw %>
+<% capacity = "#{number_with_precision(capacity_mw, precision: 2, strip_insignificant_zeros: true, delimiter: ",")} MW" if capacity_mw %>
+<% technologies = [ (record.technology&.name if own), *p.technologies ].compact.uniq %>
+<% reactor_types = [ (record.reactor_type if own), *p.reactor_types ].compact_blank.uniq %>
+<% names = ->(type) { p.companies_for(type).map(&:name).join(", ").presence } %>
+<div class="nd-factcard">
+  <h1 class="type-admin-h1"><%= record.name %></h1>
+  <p class="nd-record__tags">
+    <% [ facility_type_label(shown.facility_type), facility_status_label(shown.status), *technologies ].compact.each do |tag| %><span class="nd-tag"><%= tag %></span><% end %>
+  </p>
+  <% facts = [ [ "Location", place(shown.city, shown.state) ], [ p.companies_for("owns").size > 1 ? "Owners" : "Owner", names.("owns") ],
+               [ "Operator", names.("operates") ], [ "Reactor type", reactor_types.join(", ").presence ], [ "Capacity", capacity ],
+               [ "NRC docket", shown.nrc_docket ] ].reject { |_, value| value.blank? } %>
+  <% if facts.any? %>
+    <dl class="nd-kv type-body">
+      <% facts.each do |label, value| %><dt class="type-label"><%= label %></dt><dd><%= value %></dd><% end %>
+    </dl>
+  <% end %>
+  <div class="nd-fold__row type-body"><span>Units</span><span class="type-data"><%= p.units.size %></span></div>
+  <div class="nd-fold__row type-body"><span>Companies</span><span class="type-data"><%= p.links.map(&:organization_id).uniq.size %></span></div>
+</div>

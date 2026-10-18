@@ -202,4 +202,37 @@ namespace :directory do
     puts "#{found.size - skipped} #{apply ? 'recorded' : 'would be recorded'}#{", #{skipped} skipped" if skipped.positive?}." if found.any?
     puts "Dry run: nothing changed. Run again with APPLY=1 to apply." unless apply || found.empty?
   end
+
+  # Sets plants' or units' status as a person's decision, quoting NRC's
+  # 365-day power status file: human-verified, so a crawler can't change it
+  # back, only propose a change in Checks. Without APPLY=1 it's a dry run:
+  # it prints what would change and writes nothing. The quote is the file's
+  # newest line naming the first facility ("10/14/2026 12:00:00 AM|Palisades|0"),
+  # or QUOTE=… (it must be in the file as last fetched). The admin's Change
+  # status does the same (Directory::StatusChange, #316).
+  desc "Set plants' or units' status from NRC's status file, audited: BY=human:tosin [APPLY=1] bin/rails \"directory:set_status[not_operating,171 174]\""
+  task :set_status, %i[status ids] => :environment do |_task, args|
+    by = ENV["BY"].to_s
+    apply = ENV["APPLY"] == "1"
+    status = args[:status].to_s
+    abort "Usage: BY=human:<handle> [APPLY=1] [QUOTE=…] bin/rails \"directory:set_status[status,id id …]\"" unless
+      by.match?(/\Ahuman:\S+\z/) && Facility.statuses.key?(status) && args[:ids].present?
+
+    plan = Directory::StatusChange.plan(ids: args[:ids], status:)
+    first = Facility.find(args[:ids].split.first.to_i)
+    source = Directory::StatusChange.nrc_status_file or abort "NRC's status file hasn't been fetched"
+    quote = ENV["QUOTE"].presence || Directory::StatusChange.nrc_quote(first.name)&.last
+    abort "#{first.name} isn't in NRC's status file; give QUOTE=…" if quote.blank?
+    abort "The quote isn't in NRC's status file as last fetched: #{quote}" unless source.content_text.to_s.include?(quote)
+
+    reason = ENV["REASON"].presence || "NRC's 365-day power status file: #{quote}"
+    plan = Directory::StatusChange.apply(ids: args[:ids], status:, by:, reason:, source_id: source.id, quote:) if apply
+    plan.unchanged.each { |same| puts "#{same.name} (##{same.id}) is already #{status}; nothing to change" }
+    plan.changes.each do |change|
+      puts "#{apply ? 'Set' : 'Would set'} #{change.name} (##{change.id}): #{change.from || 'blank'} -> #{status}, quoting \"#{quote}\""
+    end
+    puts "Dry run: nothing changed. Add APPLY=1 to set it." unless apply
+  rescue Directory::StatusChange::Invalid => error
+    abort error.message
+  end
 end

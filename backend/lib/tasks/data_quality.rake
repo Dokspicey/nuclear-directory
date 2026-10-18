@@ -115,6 +115,63 @@ namespace :data_quality do
     puts "Dry run: nothing changed. Run again with APPLY=1 to apply." unless apply
   end
 
+  # #302: the DOE award claims still open take the plug-in's new wording and
+  # names. The DOE crawl does this itself at the start of each run
+  # (UsaspendingDoeAwards#refresh_open_claims); this shows what it would
+  # change, for a rehearsal on a restored backup. Dry run unless APPLY=1.
+  desc "Show (or with APPLY=1 make) the #302 rewording of open DOE award claims, audited: BY=human:tosin [APPLY=1] bin/rails data_quality:refresh_doe_awards"
+  task refresh_doe_awards: :environment do
+    by = ENV["BY"].to_s
+    abort "Usage: BY=human:<handle> [APPLY=1] bin/rails data_quality:refresh_doe_awards" unless by.match?(/\Ahuman:\S+\z/)
+
+    apply = ENV["APPLY"] == "1"
+    refreshed = []
+    ActiveRecord::Base.transaction(requires_new: true) do
+      refreshed = DataQuality::Plugin.for("usaspending_doe_awards").refresh_open_claims(by:)
+      refreshed.each do |item|
+        changes = item[:changes].map { |key, value| "#{key} -> #{value.inspect}" }.join("; ")
+        puts "candidate #{item[:candidate].id.to_s.ljust(5)} #{item[:candidate].kind}: #{changes}#{' (back to verify)' if item[:reverify]}"
+      end
+      raise ActiveRecord::Rollback unless apply
+    end
+    verb = apply ? "" : "would be "
+    puts "#{refreshed.size} claims #{verb}reworded, #{refreshed.count { |item| item[:reverify] }} #{verb}sent back to verify."
+    puts "Dry run: nothing changed. The next DOE crawl makes these changes itself." unless apply
+  end
+
+  # The DOE crawl runs this repair itself (once); this shows what it would
+  # change, for Data Quality's rehearsal on a restored backup. Like a crawl,
+  # it writes holding the data write lock shared (#301), so never during a
+  # deploy's data steps.
+  desc "Show (or with APPLY=1 make) the one-time repair of the 16 Oct approve-all: bin/rails data_quality:repair_approve_all"
+  task repair_approve_all: :environment do
+    apply = ENV["APPLY"] == "1"
+    changes = DataQuality::WriteLock.shared { DataQuality::Repairs::ApproveAll20261016.call(dry_run: !apply) }
+    changes.each { |change| puts "#{change.kind} #{change.id.to_s.ljust(4)} #{change.note}: #{change.attributes.inspect}" }
+    puts changes.empty? ? "Nothing to repair: already done." : "#{changes.size} changes #{apply ? 'made' : 'would be made'}."
+    puts "Dry run: nothing changed. The next DOE crawl makes these changes itself." unless apply || changes.empty?
+  rescue DataQuality::Repairs::ApproveAll20261016::Mismatch => error
+    abort "Stopped, nothing changed: #{error.message}"
+  rescue DataQuality::WriteLock::Busy => error
+    abort "Not run: #{error.message}"
+  end
+
+  # For bin/deploy-data (#301): its data steps in one process, holding the
+  # data write lock exclusively, so no crawl writes meanwhile. The lock
+  # belongs to this process's database session, so the steps run here, one
+  # after another, rather than as separate commands.
+  desc "Run rake tasks holding the data write lock (#301): TASKS=\"seed:check db:seed\" [WAIT_MINUTES=30] bin/rails data_quality:with_write_lock"
+  task with_write_lock: :environment do
+    tasks = ENV["TASKS"].to_s.split
+    abort "Usage: TASKS=\"task another:task\" [WAIT_MINUTES=30] bin/rails data_quality:with_write_lock" if tasks.empty?
+
+    DataQuality::WriteLock.exclusive(timeout: ENV.fetch("WAIT_MINUTES", "30").to_i.minutes) do
+      tasks.each { |name| Rake::Task[name].invoke }
+    end
+  rescue DataQuality::WriteLock::Busy => error
+    abort "Not run: #{error.message}"
+  end
+
   desc "Check the OpenRouter key works, without a model call: bin/rails data_quality:check_key"
   task check_key: :environment do
     key = DataQuality::OpenRouter::Client.new.check_key

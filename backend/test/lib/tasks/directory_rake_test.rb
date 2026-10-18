@@ -180,6 +180,13 @@ class DirectoryRakeTest < ActiveSupport::TestCase
     env.each_key { |key| ENV.delete(key.to_s) }
   end
 
+  def set_status(status, ids, **env)
+    env.each { |key, value| ENV[key.to_s] = value }
+    Rake::Task["directory:set_status"].execute(Rake::TaskArguments.new(%i[status ids], [ status, ids ]))
+  ensure
+    env.each_key { |key| ENV.delete(key.to_s) }
+  end
+
   test "award terms are written from a funds link's own USAspending rows, verified only with a verified link (#256)" do
     by = "human:tosin"
     doe = Organization.create!(name: "U.S. Department of Energy", verification_status: "verified", verified_by: by)
@@ -281,5 +288,50 @@ class DirectoryRakeTest < ActiveSupport::TestCase
     capture_io { backfill_award_terms(BY: by, APPLY: "1") }
     assert_equal verified, DealTerm.find_by!(external_id: "ASST_F").link, "a funder-side merge"
     assert_raises(SystemExit) { capture_io { backfill_award_terms(BY: "agent:x") } }
+  end
+
+  test "set_status: Palisades not operating, quoting NRC's status file; a dry run first, then human-verified for good" do
+    status_file = Source.create!(url: "https://www.nrc.gov/status-#{SecureRandom.hex(3)}.txt", source_kind: "nrc_power_status", fetched_at: Time.current,
+      content_text: "ReportDt|Unit|Power\n10/13/2026 12:00:00 AM|Palisades|0\n10/14/2026 12:00:00 AM|Palisades|0\n")
+    site = Facility.create!(name: "Palisades", status: "operating", verification_status: "verified", verified_by: "human:tosin")
+    unit = Facility.create!(name: "Palisades", parent: site, nrc_docket: "05000255", status: "operating", verification_status: "verified", verified_by: "agent:verify")
+    ids = "#{unit.id} #{site.id}"
+
+    assert_output(/Would set Palisades \(##{unit.id}\): operating -> not_operating, quoting "10\/14\/2026 12:00:00 AM\|Palisades\|0".*Dry run/m) do
+      set_status("not_operating", ids, BY: "human:tosin")
+    end
+    assert unit.reload.operating?, "a dry run changes nothing"
+
+    assert_output(/Set Palisades \(##{site.id}\): operating -> not_operating/) { set_status("not_operating", ids, BY: "human:tosin", APPLY: "1") }
+    [ unit, site ].each do |facility|
+      facility.reload
+      assert facility.not_operating?
+      assert facility.human_verified?
+      assert_equal [ "10/14/2026 12:00:00 AM|Palisades|0" ], facility.evidence.where(source: status_file).pluck(:quote)
+    end
+    assert_output(/Palisades \(##{unit.id}\) is already not_operating; nothing to change/) do
+      assert_no_difference(-> { VerificationEvent.count }) { set_status("not_operating", ids, BY: "human:tosin", APPLY: "1") }
+    end
+    assert_not_includes Facility.operating.ids, unit.id, "operating counts leave it out"
+    assert_equal "Not operating", ApplicationController.helpers.facility_status_label(unit.status)
+
+    # The crawler's "operating" doesn't flip a person's decision back.
+    result = Directory::FactWriter.write(:facility, { id: unit.id, status: "operating" }, protect_human_verified: true)
+    assert result.conflicts.present?
+    assert unit.reload.not_operating?
+  end
+
+  test "set_status needs a person, a known status and a quote that's in the file" do
+    assert_raises(SystemExit) { capture_io { set_status("not_operating", "1") } }
+    assert_raises(SystemExit) { capture_io { set_status("resting", "1", BY: "human:tosin") } }
+  end
+
+  test "set_status refuses malformed ids, and records that aren't one plant" do
+    site = Facility.create!(name: "Palisades", status: "operating", verification_status: "verified", verified_by: "human:tosin")
+    other = Facility.create!(name: "Other Plant", status: "operating", verification_status: "verified", verified_by: "human:tosin")
+
+    assert_raises(SystemExit) { capture_io { set_status("not_operating", "#{site.id}a", BY: "human:tosin", APPLY: "1") } }
+    assert_raises(SystemExit) { capture_io { set_status("not_operating", "#{site.id} #{other.id}", BY: "human:tosin", APPLY: "1") } }
+    assert other.reload.operating?
   end
 end

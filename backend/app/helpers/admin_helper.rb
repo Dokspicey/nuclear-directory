@@ -30,14 +30,59 @@ module AdminHelper
     counts = admin_nav_counts
     [
       { label: "Overview", path: admin_root_path, current: controller_name == "overview" },
-      { label: "Sources", path: admin_sources_path, count: counts[:sources], current: controller_name == "status" },
+      { label: "Sources", path: admin_sources_path, count: counts[:sources], current: controller_name == "sources" },
       { label: "Checks", path: admin_checks_path, count: counts[:checks], current: %w[checks candidates pending_facts].include?(controller_name) },
-      { label: "Live", soon: true },
+      { label: "Live", path: admin_live_path, count: counts[:live], current: %w[live records].include?(controller_name) },
       { label: "Removed", soon: true },
       { label: "Where it appears", soon: true },
       { label: "Correction requests", path: admin_corrections_path, count: counts[:corrections], title: "From visitors", gap: true,
         current: controller_name == "corrections" }
     ]
+  end
+
+  # A source's status in Design's words (#201 part 2b): OK with an ink dot;
+  # not fetched yet, muted ("Not checked by the crawler" for hand research);
+  # Blocked and Needs a person in critical.
+  def source_status(status, research:)
+    case status.to_s
+    when "ok" then tag.span("OK", class: "nd-dot")
+    when "blocked" then tag.span("Blocked", class: "text-critical")
+    when "needs_human" then tag.span("Needs a person", class: "text-critical")
+    else tag.span(research ? "Not checked by the crawler" : "Not read yet", class: "text-ink-muted")
+    end
+  end
+
+  # Text with each match of the query marked (<mark>), escaped.
+  def mark_matches(text, query)
+    return text.to_s if query.blank?
+
+    safe_join(text.to_s.split(/(#{Regexp.escape(query)})/i).map { |part| part.casecmp?(query) ? tag.mark(part) : part })
+  end
+
+  # A Live URL for the list as it is, with a tab, a chip toggled (a Status
+  # chip replaces the status; others add or drop), or everything cleared.
+  def live_path_for(list, tab: list.tab, toggle: nil, clear: false, without_source: false)
+    chosen = clear ? { "status" => [ Directory::LiveList::DEFAULT_STATUS ] } : list.chosen.transform_values(&:dup)
+    if (tag = toggle && Directory::Checks.find(toggle))
+      keys = chosen[tag.group] ||= []
+      if Directory::Checks::SINGLE.include?(tag.group) then chosen[tag.group] = [ tag.key ]
+      elsif keys.include?(tag.key) then keys.delete(tag.key)
+      else keys << tag.key
+      end
+    end
+    status = Array(chosen["status"]).first
+    admin_live_path({ tab: (tab unless tab == "all"), q: (list.query unless clear), within: (list.within unless clear || without_source), status: (status unless status == Directory::LiveList::DEFAULT_STATUS) }
+      .merge(Directory::Checks::GROUPS.keys.excluding("status").to_h { |group| [ group.to_sym, Array(chosen[group]).join(",").presence ] }).compact)
+  end
+
+  # Where a Live row opens: a company's or plant's Record page, else the
+  # fact page; either with a way back to this list.
+  def live_row_path(row, back)
+    if row.type == "Organization" || (row.type == "Facility" && row.kind == "Plant")
+      admin_record_path(type: row.type, id: row.id, back:)
+    else
+      admin_fact_path(type: row.type, id: row.id, from: "live", back:)
+    end
   end
 
   # The flash after a decision made on an item page, on the next one:
@@ -50,8 +95,9 @@ module AdminHelper
   # Counts for the nav and the Overview tiles, once per request.
   def admin_nav_counts
     @admin_nav_counts ||= {
-      sources: DataQuality::Status.kinds.size,
+      sources: SourceCatalog.total,
       checks: DataQuality::Review.counts.values.sum + DataQuality::Review.pending_count,
+      live: Organization.published.count + Facility.published.where(parent_id: nil).count,
       corrections: CorrectionReport.where(status: %w[open reviewed]).count
     }
   end
@@ -159,7 +205,7 @@ module AdminHelper
       "→ #{similar.split('; ').first}" if similar
     else
       capacity = item.payload["capacity_mw"].presence
-      "#{number_with_precision(capacity, precision: 2, strip_insignificant_zeros: true, delimiter: ",")} MWe" if capacity && unit_update?(item)
+      "#{number_with_precision(capacity, precision: 2, strip_insignificant_zeros: true, delimiter: ",")} MW" if capacity && unit_update?(item)
     end
   end
 
@@ -252,5 +298,36 @@ module AdminHelper
   # What happened, in a history row: "Pending to verified".
   def change_text(event)
     [ event.from_status, event.to_status ].compact.map { |status| STATUS_WORDS.fetch(status, status.humanize) }.join(" to ")
+  end
+
+  # A merge's "Moved: 3 aliases, 1 evidence, 2 candidates" in the screen's
+  # words (Design, #305): "3 other names, 1 source quote, 2 claims". nil
+  # when nothing moves.
+  MERGE_WORDS = { "alias" => %w[other\ name other\ names], "domain" => %w[domain domains], "role" => %w[role roles],
+    "technology" => %w[technology technologies], "facility relationship" => %w[plant\ link plant\ links],
+    "relationship" => %w[company\ link company\ links], "evidence" => %w[source\ quote source\ quotes],
+    "candidate" => %w[claim claims], "claim" => %w[claim claims], "unit" => %w[unit units],
+    "organization role" => %w[role roles], "organization technology" => %w[technology technologies] }.freeze
+
+  SITE_FIELD_WORDS = { "eia_plant_id" => "EIA plant ID", "facility_type" => "type", "technology_id" => "technology",
+    "reactor_type" => "reactor type", "capacity_mw" => "capacity", "latitude" => "location", "longitude" => "location" }.freeze
+
+  # A plant merge also names the site fields it fills where the kept plant
+  # has none ("eia_plant_id, status"): "fills in its EIA plant ID and status".
+  def merge_moved_words(moved)
+    return if moved.blank? || moved == "nothing"
+
+    counted, fields = moved.to_s.split(", ").partition { |part| part.match?(/\A\d+ /) }
+    parts = counted.filter_map do |part|
+      count, what = part.split(" ", 2)
+      next if count.to_i.zero?
+
+      key = what.to_s.singularize
+      one, many = MERGE_WORDS.fetch(key) { [ key, key.pluralize ] }
+      "#{count} #{count.to_i == 1 ? one : many}"
+    end
+    labels = fields.map { |name| SITE_FIELD_WORDS.fetch(name.strip) { field_label(name.strip).downcase_first } }.uniq
+    parts << "fills in its #{labels.to_sentence(last_word_connector: " and ")}" if labels.any?
+    parts.join(", ").presence
   end
 end

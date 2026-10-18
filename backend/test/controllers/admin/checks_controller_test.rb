@@ -59,10 +59,10 @@ class Admin::ChecksControllerTest < ActionDispatch::IntegrationTest
     assert_select "#claim-#{attached.id}" do
       assert_select ".type-kicker", "Update · EIA"
       assert_select ".type-subject", "Catawba 2"
-      assert_select ".type-change", "1,160 MWe"
+      assert_select ".type-change", "1,160 MW"
     end
     assert_select "#claim-#{waiting.id} .type-subject", "Crane Clean Energy Center unit 1"
-    assert_select "#claim-#{waiting.id} .type-change", "802.8 MWe"
+    assert_select "#claim-#{waiting.id} .type-change", "802.8 MW"
   end
 
   test "a source filter narrows the claims and leaves pending facts out" do
@@ -122,7 +122,7 @@ class Admin::ChecksControllerTest < ActionDispatch::IntegrationTest
 
     assert_select "header.nd-shell__side[data-controller=admin-menu]" do
       assert_select "button.nd-shell__menu[hidden][aria-controls=admin-nav]", "Menu"
-      assert_select "nav#admin-nav a", 4
+      assert_select "nav#admin-nav a", 5
     end
     assert_select ".nd-shell__nav a", /Checks/
     assert_select ".nd-shell__nav a", text: /Queue|Pending facts/, count: 0

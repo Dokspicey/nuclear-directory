@@ -65,7 +65,15 @@ Rails.application.configure do
   # config.action_mailer.raise_delivery_errors = false
 
   # Set host to be used by links generated in mailer templates.
-  config.action_mailer.default_url_options = { host: "example.com" }
+  config.action_mailer.default_url_options = { host: "nuclear-directory.org", protocol: "https" }
+
+  # Correction emails (#317) go through Resend's SMTP relay. Without
+  # RESEND_API_KEY nothing is sent: CorrectionMailer.notify skips and logs.
+  config.action_mailer.delivery_method = :smtp
+  config.action_mailer.smtp_settings = {
+    address: "smtp.resend.com", port: 587, user_name: "resend", password: ENV["RESEND_API_KEY"],
+    authentication: :plain, enable_starttls_auto: true
+  }
 
   # Specify outgoing SMTP server. Remember to add smtp/* credentials via bin/rails credentials:edit.
   # config.action_mailer.smtp_settings = {

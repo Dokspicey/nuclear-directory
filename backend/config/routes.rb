@@ -41,9 +41,27 @@ Rails.application.routes.draw do
     # facts are approved) and Correction requests. The actions underneath
     # are today's: candidates, pending facts, corrections, facts.
     root "overview#show"
-    get "sources" => "status#show", as: :sources
+    get "sources" => "sources#index", as: :sources
+    get "sources/search" => "sources#search", as: :sources_search
+    get "sources/:key" => "sources#show", as: :source, constraints: { key: /[a-z0-9_-]+/ }
     get "status", to: redirect("/admin/sources")
     get "checks" => "checks#show", as: :checks
+    # Live (#201 part 2): every record with Data Quality's tag filters, and
+    # a company's or plant's Record page.
+    get "live" => "live#show", as: :live
+    scope "records/:type/:id", as: :record, constraints: { type: /Organization|Facility/, id: /\d+/ } do
+      get "/" => "records#show"
+      get "edit" => "records#edit", as: :edit
+      patch "/" => "records#update"
+      # Merge into… (#142): pick the record it's the same as, see what moves, confirm.
+      get "merge" => "records#merge", as: :merge
+      post "merge" => "records#perform_merge"
+    end
+    # Change status on a plant or a unit (#316): the form previews with a GET.
+    scope "facilities/:id/status", as: :facility_status, constraints: { id: /\d+/ } do
+      get "/" => "status_changes#edit"
+      patch "/" => "status_changes#update"
+    end
     resources :candidates, only: %i[index edit update] do
       collection do
         post :approve
@@ -69,6 +87,9 @@ Rails.application.routes.draw do
       get "/" => "facts#show"
       post "unpublish" => "facts#unpublish", as: :unpublish
       post "republish" => "facts#republish", as: :republish
+      # Edit a unit or a link (#201, related items on a Record): the Record's edit flow.
+      get "edit" => "records#edit", as: :edit, defaults: { page: "fact" }
+      patch "/" => "records#update", defaults: { page: "fact" }
     end
   end
 
