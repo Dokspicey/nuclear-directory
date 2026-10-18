@@ -863,9 +863,13 @@ module Directory
       # term's lock can deadlock with this; the database stops one and the
       # admin's merge says to try again. A link a person closed meanwhile
       # (seen once it's locked) keeps its terms, as they were decided.
+      # The kept link is locked too (both in id order, so two merges lock
+      # alike): if another merge retired it meanwhile, this merge stops and
+      # says to try again, rather than leave terms on a closed link.
       def move_deal_terms(retired_link, kept_link)
-        retired_link.lock!
+        [ retired_link, kept_link ].sort_by(&:id).each(&:lock!)
         return 0 if retired_link.closed?
+        raise Invalid, "#{kept_link.model_name.human.downcase} ##{kept_link.id} was closed just then; try the merge again" if kept_link.closed?
 
         # Each term locked and read again before it moves: a person's decision
         # on it meanwhile (rejected, or put on another link) stands.

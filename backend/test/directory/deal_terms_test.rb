@@ -179,6 +179,18 @@ class Directory::DealTermsTest < ActiveSupport::TestCase
     assert_equal other, moved_away.reload.link
   end
 
+  test "a merge stops, to be tried again, when another merge retired the kept link meanwhile" do
+    retired = Relationship.create!(from_organization: @doe, to_organization: Organization.create!(name: "X-energy LLC"),
+      relationship_type: "funds", verification_status: "verified", verified_by: BY)
+    term = DealTerm.create!(link: retired, term_type: "award", external_id: "ASST_KEPT_CLOSED", amount_usd: 5, starts_on: "2024-01-01")
+    kept = Relationship.find(@funds.id) # as this merge found it: open
+    @funds.reject!(by: BY, reason: "Merged into DOE (#1); already has this") # the other merge, first
+
+    error = assert_raises(Directory::FactWriter::Invalid) { Directory::FactWriter.new.send(:move_deal_terms, retired, kept) }
+    assert_match "try the merge again", error.message
+    assert_equal retired, term.reload.link, "nothing moved onto the closed link"
+  end
+
   test "the merge preview counts the terms and lead investors the merge moves" do
     duplicate = Organization.create!(name: "X-energy LLC", verification_status: "verified", verified_by: BY)
     retired = Relationship.create!(from_organization: @doe, to_organization: duplicate, relationship_type: "funds",
