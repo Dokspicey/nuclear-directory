@@ -287,6 +287,29 @@ class DataQuality::Plugins::NrcDecommissioningTest < ActiveSupport::TestCase
     assert_equal 21, Candidate.where(kind: "facility").count { |c| c.payload["nrc_docket"] }
   end
 
+  test "a row with no site page link holds the whole list for a person: nothing withdrawn, nothing proposed" do
+    with = plugin(FakeLicensees.new([ answer("Duke", "owns", DUKE_QUOTE) ]))
+    run_stages(with, "crawl", "extract", "match")
+    dresden_page = Source.find_by!(url: DRESDEN_1)
+    before = dresden_page.candidates.pluck(:id, :status)
+
+    unlinked = list_html.sub(%r{<a href="/facilities-safety/facility-finder/decommissioning/power-reactor/dresden-nuclear-power-station-unit-1">(.*?)</a>}m, '\\1')
+    assert_not_equal list_html, unlinked
+    relist(unlinked)
+    run_stages(with, "crawl")
+    stats = CrawlRun.where(stage: "crawl").order(:id).last.stats
+
+    assert_equal "a row has no site page link", stats["stopped"]
+    assert list_source.crawl_needs_human?
+    assert_match "Dresden – Unit 1, 05000010", list_source.status_reason
+    assert_equal before, dresden_page.candidates.pluck(:id, :status), "the page's claims aren't withdrawn"
+
+    # Extract on its own (the list's snapshot is stored) still proposes nothing from it.
+    list_source.update!(crawl_status: "ok", extracted_sha256: nil)
+    error = assert_raises(Plugin::SitePagesUnread) { plugin.extract(list_source, nil) }
+    assert_match Plugin::LINK_MISSING, error.message
+  end
+
   test "a list without its table needs a human" do
     stub_request(:get, Plugin::LIST_URL).to_return(body: "<html><body>We moved things around</body></html>")
 

@@ -25,6 +25,7 @@
 class DataQuality::Plugins::NrcDecommissioning < DataQuality::Plugin
   LIST_URL = "https://www.nrc.gov/facilities-safety/facility-finder/decommissioning/power-reactor"
   TABLE_MISSING = "Couldn't find the decommissioning table; the page layout may have changed"
+  LINK_MISSING = "A row on the decommissioning list has no link to NRC's page for its site, so its licensee can't be read"
   ROLE = "waste_decommissioning"
   # NRC's spelling where it doesn't name the unit the way its operating list
   # does. Crane and Duane Arnold Energy Center are sites in the directory, so
@@ -76,6 +77,13 @@ class DataQuality::Plugins::NrcDecommissioning < DataQuality::Plugin
     if rows.empty?
       list.update!(crawl_status: "needs_human", status_reason: TABLE_MISSING)
       return stats.merge("units" => 0)
+    end
+
+    # A row without its site page would withdraw that page's claims, and its
+    # unit would come in unchecked: the whole list waits for a person.
+    if (unlinked = rows.find { |row| row.page_url.nil? })
+      list.update!(crawl_status: "needs_human", status_reason: "#{LINK_MISSING} (#{unlinked.name}, #{unlinked.nrc_docket})")
+      return stats.merge("units" => rows.size, "stopped" => "a row has no site page link")
     end
 
     stats.merge!("units" => rows.size, "site_pages" => Hash.new(0))
@@ -295,7 +303,11 @@ class DataQuality::Plugins::NrcDecommissioning < DataQuality::Plugin
       rows = List.rows(source.content_text)
       raise TableMissing, "#{TABLE_MISSING} (#{source.url})" if rows.empty?
 
-      urls = rows.filter_map(&:page_url).uniq
+      if (unlinked = rows.find { |row| row.page_url.nil? })
+        raise SitePagesUnread, "#{LINK_MISSING} (#{unlinked.name}, #{unlinked.nrc_docket})"
+      end
+
+      urls = rows.map(&:page_url).uniq
       unread = urls.reject { |url| readable?(Source.find_by(url:)) }
       if unread.any?
         raise SitePagesUnread, "#{unread.size} of #{urls.size} NRC site pages have no readable copy yet (first: #{unread.first}), " \
