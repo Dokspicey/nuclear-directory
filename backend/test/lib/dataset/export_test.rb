@@ -18,6 +18,7 @@ class Dataset::ExportTest < ActiveSupport::TestCase
     @hidden = Organization.create!(name: "Hidden Co")
     @hidden.evidence.create!(source: sources(:nrc), quote: "Hidden.", found_by: "crawler", confidence: 0.5)
     @site = Facility.create!(name: "Hermes", facility_type: "research_reactor", state: "TN", verification_status: "verified", verified_by: BY)
+    @site.evidence.create!(source: @source, quote: "Hermes, in Oak Ridge, Tennessee.", found_by: "human", confidence: 1)
     @owns = FacilityRelationship.create!(organization: @kairos, facility: @site, relationship_type: "owns", ownership_pct: 100,
       verification_status: "verified", verified_by: BY)
     @owns.evidence.create!(source: @source, quote: "Kairos Power owns Hermes.", found_by: "human", confidence: 1)
@@ -126,6 +127,45 @@ class Dataset::ExportTest < ActiveSupport::TestCase
     zenodo = JSON.parse(file(".zenodo.json"))
     assert_equal [ "dataset", "cc-by-4.0", "Oladokun, Tosin" ], [ zenodo["upload_type"], zenodo["license"], zenodo.dig("creators", 0, "name") ]
     assert_includes file("LICENSE"), "https://creativecommons.org/licenses/by/4.0/legalcode"
+  end
+
+  test "shows what the site shows: an unsourced company keeps only its identity; unsourced tags, units and links are left out" do
+    @doe.update!(description: "Funds research.", website: "https://www.energy.gov") # no evidence on DOE itself
+    unsourced_unit = Facility.create!(name: "Hermes 1", parent: @site, nrc_docket: "05007513", verification_status: "verified", verified_by: BY)
+    @kairos.organization_technologies.create!(technology: Technology.find_or_create_by!(key: "fission") { |t| t.name = "Fission" },
+      verification_status: "verified", verified_by: BY)
+    export
+    companies = JSON.parse(file("companies.json")).index_by { |row| row["slug"] }
+
+    assert_equal [ "U.S. Department of Energy", nil, nil ], companies["u-s-department-of-energy"].values_at("name", "description", "website")
+    assert_empty companies["kairos-power"]["technologies"], "a technology without a quote isn't listed"
+    assert_not_includes read("facilities").map { |row| row["slug"] }, unsourced_unit.slug
+  end
+
+  test "a pending site public through its unit shows only its identity, and the unit in full" do
+    site = Facility.create!(name: "Vogtle", facility_type: "power_reactor", state: "GA", city: "Waynesboro")
+    site.evidence.create!(source: @source, quote: "Vogtle, Waynesboro.", found_by: "crawler", confidence: 0.5)
+    unit = Facility.create!(name: "Vogtle 3", parent: site, nrc_docket: "05200025", status: "operating", capacity_mw: 1114,
+      facility_type: "power_reactor", verification_status: "verified", verified_by: BY)
+    unit.evidence.create!(source: @source, quote: "Vogtle 3 operates.", found_by: "human", confidence: 1)
+    export
+    rows = read("facilities").index_by { |row| row["slug"] }
+
+    assert_equal [ "site", nil, nil, nil ], rows[site.slug].fields("level", "facility_type", "state", "city"), "a pending site's details stay hidden"
+    assert_equal [ "unit", site.slug, "operating", "1114.0" ], rows[unit.slug].fields("level", "site_slug", "status", "capacity_mw")
+    assert_not read("evidence").any? { |row| row["fact_key"] == site.slug }, "nor is its evidence listed"
+  end
+
+  test "a site's capacity is its operating units' total, as its page shows it" do
+    site = Facility.create!(name: "Plant Vogtle", facility_type: "power_reactor", verification_status: "verified", verified_by: BY)
+    site.evidence.create!(source: @source, quote: "Plant Vogtle.", found_by: "human", confidence: 1)
+    { "Vogtle 3" => [ "operating", 1114 ], "Vogtle 4" => [ "operating", 1114 ], "Vogtle 1" => [ "shut_down", 1150 ] }.each_with_index do |(name, (status, mw)), i|
+      Facility.create!(name:, parent: site, nrc_docket: "0520002#{i}", status:, capacity_mw: mw, verification_status: "verified", verified_by: BY)
+        .evidence.create!(source: @source, quote: "#{name}.", found_by: "human", confidence: 1)
+    end
+    export
+
+    assert_equal "2228.0", read("facilities").find { |row| row["slug"] == site.slug }["capacity_mw"]
   end
 
   test "latest.json gives the site this release's version, counts and file links" do

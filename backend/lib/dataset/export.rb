@@ -57,7 +57,8 @@ module Dataset
         "status" => "operating, not_operating, under_construction, planned, shut_down or decommissioning; blank when not stated",
         "technology" => "fission or fusion, when stated",
         "reactor_type" => "Reactor design type as the source states it, e.g. PWR, BWR",
-        "capacity_mw" => "Net summer capacity in MW, from EIA-860M, for a unit. A site's capacity is the sum of its operating units",
+        "capacity_mw" => "Net summer capacity in MW, from EIA-860M. For a unit, its own. For a site, the total of its operating " \
+          "units when each is known (blank otherwise); a one-record plant gives its own figure while it operates",
         "nrc_docket" => "NRC docket number, for a licensed reactor",
         "eia_plant_id" => "EIA plant ID, on a site",
         "city" => "City, when a source names it",
@@ -146,16 +147,30 @@ module Dataset
     end
 
     private
+      # What the site shows, by the same rules as its pages (CompanyProfile,
+      # PlantProfile): a company's own details only when a source backs them;
+      # a site's own details only once the site is verified and sourced (a
+      # pending site is public through a verified unit); units, links,
+      # categories and technologies only with a source. Unsourced records
+      # keep their identity row (slug, name, URL) so references still join.
       def build
         companies = Organization.published.includes(:aliases).order(:slug).to_a
-        facilities = Facility.published.includes(:technology, :parent).order(:slug).to_a
-        company_links = Relationship.published.includes(:from_organization, :to_organization).order(:id).to_a
-        plant_links = FacilityRelationship.published.includes(:organization, :facility).order(:id).to_a
-        roles = OrganizationRole.published.includes(:role).where(organization_id: companies.map(&:id)).to_a
-        technologies = OrganizationTechnology.published.includes(:technology).where(organization_id: companies.map(&:id)).to_a
+        @sourced = Hash.new { |cache, type| cache[type] = Evidence.where(subject_type: type).distinct.pluck(:subject_id).to_set }
+        sites = Facility.published.where(parent_id: nil).includes(:technology).order(:slug).to_a
+        @profiles = sites.to_h { |site| [ site.id, PlantProfile.new(site) ] }
+        units = @profiles.values.flat_map(&:units)
+        facilities = (sites + units).sort_by(&:slug)
+        shown_sites = sites.select { |site| @profiles.fetch(site.id).site_facts? }
+        company_links = Relationship.published.includes(:from_organization, :to_organization).order(:id).select { |link| sourced?(link) }
+        plant_links = FacilityRelationship.published.where(facility_id: [ *units, *shown_sites ].map(&:id))
+          .includes(:organization, :facility).order(:id).select { |link| sourced?(link) }
+        roles = OrganizationRole.published.includes(:role, :organization).where(organization_id: companies.map(&:id)).select { |r| sourced?(r) }
+        technologies = OrganizationTechnology.published.includes(:technology, :organization).where(organization_id: companies.map(&:id))
+          .select { |t| sourced?(t) }
         buckets = Category.buckets.map { |category| [ category.key, Organization.where(id: Bucket.organization_ids(category)).pluck(:id).to_set ] }
 
-        evidence = evidence_rows(companies:, facilities:, company_links:, plant_links:, roles:, technologies:)
+        evidence = evidence_rows(companies: companies.select { |c| sourced?(c) }, facilities: [ *shown_sites, *units ], company_links:,
+          plant_links:, roles:, technologies:)
         sources = Source.where(id: evidence.map { |row| row["source_id"] }.uniq).order(:id).to_a
 
         {
@@ -167,12 +182,18 @@ module Dataset
         }
       end
 
+      def sourced?(record) = @sourced[record.class.polymorphic_name].include?(record.id)
+
+      COMPANY_DETAILS = %w[legal_name website description hq_city hq_state country_code founded_year].freeze
+
       def company_row(company, roles, technologies, buckets)
         own = OrganizationAlias.normalize(company.name)
+        details = sourced?(company)
         {
-          **row(company, %w[slug name legal_name]),
-          "aliases" => company.aliases.map(&:alias).reject { |name| OrganizationAlias.normalize(name) == own }.sort,
-          **row(company, %w[website description hq_city hq_state country_code founded_year status]),
+          **row(company, %w[slug name]), "legal_name" => (company.legal_name if details),
+          "aliases" => details ? company.aliases.map(&:alias).reject { |name| OrganizationAlias.normalize(name) == own }.sort : [],
+          **row(company, COMPANY_DETAILS - %w[legal_name]).transform_values { |value| value if details },
+          "status" => company.status,
           "buckets" => buckets.filter_map { |key, ids| key if ids.include?(company.id) },
           "roles" => roles.select { |r| r.organization_id == company.id }.map { |r| r.role.key }.sort,
           "technologies" => technologies.select { |t| t.organization_id == company.id }.map { |t| t.technology.key }.sort,
@@ -180,12 +201,22 @@ module Dataset
         }
       end
 
+      SITE_DETAILS = %w[facility_type status reactor_type nrc_docket eia_plant_id city state latitude longitude].freeze
+
+      # A site's details as its page shows them, and its capacity as the page
+      # computes it (operating units, or a standalone reactor's own figure
+      # while operating). A unit's own values.
       def facility_row(facility)
+        profile = @profiles[facility.id] unless facility.parent_id
+        details = profile ? profile.site_facts? : true
+        values = row(facility, SITE_DETAILS).transform_values { |value| value if details }
         {
           **row(facility, %w[slug name]), "level" => facility.parent_id ? "unit" : "site", "site_slug" => facility.parent&.slug,
-          **row(facility, %w[facility_type status]), "technology" => facility.technology&.key,
-          **row(facility, %w[reactor_type capacity_mw nrc_docket eia_plant_id city state country_code latitude longitude]),
-          "checked_on" => facility.verified_at&.to_date, "url" => "#{SITE}/plants/#{facility.slug}"
+          "facility_type" => values["facility_type"], "status" => values["status"], "technology" => (facility.technology&.key if details),
+          "reactor_type" => values["reactor_type"], "capacity_mw" => profile ? profile.capacity_mw : facility.capacity_mw,
+          **values.slice(*%w[nrc_docket eia_plant_id city state]), "country_code" => facility.country_code,
+          **values.slice("latitude", "longitude"),
+          "checked_on" => (profile ? profile.verified_at : facility.verified_at)&.to_date, "url" => "#{SITE}/plants/#{(facility.parent || facility).slug}"
         }
       end
 
