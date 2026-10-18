@@ -76,6 +76,12 @@ module Directory
       facility_relationship: {
         model: FacilityRelationship,
         attributes: %i[organization_id facility_id relationship_type ownership_pct description started_on ended_on]
+      },
+      # One award, offtake or funding round under its link (#256).
+      deal_term: {
+        model: DealTerm,
+        attributes: %i[link_type link_id term_type external_id amount_usd capacity_mw signed_on starts_on ends_on status
+          program round lead_investor_ids]
       }
     }.freeze
 
@@ -147,8 +153,11 @@ module Directory
           from.public_send(table).each do |row|
             next if row.closed? # rejected or taken down: it stays where it was decided (#229)
 
-            same = into.public_send(table).where(Array(key).index_with { |column| row.public_send(column) })
-            next retired << row if same.exists?
+            same = into.public_send(table).find_by(Array(key).index_with { |column| row.public_send(column) })
+            if same
+              moved["deal_terms"] += move_deal_terms(row, same) if table == :facility_relationships
+              next retired << row
+            end
 
             row.update!(organization: into) && moved[table.to_s] += 1
           end
@@ -158,8 +167,11 @@ module Directory
 
           ends = { from_organization_id: row.from_organization_id, to_organization_id: row.to_organization_id }
             .transform_values { |id| id == from.id ? into.id : id }
-          duplicate = Relationship.where(**ends, relationship_type: row.relationship_type).where.not(id: row.id).exists?
-          next retired << row if ends.values.uniq.size == 1 || duplicate
+          next retired << row if ends.values.uniq.size == 1
+          if (duplicate = Relationship.where(**ends, relationship_type: row.relationship_type).where.not(id: row.id).first)
+            moved["deal_terms"] += move_deal_terms(row, duplicate)
+            next retired << row
+          end
 
           row.update!(ends) && moved["relationships"] += 1
         end
@@ -168,11 +180,15 @@ module Directory
           duplicate ? row.destroy! : row.update!(subject: into) && moved["evidence"] += 1
         end
         moved["candidates"] = Candidate.where(subject_type: "Organization", subject_id: from.id).update_all(subject_id: into.id, proposed_subject: false) # they didn't propose into
+        # A round that names from as a lead investor names into instead, once
+        # each and in its order. A closed term stays as it was decided.
+        moved["lead investors"] = DealTerm.where("? = ANY (lead_investor_ids)", from.id).where.not(verification_status: Verifiable::CLOSED_STATUSES)
+          .update_all([ "lead_investor_ids = ARRAY(SELECT id FROM unnest(array_replace(lead_investor_ids, ?::bigint, ?::bigint)) " \
+            "WITH ORDINALITY AS t(id, n) GROUP BY id ORDER BY min(n))", from.id, into.id ])
 
         note = "Merged into #{into.name} (##{into.id})"
         retired.each { |row| row.reject!(by:, reason: "#{note}; #{into.name} already has this, or it would point at itself") unless row.closed? }
-        summary = moved.select { |_, count| count.positive? }.map { |what, count| "#{count} #{what.tr('_', ' ').then { |label| count == 1 ? label.singularize : label }}" }
-        from.unpublish!(by:, reason: [ reason, "#{note}. Moved: #{summary.join(', ').presence || 'nothing'}" ].compact.join(". "),
+        from.unpublish!(by:, reason: [ reason, "#{note}. Moved: #{merge_summary(moved)}" ].compact.join(". "),
           context: { "merged_into" => { "type" => into.class.name, "id" => into.id } }) # for the admin's exits (#166)
         # Its address, and any it kept from earlier renames or merges, now
         # lead straight to into's page (#143).
@@ -186,6 +202,9 @@ module Directory
     end
 
     def self.merge_facility(...) = new.merge_facility(...)
+
+    MERGED_KINDS = %w[Organization Facility].freeze
+    OPEN_CLAIMS = %w[new matched needs_review].freeze
 
     # Site fields a merge copies to into when into has none.
     SITE_FIELDS = %i[eia_plant_id facility_type status technology_id reactor_type capacity_mw city state latitude longitude].freeze
@@ -252,7 +271,10 @@ module Directory
         retired = []
         from.facility_relationships.each do |row|
           next if row.closed? # a link someone rejected or took down stays where it was decided
-          next retired << row if into.facility_relationships.exists?(organization_id: row.organization_id, relationship_type: row.relationship_type)
+          if (same = into.facility_relationships.find_by(organization_id: row.organization_id, relationship_type: row.relationship_type))
+            moved["deal_terms"] += move_deal_terms(row, same)
+            next retired << row
+          end
 
           row.update!(facility: into) && moved["facility_relationships"] += 1
         end
@@ -263,9 +285,7 @@ module Directory
         moved["candidates"] = Candidate.where(subject_type: "Facility", subject_id: from.id).update_all(subject_id: into.id, proposed_subject: false) # they didn't propose into
 
         retired.each { |row| row.reject!(by:, reason: "#{note}; #{into.name} already has this link") unless row.closed? }
-        summary = moved.select { |_, count| count.positive? }.map { |what, count| "#{count} #{what.tr('_', ' ').then { |label| count == 1 ? label.singularize : label }}" }
-        summary << filled.join(", ") if filled.any?
-        from.unpublish!(by:, reason: [ reason, "#{note}. Moved: #{summary.join(', ').presence || 'nothing'}" ].compact.join(". "),
+        from.unpublish!(by:, reason: [ reason, "#{note}. Moved: #{merge_summary(moved, filled)}" ].compact.join(". "),
           context: { "merged_into" => { "type" => into.class.name, "id" => into.id } }) # for the admin's exits (#166)
         FormerSlug.where(sluggable: from).find_each { |former| into.remember_slug(former.slug) }
         into.remember_slug(from.slug)
@@ -277,6 +297,48 @@ module Directory
       Result.new(kind: :facility, id: into_id, created: false, errors: [])
     rescue Invalid, ActiveRecord::RecordInvalid => error
       failure(:facility, error.message)
+    end
+
+    def self.repoint_merged_claims(...) = new.repoint_merged_claims(...)
+
+    # Open claims still attached to a company or plant that was merged away
+    # (#325): a crawl can attach one in the moment between a merge reading
+    # the record's claims and committing. Each moves to the record kept,
+    # following merges of merges, as the merge itself moves them. Returns how
+    # many moved.
+    def repoint_merged_claims
+      MERGED_KINDS.sum do |type|
+        merged = type.constantize.unpublished.select(:id)
+        Candidate.where(status: OPEN_CLAIMS, subject_type: type, subject_id: merged).distinct.pluck(:subject_id).sum do |from_id|
+          into_id = kept_after_merges(type, from_id) or next 0
+          Candidate.where(status: OPEN_CLAIMS, subject_type: type, subject_id: from_id).update_all(subject_id: into_id, proposed_subject: false)
+        end
+      end
+    end
+
+    def self.merge_preview(...) = new.merge_preview(...)
+
+    # What merge_organization or merge_facility would move, read without
+    # writing or locking anything (#325), so the admin's preview never holds
+    # up an approval or a crawl. Counts as the merge does, in the merge's
+    # words: [Result, "2 aliases, 1 evidence, eia_plant_id"] ("nothing" when
+    # nothing moves), or [failed Result, nil] for a merge it would refuse.
+    # merge_test checks it against real merges.
+    def merge_preview(type:, from_id:, into_id:)
+      kind = type.to_s == "Organization" ? :organization : :facility
+      raise Invalid, "can't merge #{kind == :organization ? 'an organization' : 'a plant'} into itself" if from_id == into_id
+
+      model = kind == :organization ? Organization : Facility
+      records = model.where(id: [ from_id, into_id ]).index_by(&:id)
+      from = records[from_id] or raise Invalid, "no #{kind == :organization ? 'organization' : 'plant'} with id #{from_id}"
+      into = records[into_id] or raise Invalid, "no #{kind == :organization ? 'organization' : 'plant'} with id #{into_id}"
+      raise Invalid, "#{into.name} is #{into.verification_status}; merge into a live #{kind == :organization ? 'organization' : 'plant'}" if into.closed?
+      raise Invalid, "#{from.name} is already #{from.verification_status}" if from.closed?
+
+      moved = kind == :organization ? organization_merge_counts(from, into) : facility_merge_counts(from, into)
+      [ Result.new(kind:, id: into_id, created: false, errors: []), moved ]
+    rescue Invalid => error
+      [ failure(kind, error.message), nil ]
     end
 
     def self.remove_evidence(...) = new.remove_evidence(...)
@@ -447,6 +509,13 @@ module Directory
 
         site = Facility.lock.find(unit.parent_id)
         stated = fields.to_h { |name| [ name.to_sym, unit.public_send(name) ] }.compact_blank
+        # A unit's status is its site's only when every other live unit there
+        # has it too: Dresden 1 decommissioning doesn't make the station so
+        # while Dresden 2 and 3 run (#312).
+        if stated.key?(:status)
+          others = Facility.where(parent_id: site.id).where.not(id: unit.id).where.not(verification_status: Verifiable::CLOSED_STATUSES).pluck(:status)
+          stated.delete(:status) if others.any? { |status| status != stated[:status] }
+        end
         if site.human_reviewed? && !site.closed? && (conflicts = conflicts_with(site, stated)).any?
           raise Conflict.new(site.id, conflicts)
         end
@@ -662,20 +731,175 @@ module Directory
       # by the caller); a unit stands for its site. Not a link: {}.
       def different_ends(kind, record, attributes)
         LINK_ENDS.fetch(kind, {}).each_with_object({}) do |(key, model), found|
+          model = end_model(model, attributes, record)
           stored = record.public_send(key)
           stated = attributes[key]
           next if stated.present? && stated.to_i == stored
           next if stated.present? && model == Facility && Facility.exists?(id: stated, parent_id: stored)
 
-          label = ->(id) { id.present? ? model.find_by(id:)&.name || "##{id}" : "not in the directory" }
+          label = ->(id) { id.present? ? model.find_by(id:).try(:name) || "##{id}" : "not in the directory" }
           found[key.to_s.delete_suffix("_id")] = [ label.call(stored), label.call(stated) ]
         end
       end
 
       def shown(value) = value.respond_to?(:key) ? value.key : value.to_s
 
+      # "2 aliases, 1 evidence" from a merge's counts, then the site fields it
+      # filled; "nothing" when nothing moved.
+      def merge_summary(moved, filled = [])
+        summary = moved.select { |_, count| count.positive? }.map { |what, count| "#{count} #{what.tr('_', ' ').then { |label| count == 1 ? label.singularize : label }}" }
+        summary << filled.join(", ") if filled.any?
+        summary.join(", ").presence || "nothing"
+      end
+
+      # merge_organization's counts, read only.
+      def organization_merge_counts(from, into)
+        moved = Hash.new(0)
+        into_aliases = into.aliases.pluck(:normalized_alias).to_set
+        from.aliases.each { |row| moved["aliases"] += 1 unless into_aliases.include?(row.normalized_alias) }
+        name = OrganizationAlias.normalize(from.name)
+        others = Organization.where.not(id: [ from.id, into.id ]).pluck(:name).map { |other| OrganizationAlias.normalize(other) }
+        moved["aliases"] += 1 unless name == OrganizationAlias.normalize(into.name) || OrganizationAlias.exists?(normalized_alias: name) || others.include?(name)
+        moved["domain"] += 1 if from.domain && into.domain.blank?
+        { organization_roles: :role_id, organization_technologies: :technology_id,
+          facility_relationships: %i[facility_id relationship_type] }.each do |table, key|
+          from.public_send(table).each do |row|
+            next if row.closed?
+
+            same = into.public_send(table).find_by(Array(key).index_with { |column| row.public_send(column) })
+            if same
+              moved["deal_terms"] += deal_terms_moving(row, same).size if table == :facility_relationships
+              next
+            end
+
+            moved[table.to_s] += 1
+          end
+        end
+        Relationship.where(from_organization_id: from.id).or(Relationship.where(to_organization_id: from.id)).each do |row|
+          next if row.closed?
+
+          ends = { from_organization_id: row.from_organization_id, to_organization_id: row.to_organization_id }
+            .transform_values { |id| id == from.id ? into.id : id }
+          next if ends.values.uniq.size == 1
+          if (duplicate = Relationship.where(**ends, relationship_type: row.relationship_type).where.not(id: row.id).first)
+            moved["deal_terms"] += deal_terms_moving(row, duplicate).size
+            next
+          end
+
+          moved["relationships"] += 1
+        end
+        evidence_and_claims(from, into, moved)
+        moved["lead investors"] = DealTerm.where("? = ANY (lead_investor_ids)", from.id).where.not(verification_status: Verifiable::CLOSED_STATUSES).count
+        merge_summary(moved)
+      end
+
+      # merge_facility's counts, read only.
+      def facility_merge_counts(from, into)
+        [ from, into ].each do |site|
+          raise Invalid, "#{site.name} is a unit; only sites are merged" if site.parent_id || site.nrc_docket.present?
+        end
+        if from.eia_plant_id.present? && into.eia_plant_id.present? && from.eia_plant_id != into.eia_plant_id
+          raise Invalid, "#{from.name} is EIA plant #{from.eia_plant_id} and #{into.name} is #{into.eia_plant_id}: two plants, not one"
+        end
+
+        moved = Hash.new(0)
+        filled = SITE_FIELDS.select { |name| into.public_send(name).blank? && from.public_send(name).present? }
+        moved["units"] = from.children.count
+        # from's own aliases are dropped before its names are added to into.
+        taken = FacilityAlias.where.not(facility_id: from.id).pluck(:normalized_alias).to_set
+        others = Facility.where.not(id: [ from.id, into.id ]).pluck(:name).map { |other| FacilityAlias.normalize(other) }.to_set
+        [ *from.aliases.map(&:alias), from.name ].each do |name|
+          normalized = FacilityAlias.normalize(name)
+          next if normalized == FacilityAlias.normalize(into.name) || taken.include?(normalized) || others.include?(normalized)
+
+          taken << normalized
+          moved["aliases"] += 1
+        end
+        from.facility_relationships.each do |row|
+          next if row.closed?
+
+          if (same = into.facility_relationships.find_by(organization_id: row.organization_id, relationship_type: row.relationship_type))
+            moved["deal_terms"] += deal_terms_moving(row, same).size
+            next
+          end
+
+          moved["facility_relationships"] += 1
+        end
+        evidence_and_claims(from, into, moved)
+        merge_summary(moved, filled)
+      end
+
+      def evidence_and_claims(from, into, moved)
+        # As the merges do: the first row of each source and quote moves, the rest are dropped.
+        seen = Evidence.where(subject: into).pluck(:source_id, :quote).to_set
+        Evidence.where(subject: from).order(:id).each do |row|
+          moved["evidence"] += 1 if seen.add?([ row.source_id, row.quote ])
+        end
+        moved["candidates"] = Candidate.where(subject_type: from.class.name, subject_id: from.id).count
+      end
+
+      # The record a merged-away one now lives in: its latest unpublishing
+      # names where it was merged into, followed to the end of the chain
+      # however long. nil when one along the way was taken off for another
+      # reason, or the chain loops.
+      def kept_after_merges(type, id)
+        model = type.constantize
+        visited = Set[id]
+        loop do
+          event = VerificationEvent.where(subject_type: type, subject_id: id, to_status: "unpublished").order(:id).last
+          into = event&.context.to_h.dig("merged_into", "id") or return
+          record = model.find_by(id: into) or return
+          return record.id unless record.unpublished?
+          return unless visited.add?(record.id)
+
+          id = record.id
+        end
+      end
+
       def failure(kind, errors)
         Result.new(kind:, id: nil, created: false, errors: Array(errors))
+      end
+
+      # A merge retires a duplicate link once the kept record has the same
+      # one; its open deal terms (#256) move to that link first, so awards
+      # aren't hidden with it. A term the kept link already has (same kind
+      # and award ID) stays and is retired with its link. Returns how many moved.
+      # Locked first and held until the merge retires it, so a term written
+      # to it meanwhile either lands before this reads (and moves) or waits
+      # and finds the link closed. A term write that already holds the
+      # term's lock can deadlock with this; the database stops one and the
+      # admin's merge says to try again. A link a person closed meanwhile
+      # (seen once it's locked) keeps its terms, as they were decided.
+      # The kept link is locked too (both in id order, so two merges lock
+      # alike). One a person had already closed when the merge found it
+      # takes no terms, which stay where they are; one another merge closed
+      # meanwhile stops this merge, to be tried again, rather than leave
+      # terms on a closed link.
+      def move_deal_terms(retired_link, kept_link)
+        closed_when_found = kept_link.closed?
+        [ retired_link, kept_link ].sort_by(&:id).each(&:lock!)
+        return 0 if retired_link.closed? || closed_when_found
+        raise Invalid, "#{kept_link.model_name.human.downcase} ##{kept_link.id} was closed just then; try the merge again" if kept_link.closed?
+
+        # Each term locked and read again before it moves: a person's decision
+        # on it meanwhile (rejected, or put on another link) stands.
+        deal_terms_moving(retired_link, kept_link).count do |term|
+          term.lock!
+          next false if term.closed? || term.link != retired_link
+          next false if term.external_id && DealTerm.exists?(link: kept_link, term_type: term.term_type, external_id: term.external_id)
+
+          term.update!(link: kept_link)
+        end
+      end
+
+      # A retired link's open terms that move to the kept link: all but one
+      # whose award ID the kept link already has; none to a closed link.
+      def deal_terms_moving(retired_link, kept_link)
+        return [] if kept_link.closed?
+
+        DealTerm.where(link: retired_link).where.not(verification_status: Verifiable::CLOSED_STATUSES).reject do |term|
+          term.external_id && DealTerm.exists?(link: kept_link, term_type: term.term_type, external_id: term.external_id)
+        end
       end
 
       # Finds the existing row for this fact, or nil.
@@ -713,6 +937,13 @@ module Directory
           model.find_by(attrs.slice(:from_organization_id, :to_organization_id, :relationship_type))
         when :facility_relationship
           model.find_by(attrs.slice(:organization_id, :facility_id, :relationship_type))
+        when :deal_term
+          # A term is the same one only under the same link, of the same kind,
+          # with the same source id (an award ID); without one it's always new.
+          raise Invalid, "a deal term needs its link's type (#{DealTerm::LINK_TYPES.join(' or ')})" unless DealTerm::LINK_TYPES.include?(attrs[:link_type].to_s)
+          raise Invalid, "a deal term needs a term type" if attrs[:term_type].blank?
+
+          model.find_by(attrs.slice(:link_type, :link_id, :term_type, :external_id)) if attrs[:external_id].present?
         end
       end
 
@@ -835,8 +1066,19 @@ module Directory
       LINK_ENDS = {
         organization_role: { organization_id: Organization }, organization_technology: { organization_id: Organization },
         relationship: { from_organization_id: Organization, to_organization_id: Organization },
-        facility_relationship: { organization_id: Organization, facility_id: Facility }
+        facility_relationship: { organization_id: Organization, facility_id: Facility },
+        # Its one end is its link, a Relationship or a FacilityRelationship (link_type).
+        deal_term: { link_id: :link }
       }.freeze
+
+      # The model an end points at: fixed for most kinds, and for a deal term
+      # the link named by link_type.
+      def end_model(model, attributes, record)
+        return model unless model == :link
+
+        type = (attributes[:link_type] || record&.link_type).to_s
+        DealTerm::LINK_TYPES.include?(type) ? type.constantize : raise(Invalid, "a deal term needs its link's type")
+      end
 
       # An automated link write needs both ends open: each is locked and
       # checked, so a company or plant closed after match isn't linked to.
@@ -846,14 +1088,15 @@ module Directory
       def check_link_ends(kind, attributes, record)
         ends = LINK_ENDS.fetch(kind, {}).filter_map do |key, model|
           id = attributes.key?(key) ? attributes[key] : record.public_send(key)
-          [ model, id ] if id
+          [ end_model(model, attributes, record), id ] if id
         end
         sites = ends.filter_map { |model, id| [ Facility, model.where(id:).pick(:parent_id) ] if model == Facility }.select(&:last)
         (ends + sites).uniq.sort_by { |model, id| [ model.table_name, id.to_i ] }.each do |model, id|
           finish = model.lock.find_by(id:) or next
           next unless finish.closed?
 
-          raise Invalid, "#{finish.name} was #{finish.verification_status} by #{finish.verified_by || 'review'}; not linked"
+          label = finish.try(:name) || "#{model.model_name.human} ##{finish.id}" # a link (a deal term's end) has no name
+          raise Invalid, "#{label} was #{finish.verification_status} by #{finish.verified_by || 'review'}; not linked"
         end
       end
 
