@@ -92,6 +92,26 @@ class NoWrapTest < ApplicationSystemTestCase
     end
   end
 
+  test "a long last owner and its numbers stay inside the key facts column at 1440" do
+    # Last in the list, by name.
+    Organization.find_by!(name: "Southern Nuclear Operating Co., Inc.").update!(name: "Southern Nuclear Operating Company of Alabama, Georgia and Mississippi, Inc.")
+    resize_viewport(1440, 900)
+    visit "/plants/#{@plant.slug}"
+
+    keep = page.evaluate_script(<<~JS)
+      (() => {
+        const keep = document.querySelector(".nd-overview__keep")
+        const dd = keep.closest("dd"), last = keep.querySelector(".nd-overview__last"), cites = keep.querySelector(".nd-overview__cites")
+        const box = dd.getBoundingClientRect()
+        return [dd.scrollWidth <= dd.clientWidth, keep.getBoundingClientRect().right <= box.right + 1,
+          cites.getBoundingClientRect().right <= box.right + 1, cites.getBoundingClientRect().width > 0, last.title]
+      })()
+    JS
+    assert_equal [ true, true, true, true ], keep.first(4), "the last owner and its numbers fit the column"
+    assert_match(/Southern Nuclear Operating Company of Alabama/, keep.last)
+    assert_empty page.evaluate_script(AUDIT)
+  end
+
   [ [ 360, 800 ], [ 390, 844 ] ].each do |width, height|
     test "nothing wraps and no source number stands alone at #{width}" do
       resize_viewport(width, height)

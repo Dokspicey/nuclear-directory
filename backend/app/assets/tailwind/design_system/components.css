@@ -106,6 +106,12 @@
     font-size: clamp(13px, calc((100cqi - var(--cites) * 32px) / (var(--chars) * 0.62)), 14px); }
   .nd-overview__line--fit .nd-overview__cites { flex: none; }
   .nd-overview__line--fit .nd-overview__val:has(:focus-visible) { outline: var(--nd-focus-width) solid var(--nd-focus); outline-offset: 2px; }
+  /* A list's last item and its numbers: bounded by the row, so a long last
+     name shrinks to an ellipsis (full name in title) and the numbers stay. */
+  .nd-overview__keep { display: inline-flex; align-items: baseline; max-width: 100%; vertical-align: bottom; }
+  .nd-overview__last { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .nd-overview__keep .nd-overview__cites { flex: none; }
+  .nd-overview__last:has(:focus-visible) { outline: var(--nd-focus-width) solid var(--nd-focus); outline-offset: 2px; }
   /* Phones: each label above its value, so values get the full width. */
   @media (max-width: 479px) {
     .nd-overview dl { grid-template-columns: minmax(0, 1fr); row-gap: 2px; }
