@@ -1,0 +1,166 @@
+require "test_helper"
+
+# The open dataset release (#254): published facts only, no internal fields,
+# no third-party quote text, and files that describe exactly what's there.
+class Dataset::ExportTest < ActiveSupport::TestCase
+  BY = "human:tosin"
+  Export = Dataset::Export
+  INTERNAL = %w[confidence verified_by verification_status quote content_text crawl_status etag status_reason domain].freeze
+
+  setup do
+    @dir = Dir.mktmpdir("dataset")
+    @source = sources(:press_release)
+    @kairos = Organization.create!(name: "Kairos Power", domain: "kairospower.com", verification_status: "verified", verified_by: BY,
+      verified_at: Time.utc(2026, 10, 10))
+    @kairos.aliases.create!(alias: "Kairos Power")
+    @kairos.aliases.create!(alias: "Kairos")
+    @kairos.evidence.create!(source: @source, quote: "Kairos Power develops reactors.", found_by: "human", confidence: 1)
+    @hidden = Organization.create!(name: "Hidden Co")
+    @hidden.evidence.create!(source: sources(:nrc), quote: "Hidden.", found_by: "crawler", confidence: 0.5)
+    @site = Facility.create!(name: "Hermes", facility_type: "research_reactor", state: "TN", verification_status: "verified", verified_by: BY)
+    @owns = FacilityRelationship.create!(organization: @kairos, facility: @site, relationship_type: "owns", ownership_pct: 100,
+      verification_status: "verified", verified_by: BY)
+    @owns.evidence.create!(source: @source, quote: "Kairos Power owns Hermes.", found_by: "human", confidence: 1)
+    @doe = Organization.create!(name: "U.S. Department of Energy", verification_status: "verified", verified_by: BY)
+    award = Source.create!(url: "https://www.energy.gov/ne/articles/kairos", source_kind: "web_page", domain: "energy.gov", title: "DOE award",
+      fetched_at: Time.utc(2026, 10, 12))
+    funds = Relationship.create!(from_organization: @doe, to_organization: @kairos, relationship_type: "funds",
+      verification_status: "verified", verified_by: BY)
+    funds.evidence.create!(source: award, quote: "DOE awards Kairos Power.", found_by: "human", confidence: 1)
+    role = @kairos.organization_roles.create!(role: Role.find_or_create_by!(key: "reactor_vendor") { |r| r.name = "Reactor vendor" },
+      verification_status: "verified", verified_by: BY)
+    role.evidence.create!(source: @source, quote: "Kairos Power develops reactors.", found_by: "human", confidence: 1)
+  end
+
+  teardown { FileUtils.rm_rf(@dir) }
+
+  def export(**options) = Export.new(@dir, version: "2026.12", released_on: Date.new(2026, 12, 7), **options).write!
+  def read(name) = CSV.read(File.join(@dir, "#{name}.csv"), headers: true)
+  def file(name) = File.read(File.join(@dir, name))
+
+  test "writes the five tables as CSV and JSON, published facts only, with every column documented" do
+    result = export
+
+    assert_equal %w[companies facilities relationships sources evidence], result[:counts].keys
+    Export::TABLES.each do |table, columns|
+      assert_equal columns.keys, read(table).headers, "#{table}.csv has exactly the documented columns"
+      JSON.parse(file("#{table}.json")).each { |row| assert_equal columns.keys.sort, row.keys.sort }
+    end
+    assert_equal [ "kairos-power", "u-s-department-of-energy" ], read("companies").map { |row| row["slug"] }
+    assert_not_includes file("companies.json"), "Hidden Co"
+    assert_not_includes file("sources.csv"), "nrc.gov", "a source that only backs an unpublished fact isn't listed"
+  end
+
+  test "exports no quote text and no internal field" do
+    export
+
+    %w[develops owns awards].each { |word| assert_not_includes Dir[File.join(@dir, "*")].map { |path| File.read(path) }.join, "Kairos Power #{word} " }
+    Export::TABLES.each_value { |columns| assert_empty columns.keys & INTERNAL }
+  end
+
+  test "companies carry their aliases, buckets, roles and checked date; their own name isn't an alias" do
+    export
+    kairos = JSON.parse(file("companies.json")).find { |row| row["slug"] == "kairos-power" }
+
+    assert_equal [ "Kairos" ], kairos["aliases"]
+    assert_equal [ "reactor_vendor" ], kairos["roles"]
+    assert_includes kairos["buckets"], "reactor-developers"
+    assert_equal "2026-10-10", kairos["checked_on"]
+    assert_equal "https://nuclear-directory.org/companies/kairos-power", kairos["url"]
+    assert_equal "Kairos", read("companies").find { |row| row["slug"] == "kairos-power" }["aliases"]
+  end
+
+  test "relationships name their ends by table and slug" do
+    export
+    rows = read("relationships").index_by { |row| row["id"] }
+
+    assert_equal [ "owns", "kairos-power", "facilities", "hermes", "100.0" ], rows["facility-#{@owns.id}"].fields(*%w[type from_slug to_table to_slug ownership_pct])
+    assert_equal [ "funds", "u-s-department-of-energy", "companies", "kairos-power" ],
+      rows.values.find { |row| row["type"] == "funds" }.fields(*%w[type from_slug to_table to_slug])
+  end
+
+  test "evidence ties each fact, category included, to its sources" do
+    export
+    rows = read("evidence").map { |row| row.fields(*%w[fact_table fact_key fact_part]) }
+
+    assert_includes rows, [ "companies", "kairos-power", nil ]
+    assert_includes rows, [ "companies", "kairos-power", "role:reactor_vendor" ]
+    assert_includes rows, [ "relationships", "facility-#{@owns.id}", nil ]
+    assert_equal rows.size, rows.uniq.size, "one row per fact and source"
+  end
+
+  test "sources name their publisher and document type, from the list or a company's own domain" do
+    own = Source.create!(url: "https://news.kairospower.com/hermes", source_kind: "web_page", domain: "news.kairospower.com")
+    @kairos.evidence.create!(source: own, quote: "Kairos Power builds Hermes.", found_by: "human", confidence: 1)
+    result = export
+    rows = read("sources").index_by { |row| row["url"] }
+
+    assert_equal [ "U.S. Department of Energy", "government_page", "2026-10-12" ],
+      rows["https://www.energy.gov/ne/articles/kairos"].fields("publisher", "document_type", "accessed_on")
+    assert_equal [ "Kairos Power", "company_page" ], rows[own.url].fields("publisher", "document_type"), "a subdomain of its own domain"
+    assert_equal [ "terrapower.com" ], result[:unknown_publishers], "TerraPower isn't a published company here"
+  end
+
+  test "an unknown domain is shown as itself and reported, never guessed" do
+    @kairos.update!(domain: nil)
+    result = export
+
+    assert_equal [ "terrapower.com" ], result[:unknown_publishers]
+    assert_equal [ "terrapower.com", "web_page" ], read("sources").find { |row| row["url"] == @source.url }.fields("publisher", "document_type")
+  end
+
+  test "describes itself: README, dictionary, citation, licence, Zenodo metadata" do
+    export
+
+    readme = file("README.md")
+    assert_includes readme, "This licence covers the data in this repository. The website's code is not covered."
+    assert_includes readme, "Oladokun, T. (2026). *Nuclear Directory: US nuclear supply chain dataset* (Version 2026.12)"
+    assert_match "| `companies` | 2 |", readme
+    assert_no_match(/open source/i, Dir[File.join(@dir, "*"), File.join(@dir, ".*")].select { |path| File.file?(path) }.map { |path| File.read(path) }.join)
+    dictionary = file("DATA-DICTIONARY.md")
+    Export::TABLES.each_value { |columns| columns.each_key { |column| assert_includes dictionary, "| `#{column}` |" } }
+    citation = YAML.safe_load(file("CITATION.cff"), permitted_classes: [ Date ])
+    assert_equal [ "dataset", "2026.12", "CC-BY-4.0", "Oladokun" ], [ citation["type"], citation["version"], citation["license"], citation.dig("authors", 0, "family-names") ]
+    assert_nil citation.dig("authors", 0, "orcid"), "no ORCID until Tosin has one"
+    assert_equal "Nuclear Directory", citation.dig("preferred-citation", "publisher", "name")
+    zenodo = JSON.parse(file(".zenodo.json"))
+    assert_equal [ "dataset", "cc-by-4.0", "Oladokun, Tosin" ], [ zenodo["upload_type"], zenodo["license"], zenodo.dig("creators", 0, "name") ]
+    assert_includes file("LICENSE"), "https://creativecommons.org/licenses/by/4.0/legalcode"
+  end
+
+  test "the concept DOI and ORCID come from the environment once they exist" do
+    with_env("DATASET_CONCEPT_DOI" => "10.5281/zenodo.1234567", "DATASET_AUTHOR_ORCID" => "0000-0002-1825-0097") { export }
+
+    assert_includes file("README.md"), "https://doi.org/10.5281/zenodo.1234567"
+    assert_equal "https://orcid.org/0000-0002-1825-0097", YAML.safe_load(file("CITATION.cff"), permitted_classes: [ Date ]).dig("authors", 0, "orcid")
+    assert_equal "0000-0002-1825-0097", JSON.parse(file(".zenodo.json")).dig("creators", 0, "orcid")
+  end
+
+  test "the changelog says what changed since the previous release, and keeps the history" do
+    previous = Dir.mktmpdir("previous")
+    Export.new(previous, version: "2026.11", released_on: Date.new(2026, 11, 2)).write!
+    Organization.create!(name: "X-energy", verification_status: "verified", verified_by: BY)
+      .evidence.create!(source: @source, quote: "X-energy.", found_by: "human", confidence: 1)
+
+    export(previous:)
+    changelog = file("CHANGELOG.md")
+
+    assert_match "## 2026.12 (2026-12-07)", changelog
+    assert_match "| `companies` | 3 | 1 | 0 |", changelog
+    assert_match "- New companies: x-energy", changelog
+    assert_match "Compared with 2026.11.", changelog
+    assert_match "## 2026.11 (2026-11-02)", changelog, "earlier releases stay below"
+    assert_equal "2026.12", JSON.parse(file("manifest.json"))["version"]
+  ensure
+    FileUtils.rm_rf(previous)
+  end
+
+  private
+    def with_env(values)
+      old = values.keys.to_h { |key| [ key, ENV[key] ] }
+      values.each { |key, value| ENV[key] = value }
+      yield
+    ensure
+      old.each { |key, value| ENV[key] = value }
+    end
+end
