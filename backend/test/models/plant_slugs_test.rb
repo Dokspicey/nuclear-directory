@@ -105,11 +105,15 @@ class PlantSlugsTest < ActionDispatch::IntegrationTest
     assert_select "tr#unit-palisades-unit #unit-palisades", 1, "the old anchor stays with the unit"
   end
 
-  test "a unit really named \"... Unit\" gets no second anchor" do
-    site = cite!(plant("Kemmerer", facility_type: "power_reactor"))
-    unit = cite!(plant("Kemmerer Unit", parent: site, status: "planned"))
+  test "the old anchor comes from the unit's slug, so renaming the unit keeps it, and it never repeats a sibling's id" do
+    site, unit = clashed("Palisades")
+    Facility.give_sites_their_plain_slugs!
+    unit.reload.update!(name: "Palisades Nuclear Plant Unit 1")
 
-    assert_equal [ "unit-kemmerer-unit" ], unit.unit_anchors
+    assert_equal %w[unit-palisades-unit unit-palisades], unit.unit_anchors
+    assert_equal [ "unit-palisades-unit" ], unit.unit_anchors([ "palisades" ]), "no second anchor when another row is #unit-palisades"
+    get plant_path(slug: site.reload.slug)
+    assert_select "tr#unit-palisades-unit #unit-palisades", 1
   end
 
   test "a pair whose <slug>-unit is already taken is left for a person" do

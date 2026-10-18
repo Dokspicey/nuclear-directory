@@ -88,12 +88,12 @@ class Facility < ApplicationRecord
 
   # The plant page's anchor for a unit, and the old one a unit moved by
   # give_site_its_plain_slug! had ("#unit-palisades"), so old links still
-  # reach its row. Read from the unit alone (its name's slug plus "-unit"),
-  # so it holds whatever later happens to its site's slug. A unit really
-  # named "... Unit" has that slug naturally and gets no second anchor.
-  def unit_anchors
-    plain = name.to_s.parameterize
-    [ "unit-#{slug}", ("unit-#{plain}" if parent_id && slug == "#{plain}-unit") ].compact
+  # reach its row. Read from the unit's slug alone ("<old>-unit"), which a
+  # later rename of the unit or its site doesn't change. taken: the other
+  # rows' slugs on the page, so an extra anchor never repeats an id there.
+  def unit_anchors(taken = [])
+    old = slug.to_s.delete_suffix("-unit") if parent_id && slug.to_s.end_with?("-unit")
+    [ "unit-#{slug}", ("unit-#{old}" if old.present? && !taken.include?(old)) ].compact
   end
 
   private
