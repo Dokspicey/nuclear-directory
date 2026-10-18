@@ -192,7 +192,7 @@ Not a source: anything behind a login or paywall, AI-written summaries, a page t
 - **The quote states the value.** "Oglethorpe Power (30%)" supports `owns 30%`; a page that only lists Oglethorpe as a partner doesn't.
 - **Copied exactly** from the page's text, not from a summarizer. Short is fine; it has to contain the fact.
 - **Derived values** (a site's total capacity, counts) aren't stored as facts. They're computed from sourced facts and shown as computed.
-- **Every quote keeps its source's URL** and the date it was read. A source re-read nightly is stamped `last_confirmed_at` when it still says the same thing (#240). A person's decision always wins over a later source: a source that disagrees with a human-verified value goes to review, never overwrites it.
+- **Every quote keeps its source's URL** and the date it was read. A source re-read nightly is stamped `last_confirmed_at` when it still says the same thing (#240). A person's decision always wins over a later source: a source that disagrees with a human-verified value goes to review, never overwrites it. A value counts as a person's unless the last write to it was an unedited approval from the same kind of source; then the source may update it, through the verifier and a person's approval like any claim.
 
 ## 6. Checks
 
