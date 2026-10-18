@@ -287,6 +287,28 @@ class DirectoryRakeTest < ActiveSupport::TestCase
     assert dup_link.reload.rejected?
     capture_io { backfill_award_terms(BY: by, APPLY: "1") }
     assert_equal verified, DealTerm.find_by!(external_id: "ASST_F").link, "a funder-side merge"
+
+    # A merge retires a link between the backfill reading it and writing its award: the write is refused, and a rerun puts it on the kept link.
+    late = Organization.create!(name: "X-energy Late", verification_status: "verified", verified_by: by)
+    late_link = Relationship.create!(from_organization: doe, to_organization: late, relationship_type: "funds", verification_status: "verified", verified_by: by)
+    late_link.evidence.create!(source: page.("https://www.usaspending.gov/recipient/x-energy-late/latest", [ award_row.("ASST_G", "X") ]),
+      quote: "row", found_by: "crawler")
+    writer = Directory::FactWriter.singleton_class
+    original = Directory::FactWriter.method(:write)
+    writer.send(:define_method, :write) do |kind, attributes, **options|
+      if attributes[:external_id] == "ASST_G" && !late.reload.unpublished?
+        Directory::FactWriter.merge_organization(from_id: late.id, into_id: xenergy.id, by:)
+      end
+      original.call(kind, attributes, **options)
+    end
+    begin
+      assert_output(/1 failed/) { backfill_award_terms(BY: by, APPLY: "1") }
+    ensure
+      writer.send(:define_method, :write, original)
+    end
+    assert_not DealTerm.exists?(link: late_link), "nothing hidden on the retired link"
+    capture_io { backfill_award_terms(BY: by, APPLY: "1") }
+    assert_equal verified, DealTerm.find_by!(external_id: "ASST_G").link, "the rerun writes onto the kept link"
     assert_raises(SystemExit) { capture_io { backfill_award_terms(BY: "agent:x") } }
   end
 

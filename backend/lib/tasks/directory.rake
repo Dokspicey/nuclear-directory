@@ -151,7 +151,10 @@ namespace :directory do
             link_type: "Relationship", link_id: link.id, term_type: "award", external_id: row["generated_award_id"],
             amount_usd: row["amount_usd"], starts_on: row["start_date"], ends_on: row["end_date"].presence,
             program: row["assistance_listing"].presence || row["award_type"]
-          }, evidence: [ { source_id: source.id, quote: row.to_csv.chomp, found_by: "crawler" } ], verification:)
+          }, evidence: [ { source_id: source.id, quote: row.to_csv.chomp, found_by: "crawler" } ], verification:,
+            # Locks the link and refuses it if a merge closed it since it was
+            # read, so a rerun writes onto the link the merge kept.
+            protect_human_verified: true)
           next if result.ok?
 
           counts[:written] -= 1
