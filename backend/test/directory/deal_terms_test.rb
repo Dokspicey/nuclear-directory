@@ -151,6 +151,17 @@ class Directory::DealTermsTest < ActiveSupport::TestCase
     assert_equal @funds, DealTerm.find_by!(external_id: "ASST_LOCK").link
   end
 
+  test "a link a person closed after the merge read it keeps its terms" do
+    retired = Relationship.create!(from_organization: @doe, to_organization: Organization.create!(name: "X-energy LLC"),
+      relationship_type: "funds", verification_status: "verified", verified_by: BY)
+    term = DealTerm.create!(link: retired, term_type: "award", external_id: "ASST_CLOSED_LATE", amount_usd: 5, starts_on: "2024-01-01")
+    as_read = Relationship.find(retired.id) # what the merge saw: still open
+    retired.reject!(by: BY, reason: "Not a DOE award") # a person, before the merge's lock
+
+    assert_equal 0, Directory::FactWriter.new.send(:move_deal_terms, as_read, @funds)
+    assert_equal retired, term.reload.link
+  end
+
   test "the merge preview counts the terms and lead investors the merge moves" do
     duplicate = Organization.create!(name: "X-energy LLC", verification_status: "verified", verified_by: BY)
     retired = Relationship.create!(from_organization: @doe, to_organization: duplicate, relationship_type: "funds",

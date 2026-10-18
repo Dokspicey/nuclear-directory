@@ -861,9 +861,12 @@ module Directory
       # to it meanwhile either lands before this reads (and moves) or waits
       # and finds the link closed. A term write that already holds the
       # term's lock can deadlock with this; the database stops one and the
-      # admin's merge says to try again.
+      # admin's merge says to try again. A link a person closed meanwhile
+      # (seen once it's locked) keeps its terms, as they were decided.
       def move_deal_terms(retired_link, kept_link)
         retired_link.lock!
+        return 0 if retired_link.closed?
+
         deal_terms_moving(retired_link, kept_link).each { |term| term.update!(link: kept_link) }.size
       end
 
