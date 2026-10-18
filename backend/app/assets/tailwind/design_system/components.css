@@ -135,6 +135,9 @@
   .nd-overview dd { margin: 0; font-size: 14px; line-height: 20px; min-width: 0; }
   /* A value and its source numbers never part (Tosin's no-wrap rule). */
   .nd-overview__cites, .nd-keep { white-space: nowrap; }
+  /* The Type chips: under their label, across the panel, so a full-name chip fits on one line. */
+  .nd-overview dt.nd-overview__stack, .nd-overview dd.nd-overview__stack { grid-column: 1 / -1; }
+  .nd-overview dd.nd-overview__stack { margin-top: calc(-1 * var(--nd-space-2)); }
   /* A short value fits the row's width less its numbers (about 26px each),
      down to 13px; an ellipsis only as the last resort. */
   .nd-overview dd { container-type: inline-size; }

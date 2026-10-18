@@ -30,6 +30,27 @@ class NoWrapTest < ApplicationSystemTestCase
   PAGES = ->(test) { [ "/", "/companies", "/companies?category=services", "/companies?category=plants",
     "/companies/#{test.instance_variable_get(:@allied).slug}", "/plants/#{test.instance_variable_get(:@plant).slug}" ] }
 
+  test "the Type chips sit under their label across the panel, one line each, at 390 and 1440" do
+    [ [ 390, 844 ], [ 1440, 900 ] ].each do |width, height|
+      resize_viewport(width, height)
+      visit "/companies/#{@allied.slug}"
+      chips = page.evaluate_script(<<~JS)
+        [...document.querySelectorAll(".nd-overview .nd-bucketchip")].map((chip) => {
+          const dd = chip.closest("dd")
+          return [Math.round(chip.getBoundingClientRect().height), dd.scrollWidth <= dd.clientWidth, getComputedStyle(dd).gridColumnStart]
+        })
+      JS
+      assert_not_empty chips
+      chips.each do |height, fits, column|
+        assert_operator height, :<=, 26, "a chip is one line at #{width}"
+        assert fits, "the chip's row doesn't overflow at #{width}"
+        assert_equal "1", column, "the chips start under the label at #{width}"
+      end
+      assert_equal [ "Services and engineering" ], page.evaluate_script("[...document.querySelectorAll('.nd-bucketchip__full')].filter((el) => el.offsetParent).map((el) => el.textContent)"),
+        "the full name fits at #{width}"
+    end
+  end
+
   [ [ 360, 800 ], [ 390, 844 ] ].each do |width, height|
     test "nothing wraps and no source number stands alone at #{width}" do
       resize_viewport(width, height)
