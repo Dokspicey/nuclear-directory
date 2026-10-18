@@ -148,7 +148,7 @@ class DataQuality::DirectoryClient
   # the record's verification alone, since it doesn't vouch for the record
   # itself; even when a human approves it, it doesn't overwrite a
   # human-verified value (that comes back as a conflict).
-  def write_fact(candidate, confidence:, crawl_run:, by: nil, reason: nil)
+  def write_fact(candidate, confidence:, crawl_run:, by: nil, reason: nil, edited: false)
     # The record written is the one match attached, never an id, a link end or
     # a slug in the payload (payloads aren't validated; Review locks these too).
     attributes = candidate.payload.except(*LINK_ENDS, *PAYLOAD_LOCKED, ENRICHMENT_KEY).symbolize_keys
@@ -166,7 +166,11 @@ class DataQuality::DirectoryClient
     verification =
       if enrichment then nil
       elsif by
-        { status: "verified", by:, reason:, context: { "candidate_id" => candidate.id, "crawl_run_id" => crawl_run&.id } }.compact
+        # edited: a person changed the values first, so they're the person's
+        # (Differences.written_by_person).
+        context = { "candidate_id" => candidate.id, "crawl_run_id" => crawl_run&.id }
+        context["edited"] = true if edited
+        { status: "verified", by:, reason:, context: }.compact
       else
         { status: "verified", by: "agent:verifier/#{crawl_run&.model || 'unknown'}" }
       end
@@ -317,6 +321,9 @@ class DataQuality::DirectoryClient
 
   # Every verification decision on a fact, newest first (Directory::VerificationEventRef).
   def verification_history(type:, id:) = lookup.verification_history(type:, id:)
+
+  # A fact's evidence (Directory::EvidenceRef).
+  def evidence(type:, id:) = lookup.evidence(type:, id:)
 
   MERGES = { "Organization" => :merge_organization, "Facility" => :merge_facility }.freeze
 

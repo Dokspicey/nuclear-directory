@@ -171,7 +171,11 @@ For each `new` or `matched` candidate:
 1. **Code checks first**, with no model call. These go to `needs_review`, with the reason in `notes`:
    - its record was rejected or unpublished by a human after match attached it
    - it disagrees with a human-verified value on its record ("human-verified state is NJ; this source
-     says DE"; names aren't compared)
+     says DE"; names aren't compared). Not when every value it changes was last written by an
+     unedited approval from the same kind of source (`Differences.written_by_person`): the source is
+     updating its own value, so the verifier checks it. A seed, an admin edit, a repair, a merge, an
+     edited approval or another source makes a value a person's, and one such value keeps the whole
+     claim a conflict
    - its quote isn't in the source as stored. Each plug-in defines that: `quote_in_source?`, by default
      the page's visible text, and for NRC a whole table row
 2. **The verifier agent** (`Verifiers::Agent`, `OPENROUTER_VERIFY_MODEL`, prompt `verify-v3`) reads the

@@ -29,6 +29,38 @@ module DataQuality::Differences
     end
   end
 
+  # The differences, unless every one is a value the pipeline wrote from the
+  # candidate's own kind of source: then {} (Data Quality, 17 Oct). A field
+  # counts as the pipeline's when the latest event that changed it is an
+  # approval of a candidate from the same kind of source, not edited first.
+  # Any other writer makes it a person's: a seed, an admin edit, a repair, a
+  # merge, an edited approval, another source. One person's field keeps
+  # them all, so a mixed claim stays a conflict.
+  def self.written_by_person(differences, candidate, record, directory:)
+    return differences if differences.empty?
+
+    history = directory.verification_history(type: record.type, id: record.id)
+    evidence = directory.evidence(type: record.type, id: record.id)
+    pipeline = differences.keys.all? do |name|
+      event = history.find { |e| e.changed_values.to_h.key?(name) }
+      event && pipeline_write?(event, candidate, evidence)
+    end
+    pipeline ? {} : differences
+  end
+
+  # An unedited approval of a claim from the candidate's kind of source.
+  # Approvals before the "edited" marker are told by their evidence: an
+  # edited approval stored no confidence.
+  def self.pipeline_write?(event, candidate, evidence)
+    context = event.context.to_h
+    return false if context["edited"] || !context["candidate_id"]
+
+    writer = Candidate.includes(:source).find_by(id: context["candidate_id"])
+    return false unless writer && writer.source.source_kind == candidate.source.source_kind
+
+    evidence.any? { |row| row.source_id == writer.source_id && row.quote == writer.quote && row.confidence }
+  end
+
   # "human-verified state is NJ; this source says DE"
   def self.describe(differences)
     differences.map do |name, (stored, incoming)|
@@ -58,5 +90,5 @@ module DataQuality::Differences
   rescue URI::InvalidURIError
     text.downcase.delete_prefix("www.")
   end
-  private_class_method :incoming_value, :comparable
+  private_class_method :pipeline_write?, :incoming_value, :comparable
 end
