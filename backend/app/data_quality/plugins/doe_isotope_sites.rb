@@ -13,8 +13,9 @@
 # Each one gives a company (its abbreviation as an alias), the isotopes
 # category and, where its own name says so, national_lab or university,
 # quoting the sentence that names it. A university's network membership
-# doesn't by itself say it produces isotopes, so its isotopes claim goes to
-# a person. No model is asked. Match, verify and approval are shared.
+# doesn't by itself say it produces isotopes, so verify holds its isotopes
+# claim for a person (hold_for_review), after match has attached it. No
+# model is asked. Match, verify and approval are shared.
 class DataQuality::Plugins::DoeIsotopeSites < DataQuality::Plugin
   PAGE_URL = "https://www.isotopes.gov/production-network"
   LAYOUT_CHANGED = "Couldn't find the production sites' sentences; the page layout may have changed"
@@ -56,7 +57,7 @@ class DataQuality::Plugins::DoeIsotopeSites < DataQuality::Plugin
     raise LayoutChanged, "#{LAYOUT_CHANGED} (#{source.url})" if labs.empty? || schools.empty?
 
     labs.flat_map { |lab| candidates(lab, type: (lab.name.include?("National Laboratory") ? "national_lab" : nil)) } +
-      schools.flat_map { |school| candidates(school, type: (school.name.include?("University") ? "university" : nil), held: true) }
+      schools.flat_map { |school| candidates(school, type: (school.name.include?("University") ? "university" : nil)) }
   end
 
   # The sentences the names come from: the page around them carries menus
@@ -64,6 +65,13 @@ class DataQuality::Plugins::DoeIsotopeSites < DataQuality::Plugin
   def rows_sha256(source)
     text = sentences(source.content_text).join("\n")
     Digest::SHA256.hexdigest(text) if text.present?
+  end
+
+  # A school's isotopes claim rests on network membership alone.
+  def hold_for_review(candidate)
+    return unless candidate.kind == "organization_role" && candidate.payload["role"] == "isotopes"
+
+    NETWORK_NOTE if candidate.quote.to_s.match?(NETWORK)
   end
 
   def source_facts(source)
@@ -101,12 +109,11 @@ class DataQuality::Plugins::DoeIsotopeSites < DataQuality::Plugin
       end
     end
 
-    def candidates(site, type:, held: false)
+    def candidates(site, type:)
       organization = { "name" => site.name }
       company = { kind: "organization", quote: site.quote,
         payload: organization.merge({ "aliases" => ([ site.abbreviation ] if site.abbreviation && site.abbreviation != site.name) }.compact) }
       isotopes = { kind: "organization_role", quote: site.quote, payload: { "organization" => organization, "role" => "isotopes" } }
-      isotopes = isotopes.merge(status: "needs_review", notes: NETWORK_NOTE) if held
       kind = { kind: "organization_role", quote: site.quote, payload: { "organization" => organization, "role" => type } } if type
       [ company, isotopes, kind ].compact
     end

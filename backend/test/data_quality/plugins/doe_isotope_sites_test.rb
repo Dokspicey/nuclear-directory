@@ -76,12 +76,14 @@ class DataQuality::Plugins::DoeIsotopeSitesTest < ActiveSupport::TestCase
     assert_match "has stewardship over the Brookhaven Linear Isotope Producer", brookhaven[:quote]
   end
 
-  test "a lab's isotopes claim goes on, a university's waits for a person" do
+  test "a lab's isotopes claim goes on, a university's is held for a person at verify, after match" do
     candidates = plugin.extract(stored, nil).select { |c| c[:payload]["role"] == "isotopes" }
     lab, school = candidates.partition { |c| LABS.include?(c[:payload].dig("organization", "name")) }
 
-    assert lab.none? { |c| c[:status] }
-    assert school.all? { |c| c[:status] == "needs_review" && c[:notes] == Plugin::NETWORK_NOTE }
+    assert candidates.none? { |c| c[:status] }, "all go through match, so they're attached before anyone decides"
+    held = ->(c) { plugin.hold_for_review(Candidate.new(kind: c[:kind], payload: c[:payload], quote: c[:quote])) }
+    assert lab.none?(&held)
+    assert school.all? { |c| held.(c) == Plugin::NETWORK_NOTE }
   end
 
   test "a lab named outside a sentence about producing isotopes isn't proposed" do
@@ -117,5 +119,32 @@ class DataQuality::Plugins::DoeIsotopeSitesTest < ActiveSupport::TestCase
     claim = Candidate.find_by!(kind: "organization", payload: { "name" => "Oak Ridge National Laboratory", "aliases" => [ "ORNL" ] })
     assert_equal oak_ridge.id, claim.subject_id
     assert_equal 1, Organization.where(name: "Oak Ridge National Laboratory").count
+  end
+
+  # Publishes everything, so a hold can only come from a code check.
+  class PublishEverything
+    def call(_candidate) = DataQuality::Verdict.new(outcome: :publish, reason: "supported", confidence: 0.95)
+  end
+
+  test "end to end: a university's held isotopes claim is attached, and a person can approve it" do
+    Role.find_or_create_by!(key: "isotopes") { |role| role.name = "Isotopes" }
+    Role.find_or_create_by!(key: "national_lab") { |role| role.name = "National lab" }
+    Role.find_or_create_by!(key: "university") { |role| role.name = "University" }
+    %w[crawl extract match].each { |stage| DataQuality::Pipeline.run("doe_isotope_sites", plugin:, only: stage) }
+    DataQuality::Pipeline.run("doe_isotope_sites", plugin:, only: "verify", verifier: PublishEverything.new)
+
+    claims = Candidate.where(kind: "organization_role").select { |c| c.payload["role"] == "isotopes" }
+    washington = claims.find { |c| c.payload.dig("organization", "name") == "University of Washington" }
+    brookhaven = claims.find { |c| c.payload.dig("organization", "name") == "Brookhaven National Laboratory" }
+    assert_equal [ "needs_review", Plugin::NETWORK_NOTE ], [ washington.status, washington.notes ]
+    assert washington.subject_id, "match attached it before verify held it"
+    assert_equal "recommend_publish", brookhaven.ai_recommendation
+
+    company = Candidate.find_by!(kind: "organization", payload: { "name" => "University of Washington" })
+    [ company, washington ].each do |decided|
+      result = DataQuality::Review.approve([ decided.id ], by: "human:test").first
+      assert_empty result.errors, "approving #{decided.kind}"
+    end
+    assert OrganizationRole.find(washington.reload.subject_id).verified?
   end
 end
