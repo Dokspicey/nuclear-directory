@@ -19,6 +19,7 @@ class DataQuality::Plugins::NrcUraniumRecovery < DataQuality::Plugin
   PAGE_URL = "https://www.nrc.gov/facilities-safety/facility-finder/materials/uranium"
   TABLE_SUMMARY = "NRC-Licensed Uranium Recovery Facilities"
   TABLE_MISSING = "Couldn't find the table of NRC-licensed uranium recovery facilities; the page layout may have changed"
+  ROW_UNREADABLE = "A row of the NRC-licensed table has no site name, licensee, location or type"
   FACILITY_TYPES = { /\AIn Situ Recovery\b/ => "uranium_mine", /\AConventional Uranium Mill\b/ => "mill" }.freeze
   # "Chadron, Nebraska" => "NE": the app's one list of state names.
   STATE_CODES = LinkCard::US_STATES.invert.freeze
@@ -47,14 +48,19 @@ class DataQuality::Plugins::NrcUraniumRecovery < DataQuality::Plugin
     return stats.merge("stopped" => "page blocked") if stats["page"] == "blocked"
     return stats unless page.crawl_ok? && page.content_text.present?
 
-    rows = rows(page.content_text)
-    page.update!(crawl_status: "needs_human", status_reason: TABLE_MISSING) if rows.empty?
+    rows, unreadable = rows(page.content_text)
+    if rows.empty? || unreadable.positive?
+      page.update!(crawl_status: "needs_human", status_reason: unreadable.positive? ? ROW_UNREADABLE : TABLE_MISSING)
+      return stats.merge("sites" => rows.size, "unreadable_rows" => unreadable).reject { |key, count| key == "unreadable_rows" && count.zero? }
+    end
     stats.merge("sites" => rows.size)
   end
 
   def extract(source, _run)
-    rows = rows(source.content_text)
+    rows, unreadable = rows(source.content_text)
     raise TableMissing, "#{TABLE_MISSING} (#{source.url})" if rows.empty?
+    # A partial read would look like sites leaving the table: nothing is written.
+    raise TableMissing, "#{ROW_UNREADABLE} (#{source.url})" if unreadable.positive?
 
     rows.flat_map { |row| candidates(row) }
   end
@@ -94,14 +100,18 @@ class DataQuality::Plugins::NrcUraniumRecovery < DataQuality::Plugin
   end
 
   private
+    # [rows, how many data rows couldn't be read]. A row missing any of its
+    # four values makes the whole read unusable (the caller stops).
     def rows(html)
-      table = table_in(html) or return []
-      table.css("tr").filter_map do |row|
+      table = table_in(html) or return [ [], 0 ]
+      data = table.css("tr").reject { |row| row.css("td").empty? }
+      read = data.filter_map do |row|
         cells = row.css("td").map { |cell| cell.text.squish }
-        next if cells.size < 4 || cells[0].blank? || cells[1].blank?
+        next if cells.size < 4 || cells.first(4).any?(&:blank?)
 
         Row.new(site: cells[0], licensee: cells[1], location: cells[2], type: cells[3], line: line(row))
       end
+      [ read, data.size - read.size ]
     end
 
     def lines(html)

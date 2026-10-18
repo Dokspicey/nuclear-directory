@@ -151,4 +151,16 @@ class DataQuality::Plugins::NrcUraniumRecoveryTest < ActiveSupport::TestCase
     assert flagged.all? { |c| c.quote.include?("Dewey Burdock") }
     assert Facility.find_by!(name: "Dewey Burdock").verified?, "nothing is unpublished; a person decides"
   end
+
+  test "one unreadable row among good ones holds the whole read: nothing is written, nothing looks dropped" do
+    blanked = html.sub("Powertech Uranium Corporation", "")
+    stub_request(:get, Plugin::PAGE_URL).to_return(body: blanked)
+
+    stats = crawl.stats
+    assert_equal({ "page" => "changed", "sites" => 2, "unreadable_rows" => 1 }, stats)
+    assert page_source.crawl_needs_human?
+    assert_match Plugin::ROW_UNREADABLE, page_source.status_reason
+    error = assert_raises(Plugin::TableMissing) { plugin.extract(page_source, nil) }
+    assert_match Plugin::ROW_UNREADABLE, error.message
+  end
 end
