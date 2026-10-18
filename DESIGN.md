@@ -106,6 +106,12 @@ What each page type is for, in order of importance. Build and review pages again
 
 **Two rules from Founder (18 Oct):**
 - A plant page says plainly who owns it, who operates it and whether they're the same company, in one sentence under the name.
+  - **The sentence shows only what's sourced.** It's built from the signed, sourced owns and operates links, and nothing else.
+    - Both sourced: "Owned by X. Operated by Y, a different company." or "Owned and operated by X."
+    - Only the operator sourced: "Operated by Y." on its own. Many operating plants are like this today, until the EIA-860 owners load.
+    - Only owners sourced: "Owned by X."
+    - Neither sourced: no sentence.
+  - **Never** write "owner unknown", and never infer an owner (for example, from the operator or a parent company).
 - A reactor developer's key facts include its **licensing stage**, sourced to the NRC docket. Data Quality is defining the field.
 
 ### Home (`/`)
@@ -163,7 +169,7 @@ What a plant or site is, whether it runs, and who owns and operates it. **For:**
 - **Questions, in order:** 1. What is it, and is it running? 2. Where is it? 3. Who owns it, who operates it, and are they the same company? 4. How big is it? (units, operating capacity) 5. Which reactor type and developer? 6. Who buys its power? 7. Where's the proof?
 - **Sections, top to bottom:** Header; Crumbs: Plants and sites / Name; Site ring, name, the ownership sentence; Type chip (with site icon) + status; Key facts: Type, Status, Location, Owners, Operator, Reactor developer, Reactor type, Capacity; Connections map (#363); Companies (n); Units (table; cards on phones); Sources (n); Report a correction; Footer.
 - **Above the fold:** at 390, header, crumbs, name, the ownership sentence, the type chip, the first key facts (Type, Status). At 1440, name, ownership sentence and chips on the left; all key facts on the right.
-- **Key facts and sources:** The ownership sentence (Founder): "Owned by Georgia Power, Oglethorpe Power, MEAG Power and Dalton Utilities. Operated by Southern Nuclear, a different company." or "Owned and operated by Constellation." From the owns and operates links; only signed, sourced ones; Status and type: the site's own, once sourced; Capacity: operating units only (PM, 16 Oct); Reactor type: from the units when they agree.
+- **Key facts and sources:** The ownership sentence (Founder): "Owned by Georgia Power, Oglethorpe Power, MEAG Power and Dalton Utilities. Operated by Southern Nuclear, a different company." or "Owned and operated by Constellation." From the owns and operates links; only signed, sourced ones. With only the operator sourced, it reads "Operated by Constellation." on its own, never "owner unknown" or an inferred owner (see the rule above); Status and type: the site's own, once sourced; Capacity: operating units only (PM, 16 Oct); Reactor type: from the units when they agree.
 - **Links in:** Plants and sites list; Company profiles; Search (units land on their row). **Links out:** Owner and operator profiles; Units' NRC dockets; Sources.
 - **Cut:** Leaving the operator out of key facts when it's known (Calvert Cliffs lists Operator but no Owners); "Not verified yet" as a heading.
 - **Spec:** #281, #363, Founder note 18 Oct
