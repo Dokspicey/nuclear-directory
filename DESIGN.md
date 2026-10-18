@@ -98,9 +98,11 @@ What each page type is for, in order of importance. Build and review pages again
 
 **Who the site is for:** Analysts, journalists, investors, policy staff and job seekers researching the US nuclear industry.
 
+**Nothing live is removed (Tosin, 18 Oct).** Every fact and section a page shows today stays on it. A change may add, reorder, move something lower or restyle it, never take it away.
+
 **Sitemap:**
 - **Browse:** Home → category pages (9 categories + Plants and sites) → company and plant profiles. A unit is a row on its plant page.
-- **Find:** the search box on every page; the company list (`/companies`); technology pages (`/companies?technology=…`, new).
+- **Find:** the search box on every page; the company list (`/companies`); tag pages (`/companies?tag=…`: fission, fusion, smr, then htgr and fhr).
 - **Use and fix:** the footer's text pages (Privacy, Disclaimer, Our crawler); The data (`/data`, coming); Report a correction (from every profile).
 - **Admin (signed in):** Today (#373), Sources, Live, Removed, Where it appears, record pages, correction requests.
 
@@ -123,7 +125,7 @@ Start a search, or browse the industry by category. **For:** Anyone arriving fro
 - **Above the fold:** at 390, wordmark, search, the first category card and the top of the second. At 1440, the whole page, footer included (no scroll at 1440×900 and 1280×800).
 - **Key facts and sources:** Count per category: published companies (plants for Plants and sites); Top 3 per category: most sourced connections; investors by funded companies; Short labels: Components, Waste, Services, Government, Plant operators (homepage only).
 - **Links in:** Search engines and shared links; The wordmark on every page. **Links out:** Category pages (card header, See all); Company and plant profiles (card rows); Search results.
-- **Cut:** Any headline or marketing copy above search; "How we pick these names" (removed 17 Oct); Counts in phone card headers.
+- **Keep (nothing live is removed):** Everything on today's homepage stays: wordmark, search, suggestions, every category card, footer; Tosin's homepage decisions stand (#362): no 'How we pick' link, no counts in phone card headers; Don't add a headline or marketing copy above search.
 - **Spec:** #362
 
 ### Company list (`/companies`)
@@ -131,11 +133,11 @@ Start a search, or browse the industry by category. **For:** Anyone arriving fro
 See every company in one list, then narrow it. **For:** People scanning the whole industry or building a shortlist.
 
 - **Questions, in order:** 1. Who's in the directory, and how many? 2. Which ones work in a technology or a state? 3. Which are the most connected?
-- **Sections, top to bottom:** Header: wordmark + search; Category pills (sideways scroll); Title + count: All companies 89; Filters: Technology, State, Sort (one Filters button on phones); Rows: mark, name, one-line description, place, connections; Next page; Footer.
+- **Sections, top to bottom:** Header: wordmark + search; Category pills (sideways scroll); Title + count: All companies 89; Filters: Technology, State, Sort (one Filters button on phones); Rows: mark, name, one-line description, place, connections; Next page, only once the list passes about 200 (one list today); Footer.
 - **Above the fold:** at 390, header, pills, title and count, the Filters button, the first 4 rows. At 1440, header through about 9 rows.
-- **Key facts and sources:** Name; one-line description (sourced, ellipsis past one line); Headquarters as City, ST; Connection count (published links).
+- **Key facts and sources:** Name; one-line description (sourced, ellipsis past one line); Headquarters as City, ST; Connection count: published, sourced links only (the same rule as the buckets, Bucket#sourced).
 - **Links in:** Footer and crumbs; Category pills on every list. **Links out:** Company profiles; Category pages; Technology pages.
-- **Cut:** Descriptions longer than one line in rows; A second count in the filter bar.
+- **Keep (nothing live is removed):** Every row field stays: mark, name, description, place, connections; A long description stays, shown on one line with the full text in its title (DESIGN.md one-line rule); Every filter and both sorts stay.
 - **Spec:** #263, #369
 
 ### Category page (`/companies?category=fuel`)
@@ -145,74 +147,79 @@ Everyone in one part of the industry (e.g. fuel and materials), most connected f
 - **Questions, in order:** 1. Who works in this area? 2. What does the category include? 3. Which are the biggest or most connected?
 - **Sections, top to bottom:** Header + pills (current category selected); Title with category icon + count; One-line definition from the category's 'about'; Filters; Rows (plants: type · status · units · MW); Footer.
 - **Above the fold:** at 390, header, pills, title, the definition line, Filters, the first 3 rows. At 1440, header through about 8 rows.
-- **Key facts and sources:** Category name and definition (Category model); Count; For Plants and sites: type, status, units, operating MW.
+- **Key facts and sources:** Category name and definition (Category model). Developers' line says "companies designing and building reactors", so engineering firms aren't filed there; Count; For Plants and sites: type, status, units, operating MW.
 - **Links in:** Homepage cards; Type chips on profiles; Crumbs on profiles; Search engines (title: e.g. "Uranium, nuclear fuel and materials suppliers in the US"). **Links out:** Profiles; Other categories (pills).
-- **Cut:** Default sort A to Z: switch to Most connected; A missing definition line: add it.
+- **Keep (nothing live is removed):** Everything on today's category pages stays; A to Z stays as a sort; Most connected becomes the default, counting published, sourced links only, so it agrees with the homepage; Add the one-line definition under the title (confirmed).
 - **Spec:** #263
 
 ### Company profile (`/companies/terrapower`)
 
-Everything sourced about one company, and who it deals with. This is the shared frame; the key facts and sections that follow it depend on the category (next section). **For:** Someone checking a company: a journalist, an investor, a job seeker, a competitor.
+Everything sourced about one company, and who it deals with. **For:** Someone checking a company: a journalist, an investor, a job seeker, a competitor.
 
 - **Questions, in order:** 1. What does it do? (one line) 2. What kind of company is it? 3. Who does it deal with, and how? (owns, operates, supplies, sells power to, funds) 4. Which plants and sites is it tied to? 5. For reactor developers: how far along is licensing? 6. Where's the proof?
-- **Sections, top to bottom:** Header; Crumbs: Category / Name; Mark, name, one-line description with sources; Key facts: Type chips, Website, Also known as, Legal name, Role, Technology, Headquarters, Parent company, Licensing stage (developers); Connections map (#363); Deals and links (n); Plants and sites (n); Sources (n); Report a correction; Footer.
+- **Sections, top to bottom:** Header; Crumbs: Category / Name; Mark, name, one-line description with sources; Role tag row (kept); Key facts: Type chips, Website, Also known as, Legal name, Role, Technology, Headquarters, Parent company, Licensing stage (developers); Connections map (#363); Deals and links (n); Plants and sites (n); Not verified yet (moved lower); Sources (n), ending with a "Cite this page" line; Report a correction; Footer.
 - **Above the fold:** at 390, header, crumbs, name, description, and the first rows of key facts (Type, Website). At 1440, name and description on the left; the whole key-facts panel on the right; the top of the map.
 - **Key facts and sources:** Description: from a source, numbered; Type: the company's categories (chips); Role, technology, HQ, parent: each with its source numbers; Licensing stage (reactor developers): NRC docket as the source; field defined by Data Quality; Deals and links: the five verbs, signed facts only.
 - **Links in:** Lists, categories, search; Other profiles' deals and maps; Plant pages' Companies. **Links out:** Partners' profiles; Plants; Sources (external); Report a correction.
-- **Cut:** The role tag row under the name: it repeats the Role fact and the Type chip; "Not verified yet" as a section heading: fold it into one muted line.
+- **Keep (nothing live is removed):** Every fact and section live today stays: description, the role tag row, key facts, Deals and links, Plants and sites, Not verified yet, Sources; The role tag row under the name stays (restyle at most); Not verified yet stays, moved lower: after Plants and sites, before Sources, restyled as a quieter block.
 - **Spec:** #363, #369
 
 ### Company profile: one layout per category
 
-Every company page shares one frame. Its first key facts and its sections follow its category, most important first (Tosin, 18 Oct). Each category has a board on the canvas, with 390 and 1440 wireframes.
+Every company page shares one frame. Its first key facts and its first sections follow its category, most important first (Tosin, 18 Oct). Each category has a board on the canvas.
 
-- **Shared by every company:** crumbs; mark, name and the one-line summary with its sources; Type chips; the always-on key facts (Website, Headquarters, Parent company, Also known as, Legal name) after the category's own; the connections map (#363); Sources; Report a correction.
-- **Varies by category:** the first 2 to 3 key facts; the sections after the map, and their order; each section's table columns.
+- **Shared by every company:**
+  - crumbs; mark, name and the one-line summary with its sources; the role tag row; Type chips;
+  - the always-on key facts (Website, Headquarters, Parent company, Also known as, Legal name), after the category's own;
+  - the connections map (#363);
+  - after the category's sections, everything live today: Deals and links (every link), Plants and sites, Not verified yet (moved lower), Sources, Report a correction.
+  - Sources end with one line: "Cite this page: Nuclear Directory, {name}, {URL}, accessed {date}; dataset DOI {DOI}." (Founder),
+- **Varies by category:** the first 2 to 3 key facts; the category's own sections after the map, and their order; each section's table columns. The category sections are ordered views of the same sourced links; Deals and links still lists every link below them, so nothing disappears.
 - **Empty states, only what's sourced:**
-  - A key fact with no source is left out: no row, never "unknown".
-  - A section with nothing sourced is left out.
-  - The exception is the category's first section. It stays, with one muted line ("No sourced projects yet.") and a Report a correction link, so the page still answers its main question.
+  - A key fact with no source isn't shown: no row, never "unknown".
+  - A category section with nothing sourced isn't shown.
+  - The exception is the category's first section. It stays, with one muted line ("No sourced projects yet.") and a Report a correction link.
   - Never infer one fact from another.
 - **A company in several categories:**
   - Its first category (the one in its crumbs) sets the layout.
-  - Its other categories' sections follow, once each, in their own order.
+  - Its other categories' sections follow, once each.
   - The key facts add each other category's first fact. Amazon: Nuclear power deals, Contracted MW, then Companies funded.
 - **Plants and sites** isn't a company category; it has the plant profile. Isotopes and coolant sit inside Fuel and materials.
 
-| Category | First key facts | Sections after the map, in order | Sources for its facts |
+| Category | First key facts | Its own sections after the map, in order | Sources for its facts |
 |---|---|---|---|
-| Developers | Technology, Licensing stage, First project | Projects and sites; Licensing; Funding; Power deals; Suppliers | Technology: the reactor design and type (e.g. sodium-cooled fast reactor); Licensing stage: from the NRC docket (Data Quality defines the field); First project: the earliest site with a sourced stage; Funding and deals: signed facts only; MOUs are Notes (#363) |
-| Power plant owners and operators | Plants operated, Plants owned, Operating capacity | Plants; Units by status; Power deals; Suppliers and services | Plants operated and owned: from the operates and owns links (shares from the source); Operating capacity: operating units only (PM, 16 Oct); Units by status: counts from the units table |
-| Fuel and materials | What it makes, Facilities, Capacity | Facilities; Who it supplies; Funding and awards | What it makes: from its roles and facility types; Capacity: as the source states it, with its unit (e.g. SWU a year), never converted; Customers: from supplies links |
+| Developers | Technology, Licensing stage, Design approval, Fuel | Projects and sites; Licensing; Funding; Power deals; Suppliers | Technology: its technology tag, and the reactor type from its plants' units where sourced; design types (e.g. sodium-cooled fast reactor) are planned (#263); Licensing stage: the lead project's stage with the project named and dated ("Construction permit, Hermes 1, Dec 2023"), from NRC dockets (#379). The lead project is the most advanced by stage, not the earliest; Design approval: a separate fact when the NRC has certified or approved the design (standard design approval or certification), with the design name; so a company with an approved design and no site, and one with a permitted site and no certified design, read differently; Fuel: the fuel it needs (e.g. "HALEU TRISO, 15.5%"), from a sourced fact; links the developer to Fuel and materials; Funding: funds and invests_in links plus deal terms (#264): awards, rounds, and company-level Form D rounds that name no investors; Deals: signed only; MOUs are Notes (#363) |
+| Power plant owners and operators | Plants operated, Plants owned, Operating capacity | Plants; Units by status; Power deals; Suppliers and services | Plants operated and owned: from the operates and owns links; a share only where the source states it; Operating capacity: operating units only (PM, 16 Oct); Units by status: counts from the units table |
+| Fuel and materials | What it makes, Facilities, Enrichment level (enrichers, fabricators), Capacity (later, when the data exists) | Facilities; Who it supplies; Supplied by; Funding | What it makes: from its roles and facility types (enrichment, conversion, fabrication, HALEU, TRISO, isotopes); Capacity: later, when a stated-capacity field (value, unit, quote) exists; left out until then. Then in the source's own unit for its stage (mining lb U3O8 a year, conversion tonnes U as UF6 a year, enrichment SWU a year, fabrication tonnes U a year, isotopes Ci a week), never converted, and labelled licensed or actual; Enrichment level: LEU, LEU+ (to 10%), HALEU (to 19.75%), from a sourced fact; Supplied by: from supplies links pointing at it; Customers: from supplies links |
 | Components and manufacturing | What it makes, Customers, Facilities | Who it supplies; Facilities | What it makes: from its roles and its supplies links' details; Customers: from supplies links |
-| Services and engineering | Services, Clients, Plants served | Clients and contracts; Plants served | Services: from its roles (reactor services, regulatory consultant) and contract details; Clients and plants: from supplies links, dated |
-| Waste and decommissioning | Services, Sites, Plants being decommissioned | Sites and projects; Clients | Sites: from its links to facilities (decommissioning status from the site); Clients: from supplies links |
-| Power buyers | Nuclear power deals, Contracted MW, Sellers | Power deals; Investments (when it also invests) | Deals: signed only; early-stage ones are Notes with their stage (#363); Contracted MW: the sum of sourced amounts, labelled "sourced deals"; left out if any amount is missing |
-| Investors | Companies funded, Focus, Total disclosed | Investments; Invests alongside | Investments: from invests_in and funds links; Total disclosed: the sum of disclosed amounts only, labelled so; Focus: from the funded companies' technologies |
-| Government and research | Kind, Programs, Awards given | Awards and funding given; Programs; Labs and research sites; Research partners | Awards: from funds links; amounts from USAspending or the award page; Labs and sites: from its facilities (research reactors, test sites) |
+| Services and engineering | Services, Clients | Clients and contracts | Services: from its roles (reactor services, regulatory consultant) and contract details; Clients: from supplies links, dated. Plants served: later, when the data exists (no plant link type for services yet; needs a DATA.md decision) |
+| Waste and decommissioning | Services, Sites, Plants being decommissioned | Sites and projects; Clients | Sites: from its links to facilities (decommissioning status from the site); Licence transfers: the dated transfer of the NRC licence (and trust fund) to it, from an owns link that carries the date; Clients: from supplies links |
+| Power buyers | Nuclear power deals, Sellers, Contracted MW (once stored) | Power deals; Investments (when it also invests) | Deals: signed only; early-stage ones are Notes with their stage (#363); Contracted MW: left out until #264 stores MW with its basis (capacity, MWh a year, "up to"); then the sum of signed PPAs and virtual PPAs only, on the same basis, labelled "From N signed deals, incl. virtual" when any are virtual; frameworks and investments stay out of the sum. Per-deal MW and kind in the table once stored |
+| Investors | Companies funded, Focus, Total disclosed | Investments; Invests alongside | Investments: from invests_in and funds links (hand research for equity; Form D names no investors); Total disclosed: only amounts the source attributes to this investor (a round's total isn't its share); otherwise show the count of companies and leave the total out; Invests alongside: only from a sourced shared round (#264), never from two investors funding the same company at different times; Focus: from the funded companies' technology tags |
+| Government and research | Kind, Awards given | Awards and funding given; Programs (later, when the data exists); Labs and research sites; Research partners | Awards given: deal terms (award) on funds links; USAspending, DOE today; Programs: later, when the data exists (the deal term holds only the assistance listing code; it needs its official title); Labs and sites: from its facilities (isotopes.gov #276; research reactors once an NRC source exists) |
 
 ### Plant profile (`/plants/plant-vogtle`)
 
 What a plant or site is, whether it runs, and who owns and operates it. **For:** Someone looking up a plant: a reporter, a local resident, an analyst, a buyer of power.
 
 - **Questions, in order:** 1. What is it, and is it running? 2. Where is it? 3. Who owns it, who operates it, and are they the same company? 4. How big is it? (units, operating capacity) 5. Which reactor type and developer? 6. Who buys its power? 7. Where's the proof?
-- **Sections, top to bottom:** Header; Crumbs: Plants and sites / Name; Site ring, name, the ownership sentence; Type chip (with site icon) + status; Key facts: Type, Status, Location, Owners, Operator, Reactor developer, Reactor type, Capacity; Connections map (#363); Companies (n); Units (table; cards on phones); Sources (n); Report a correction; Footer.
+- **Sections, top to bottom:** Header; Crumbs: Plants and sites / Name; Site ring, name, the ownership sentence; Type chip (with site icon) + status; Key facts: Type, Status, Location, Owners, Operator, Reactor developer, Reactor type, Capacity; Connections map (#363); Companies (n); Units (table; cards on phones): type, capacity, status, commercial operation, licence expiry, docket; Not verified yet (moved lower); Sources (n), ending with a "Cite this page" line; Report a correction; Footer.
 - **Above the fold:** at 390, header, crumbs, name, the ownership sentence, the type chip, the first key facts (Type, Status). At 1440, name, ownership sentence and chips on the left; all key facts on the right.
-- **Key facts and sources:** The ownership sentence (Founder): "Owned by Georgia Power, Oglethorpe Power, MEAG Power and Dalton Utilities. Operated by Southern Nuclear, a different company." or "Owned and operated by Constellation." From the owns and operates links; only signed, sourced ones. With only the operator sourced, it reads "Operated by Constellation." on its own, never "owner unknown" or an inferred owner (see the rule above); Status and type: the site's own, once sourced; Capacity: operating units only (PM, 16 Oct); Reactor type: from the units when they agree.
+- **Key facts and sources:** The ownership sentence (Founder): "Owned by Georgia Power, Oglethorpe Power, MEAG Power and Dalton Utilities. Operated by Southern Nuclear, a different company." or "Owned and operated by Constellation." From the owns and operates links; only signed, sourced ones. Only the operator sourced: "Operated by Constellation." on its own; never "owner unknown" or an inferred owner; Status and type: the site's own, once sourced; Capacity: operating units only (PM, 16 Oct), labelled MW with the note "Net summer capacity, from EIA" (DATA.md D2); Reactor type: from the units when they agree; Reactor developer: only from a sourced link between the developer and the plant or its units, never inferred from the reactor type (AP1000 is not proof of Westinghouse); Owners' shares: a percentage only where that owns link's source states it; otherwise names without shares. EIA-860 Schedule 4 (#382) brings sourced shares; On phones the sentence names up to 2 owners, then "and N others", which jumps to the Owners row with every owner; desktop names them all. It's body text, so it may wrap to 2 lines.
 - **Links in:** Plants and sites list; Company profiles; Search (units land on their row). **Links out:** Owner and operator profiles; Units' NRC dockets; Sources.
-- **Cut:** Leaving the operator out of key facts when it's known (Calvert Cliffs lists Operator but no Owners); "Not verified yet" as a heading.
+- **Keep (nothing live is removed):** Every fact and section live today stays: key facts (Owners, Operator, …), Companies, Units, Not verified yet, Sources; Not verified yet stays, moved lower: after Units, before Sources; The ownership sentence is added above, built only from sourced links.
 - **Spec:** #281, #363, Founder note 18 Oct
 
-### Unit (`/plants/plant-vogtle#vogtle-3`)
+### Unit (`/plants/plant-vogtle#unit-vogtle-unit-3`)
 
 One reactor's facts. A row on its plant's page, not a page of its own. **For:** Someone who searched a unit name ("Vogtle 3") or follows an NRC docket.
 
 - **Questions, in order:** 1. What kind of reactor, and how big? 2. Is it operating? 3. What's its NRC docket?
-- **Sections, top to bottom:** Its plant page, scrolled to the Units table; The unit's row highlighted (card on phones): Reactor type, Capacity, Status, NRC docket, Sources.
+- **Sections, top to bottom:** Its plant page, scrolled to the Units table; The unit's row highlighted with a :target style (card on phones), the plant name pinned above: Reactor type, Capacity, Status, Commercial operation, Licence expiry, NRC docket, Sources.
 - **Above the fold:** at 390, the highlighted unit card, with the plant's name pinned above. At 1440, the Units table with the row highlighted.
-- **Key facts and sources:** Reactor type, capacity, status: per unit, sourced; NRC docket: links to the NRC.
+- **Key facts and sources:** Reactor type, capacity, status: per unit, sourced; Commercial operation and Licence expiry: from the NRC ("is it running, and until when"); NRC docket: links to the NRC.
 - **Links in:** Search results for a unit name; Connections that point to a unit. **Links out:** The NRC docket page; The plant's owners and operator.
-- **Cut:** A standalone unit page: too thin, and it would split the plant's sources.
+- **Keep (nothing live is removed):** Units stay rows on their plant page (confirmed); nothing is removed; Don't add a standalone unit page: it would split the plant's sources.
 - **Spec:** #281
 
 ### Search (`Search box (every page) → /companies?q=…`)
@@ -220,35 +227,35 @@ One reactor's facts. A row on its plant's page, not a page of its own. **For:** 
 Find a company, plant or site by name, alias or topic. **For:** Everyone; it's the main action.
 
 - **Questions, in order:** 1. Is it here? 2. Is it a company or a plant? 3. If not, what's close?
-- **Sections, top to bottom:** Instant results under the box: Companies, Plants and sites (5 each), All results ›; Results page: title "Results for …" + count; Filters; Companies; Plants and sites; No results: 3 suggestions + Report a missing company.
+- **Sections, top to bottom:** Instant results under the box: Companies, Plants and sites (5 each), All results ›; Results page: title "Results for …" + count; Filters; Companies; Plants and sites; No results: the 3 closest names by trigram match (#223) + Report a missing company.
 - **Above the fold:** at 390, the instant results; on the results page, the title, Filters and the first 4 results. At 1440, instant results in place; the results page through about 10 results.
 - **Key facts and sources:** Matches name, aliases, legal name, plant and unit names; Plain group labels; no record types.
 - **Links in:** The search box on every page; Homepage suggestions. **Links out:** Profiles (units land on their plant row); Corrections (missing company).
-- **Cut:** Search inside admin-only fields.
+- **Keep (nothing live is removed):** Everything search shows today stays; Add the no-results suggestions and Report a missing company.
 - **Spec:** #245
 
-### Technology page (`/companies?technology=smr`)
+### Tag page (technology) (`/companies?tag=smr`)
 
-Everyone working on one technology (SMR, HALEU, fusion, molten salt). **For:** Someone who searched a technology or tapped a technology tag.
+Everyone working on one technology tag: fission, fusion, smr, and next htgr and fhr. HALEU is a fuel (Fuel and materials), not a tag. **For:** Someone who searched a technology or tapped a technology tag.
 
 - **Questions, in order:** 1. Who's working on it? 2. What is it, in one line? 3. Which plants or sites use it?
-- **Sections, top to bottom:** Header + pills; Title: technology name + count; One-line definition; Companies; Plants and sites using it; Footer.
+- **Sections, top to bottom:** Header + pills; Title: technology name + count; One-line definition; Companies; Plants and sites using it (left out while unit technology is empty: 0 of 173 today); Footer.
 - **Above the fold:** at 390, title, definition, the first 4 companies. At 1440, title, definition, about 8 companies.
-- **Key facts and sources:** Definition: plain, one line (VOICE.md); Companies tagged with the technology; plants whose units use it.
-- **Links in:** Technology tags on profiles; Homepage suggestions (HALEU, SMR); Search engines, only when it has 5+ results. **Links out:** Profiles; The full list with the filter.
-- **Cut:** Indexing a technology page with fewer than 5 results (noindex).
-- **Spec:** new, confirmed by Tosin on 18 Oct
+- **Key facts and sources:** Definition: plain, one line (VOICE.md); Companies tagged with it; plants whose units use it, once unit technology is populated; URL scheme: ?tag=… as shipped in #281 (?tag=fusion, uranium, isotopes); ?technology=x and ?category=fusion 301 to ?tag=x.
+- **Links in:** Technology tags on profiles; Homepage suggestions (SMR); Search engines, only when it has 5+ results. **Links out:** Profiles; The full list with the filter.
+- **Keep (nothing live is removed):** New page (confirmed); nothing removed; Indexed by search engines only with 5+ results (noindex below that).
+- **Spec:** new
 
 ### The data (`/data (coming)`)
 
 Download the whole dataset and cite it. **For:** Researchers, journalists, analysts; anyone who wants to reuse or cite the data.
 
 - **Questions, in order:** 1. What's in it? 2. How fresh is it? 3. How do I cite it? (DOI) 4. Can I reuse it? (licence) 5. How is it checked?
-- **Sections, top to bottom:** Title + one-line summary (records, links, sources, last updated); Download: CSV and JSON, with size and date; Cite this: DOI + citation text + Copy; What's inside: tables and fields; How it's made: sources, Joy and Aminah's checks, corrections; Versions and changes; Licence.
+- **Sections, top to bottom:** Title + one-line summary (records, links, sources, last updated); Download: CSV and JSON, with size and date; Cite this: DOI + citation text + Copy; What's inside: tables and fields; How it's made, in plain words: automated crawls and checks, then a person approves every fact; corrections; Versions and changes; Licence.
 - **Above the fold:** at 390, title, summary, Download, the top of Cite this. At 1440, title through Cite this.
-- **Key facts and sources:** Counts and last updated: from the snapshot; DOI: from the deposit (Founder memo); Licence: to be chosen.
+- **Key facts and sources:** Counts, version and last updated: from the release's latest.json (#378); DOI: the Zenodo concept DOI, with the citation line from the release README (#378); Licence: CC BY 4.0, data only ("open data", never "open source"); No reviewer names on this public page: Joy and Aminah are admin only.
 - **Links in:** Footer; Profiles' Sources ("Get the whole dataset"); Papers and articles that cite the DOI. **Links out:** Downloads; DOI page; Corrections.
-- **Cut:** Any form or sign-up before download.
+- **Keep (nothing live is removed):** New page; nothing removed; Don't add a form or sign-up before download.
 - **Spec:** #185, Founder memo
 
 ### Report a correction (`/corrections/new`)
@@ -260,7 +267,7 @@ Tell us something is wrong or missing. **For:** A visitor who spotted an error; 
 - **Above the fold:** at 390, everything to Send. At 1440, the whole form.
 - **Key facts and sources:** The record and fact are filled in from the link that opened it.
 - **Links in:** Report a correction on every profile and fact; No results in search. **Links out:** Back to the record.
-- **Cut:** Required email; Captcha (the hidden honeypot stays).
+- **Keep (nothing live is removed):** Everything stays: About, the textarea, optional email, the hidden honeypot; Don't add a required email or a captcha.
 - **Spec:** #103
 
 ### Admin: Today (`/admin/checks`)
@@ -268,11 +275,11 @@ Tell us something is wrong or missing. **For:** A visitor who spotted an error; 
 The admin's daily plan: four steps, then done. **For:** The admin, in short bursts, often on a phone.
 
 - **Questions, in order:** 1. What do I need to do today? 2. How long will it take? 3. What will my click do? 4. Am I done?
-- **Sections, top to bottom:** Greeting + 4 steps · minutes + who are Joy and Aminah; 1 Crawled and checked by Joy; 2 Aminah's review (paste); 3 Review and accept (opens the list); 4 Left for you; You're done for today.
+- **Sections, top to bottom:** Greeting + 4 steps · minutes + who are Joy and Aminah; 1 Crawled and checked by Joy; 2 Aminah's review (paste); 3 Review and accept (opens the list; kind and source filters and Next page kept); 4 Left for you; You're done for today.
 - **Above the fold:** at 390, the greeting and all four steps. At 1440, the whole plan.
 - **Key facts and sources:** Crawl run counts; Joy's and Aminah's verdicts per fact; Gates still run behind every click.
 - **Links in:** Admin nav: Today (count). **Links out:** Fact pages; Correction requests; Sources.
-- **Cut:** Claim, verifier, candidate, S1 in the interface.
+- **Keep (nothing live is removed):** Everything Checks does today stays, reorganised into the four steps: the Read, Same and Waiting counts (step 1); Data Quality's list and Accept (steps 2 and 3); the kind and source filters and Next page (step 3, above the list); every fact page link (step 4); Only wording changes: plain words replace claim, verifier and S1 in the interface.
 - **Spec:** #373
 
 ## Categories
