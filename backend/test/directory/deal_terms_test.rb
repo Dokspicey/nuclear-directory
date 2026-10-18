@@ -191,6 +191,36 @@ class Directory::DealTermsTest < ActiveSupport::TestCase
     assert_equal retired, term.reload.link, "nothing moved onto the closed link"
   end
 
+  test "a kept link a person already closed doesn't block a company merge; the terms stay put" do
+    duplicate = Organization.create!(name: "X-energy LLC", verification_status: "verified", verified_by: BY)
+    retired = Relationship.create!(from_organization: @doe, to_organization: duplicate, relationship_type: "funds",
+      verification_status: "verified", verified_by: BY)
+    term = DealTerm.create!(link: retired, term_type: "award", external_id: "ASST_STAYS", amount_usd: 5, starts_on: "2024-01-01")
+    @funds.reject!(by: BY, reason: "Not a DOE award")
+
+    _, preview = Directory::FactWriter.merge_preview(type: "Organization", from_id: duplicate.id, into_id: @xenergy.id)
+    assert Directory::FactWriter.merge_organization(from_id: duplicate.id, into_id: @xenergy.id, by: BY).ok?
+    assert_equal retired, term.reload.link
+    assert @funds.reload.rejected?, "the person's decision stands"
+    assert_no_match(/deal term/, preview)
+  end
+
+  test "a kept plant link a person already closed doesn't block a plant merge; the terms stay put" do
+    site = Facility.create!(name: "Plant Vogtle", verification_status: "verified", verified_by: BY)
+    duplicate = Facility.create!(name: "Vogtle", verification_status: "verified", verified_by: BY)
+    kept = FacilityRelationship.create!(organization: @xenergy, facility: site, relationship_type: "offtakes_from",
+      verification_status: "verified", verified_by: BY)
+    retired = FacilityRelationship.create!(organization: @xenergy, facility: duplicate, relationship_type: "offtakes_from",
+      verification_status: "verified", verified_by: BY)
+    term = DealTerm.create!(link: retired, term_type: "offtake", capacity_mw: 100)
+    kept.reject!(by: BY, reason: "Not an offtake")
+
+    _, preview = Directory::FactWriter.merge_preview(type: "Facility", from_id: duplicate.id, into_id: site.id)
+    assert Directory::FactWriter.merge_facility(from_id: duplicate.id, into_id: site.id, by: BY).ok?
+    assert_equal retired, term.reload.link
+    assert_no_match(/deal term/, preview)
+  end
+
   test "the merge preview counts the terms and lead investors the merge moves" do
     duplicate = Organization.create!(name: "X-energy LLC", verification_status: "verified", verified_by: BY)
     retired = Relationship.create!(from_organization: @doe, to_organization: duplicate, relationship_type: "funds",

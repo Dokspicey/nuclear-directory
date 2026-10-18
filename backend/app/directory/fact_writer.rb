@@ -864,11 +864,14 @@ module Directory
       # admin's merge says to try again. A link a person closed meanwhile
       # (seen once it's locked) keeps its terms, as they were decided.
       # The kept link is locked too (both in id order, so two merges lock
-      # alike): if another merge retired it meanwhile, this merge stops and
-      # says to try again, rather than leave terms on a closed link.
+      # alike). One a person had already closed when the merge found it
+      # takes no terms, which stay where they are; one another merge closed
+      # meanwhile stops this merge, to be tried again, rather than leave
+      # terms on a closed link.
       def move_deal_terms(retired_link, kept_link)
+        closed_when_found = kept_link.closed?
         [ retired_link, kept_link ].sort_by(&:id).each(&:lock!)
-        return 0 if retired_link.closed?
+        return 0 if retired_link.closed? || closed_when_found
         raise Invalid, "#{kept_link.model_name.human.downcase} ##{kept_link.id} was closed just then; try the merge again" if kept_link.closed?
 
         # Each term locked and read again before it moves: a person's decision
@@ -883,8 +886,10 @@ module Directory
       end
 
       # A retired link's open terms that move to the kept link: all but one
-      # whose award ID the kept link already has.
+      # whose award ID the kept link already has; none to a closed link.
       def deal_terms_moving(retired_link, kept_link)
+        return [] if kept_link.closed?
+
         DealTerm.where(link: retired_link).where.not(verification_status: Verifiable::CLOSED_STATUSES).reject do |term|
           term.external_id && DealTerm.exists?(link: kept_link, term_type: term.term_type, external_id: term.external_id)
         end
