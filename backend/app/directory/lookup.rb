@@ -86,6 +86,24 @@ module Directory
       Evidence.where(subject_type: type.to_s, subject_id: id).order(:id).map { |row| EvidenceRef.from(row) }
     end
 
+    # Whether anyone has an unresolved correction report (open or reviewed,
+    # not closed) on the public page of a fact or, for a link, of either
+    # end: a company's or a plant's page, query and fragment aside.
+    def open_corrections?(type:, id:)
+      raise ArgumentError, "not a fact type: #{type.inspect}" unless FACT_TYPES.include?(type.to_s)
+
+      record = type.to_s.constantize.find_by(id:) or return false
+      pages = case record
+      when Organization then [ "/companies/#{record.slug}" ]
+      when Facility then [ "/plants/#{(record.parent || record).slug}" ]
+      when Relationship then [ "/companies/#{record.from_organization.slug}", "/companies/#{record.to_organization.slug}" ]
+      when FacilityRelationship then [ "/companies/#{record.organization.slug}", "/plants/#{(record.facility.parent || record.facility).slug}" ]
+      else [ "/companies/#{record.organization.slug}" ]
+      end
+      CorrectionReport.where(status: %w[open reviewed])
+        .where("split_part(split_part(page_path, '?', 1), '#', 1) IN (:pages)", pages:).exists?
+    end
+
     # How many public facts (any type) have evidence from these sources.
     def published_count_backed_by(source_ids:)
       return 0 if source_ids.empty?
