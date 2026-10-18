@@ -128,6 +128,16 @@ class Dataset::ExportTest < ActiveSupport::TestCase
     assert_includes file("LICENSE"), "https://creativecommons.org/licenses/by/4.0/legalcode"
   end
 
+  test "latest.json gives the site this release's version, counts and file links" do
+    export
+    latest = JSON.parse(file("latest.json"))
+
+    assert_equal [ "2026.12", "2026-12-07", nil ], latest.values_at("version", "released_on", "doi"), "no version DOI until Zenodo archives it"
+    assert_equal %w[companies facilities relationships sources evidence], latest["counts"].keys
+    assert_equal 2, latest.dig("counts", "companies")
+    assert_equal "https://raw.githubusercontent.com/tosinoladokun/nuclear-directory-data/v2026.12/companies.csv", latest.dig("files", "companies", "csv")
+  end
+
   test "the concept DOI and ORCID come from the environment once they exist" do
     with_env("DATASET_CONCEPT_DOI" => "10.5281/zenodo.1234567", "DATASET_AUTHOR_ORCID" => "0000-0002-1825-0097") { export }
 

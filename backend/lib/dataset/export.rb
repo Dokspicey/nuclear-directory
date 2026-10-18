@@ -141,6 +141,7 @@ module Dataset
       previous = read_previous
       write_docs(counts, manifest, previous)
       File.write(@dir.join("manifest.json"), JSON.pretty_generate(manifest))
+      File.write(@dir.join("latest.json"), JSON.pretty_generate(latest(counts)))
       { counts:, unknown_publishers: @unknown_publishers.to_a.sort }
     end
 
@@ -271,6 +272,19 @@ module Dataset
 
       def key_of(table, row)
         table == "evidence" ? row.values_at("fact_table", "fact_key", "fact_part", "source_id").join("|") : row.fetch(TABLES.fetch(table).keys.first).to_s
+      end
+
+      # What the site's /data page reads (#185): this release's version, date,
+      # counts and file links, at a stable path on the data repo's default
+      # branch. The version DOI exists only once Zenodo has archived the
+      # release, so it's blank until the monthly job fills it in.
+      DATA_REPO = "tosinoladokun/nuclear-directory-data".freeze
+
+      def latest(counts)
+        base = "https://raw.githubusercontent.com/#{DATA_REPO}/v#{@version}"
+        { "version" => @version, "released_on" => @released_on.iso8601, "doi" => ENV["DATASET_VERSION_DOI"].presence,
+          "concept_doi" => ENV["DATASET_CONCEPT_DOI"].presence, "counts" => counts,
+          "files" => counts.keys.to_h { |table| [ table, { "csv" => "#{base}/#{table}.csv", "json" => "#{base}/#{table}.json" } ] } }
       end
 
       def read_previous
