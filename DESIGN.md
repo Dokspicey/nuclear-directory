@@ -123,7 +123,7 @@ Start a search, or browse the industry by category. **For:** Anyone arriving fro
 - **Questions, in order:** 1. Can I find this company or plant here? 2. What does the directory cover? 3. Who are the main companies in each area?
 - **Sections, top to bottom:** Wordmark; Search box + suggestions (desktop only); Category cards: 9 categories + Plants and sites (5×2 desktop; open, collapsible stack on phones); Footer.
 - **Above the fold:** at 390, wordmark, search, the first category card and the top of the second. At 1440, the whole page, footer included (no scroll at 1440×900 and 1280×800).
-- **Key facts and sources:** Count per category: published companies (plants for Plants and sites); Top 3 per category: most sourced connections; investors by funded companies; Short labels: Components, Waste, Services, Government, Plant operators (homepage only).
+- **Key facts and sources:** Count per category: published companies (plants for Plants and sites); Top 3 per category: most sourced connections; investors by funded companies; Short labels: Components, Waste, Services, Government, Plant operators (homepage only); Cost: the top 3 per category can sit behind a fragment cache keyed on the latest fact update, if it slows.
 - **Links in:** Search engines and shared links; The wordmark on every page. **Links out:** Category pages (card header, See all); Company and plant profiles (card rows); Search results.
 - **Keep (nothing live is removed):** Everything on today's homepage stays: wordmark, search, suggestions, every category card, footer; Tosin's homepage decisions stand (#362): no 'How we pick' link, no counts in phone card headers; Don't add a headline or marketing copy above search.
 - **Spec:** #362
@@ -135,7 +135,7 @@ See every company in one list, then narrow it. **For:** People scanning the whol
 - **Questions, in order:** 1. Who's in the directory, and how many? 2. Which ones work in a technology or a state? 3. Which are the most connected?
 - **Sections, top to bottom:** Header: wordmark + search; Category pills (sideways scroll); Title + count: All companies 89; Filters: Technology, State, Sort (one Filters button on phones); Rows: mark, name, one-line description, place, connections; Next page, only once the list passes about 200 (one list today); Footer.
 - **Above the fold:** at 390, header, pills, title and count, the Filters button, the first 4 rows. At 1440, header through about 9 rows.
-- **Key facts and sources:** Name; one-line description (sourced, ellipsis past one line); Headquarters as City, ST; Connection count: published, sourced links only (the same rule as the buckets, Bucket#sourced).
+- **Key facts and sources:** Name; one-line description (sourced, ellipsis past one line); Headquarters as City, ST; Connection count: published, sourced links only (the same rule as the buckets, Bucket#sourced), computed for the whole list in one GROUP BY, never per row.
 - **Links in:** Footer and crumbs; Category pills on every list. **Links out:** Company profiles; Category pages; Technology pages.
 - **Keep (nothing live is removed):** Every row field stays: mark, name, description, place, connections; A long description stays, shown on one line with the full text in its title (DESIGN.md one-line rule); Every filter and both sorts stay.
 - **Spec:** #263, #369
@@ -217,7 +217,7 @@ One reactor's facts. A row on its plant's page, not a page of its own. **For:** 
 - **Questions, in order:** 1. What kind of reactor, and how big? 2. Is it operating? 3. What's its NRC docket?
 - **Sections, top to bottom:** Its plant page, scrolled to the Units table; The unit's row highlighted with a :target style (card on phones), the plant name pinned above: Reactor type, Capacity, Status, Commercial operation, Licence expiry, NRC docket, Sources.
 - **Above the fold:** at 390, the highlighted unit card, with the plant's name pinned above. At 1440, the Units table with the row highlighted.
-- **Key facts and sources:** Reactor type, capacity, status: per unit, sourced; Commercial operation and Licence expiry: from the NRC ("is it running, and until when"); NRC docket: links to the NRC.
+- **Key facts and sources:** Every unit row carries the id unit-<slug>, so the anchor always lands; Reactor type, capacity, status: per unit, sourced; Commercial operation and Licence expiry: from the NRC ("is it running, and until when"); NRC docket: links to the NRC.
 - **Links in:** Search results for a unit name; Connections that point to a unit. **Links out:** The NRC docket page; The plant's owners and operator.
 - **Keep (nothing live is removed):** Units stay rows on their plant page (confirmed); nothing is removed; Don't add a standalone unit page: it would split the plant's sources.
 - **Spec:** #281
@@ -241,7 +241,7 @@ Everyone working on one technology tag: fission, fusion, smr, and next htgr and 
 - **Questions, in order:** 1. Who's working on it? 2. What is it, in one line? 3. Which plants or sites use it?
 - **Sections, top to bottom:** Header + pills; Title: technology name + count; One-line definition; Companies; Plants and sites using it (left out while unit technology is empty: 0 of 173 today); Footer.
 - **Above the fold:** at 390, title, definition, the first 4 companies. At 1440, title, definition, about 8 companies.
-- **Key facts and sources:** Definition: plain, one line (VOICE.md); Companies tagged with it; plants whose units use it, once unit technology is populated; URL scheme: ?tag=… as shipped in #281 (?tag=fusion, uranium, isotopes); ?technology=x and ?category=fusion 301 to ?tag=x.
+- **Key facts and sources:** Definition: plain, one line (VOICE.md); Companies tagged with it; plants whose units use it, once unit technology is populated; URL scheme: ?tag=… as shipped in #281 (directory#index); ?technology=x 301s to ?tag=x, and ?category=x only when x isn't a category key, so category pages keep working; Indexing: a noindex meta below 5 results, and the sitemap lists only tags with 5 or more.
 - **Links in:** Technology tags on profiles; Homepage suggestions (SMR); Search engines, only when it has 5+ results. **Links out:** Profiles; The full list with the filter.
 - **Keep (nothing live is removed):** New page (confirmed); nothing removed; Indexed by search engines only with 5+ results (noindex below that).
 - **Spec:** new
@@ -275,9 +275,9 @@ Tell us something is wrong or missing. **For:** A visitor who spotted an error; 
 The admin's daily plan: four steps, then done. **For:** The admin, in short bursts, often on a phone.
 
 - **Questions, in order:** 1. What do I need to do today? 2. How long will it take? 3. What will my click do? 4. Am I done?
-- **Sections, top to bottom:** Greeting + 4 steps · minutes + who are Joy and Aminah; 1 Crawled and checked by Joy; 2 Aminah's review (paste); 3 Review and accept (opens the list; kind and source filters and Next page kept); 4 Left for you; You're done for today.
+- **Sections, top to bottom:** Greeting + 4 steps · minutes + who are Joy and Aminah; 1 Crawled and checked by Joy; 2 Aminah's review (paste); 3 Review and accept (opens the list; kind and source filters and Next page kept). Joy's safe updates (S1, #389, when switched on) sit here beside Aminah's list, taken by the same Accept; plus two smaller lists: Would be safe (class off: shown, not taken) and Not safe (folded, each with its reason); 4 Left for you; You're done for today.
 - **Above the fold:** at 390, the greeting and all four steps. At 1440, the whole plan.
-- **Key facts and sources:** Crawl run counts; Joy's and Aminah's verdicts per fact; Gates still run behind every click.
+- **Key facts and sources:** Crawl run counts; Joy's and Aminah's verdicts per fact; Gates still run behind every click; Plain words in the interface; the recorded history reason keeps "safe class S1" for the audit.
 - **Links in:** Admin nav: Today (count). **Links out:** Fact pages; Correction requests; Sources.
 - **Keep (nothing live is removed):** Everything Checks does today stays, reorganised into the four steps: the Read, Same and Waiting counts (step 1); Data Quality's list and Accept (steps 2 and 3); the kind and source filters and Next page (step 3, above the list); every fact page link (step 4); Only wording changes: plain words replace claim, verifier and S1 in the interface.
 - **Spec:** #373
