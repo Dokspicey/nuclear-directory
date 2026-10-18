@@ -867,7 +867,15 @@ module Directory
         retired_link.lock!
         return 0 if retired_link.closed?
 
-        deal_terms_moving(retired_link, kept_link).each { |term| term.update!(link: kept_link) }.size
+        # Each term locked and read again before it moves: a person's decision
+        # on it meanwhile (rejected, or put on another link) stands.
+        deal_terms_moving(retired_link, kept_link).count do |term|
+          term.lock!
+          next false if term.closed? || term.link != retired_link
+          next false if term.external_id && DealTerm.exists?(link: kept_link, term_type: term.term_type, external_id: term.external_id)
+
+          term.update!(link: kept_link)
+        end
       end
 
       # A retired link's open terms that move to the kept link: all but one

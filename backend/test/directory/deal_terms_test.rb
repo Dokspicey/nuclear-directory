@@ -162,6 +162,23 @@ class Directory::DealTermsTest < ActiveSupport::TestCase
     assert_equal retired, term.reload.link
   end
 
+  test "a term a person decided after the merge picked it stays as they decided" do
+    retired = Relationship.create!(from_organization: @doe, to_organization: Organization.create!(name: "X-energy LLC"),
+      relationship_type: "funds", verification_status: "verified", verified_by: BY)
+    rejected = DealTerm.create!(link: retired, term_type: "award", external_id: "ASST_REJECTED_LATE", amount_usd: 5, starts_on: "2024-01-01")
+    moved_away = DealTerm.create!(link: retired, term_type: "award", external_id: "ASST_MOVED_LATE", amount_usd: 5, starts_on: "2024-01-01")
+    other = Relationship.create!(from_organization: @doe, to_organization: Organization.create!(name: "Kairos Power"), relationship_type: "funds")
+    writer = Directory::FactWriter.new
+    picked = [ DealTerm.find(rejected.id), DealTerm.find(moved_away.id) ] # as the merge selected them
+    writer.define_singleton_method(:deal_terms_moving) { |*| picked }
+    rejected.reject!(by: BY, reason: "Wrong award") # a person, before the merge moves it
+    moved_away.update!(link: other)
+
+    assert_equal 0, writer.send(:move_deal_terms, retired, @funds)
+    assert_equal [ retired, true ], [ rejected.reload.link, rejected.rejected? ]
+    assert_equal other, moved_away.reload.link
+  end
+
   test "the merge preview counts the terms and lead investors the merge moves" do
     duplicate = Organization.create!(name: "X-energy LLC", verification_status: "verified", verified_by: BY)
     retired = Relationship.create!(from_organization: @doe, to_organization: duplicate, relationship_type: "funds",
