@@ -41,6 +41,8 @@ class DataQuality::Plugins::NrcUraniumRecovery < DataQuality::Plugin
       source.source_kind = source_kind
       source.title = "NRC: locations of uranium recovery facilities"
     end
+    # A page someone cited by hand (a plain web_page source) becomes this plug-in's, so it's extracted.
+    page.update!(source_kind:) if page.source_kind == "web_page"
     stats = { "page" => DataQuality::Snapshot.take(page, fetcher: @fetcher).to_s }
     return stats.merge("stopped" => "page blocked") if stats["page"] == "blocked"
     return stats unless page.crawl_ok? && page.content_text.present?
@@ -56,6 +58,12 @@ class DataQuality::Plugins::NrcUraniumRecovery < DataQuality::Plugin
 
     rows.flat_map { |row| candidates(row) }
   end
+
+  # A table of a few rows: one site gone is a third of its facts, and is a
+  # real change, never a broken page (a read that finds no rows raises
+  # before anything is written). Any fact it stops stating goes to a
+  # person; nothing is unpublished.
+  def max_dropped_share(_source) = 1.0
 
   # The NRC-licensed table's rows only: the page around them changes on its own.
   def rows_sha256(source)

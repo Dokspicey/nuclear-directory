@@ -119,4 +119,36 @@ class DataQuality::Plugins::NrcUraniumRecoveryTest < ActiveSupport::TestCase
     dewey = Candidate.where(kind: "facility").find { |c| c.payload["name"] == "Dewey Burdock" }
     assert dewey.status_matched?, "a new site is proposed as pending"
   end
+
+  test "a page someone cited by hand becomes this plug-in's, so it's extracted" do
+    Source.create!(url: Plugin::PAGE_URL, source_kind: "web_page", title: "NRC uranium recovery (cited)")
+
+    %w[crawl extract].each { |stage| DataQuality::Pipeline.run("nrc_uranium_recovery", plugin:, only: stage) }
+
+    assert_equal "nrc_uranium_recovery", page_source.source_kind
+    assert_equal 12, page_source.candidates.count
+  end
+
+  test "a site gone from an approved table of three goes to a person, with its operator link" do
+    Role.find_or_create_by!(key: "mining") { |role| role.name = "Mining and milling" }
+    %w[crawl extract match].each { |stage| DataQuality::Pipeline.run("nrc_uranium_recovery", plugin:, only: stage) }
+    %w[facility organization facility_relationship organization_role].each do |kind|
+      Candidate.where(kind:).order(:id).each do |claim|
+        result = DataQuality::Review.approve([ claim.id ], by: "human:test").first
+        assert_empty result.errors, "approving #{kind} #{claim.payload}"
+      end
+    end
+
+    # NRC drops Dewey Burdock from the table.
+    doc = Nokogiri::HTML(html)
+    doc.at_css(%(table[summary="#{Plugin::TABLE_SUMMARY}"])).css("tr").find { |row| row.text.include?("Dewey Burdock") }.remove
+    stub_request(:get, Plugin::PAGE_URL).to_return(body: doc.to_html)
+    Source.update_all(fetched_at: 2.days.ago)
+    %w[crawl extract match].each { |stage| DataQuality::Pipeline.run("nrc_uranium_recovery", plugin:, only: stage) }
+
+    flagged = page_source.candidates.where(review_origin: "dropped")
+    assert_equal %w[facility facility_relationship organization organization_role], flagged.map(&:kind).sort
+    assert flagged.all? { |c| c.quote.include?("Dewey Burdock") }
+    assert Facility.find_by!(name: "Dewey Burdock").verified?, "nothing is unpublished; a person decides"
+  end
 end
