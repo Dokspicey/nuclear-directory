@@ -44,6 +44,9 @@ class DataQuality::Stages::Match < DataQuality::Stage
   }.freeze
 
   Found = Data.define(:record, :by)
+  # How a found record counts as the same one: its name or an alias
+  # (normalized), or an id. Not a domain, a brand or a similar name.
+  EXACT = [ "name", "NRC docket", "EIA plant ID" ].freeze
   Review = Data.define(:reason)
   # A new unit that belongs under an existing site record.
   Under = Data.define(:site)
@@ -57,6 +60,7 @@ class DataQuality::Stages::Match < DataQuality::Stage
         # Every company name in this run counts as an owner for the brand
         # rule from the start, so matching doesn't depend on candidate order.
         directory.owner_hints = candidates.status_new.where(kind: "organization").filter_map { |c| c.payload["name"] }
+        rematch_settled_ends
         ORDER.each do |kind|
           candidates.status_new.where(kind: kind).find_each { |candidate| match(candidate) }
         end
@@ -215,6 +219,11 @@ class DataQuality::Stages::Match < DataQuality::Stage
       end
       return review(candidate, closed_end.reason) if closed_end
 
+      if existing && (other = other_page_on(candidate, existing))
+        return review(candidate, "#{existing.name.upcase_first} already cites #{other.title.presence || other.url}, another page of this source. " \
+          "Approving this would replace what that page says, so the two need combining first (#390).")
+      end
+
       # An existing link is attached without writing, as a record is, so a
       # read that only restates it changes nothing in the directory.
       if existing
@@ -223,6 +232,43 @@ class DataQuality::Stages::Match < DataQuality::Stage
       end
 
       write(candidate, attributes, evidence: false)
+    end
+
+    # A link claim waits in review when one of its ends had no exact match
+    # ("to_organization: no exact match for …", or "… isn't in the directory
+    # yet"). Once every end has one now (a name, an alias or an id), it's
+    # matched again, as new. Nothing is approved: it goes on to verify and
+    # a person like any claim. Never a dropped or extracted review item, a
+    # claim on a record already, or one with an end still in question.
+    def rematch_settled_ends
+      ends = LINK_ENDS.values.flat_map(&:keys).uniq
+      question = /\A(?:#{ends.join('|')})(?::|\s")/
+      waiting = candidates.where(status: "needs_review", subject_id: nil, review_origin: nil, kind: LINK_ENDS.keys)
+      waiting.find_each do |candidate|
+        next unless candidate.notes.to_s.match?(question)
+
+        payload = candidate.payload.to_h
+        settled = LINK_ENDS.fetch(candidate.kind).all? do |key, type|
+          found = resolve(type, payload[key], closed: :found) if payload[key].is_a?(Hash)
+          found.is_a?(Found) && EXACT.include?(found.by) && !found.record.closed?
+        end
+        next unless settled
+
+        candidate.update!(status: "new", notes: nil, ai_recommendation: nil, ai_reason: nil, ai_confidence: nil)
+        @stats["rematched"] = @stats.fetch("rematched", 0) + 1
+      end
+    end
+
+    # A link already citing another page of the same kind of source (another
+    # USAspending recipient's awards on one company's link), which this claim
+    # would change: approving it would replace what that page says (#390).
+    def other_page_on(candidate, existing)
+      cited = directory.evidence(type: existing.type, id: existing.id).map(&:source_id)
+      other = ::Source.where(id: cited, source_kind: candidate.source.source_kind).where.not(id: candidate.source_id).order(:id).first
+      return unless other
+
+      changes = DataQuality::Differences.changes(candidate, existing, directory:)
+      other if changes.nil? || changes.any?
     end
 
     # Found, Review or nil (nothing like it exists). A closed record, one that
