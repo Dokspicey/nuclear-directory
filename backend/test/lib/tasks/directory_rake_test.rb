@@ -1,4 +1,15 @@
 require "test_helper"
+
+# Lets a test run something just before the backfill writes a deal term (a
+# merge landing in between). Inert unless a test sets the thread's hook.
+module BeforeDealTermWrite
+  def write(kind, attributes, **options)
+    hook = Thread.current[:before_deal_term_write]
+    hook.call(attributes.to_h.symbolize_keys) if hook && kind.to_s == "deal_term"
+    super
+  end
+end
+Directory::FactWriter.singleton_class.prepend(BeforeDealTermWrite) unless Directory::FactWriter.singleton_class.include?(BeforeDealTermWrite)
 require "rake"
 
 class DirectoryRakeTest < ActiveSupport::TestCase
@@ -293,18 +304,15 @@ class DirectoryRakeTest < ActiveSupport::TestCase
     late_link = Relationship.create!(from_organization: doe, to_organization: late, relationship_type: "funds", verification_status: "verified", verified_by: by)
     late_link.evidence.create!(source: page.("https://www.usaspending.gov/recipient/x-energy-late/latest", [ award_row.("ASST_G", "X") ]),
       quote: "row", found_by: "crawler")
-    writer = Directory::FactWriter.singleton_class
-    original = Directory::FactWriter.method(:write)
-    writer.send(:define_method, :write) do |kind, attributes, **options|
-      if attributes[:external_id] == "ASST_G" && !late.reload.unpublished?
-        Directory::FactWriter.merge_organization(from_id: late.id, into_id: xenergy.id, by:)
-      end
-      original.call(kind, attributes, **options)
+    Thread.current[:before_deal_term_write] = lambda do |attributes|
+      next unless attributes[:external_id] == "ASST_G" && !late.reload.unpublished?
+
+      Directory::FactWriter.merge_organization(from_id: late.id, into_id: xenergy.id, by:)
     end
     begin
       assert_output(/1 failed/) { backfill_award_terms(BY: by, APPLY: "1") }
     ensure
-      writer.send(:define_method, :write, original)
+      Thread.current[:before_deal_term_write] = nil
     end
     assert_not DealTerm.exists?(link: late_link), "nothing hidden on the retired link"
     capture_io { backfill_award_terms(BY: by, APPLY: "1") }
