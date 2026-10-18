@@ -336,12 +336,6 @@
     .nd-home .nd-searchbox--large .nd-search { height: 56px; }
   }
 
-  /* "How we pick these names": a link-sized disclosure under the cards. */
-  .nd-howpick { align-self: flex-start; font: 400 13px/20px var(--font-text); color: var(--nd-ink-muted); }
-  .nd-howpick summary { cursor: pointer; list-style: none; text-decoration: underline; text-underline-offset: 2px; }
-  .nd-howpick summary::-webkit-details-marker { display: none; }
-  .nd-howpick p { margin: var(--nd-space-1) 0 0; }
-
   /* Category cards (#362). Wide screens: 5 columns of compact cards, 2 rows,
      equal heights (nd-catgrid, nd-catcard--rows --compact). Phones: an open
      stack with sticky headers that collapse (nd-catstack, nd-catcard--stack).
@@ -349,24 +343,35 @@
      Colour only on the icon and the footer link. */
   .nd-catgrid { width: 100%; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
   .nd-catcard { min-width: 0; display: flex; flex-direction: column; box-sizing: border-box; padding: 10px 12px 4px; background: var(--nd-paper-raised); border: var(--nd-hairline) solid var(--nd-rule); border-radius: var(--nd-radius-md); }
-  .nd-catcard__head { display: flex; align-items: flex-start; gap: var(--nd-space-2); min-height: 40px; margin: 0; color: var(--nd-ink); text-decoration: none; font: inherit; }
+  .nd-catcard__head { display: flex; align-items: flex-start; gap: var(--nd-space-2); min-height: 40px; margin: 0; color: var(--nd-ink); text-decoration: none; font: inherit; container-type: inline-size; }
   .nd-catcard__head--toggle, .nd-catstack__all { display: none; }
   .nd-catcard__head .nd-ic { width: 20px; height: 20px; color: var(--nd-cat, var(--nd-ink)); }
   .nd-catcard__head--link:hover .nd-catcard__name { text-decoration: underline; text-underline-offset: 2px; }
-  .nd-catcard__name { flex: 1; min-width: 0; font: 600 15px/20px var(--font-text); overflow-wrap: anywhere; hyphens: auto; text-align: left; }
+  /* One line (Tosin): the title fits the header less its icon and count. */
+  .nd-catcard__name { flex: 1; min-width: 0; font: 600 clamp(13px, calc((100cqi - 50px) / (var(--chars) * 0.54)), 15px)/20px var(--font-text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; }
   .nd-catcard__count { font: 400 12px/20px var(--font-mono); color: var(--nd-ink-muted); }
   .nd-catcard__body { flex: 1; display: flex; flex-direction: column; }
   .nd-catcard__inner { flex: 1; display: flex; flex-direction: column; gap: 4px; padding-top: 4px; }
   .nd-catcard__rows { flex: 1; margin: 0; padding: 0; list-style: none; }
   .nd-catcard__row, .nd-catcard__filler, .nd-catcard__more { display: flex; align-items: center; box-sizing: border-box; height: 30px; margin: 0 -6px; padding: 0 6px; border-radius: var(--nd-radius-sm); }
-  .nd-catcard__row { gap: var(--nd-space-1); color: var(--nd-ink); text-decoration: none; font: 400 14px/1 var(--font-text); }
+  /* A row reads as a link at rest (the muted ›), tints on hover and
+     underlines its name on hover or focus. Its name fits the row, then ends
+     in an ellipsis with the full name in title. */
+  .nd-catcard__row { gap: var(--nd-space-1); color: var(--nd-ink); text-decoration: none; font: 400 14px/1 var(--font-text); cursor: pointer; container-type: inline-size; }
+  .nd-catcard__row:hover .nd-catcard__rowname, .nd-catcard__row:focus-visible .nd-catcard__rowname { text-decoration: underline; text-underline-offset: 2px; }
   .nd-catcard__row:hover, .nd-catcard__row:active, .nd-catcard__more:hover, .nd-catcard__more:active { background: var(--nd-paper-sunken); }
-  .nd-catcard__rowname { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .nd-catcard__chev { display: none; color: var(--nd-ink-muted); }
+  .nd-catcard__rowname { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font-size: clamp(13px, calc((100cqi - 24px) / (var(--chars) * 0.5)), 14px); }
+  .nd-catcard__chev { flex: none; color: var(--nd-ink-muted); }
   .nd-catcard__more { font: 500 14px/1 var(--font-text); color: var(--nd-cat, var(--nd-ink)); text-decoration: none; }
   @media (min-width: 1440px) {
     .nd-catgrid { gap: 14px; }
     .nd-catcard__row, .nd-catcard__filler, .nd-catcard__more { height: 32px; }
+  }
+  /* 1024-1279: 3 columns, so titles and names keep a readable size. */
+  @media (min-width: 1024px) and (max-width: 1279px) {
+    .nd-catgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   }
   /* Tablets: 2 columns of the same cards; scrolling is fine here. */
   @media (min-width: 640px) and (max-width: 1023px) {
@@ -395,15 +400,15 @@
     .nd-catcard--stack.is-collapsed .nd-catcard__caret { transform: rotate(-45deg); margin: 0 6px 0 0; }
     .nd-catcard--stack.is-collapsed .nd-catcard__head--toggle { border-bottom-color: transparent; border-radius: var(--nd-radius-md); }
     .nd-catcard--stack .nd-catcard__head .nd-ic { width: 24px; height: 24px; }
-    .nd-catcard--stack .nd-catcard__name { font: 600 17px/22px var(--font-text); }
-    .nd-catcard--stack .nd-catcard__count { font-size: 13px; }
+    .nd-catcard--stack .nd-catcard__name { font: 600 clamp(13px, calc((100cqi - 80px) / (var(--chars) * 0.54)), 17px)/22px var(--font-text); }
+    .nd-catcard__toggle { container-type: inline-size; }
     /* Collapsing: the body's row shrinks to nothing over 180ms. */
     .nd-catcard--stack .nd-catcard__body { display: grid; grid-template-rows: 1fr; transition: grid-template-rows 180ms ease-out, visibility 180ms; }
     .nd-catcard--stack.is-collapsed .nd-catcard__body { grid-template-rows: 0fr; visibility: hidden; }
     .nd-catcard--stack .nd-catcard__inner { min-height: 0; overflow: hidden; gap: 6px; padding: 6px 0; }
     .nd-catcard--stack.is-collapsed .nd-catcard__inner { padding: 0; }
-    .nd-catcard--stack .nd-catcard__row { height: auto; min-height: 48px; margin: 0; padding: 0 14px; border-radius: 0; font-size: 16px; }
-    .nd-catcard--stack .nd-catcard__chev { display: inline; }
+    .nd-catcard--stack .nd-catcard__row { height: auto; min-height: 48px; margin: 0; padding: 0 14px; border-radius: 0; }
+    .nd-catcard--stack .nd-catcard__rowname { font-size: clamp(13px, calc((100cqi - 52px) / (var(--chars) * 0.5)), 16px); }
     .nd-catcard--stack .nd-catcard__filler { display: none; }
     .nd-catcard--stack .nd-catcard__more { height: auto; min-height: 48px; margin: 0; padding: 0 14px; border-radius: 0; font-size: 15px; }
     .nd-home .nd-suggs { display: none; }

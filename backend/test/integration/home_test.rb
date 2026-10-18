@@ -44,23 +44,23 @@ class HomeTest < ActionDispatch::IntegrationTest
     get root_path
 
     # Developers, Power buyers, Plants and sites: empty buckets have no card.
-    assert_equal %w[cat-reactor-developers cat-power-buyers cat-plants], css_select("section.nd-catcard").map { |card| card["aria-labelledby"] }
+    assert_equal %w[reactor-developers power-buyers plants], css_select("section.nd-catcard").map { |card| card["data-key"] }
     assert_select "section.nd-catcard", 3
-    assert_select "section[aria-labelledby=cat-reactor-developers]" do
-      assert_select "a.nd-catcard__head[href=?]", "/companies?category=reactor-developers"
+    assert_select "section[data-key=reactor-developers]" do
+      assert_select "a.nd-catcard__head[href=?][aria-label=?]", "/companies?category=reactor-developers", "Developers, 4 companies"
+      assert_select "h2.nd-catcard__head--toggle", /Developers/, "the phone header, which shows no count"
       assert_select "a.nd-catcard__row", 3
       assert_select "a.nd-catcard__row[href=?][title=?]", "/companies/kairos-power", "Kairos Power", text: /Kairos Power/
-      assert_select "a.nd-catcard__more[href=?][aria-label=?]", "/companies?category=reactor-developers", "See all 4 Developers", text: /See all 4 ›/
-      assert_select ".nd-catcard__count .sr-only", "4 companies"
+      assert_select "a.nd-catcard__more[href=?][aria-label=?]", "/companies?category=reactor-developers", "See all 4 in Developers", text: /\A\s*See all ›\s*\z/
+      assert_select "a.nd-catcard__head .nd-catcard__count[aria-hidden=true]", "4"
     end
-    assert_select "section[aria-labelledby=cat-power-buyers]" do
+    assert_select "section[data-key=power-buyers]" do
       assert_select "a.nd-catcard__row", 1
       assert_select "li.nd-catcard__filler[aria-hidden=true]", 2
       assert_select "a.nd-catcard__more", text: /Open the list ›/
     end
-    assert_select "section[aria-labelledby=cat-plants] .nd-catcard__count .sr-only", "0 plants and sites"
-    assert_select "details.nd-howpick summary", "How we pick these names"
-    assert_select "details.nd-howpick p", "We show the three companies with the most sourced links."
+    assert_select "section[aria-label='Plants and sites'] a.nd-catcard__head[aria-label=?]", "Plants and sites, 0 plants and sites"
+    assert_select "details.nd-howpick", 0 # no explanation link (Tosin)
   end
 
   test "the search field is wired to instant results" do

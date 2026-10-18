@@ -169,11 +169,12 @@ class SharedPartialsTest < ActionView::TestCase
       HomeCategories::Card.new(category: Category.find("plants"), count: 5, records: [ vogtle ])
     ] }
 
-    assert_select "section.nd-catcard.nd-bucket--fuel .nd-catcard__head svg.nd-ic.nd-ic--24", 1
+    assert_select "section.nd-catcard.nd-bucket--fuel .nd-catcard__head--link svg.nd-ic.nd-ic--24", 1
     assert_select "section.nd-catcard.nd-bucket--fuel a.nd-catcard__row[href=?]", "/companies/centrus-energy", text: /Centrus Energy/
     assert_select "section.nd-catcard.nd-bucket--fuel li.nd-catcard__filler", 2
-    assert_select "section.nd-catcard:not([class*=nd-bucket--]) a.nd-catcard__row[href=?]", "/plants/plant-vogtle", "Plants and sites has no accent"
-    assert_select "section.nd-catcard:not([class*=nd-bucket--]) a.nd-catcard__more", text: /See all 5 ›/
+    assert_select "section.nd-catcard:not([class*=nd-bucket--]) a.nd-catcard__row[href=?]", "/plants/plant-vogtle"
+    assert_select "section.nd-catcard:not([class*=nd-bucket--]) a.nd-catcard__more[aria-label=?]", "See all 5 in Plants and sites", text: /See all ›/
+    assert_select "section.nd-catcard.nd-bucket--fuel a.nd-catcard__more", text: /Open the list ›/
   end
 
   test "empty state with and without an action" do
