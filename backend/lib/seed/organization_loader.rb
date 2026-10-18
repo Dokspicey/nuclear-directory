@@ -323,9 +323,21 @@ module Seed
       # two places (a company's file and facilities.yml) with different
       # confidences, takes the higher everywhere. Otherwise each load would
       # write one, then the other, and a re-seed would report it changed.
+      # Each confidence is checked first (a number from 0 to 1): a bad one
+      # fails the load, never hidden behind a good one.
       def confidence_by_quote(items)
-        items.select { |item| item["source_url"] && item["confidence"] }.group_by { |item| [ item["source_url"], item["quote"] ] }
-          .transform_values { |cited| cited.map { |item| item["confidence"].to_d }.max }
+        cited = items.select { |item| item["source_url"] && !item["confidence"].nil? }
+        bad = cited.reject { |item| valid_confidence?(item["confidence"]) }
+        bad.each { |item| @errors << "#{item['source_url']}: confidence #{item['confidence'].inspect} isn't a number from 0 to 1 (quote #{item['quote'].to_s.truncate(60).inspect})" }
+        (cited - bad).group_by { |item| [ item["source_url"], item["quote"] ] }
+          .transform_values { |same| same.map { |item| BigDecimal(item["confidence"].to_s) }.max }
+      end
+
+      def valid_confidence?(value)
+        number = value.is_a?(Numeric) ? value : BigDecimal(value.to_s)
+        number.between?(0, 1)
+      rescue ArgumentError, TypeError
+        false
       end
 
       # A link an earlier seed published that this one marks pending goes back
