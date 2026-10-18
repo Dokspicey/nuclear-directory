@@ -151,7 +151,7 @@ class DataQuality::DirectoryClient
   def write_fact(candidate, confidence:, crawl_run:, by: nil, reason: nil, edited: false)
     # The record written is the one match attached, never an id, a link end or
     # a slug in the payload (payloads aren't validated; Review locks these too).
-    attributes = candidate.payload.except(*LINK_ENDS, *PAYLOAD_LOCKED, ENRICHMENT_KEY).symbolize_keys
+    attributes = candidate.payload.except(*WRITE_SKIPPED).symbolize_keys
     attributes[:id] = candidate.subject_id if candidate.subject_id
     if candidate.kind == "organization"
       # The name it was found under becomes an alias only once a verdict accepts
@@ -218,7 +218,7 @@ class DataQuality::DirectoryClient
     return unless fact_id
     return if candidate.source.status_reason.present?
 
-    attributes = candidate.payload.except(*LINK_ENDS, *PAYLOAD_LOCKED, ENRICHMENT_KEY).symbolize_keys.merge(id: fact_id)
+    attributes = candidate.payload.except(*WRITE_SKIPPED).symbolize_keys.merge(id: fact_id)
     # A link's ends as the payload names them, found afresh, so a claim
     # attached to the wrong link (#226) doesn't pass as the same claim.
     attributes.merge!(link_end_ids(candidate.payload)) if LINK_KINDS.include?(candidate.kind)
@@ -242,6 +242,8 @@ class DataQuality::DirectoryClient
   # Payload key of an enrichment candidate: how to find the existing record
   # it adds values to. Enrichment never creates records.
   ENRICHMENT_KEY = "identify"
+  # Payload keys a write never stores as values.
+  WRITE_SKIPPED = [ *LINK_ENDS, *PAYLOAD_LOCKED, ENRICHMENT_KEY ].freeze
 
   def enrichment?(candidate) = candidate.payload.to_h.key?(ENRICHMENT_KEY)
 

@@ -31,8 +31,10 @@ module DataQuality::Differences
 
   # The differences, unless every value the candidate would change is one
   # the pipeline wrote from the candidate's own kind of source: then {}
-  # (Data Quality, 17 Oct). Every changed field counts, blanks too, so a
-  # value a person cleared stays theirs. A field counts as the pipeline's
+  # (Data Quality, 17 Oct). Every field approval would write counts, not
+  # only the compared ones: coordinates, a company's description, and a
+  # clear (a key with no value) too, so a value a person set or cleared
+  # stays theirs. A field it can't compare keeps the conflict. A field counts as the pipeline's
   # when the latest event that changed it is an approval of a candidate
   # from the same kind of source, not edited first. Any other writer makes
   # it a person's: a seed, an admin edit, a repair, a merge, an edited
@@ -44,20 +46,41 @@ module DataQuality::Differences
     # Newest first, so find gives each field's latest write.
     history = directory.verification_history(type: record.type, id: record.id)
     evidence = directory.evidence(type: record.type, id: record.id)
-    pipeline = changing(candidate, record).all? do |name, stored|
+    fields = changing(candidate, directory.fact(type: record.type, id: record.id)&.values) or return differences
+    # A difference may be in a field the payload names another way (a
+    # domain from a website), so the differences count too.
+    fields = differences.transform_values(&:first).merge(fields)
+    pipeline = fields.all? do |name, stored|
       index = history.index { |event| event.changed_values.to_h.key?(name) }
       index ? pipeline_write?(history[index], history.first(index), candidate, evidence) : stored.blank?
     end
     pipeline ? {} : differences
   end
 
-  # Each field the candidate would change: { name => stored value }.
-  def self.changing(candidate, record)
-    COMPARED.fetch(candidate.kind, []).each_with_object({}) do |name, fields|
-      stored = comparable(name, record.values ? record.values[name] : record.public_send(name))
-      incoming = comparable(name, incoming_value(candidate, name))
-      fields[name] = stored unless incoming.blank? || stored == incoming
+  # Each field approving the candidate would change: { name => stored value },
+  # from every key DirectoryClient#write_fact writes. A key left out isn't
+  # written; a key with no value clears the field. A matched record keeps
+  # its name, and aliases are only ever added. nil when a field can't be
+  # compared (it isn't one the record stores).
+  def self.changing(candidate, stored)
+    return unless stored
+
+    written = candidate.payload.except(*DataQuality::DirectoryClient::WRITE_SKIPPED, "name", "aliases")
+    written.each_with_object({}) do |(name, incoming), fields|
+      return unless stored.key?(name)
+      next if same?(name, stored[name], incoming)
+
+      fields[name] = stored[name]
     end
+  end
+
+  # Numbers compare as numbers (40.123 is 40.123000), the rest as compared above.
+  def self.same?(name, stored, incoming)
+    if stored.is_a?(Numeric) && (number = BigDecimal(incoming.to_s, exception: false))
+      return BigDecimal(stored.to_s) == number
+    end
+
+    comparable(name, stored) == comparable(name, incoming)
   end
 
   # An unedited approval of a claim from the candidate's kind of source.
@@ -107,5 +130,5 @@ module DataQuality::Differences
   rescue URI::InvalidURIError
     text.downcase.delete_prefix("www.")
   end
-  private_class_method :changing, :pipeline_write?, :incoming_value, :comparable
+  private_class_method :changing, :same?, :pipeline_write?, :incoming_value, :comparable
 end

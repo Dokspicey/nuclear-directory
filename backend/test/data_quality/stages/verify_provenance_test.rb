@@ -180,4 +180,37 @@ class DataQuality::Stages::VerifyProvenanceTest < ActiveSupport::TestCase
     assert_conflict candidate
     assert_match "human-verified started on is 2020-06-01", candidate.reload.notes
   end
+
+  test "a claim that clears a person's value stays a conflict" do
+    approve({ "description" => FIRST, "started_on" => "2021-01-01" })
+    corrected = DataQuality::DirectoryClient.new.decide_fact("relationship", id: @link.id, status: "verified", by: "human:tosin",
+      reason: "The first award started in 2020", attributes: { started_on: Date.new(2020, 6, 1) })
+    assert corrected.success?, corrected.errors.to_sentence
+
+    assert_conflict claim({ "description" => SECOND, "started_on" => nil })
+  end
+
+  # Fields the conflict check doesn't compare are still written on approval.
+  test "a plant claim that also changes a person's coordinates stays a conflict; matching ones don't count" do
+    plant = Facility.create!(name: "Imaginary Plant", eia_plant_id: 99_001, facility_type: "power_reactor", status: "planned",
+      state: "TX", latitude: 31.5, longitude: -97.25)
+    site = ->(payload, **options) {
+      Candidate.create!(source: @source, kind: "facility", payload: { "name" => "Imaginary Plant", "eia_plant_id" => 99_001 }.merge(payload),
+        quote: "plant #{Candidate.count}", status: "matched", subject_type: "Facility", subject_id: plant.id, **options)
+    }
+    first = site.({ "status" => "under_construction", "latitude" => 31.5, "longitude" => -97.25 },
+      ai_recommendation: "recommend_publish", ai_confidence: 0.9)
+    assert DataQuality::Review.approve([ first.id ], by: "human:tosin").sole.ok?
+
+    assert_checked site.({ "status" => "operating", "latitude" => "31.500000", "longitude" => -97.25 })
+
+    moved = DataQuality::DirectoryClient.new.decide_fact("facility", id: plant.id, status: "verified", by: "human:tosin",
+      reason: "The reactor building's coordinates", attributes: { latitude: 31.512 })
+    assert moved.success?, moved.errors.to_sentence
+
+    candidate, verifier, = verify(site.({ "status" => "operating", "latitude" => 31.5, "longitude" => -97.25 }))
+    refute_includes verifier.asked, candidate.id
+    assert candidate.status_needs_review?
+    assert_match "human-verified status is under_construction", candidate.notes
+  end
 end
