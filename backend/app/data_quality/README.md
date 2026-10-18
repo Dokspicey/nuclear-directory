@@ -252,9 +252,10 @@ then NRC's page for each site it links to (about 20), each at most once a day. A
   (`SitePagesUnread`), so no unit comes in without its licensees. Nothing is written, and a later run
   extracts it once every page has been read.
 - **Pages and units leaving the list:** nothing is rejected or retired automatically. A page the list stops
-  linking, or a unit moved off a page, sends its open claims to review with a note, and each published link
-  it supported gets one review item, as the dropped check does. If the list links the page again, it's read
-  again and its claims go back through match and verify.
+  linking, or a unit moved off a page, sends its open claims to review with a note (`review_origin:
+  "withdrawn"`, which a read of the page doesn't replace). Each published link it supported gets one review
+  item, as the dropped check does. If the list states them again, the withdrawn claims go back to where
+  match left them, with what they proposed, and the page is read again.
 - A unit gone from the list is suggested as shut down. The list's rows, and each page's text without its
   date stamp, are what's hashed (#240).
 

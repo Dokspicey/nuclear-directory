@@ -190,7 +190,23 @@ class DataQuality::Plugins::NrcDecommissioningTest < ActiveSupport::TestCase
     assert_equal 0, Candidate.status_rejected.count
   end
 
-  test "a page the list stops linking: its claims wait for a person, and come back through match when it's linked again" do
+  test "a unit moved off a shared page: its open link waits in review through the page's next read" do
+    with = plugin(FakeLicensees.new([ answer("Duke", "owns", DUKE_QUOTE) ]))
+    run_stages(with, "crawl", "extract", "match")
+    songs = Source.find_by!(url: SONGS_2_3)
+    link_for = ->(docket) { songs.candidates.where(kind: "facility_relationship").order(:id).find { |c| c.payload.dig("facility", "nrc_docket") == docket } }
+    unit_2 = link_for.("05000361")
+
+    relist(list_html.sub("san-onofre-units-2-3\">", "san-onofre-unit-1\">"))
+    run_stages(with, "crawl", "extract", "match")
+
+    assert Candidate.exists?(unit_2.id), "the read doesn't replace a withdrawn claim"
+    assert_equal [ "needs_review", Plugin::WITHDRAWN, true ], [ unit_2.reload.status, unit_2.review_origin, unit_2.proposed_subject ]
+    assert_match Plugin::DEPARTED, unit_2.notes
+    assert link_for.("05000362").status_matched?
+  end
+
+  test "a page the list stops linking: its claims wait for a person, and come back as they were when it's linked again" do
     licensees = FakeLicensees.new([ answer("Duke", "owns", DUKE_QUOTE) ])
     with = plugin(licensees)
     run_stages(with, "crawl", "extract", "match")
@@ -203,7 +219,7 @@ class DataQuality::Plugins::NrcDecommissioningTest < ActiveSupport::TestCase
       "/facilities-safety/facility-finder/decommissioning/power-reactor/cr3"))
     run_stages(with, "crawl", "extract", "match")
 
-    assert link.reload.status_needs_review?
+    assert_equal [ "needs_review", Plugin::WITHDRAWN ], [ link.reload.status, link.review_origin ]
     assert_match Plugin::UNLISTED, link.notes
     assert record.reload.pending?, "nothing is retired; a person decides"
     assert_equal 0, Candidate.status_rejected.count
@@ -214,10 +230,19 @@ class DataQuality::Plugins::NrcDecommissioningTest < ActiveSupport::TestCase
     run_stages(with, "crawl", "extract", "match")
 
     assert_operator licensees.texts.size, :>, calls, "the page is read again"
-    assert_not Candidate.exists?(link.id), "the read replaced the withdrawn claim"
-    back = dresden_page.candidates.find_by!(kind: "facility_relationship")
-    assert_equal [ "matched", record.id ], [ back.status, back.subject_id ], "back on the same pending link, for verify and a person"
-    assert record.reload.pending?
+    assert_equal [ "matched", nil, true, record.id ], [ link.reload.status, link.review_origin, link.proposed_subject, link.subject_id ],
+      "back as match left it, still the claim that proposed the link"
+    assert_match Plugin::LISTED_AGAIN, link.notes
+    assert_equal 1, dresden_page.candidates.where(kind: "facility_relationship", status: %w[new matched needs_review]).count,
+      "the read's repeat doesn't wait twice"
+
+    # While Dresden 1 was on Crystal River's page, that page claimed the link too; that claim now waits, withdrawn.
+    other = Candidate.where(subject_type: "FacilityRelationship", subject_id: record.id, status: "needs_review").sole
+    assert_equal [ CR3_URL, Plugin::WITHDRAWN ], [ other.source.url, other.review_origin ]
+    assert_empty DataQuality::Review.reject([ link.id ], by: "human:test", reason: "not the licensee").first.errors
+    assert record.reload.pending?, "a claim still waits on it"
+    assert_empty DataQuality::Review.reject([ other.id ], by: "human:test", reason: "not the licensee").first.errors
+    assert record.reload.rejected?, "once no claim waits, rejecting retires the pending link the pipeline proposed"
   end
 
   test "a page the list stops linking keeps its stored read, so its facts aren't re-checked from it" do
@@ -234,7 +259,14 @@ class DataQuality::Plugins::NrcDecommissioningTest < ActiveSupport::TestCase
     assert_nil page.extracted_rows_sha256
     assert_nil plugin.rows_sha256(page), "a page with no units has no rows to re-confirm"
     assert_equal [ published.id ], page.candidates.where(review_origin: "dropped").map(&:subject_id)
-    assert_match Plugin::UNLISTED, page.candidates.find_by!(review_origin: "dropped").notes
+    dropped = page.candidates.find_by!(review_origin: "dropped")
+    assert_match Plugin::UNLISTED, dropped.notes
+
+    # A person keeps it; the next night's crawl doesn't ask again.
+    assert_empty DataQuality::Review.approve([ dropped.id ], by: "human:test").first.errors
+    Source.update_all(fetched_at: 2.days.ago)
+    run_stages(with, "crawl")
+    assert_equal 1, page.candidates.where(review_origin: "dropped").count
   end
 
   test "a list fetched while its site pages were blocked waits, proposing nothing, until they're read" do

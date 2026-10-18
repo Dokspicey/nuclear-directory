@@ -90,6 +90,8 @@ class DataQuality::Plugins::NrcDecommissioning < DataQuality::Plugin
       # needs_human) stops a same-day rerun too, before any later page.
       return stats.merge("stopped" => "site page blocked") if result == "blocked" || page.blocked_streak.positive?
 
+      restored = restore_returned(page)
+      stats["restored"] = stats.fetch("restored", 0) + restored if restored.positive?
       reread_if_units_changed(page)
       departed = withdraw_departed_units(page, run)
       stats["withdrawn"] = stats.fetch("withdrawn", 0) + departed if departed.positive?
@@ -185,50 +187,82 @@ class DataQuality::Plugins::NrcDecommissioning < DataQuality::Plugin
     DEPARTED = "NRC's decommissioning list no longer puts this unit on this page"
     KEEP_OR_UNPUBLISH = "Approve to keep it as it is; if it's no longer true, unpublish it on its page."
 
+    # Withdrawn claims wait in review under their own origin, so a read of
+    # the page doesn't replace them (extract replaces only its own), and keep
+    # what they were attached to and proposed.
+    WITHDRAWN = "withdrawn"
+    LISTED_AGAIN = "NRC's decommissioning list states this again"
+
     # Nothing is rejected or retired here: a person decides (#240's rule for
-    # a fact a source stops stating). The page's open claims go to review,
-    # and each link it supported that's published gets one review item. Its
-    # stored read is kept, so extract leaves it (and its facts) alone; its
-    # unit hash is cleared, so if the list links it again, the crawl reads it
-    # again and its claims come back through match and verify.
+    # a fact a source stops stating). The page's undecided claims go to
+    # review, and each link it supported that's published gets one review
+    # item. Its stored read is kept, so extract leaves it (and its facts)
+    # alone; its unit hash is cleared, so if the list links it again, the
+    # crawl restores its claims and reads it again.
     def withdraw_unlisted_pages(urls, run)
       Source.where(source_kind:).where.not(url: [ LIST_URL, *urls ]).order(:id).sum do |page|
         Candidate.transaction do
           page.lock!
-          waiting = page.candidates.where(status: %w[new matched needs_review]).order(:id).lock.to_a
-          held, open = waiting.partition(&:status_needs_review?)
-          note(held, UNLISTED)
-          # As extract's own review items: a later read of the page replaces them.
-          open.each { |claim| claim.update!(status: "needs_review", review_origin: "extract", notes: joined(claim.notes, UNLISTED)) }
+          waiting = page.candidates.where(status: %w[new matched needs_review]).where("review_origin IS DISTINCT FROM 'dropped'")
+            .order(:id).lock.to_a
+          withdrawn = withdraw(waiting, UNLISTED)
           page.update!(extracted_rows_sha256: nil) if page.extracted_rows_sha256
-          open.size + flag_published_links(page, run, UNLISTED)
+          withdrawn + flag_published_links(page, run, UNLISTED)
         end
       end
     end
 
-    # A unit the list moved off a page: its open link claims go to review, as
-    # extract's own (the page's next read replaces them), and a link to it
+    # A unit the list moved off a page: its undecided link claims wait in
+    # review while the page's other claims are read again, and a link to it
     # that's published gets one review item.
     def withdraw_departed_units(page, run)
       dockets = units_for(page).map(&:nrc_docket).to_set
       Candidate.transaction do
         page.lock!
-        departed = page.candidates.where(kind: "facility_relationship", status: %w[new matched needs_review]).order(:id).lock.to_a
+        departed = page.candidates.where(kind: "facility_relationship", status: %w[new matched needs_review])
+          .where("review_origin IS DISTINCT FROM 'dropped'").order(:id).lock.to_a
           .reject { |claim| dockets.include?(claim.payload.dig("facility", "nrc_docket")) }
-        held, open = departed.partition(&:status_needs_review?)
-        note(held, DEPARTED)
-        open.each { |claim| claim.update!(status: "needs_review", review_origin: "extract", notes: joined(claim.notes, DEPARTED)) }
-        open.size + flag_published_links(page, run, DEPARTED) { |claim| !dockets.include?(claim.payload.dig("facility", "nrc_docket")) }
+        withdraw(departed, DEPARTED) + flag_published_links(page, run, DEPARTED) { |claim| !dockets.include?(claim.payload.dig("facility", "nrc_docket")) }
+      end
+    end
+
+    # Sends claims to review with the reason; one already withdrawn just
+    # keeps it. Returns how many were newly withdrawn.
+    def withdraw(claims, reason)
+      claims.count do |claim|
+        next false if claim.review_origin == WITHDRAWN
+
+        claim.update!(status: "needs_review", review_origin: WITHDRAWN, notes: joined(claim.notes, reason))
+      end
+    end
+
+    # A page the list links (again), for units it maps to it (again): its
+    # withdrawn claims a person hasn't decided go back to where match left
+    # them, with what they proposed, and the read that follows repeats them
+    # (a repeat of a claim already waiting closes as confirmed).
+    def restore_returned(page)
+      dockets = units_for(page).map(&:nrc_docket).to_set
+      return 0 if dockets.empty?
+
+      Candidate.transaction do
+        page.lock!
+        page.candidates.status_needs_review.where(review_origin: WITHDRAWN).order(:id).lock.to_a.count do |claim|
+          next false if claim.kind == "facility_relationship" && !dockets.include?(claim.payload.dig("facility", "nrc_docket"))
+
+          claim.update!(status: claim.subject_id ? "matched" : "new", review_origin: nil, notes: joined(claim.notes, LISTED_AGAIN))
+        end
       end
     end
 
     # One review item per published link the page supported (and the block
     # selects), once per absence: not again while one is open or after a
     # person decided one, until the page states it again. The same shape as
-    # match's dropped check. Returns how many were flagged.
+    # match's dropped check, whose review items don't count as support.
+    # Returns how many were flagged.
     def flag_published_links(page, run, reason)
       directory = DataQuality::DirectoryClient.new
-      supported = page.candidates.where(kind: "facility_relationship", status: %w[merged confirmed]).where.not(subject_id: nil).order(:id).to_a
+      supported = page.candidates.where(kind: "facility_relationship", status: %w[merged confirmed]).where.not(subject_id: nil)
+        .where("review_origin IS DISTINCT FROM 'dropped'").order(:id).to_a
       supported = supported.select { |claim| yield claim } if block_given?
       supported.group_by { |claim| [ claim.subject_type, claim.subject_id ] }.count do |(type, id), claims|
         last = claims.last
@@ -239,10 +273,6 @@ class DataQuality::Plugins::NrcDecommissioning < DataQuality::Plugin
           review_origin: "dropped", subject_type: type, subject_id: id, crawl_run: run,
           notes: "#{reason} (read on #{Date.current}). #{KEEP_OR_UNPUBLISH}")
       end
-    end
-
-    def note(claims, reason)
-      claims.each { |claim| claim.update!(notes: joined(claim.notes, reason)) unless claim.notes.to_s.include?(reason) }
     end
 
     def joined(notes, reason) = [ notes.presence, reason ].compact.join(". ")
