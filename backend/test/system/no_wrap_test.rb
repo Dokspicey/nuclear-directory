@@ -108,6 +108,25 @@ class NoWrapTest < ApplicationSystemTestCase
     assert_empty page.evaluate_script(AUDIT)
   end
 
+  test "a long owner before the last ends in an ellipsis inside the column, with its full name in title" do
+    long = "Constellation Energy Generation Company of Illinois, Maryland, New York and Pennsylvania, LLC"
+    Organization.find_by!(name: "Constellation Energy Generation").update!(name: long)
+    [ [ 1440, 900 ], [ 390, 844 ] ].each do |width, height|
+      resize_viewport(width, height)
+      visit "/plants/#{@plant.slug}"
+
+      fits = page.evaluate_script(<<~JS)
+        (() => {
+          const keep = document.querySelector(".nd-overview__keep")
+          const dd = keep.closest("dd"), first = dd.querySelector(".nd-overview__val a")
+          return [dd.scrollWidth <= dd.clientWidth, first.getBoundingClientRect().right <= dd.getBoundingClientRect().right + 1, first.title, "truncate" in first.dataset]
+        })()
+      JS
+      assert_equal [ true, true, long, true ], fits, "at #{width}"
+      assert_empty page.evaluate_script(AUDIT), "at #{width}"
+    end
+  end
+
   test "a long last owner and its numbers stay inside the key facts column at 1440" do
     # Last in the list, by name.
     Organization.find_by!(name: "Southern Nuclear Operating Co., Inc.").update!(name: "Southern Nuclear Operating Company of Alabama, Georgia and Mississippi, Inc.")
