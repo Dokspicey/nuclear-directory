@@ -248,6 +248,13 @@ then NRC's page for each site it links to (about 20), each at most once a day. A
   takes a unit's docket.
 - **TMI-2** is held too (`PLACE_BY_HAND`): Crane is TMI-1 renamed, so TMI-2 is its own record, never
   under Crane.
+- **Blocked site pages:** a list fetched while a site page it links has no readable copy isn't extracted
+  (`SitePagesUnread`), so no unit comes in without its licensees. Nothing is written, and a later run
+  extracts it once every page has been read.
+- **Pages and units leaving the list:** nothing is rejected or retired automatically. A page the list stops
+  linking, or a unit moved off a page, sends its open claims to review with a note, and each published link
+  it supported gets one review item, as the dropped check does. If the list links the page again, it's read
+  again and its claims go back through match and verify.
 - A unit gone from the list is suggested as shut down. The list's rows, and each page's text without its
   date stamp, are what's hashed (#240).
 

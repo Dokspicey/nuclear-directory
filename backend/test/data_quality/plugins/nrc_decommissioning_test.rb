@@ -144,75 +144,115 @@ class DataQuality::Plugins::NrcDecommissioningTest < ActiveSupport::TestCase
     assert_equal calls + 1, licensees.texts.size, "only Crystal River's page is read again"
     dresden_page = Source.find_by!(url: "https://www.nrc.gov/facilities-safety/facility-finder/decommissioning/power-reactor/dresden-nuclear-power-station-unit-1")
     assert dresden_page.candidates.any?
-    assert dresden_page.candidates.all? { |c| c.status_rejected? && c.notes == Plugin::UNLISTED }, "the page Dresden 1 left speaks for nothing now"
+    assert dresden_page.candidates.all? { |c| c.status_needs_review? && c.notes.include?(Plugin::UNLISTED) },
+      "the page Dresden 1 left speaks for nothing now: a person decides its claims"
     assert_equal dresden_page.candidates.count, run.stats["withdrawn"]
   end
 
-  test "a page that loses one of its units withdraws only that unit's links" do
-    licensees = FakeLicensees.new([ answer("Duke", "owns", DUKE_QUOTE) ])
-    with = plugin(licensees)
-    run = ->(stage) { DataQuality::Pipeline.run("nrc_decommissioning", plugin: with, only: stage) }
-    %w[crawl extract match].each(&run)
-    songs = Source.find_by!(url: "https://www.nrc.gov/facilities-safety/facility-finder/decommissioning/power-reactor/san-onofre-units-2-3")
-    links = -> { songs.candidates.where(kind: "facility_relationship").index_by { |c| c.payload.dig("facility", "nrc_docket") } }
-    assert_equal %w[05000361 05000362], links.call.keys.sort
+  SONGS_2_3 = "https://www.nrc.gov/facilities-safety/facility-finder/decommissioning/power-reactor/san-onofre-units-2-3"
+  DRESDEN_1 = "https://www.nrc.gov/facilities-safety/facility-finder/decommissioning/power-reactor/dresden-nuclear-power-station-unit-1"
+
+  def run_stages(with, *stages) = stages.each { |stage| DataQuality::Pipeline.run("nrc_decommissioning", plugin: with, only: stage) }
+
+  def relist(html)
+    stub_request(:get, Plugin::LIST_URL).to_return(body: html)
+    Source.update_all(fetched_at: 2.days.ago)
+  end
+
+  # Publishes a page's link to a unit, with both its ends, as a person would.
+  def publish_link(page_url, docket)
+    page = Source.find_by!(url: page_url)
+    unit = Source.find_by!(url: Plugin::LIST_URL).candidates.find { |c| c.kind == "facility" && c.payload["nrc_docket"] == docket }
+    link = page.candidates.find { |c| c.kind == "facility_relationship" && c.payload.dig("facility", "nrc_docket") == docket }
+    [ unit, page.candidates.find_by!(kind: "organization"), link ].each do |claim|
+      result = DataQuality::Review.approve([ claim.id ], by: "human:test").first
+      assert_empty result.errors, "approving #{claim.kind}"
+    end
+    FacilityRelationship.find(link.reload.subject_id)
+  end
+
+  test "a unit moved off a page: its published link goes to a person, nothing is rejected" do
+    with = plugin(FakeLicensees.new([ answer("Duke", "owns", DUKE_QUOTE) ]))
+    run_stages(with, "crawl", "extract", "match")
+    published = publish_link(SONGS_2_3, "05000361")
+    songs = Source.find_by!(url: SONGS_2_3)
+    unit_3 = songs.candidates.find { |c| c.kind == "facility_relationship" && c.payload.dig("facility", "nrc_docket") == "05000362" }
 
     # San Onofre 2 moves to the Unit 1 page; Unit 3 stays on this one, whose text doesn't change.
-    moved = list_html.sub("san-onofre-units-2-3\">", "san-onofre-unit-1\">")
-    stub_request(:get, Plugin::LIST_URL).to_return(body: moved)
-    Source.update_all(fetched_at: 2.days.ago)
-    run.("crawl")
+    relist(list_html.sub("san-onofre-units-2-3\">", "san-onofre-unit-1\">"))
+    2.times { run_stages(with, "crawl") }
 
-    assert links.call["05000361"].status_rejected?
-    assert_equal Plugin::DEPARTED, links.call["05000361"].notes
-    assert_not links.call["05000362"].status_rejected?, "Unit 3's link still holds"
-    assert FacilityRelationship.find(links.call["05000361"].subject_id).rejected?, "the link only that claim proposed is retired"
+    assert published.reload.verified?, "a person decides; the crawl never unpublishes"
+    flagged = songs.candidates.where(review_origin: "dropped")
+    assert_equal [ published.id ], flagged.map(&:subject_id), "one review item, once"
+    assert_match Plugin::DEPARTED, flagged.first.notes
+    assert unit_3.reload.status_matched?, "Unit 3's link still holds"
+    assert_equal 0, Candidate.status_rejected.count
   end
 
-  test "a company two pages shared is retired once the second page is withdrawn too" do
-    page_a = stored("https://www.nrc.gov/facilities-safety/facility-finder/decommissioning/power-reactor/a", "<main>A</main>")
-    page_b = stored("https://www.nrc.gov/facilities-safety/facility-finder/decommissioning/power-reactor/b", "<main>B</main>")
-    company = Organization.create!(name: "Shared Decommissioner")
-    page_a.candidates.create!(kind: "organization", payload: { "name" => company.name }, quote: "A", status: "matched",
-      subject_type: "Organization", subject_id: company.id, proposed_subject: true)
-    page_b.candidates.create!(kind: "organization", payload: { "name" => company.name }, quote: "B", status: "matched",
-      subject_type: "Organization", subject_id: company.id, proposed_subject: false)
-    crawl_run = CrawlRun.create!(stage: "crawl", source_kind: "nrc_decommissioning")
-
-    plugin.send(:withdraw_claims, Source.where(id: page_a.id), crawl_run, note: Plugin::UNLISTED)
-    assert company.reload.pending?, "page B still names it"
-    plugin.send(:withdraw_claims, Source.where(id: page_b.id), crawl_run, note: Plugin::UNLISTED)
-    assert company.reload.rejected?, "no live claim is left, and the pipeline proposed it"
-  end
-
-  test "a page the list stops linking: its own proposals are retired, and it's read again once listed again, unchanged" do
+  test "a page the list stops linking: its claims wait for a person, and come back through match when it's linked again" do
     licensees = FakeLicensees.new([ answer("Duke", "owns", DUKE_QUOTE) ])
     with = plugin(licensees)
-    run = ->(stage) { DataQuality::Pipeline.run("nrc_decommissioning", plugin: with, only: stage) }
-    %w[crawl extract match].each(&run)
-    dresden_page = Source.find_by!(url: "https://www.nrc.gov/facilities-safety/facility-finder/decommissioning/power-reactor/dresden-nuclear-power-station-unit-1")
+    run_stages(with, "crawl", "extract", "match")
+    dresden_page = Source.find_by!(url: DRESDEN_1)
     link = dresden_page.candidates.find_by!(kind: "facility_relationship")
-    duke = dresden_page.candidates.find_by!(kind: "organization")
+    record = FacilityRelationship.find(link.subject_id)
     assert link.proposed_subject, "match proposed the Duke–Dresden 1 link for this page's claim"
 
-    moved = list_html.sub("/facilities-safety/facility-finder/decommissioning/power-reactor/dresden-nuclear-power-station-unit-1",
-      "/facilities-safety/facility-finder/decommissioning/power-reactor/cr3")
-    stub_request(:get, Plugin::LIST_URL).to_return(body: moved)
-    Source.update_all(fetched_at: 2.days.ago)
-    run.("crawl")
+    relist(list_html.sub("/facilities-safety/facility-finder/decommissioning/power-reactor/dresden-nuclear-power-station-unit-1",
+      "/facilities-safety/facility-finder/decommissioning/power-reactor/cr3"))
+    run_stages(with, "crawl", "extract", "match")
 
-    assert FacilityRelationship.find(link.subject_id).rejected?, "nothing else names that link, so it's retired"
-    assert Organization.find(duke.subject_id).pending?, "other pages still name Duke"
-    assert_nil dresden_page.reload.extracted_rows_sha256
+    assert link.reload.status_needs_review?
+    assert_match Plugin::UNLISTED, link.notes
+    assert record.reload.pending?, "nothing is retired; a person decides"
+    assert_equal 0, Candidate.status_rejected.count
 
     # NRC links the page again, with the same text.
-    stub_request(:get, Plugin::LIST_URL).to_return(body: list_html)
-    Source.update_all(fetched_at: 2.days.ago)
+    relist(list_html)
     calls = licensees.texts.size
-    %w[crawl extract].each(&run)
+    run_stages(with, "crawl", "extract", "match")
 
     assert_operator licensees.texts.size, :>, calls, "the page is read again"
-    assert dresden_page.candidates.status_new.exists?(kind: "facility_relationship"), "its claims are back for review"
+    assert_not Candidate.exists?(link.id), "the read replaced the withdrawn claim"
+    back = dresden_page.candidates.find_by!(kind: "facility_relationship")
+    assert_equal [ "matched", record.id ], [ back.status, back.subject_id ], "back on the same pending link, for verify and a person"
+    assert record.reload.pending?
+  end
+
+  test "a page the list stops linking keeps its stored read, so its facts aren't re-checked from it" do
+    with = plugin(FakeLicensees.new([ answer("Duke", "owns", DUKE_QUOTE) ]))
+    run_stages(with, "crawl", "extract", "match")
+    published = publish_link(DRESDEN_1, "05000010")
+    page = Source.find_by!(url: DRESDEN_1)
+
+    relist(list_html.sub("/facilities-safety/facility-finder/decommissioning/power-reactor/dresden-nuclear-power-station-unit-1",
+      "/facilities-safety/facility-finder/decommissioning/power-reactor/cr3"))
+    run_stages(with, "crawl", "extract")
+
+    assert_equal page.reload.content_sha256, page.extracted_sha256, "extract leaves it alone"
+    assert_nil page.extracted_rows_sha256
+    assert_nil plugin.rows_sha256(page), "a page with no units has no rows to re-confirm"
+    assert_equal [ published.id ], page.candidates.where(review_origin: "dropped").map(&:subject_id)
+    assert_match Plugin::UNLISTED, page.candidates.find_by!(review_origin: "dropped").notes
+  end
+
+  test "a list fetched while its site pages were blocked waits, proposing nothing, until they're read" do
+    stub_request(:get, SITE_PAGES).to_return(status: 403, body: "Access Denied")
+    with = plugin
+    run_stages(with, "crawl")
+
+    error = assert_raises(Plugin::SitePagesUnread) { run_stages(with, "extract") }
+    assert_match "20 of 20 NRC site pages have no readable copy yet", error.message
+    assert_equal 0, Candidate.count, "no unit comes in without its licensees"
+    assert_nil list_source.extracted_sha256, "the list is extracted on a later run"
+
+    # Next day NRC serves the pages again.
+    stub_request(:get, SITE_PAGES).to_return(body: cr3_html)
+    Source.update_all(fetched_at: 2.days.ago)
+    run_stages(with, "crawl", "extract")
+
+    assert_equal 21, Candidate.where(kind: "facility").count { |c| c.payload["nrc_docket"] }
   end
 
   test "a list without its table needs a human" do
@@ -226,6 +266,7 @@ class DataQuality::Plugins::NrcDecommissioningTest < ActiveSupport::TestCase
 
   test "proposes each row as a decommissioning unit, quoting the row" do
     source = stored(Plugin::LIST_URL, list_html)
+    Plugin::List.rows(list_html).filter_map(&:page_url).uniq.each { |url| stored(url, cr3_html) }
     candidates = plugin.extract(source, nil)
 
     assert_equal 23, candidates.size, "21 units and 2 sites"
@@ -290,6 +331,7 @@ class DataQuality::Plugins::NrcDecommissioningTest < ActiveSupport::TestCase
   end
 
   test "a site page's rows hash ignores its date stamp" do
+    stored(Plugin::LIST_URL, list_html)
     page = Source.new(url: CR3_URL, content_text: cr3_html)
     restamped = Source.new(url: CR3_URL, content_text: cr3_html.sub(/Thursday, August 27, 2026/, "Friday, October 16, 2026"))
     edited = Source.new(url: CR3_URL, content_text: cr3_html.sub("Calendar year 2037", "Calendar year 2038"))

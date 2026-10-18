@@ -55,6 +55,11 @@ class DataQuality::Plugins::NrcDecommissioning < DataQuality::Plugin
 
   # The stored list has no table to extract from.
   class TableMissing < StandardError; end
+  # A site page the list links has no readable copy (NRC blocked it, say),
+  # so its units would come in without their licensees. The list waits:
+  # nothing is written, and it's extracted on a later run once every page
+  # it links has been read.
+  class SitePagesUnread < StandardError; end
 
   def initialize(fetcher: DataQuality::Fetcher.new, licensees: Licensees.new)
     @fetcher = fetcher
@@ -102,8 +107,11 @@ class DataQuality::Plugins::NrcDecommissioning < DataQuality::Plugin
   def rows_sha256(source)
     return (Digest::SHA256.hexdigest(List.lines(source.content_text).join("\n")) if source.content_text.present?) if source.url == LIST_URL
 
-    text = page_text(source.content_text).gsub(PAGE_STAMP, "")
+    # A page the list doesn't link has no rows: nothing to re-confirm from it.
     units = units_for(source).map { |row| [ row.nrc_docket, unit_name(row) ].join(" ") }.sort
+    return if units.empty?
+
+    text = page_text(source.content_text).gsub(PAGE_STAMP, "")
     Digest::SHA256.hexdigest([ text, *units ].join("\n")) if text.present?
   end
 
@@ -171,83 +179,98 @@ class DataQuality::Plugins::NrcDecommissioning < DataQuality::Plugin
     end
 
     # A site page the list no longer links to (its last unit moved to another
-    # page, or left the list) no longer speaks for any unit. Returns how many
-    # claims were withdrawn.
+    # page, or left the list) no longer speaks for any unit.
     UNLISTED = "NRC's decommissioning list no longer links this page"
     # A unit the list moved off a page that still covers others.
     DEPARTED = "NRC's decommissioning list no longer puts this unit on this page"
+    KEEP_OR_UNPUBLISH = "Approve to keep it as it is; if it's no longer true, unpublish it on its page."
 
+    # Nothing is rejected or retired here: a person decides (#240's rule for
+    # a fact a source stops stating). The page's open claims go to review,
+    # and each link it supported that's published gets one review item. Its
+    # stored read is kept, so extract leaves it (and its facts) alone; its
+    # unit hash is cleared, so if the list links it again, the crawl reads it
+    # again and its claims come back through match and verify.
     def withdraw_unlisted_pages(urls, run)
-      withdraw_claims(Source.where(source_kind:).where.not(url: [ LIST_URL, *urls ]), run, note: UNLISTED)
+      Source.where(source_kind:).where.not(url: [ LIST_URL, *urls ]).order(:id).sum do |page|
+        Candidate.transaction do
+          page.lock!
+          waiting = page.candidates.where(status: %w[new matched needs_review]).order(:id).lock.to_a
+          held, open = waiting.partition(&:status_needs_review?)
+          note(held, UNLISTED)
+          # As extract's own review items: a later read of the page replaces them.
+          open.each { |claim| claim.update!(status: "needs_review", review_origin: "extract", notes: joined(claim.notes, UNLISTED)) }
+          page.update!(extracted_rows_sha256: nil) if page.extracted_rows_sha256
+          open.size + flag_published_links(page, run, UNLISTED)
+        end
+      end
     end
 
-    # A page's link claims for units the list no longer maps to it.
+    # A unit the list moved off a page: its open link claims go to review, as
+    # extract's own (the page's next read replaces them), and a link to it
+    # that's published gets one review item.
     def withdraw_departed_units(page, run)
       dockets = units_for(page).map(&:nrc_docket).to_set
-      withdraw_claims(Source.where(id: page.id), run, note: DEPARTED,
-        only: ->(claim) { claim.kind == "facility_relationship" && !dockets.include?(claim.payload.dig("facility", "nrc_docket")) })
-    end
-
-    # Withdraws these pages' claims nobody has decided (only: the ones that
-    # no longer hold), and notes one already in a person's review. A record
-    # match proposed for them is retired once no live claim uses it (as the
-    # EIA plug-in does). Each page's stored read is cleared, so it's read
-    # again even if unchanged. One transaction, locked as a review decision
-    # locks (the sources, then the claims). Returns how many were withdrawn.
-    def withdraw_claims(pages, run, note:, only: nil)
       Candidate.transaction do
-        pages = pages.order(:id).lock.to_a
-        next 0 if pages.empty?
-
-        waiting = Candidate.where(source_id: pages.map(&:id), status: %w[new matched needs_review]).order(:id).lock.to_a
-        waiting = waiting.select(&only) if only
-        next 0 if waiting.empty?
-
-        held, open = waiting.partition(&:status_needs_review?)
-        Candidate.where(id: held.map(&:id)).where("notes IS NULL OR notes NOT LIKE ?", "%#{note}%")
-          .update_all([ "notes = COALESCE(notes || '. ', '') || ?, updated_at = ?", note, Time.current ])
-        Candidate.where(id: open.map(&:id)).update_all(status: "rejected", notes: note, updated_at: Time.current)
-        retire_proposals(open.select(&:subject_id), run)
-        Source.where(id: waiting.map(&:source_id).uniq).update_all(extracted_sha256: nil, extracted_rows_sha256: nil)
-        open.size
+        page.lock!
+        departed = page.candidates.where(kind: "facility_relationship", status: %w[new matched needs_review]).order(:id).lock.to_a
+          .reject { |claim| dockets.include?(claim.payload.dig("facility", "nrc_docket")) }
+        held, open = departed.partition(&:status_needs_review?)
+        note(held, DEPARTED)
+        open.each { |claim| claim.update!(status: "needs_review", review_origin: "extract", notes: joined(claim.notes, DEPARTED)) }
+        open.size + flag_published_links(page, run, DEPARTED) { |claim| !dockets.include?(claim.payload.dig("facility", "nrc_docket")) }
       end
     end
 
-    # A record withdrawn claims were attached to is retired (rejected, as
-    # verify does for a rejected proposal) under its lock, when a claim from
-    # the pipeline proposed it (this one or an earlier one, from any page) and
-    # no live claim is attached any more. A record a person decided is left
-    # alone (retire is a protected write). Any failure undoes the withdrawal.
-    def retire_proposals(candidates, run)
+    # One review item per published link the page supported (and the block
+    # selects), once per absence: not again while one is open or after a
+    # person decided one, until the page states it again. The same shape as
+    # match's dropped check. Returns how many were flagged.
+    def flag_published_links(page, run, reason)
       directory = DataQuality::DirectoryClient.new
-      candidates.uniq { |c| [ c.subject_type, c.subject_id ] }.each do |candidate|
-        result = nil
-        directory.unless_closed(candidate) do
-          attached = Candidate.where(subject_type: candidate.subject_type, subject_id: candidate.subject_id)
-          next unless attached.where(proposed_subject: true).exists?
-          next if attached.where(status: %w[new matched merged needs_review]).exists?
+      supported = page.candidates.where(kind: "facility_relationship", status: %w[merged confirmed]).where.not(subject_id: nil).order(:id).to_a
+      supported = supported.select { |claim| yield claim } if block_given?
+      supported.group_by { |claim| [ claim.subject_type, claim.subject_id ] }.count do |(type, id), claims|
+        last = claims.last
+        next false unless directory.published?(type:, id:)
+        next false if page.candidates.where(subject_type: type, subject_id: id, review_origin: "dropped").where("id > ?", last.id).exists?
 
-          result = directory.retire(candidate, crawl_run: run)
-        end
-        next if result.nil? || result.success?
-
-        raise "Couldn't retire #{candidate.subject_type} #{candidate.subject_id}: #{result.errors.join('; ')}"
+        page.candidates.create!(kind: last.kind, payload: last.payload, quote: last.quote, status: "needs_review",
+          review_origin: "dropped", subject_type: type, subject_id: id, crawl_run: run,
+          notes: "#{reason} (read on #{Date.current}). #{KEEP_OR_UNPUBLISH}")
       end
     end
 
-    # A site page whose units changed on the list (a docket added under it)
-    # while its own text didn't is read again: extract skips a page whose
-    # content it has already read, so its stored read is cleared.
+    def note(claims, reason)
+      claims.each { |claim| claim.update!(notes: joined(claim.notes, reason)) unless claim.notes.to_s.include?(reason) }
+    end
+
+    def joined(notes, reason) = [ notes.presence, reason ].compact.join(". ")
+
+    # A site page whose units changed on the list (a docket added under it,
+    # or the page linked again after it was dropped) while its own text
+    # didn't is read again: extract skips a page whose content it has already
+    # read, so its stored read is cleared.
     def reread_if_units_changed(page)
-      return unless page.crawl_ok? && page.extracted_rows_sha256.present?
+      return unless page.crawl_ok? && page.extracted_sha256.present?
       return if rows_sha256(page) == page.extracted_rows_sha256
 
       page.update!(extracted_sha256: nil)
     end
 
+    # Stored, from a fetch that worked, and not blocked since.
+    def readable?(page) = page.present? && page.crawl_ok? && page.content_text.present? && page.blocked_streak.zero?
+
     def list_candidates(source)
       rows = List.rows(source.content_text)
       raise TableMissing, "#{TABLE_MISSING} (#{source.url})" if rows.empty?
+
+      urls = rows.filter_map(&:page_url).uniq
+      unread = urls.reject { |url| readable?(Source.find_by(url:)) }
+      if unread.any?
+        raise SitePagesUnread, "#{unread.size} of #{urls.size} NRC site pages have no readable copy yet (first: #{unread.first}), " \
+          "so the list's units wait until their licensees can be read too"
+      end
 
       site_candidates_for(rows, source) + rows.map do |row|
         name = unit_name(row)
