@@ -757,7 +757,13 @@ module Directory
         { organization_roles: :role_id, organization_technologies: :technology_id,
           facility_relationships: %i[facility_id relationship_type] }.each do |table, key|
           from.public_send(table).each do |row|
-            next if row.closed? || into.public_send(table).where(Array(key).index_with { |column| row.public_send(column) }).exists?
+            next if row.closed?
+
+            same = into.public_send(table).find_by(Array(key).index_with { |column| row.public_send(column) })
+            if same
+              moved["deal_terms"] += deal_terms_moving(row, same).size if table == :facility_relationships
+              next
+            end
 
             moved[table.to_s] += 1
           end
@@ -767,11 +773,16 @@ module Directory
 
           ends = { from_organization_id: row.from_organization_id, to_organization_id: row.to_organization_id }
             .transform_values { |id| id == from.id ? into.id : id }
-          next if ends.values.uniq.size == 1 || Relationship.where(**ends, relationship_type: row.relationship_type).where.not(id: row.id).exists?
+          next if ends.values.uniq.size == 1
+          if (duplicate = Relationship.where(**ends, relationship_type: row.relationship_type).where.not(id: row.id).first)
+            moved["deal_terms"] += deal_terms_moving(row, duplicate).size
+            next
+          end
 
           moved["relationships"] += 1
         end
         evidence_and_claims(from, into, moved)
+        moved["lead investors"] = DealTerm.where("? = ANY (lead_investor_ids)", from.id).where.not(verification_status: Verifiable::CLOSED_STATUSES).count
         merge_summary(moved)
       end
 
@@ -798,7 +809,12 @@ module Directory
           moved["aliases"] += 1
         end
         from.facility_relationships.each do |row|
-          next if row.closed? || into.facility_relationships.exists?(organization_id: row.organization_id, relationship_type: row.relationship_type)
+          next if row.closed?
+
+          if (same = into.facility_relationships.find_by(organization_id: row.organization_id, relationship_type: row.relationship_type))
+            moved["deal_terms"] += deal_terms_moving(row, same).size
+            next
+          end
 
           moved["facility_relationships"] += 1
         end
@@ -842,11 +858,14 @@ module Directory
       # aren't hidden with it. A term the kept link already has (same kind
       # and award ID) stays and is retired with its link. Returns how many moved.
       def move_deal_terms(retired_link, kept_link)
-        DealTerm.where(link: retired_link).where.not(verification_status: Verifiable::CLOSED_STATUSES).sum do |term|
-          next 0 if term.external_id && DealTerm.exists?(link: kept_link, term_type: term.term_type, external_id: term.external_id)
+        deal_terms_moving(retired_link, kept_link).each { |term| term.update!(link: kept_link) }.size
+      end
 
-          term.update!(link: kept_link)
-          1
+      # A retired link's open terms that move to the kept link: all but one
+      # whose award ID the kept link already has.
+      def deal_terms_moving(retired_link, kept_link)
+        DealTerm.where(link: retired_link).where.not(verification_status: Verifiable::CLOSED_STATUSES).reject do |term|
+          term.external_id && DealTerm.exists?(link: kept_link, term_type: term.term_type, external_id: term.external_id)
         end
       end
 

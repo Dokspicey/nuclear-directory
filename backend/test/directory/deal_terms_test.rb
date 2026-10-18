@@ -133,6 +133,22 @@ class Directory::DealTermsTest < ActiveSupport::TestCase
     assert_match "2 lead investors", duplicate.verification_events.order(:id).last.reason
   end
 
+  test "the merge preview counts the terms and lead investors the merge moves" do
+    duplicate = Organization.create!(name: "X-energy LLC", verification_status: "verified", verified_by: BY)
+    retired = Relationship.create!(from_organization: @doe, to_organization: duplicate, relationship_type: "funds",
+      verification_status: "verified", verified_by: BY)
+    DealTerm.create!(link: retired, term_type: "award", external_id: "ASST_MOVES", amount_usd: 5, starts_on: "2024-01-01")
+    DealTerm.create!(link: @funds, term_type: "funding_round", round: "Seed", lead_investor_ids: [ duplicate.id ])
+
+    _, preview = Directory::FactWriter.merge_preview(type: "Organization", from_id: duplicate.id, into_id: @xenergy.id)
+    assert Directory::FactWriter.merge_organization(from_id: duplicate.id, into_id: @xenergy.id, by: BY).ok?
+
+    moved = duplicate.verification_events.order(:id).last.reason[/Moved: (.*)\z/, 1]
+    assert_equal moved, preview
+    assert_match "1 deal term", preview
+    assert_match "1 lead investor", preview
+  end
+
   test "a merge moves a retired duplicate link's terms to the kept link, keeping what it already has" do
     duplicate = Organization.create!(name: "X-energy LLC", verification_status: "verified", verified_by: BY)
     other_funds = Relationship.create!(from_organization: @doe, to_organization: duplicate, relationship_type: "funds",
