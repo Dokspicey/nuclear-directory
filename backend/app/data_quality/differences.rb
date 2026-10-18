@@ -29,37 +29,53 @@ module DataQuality::Differences
     end
   end
 
-  # The differences, unless every one is a value the pipeline wrote from the
-  # candidate's own kind of source: then {} (Data Quality, 17 Oct). A field
-  # counts as the pipeline's when the latest event that changed it is an
-  # approval of a candidate from the same kind of source, not edited first.
-  # Any other writer makes it a person's: a seed, an admin edit, a repair, a
-  # merge, an edited approval, another source. One person's field keeps
-  # them all, so a mixed claim stays a conflict.
+  # The differences, unless every value the candidate would change is one
+  # the pipeline wrote from the candidate's own kind of source: then {}
+  # (Data Quality, 17 Oct). Every changed field counts, blanks too, so a
+  # value a person cleared stays theirs. A field counts as the pipeline's
+  # when the latest event that changed it is an approval of a candidate
+  # from the same kind of source, not edited first. Any other writer makes
+  # it a person's: a seed, an admin edit, a repair, a merge, an edited
+  # approval, another source. A blank no one ever wrote is no one's. One
+  # person's field keeps them all, so a mixed claim stays a conflict.
   def self.written_by_person(differences, candidate, record, directory:)
     return differences if differences.empty?
 
+    # Newest first, so find gives each field's latest write.
     history = directory.verification_history(type: record.type, id: record.id)
     evidence = directory.evidence(type: record.type, id: record.id)
-    pipeline = differences.keys.all? do |name|
-      # The history is newest first, so this is the field's latest write.
-      event = history.find { |e| e.changed_values.to_h.key?(name) }
-      event && pipeline_write?(event, candidate, evidence)
+    pipeline = changing(candidate, record).all? do |name, stored|
+      index = history.index { |event| event.changed_values.to_h.key?(name) }
+      index ? pipeline_write?(history[index], history.first(index), candidate, evidence) : stored.blank?
     end
     pipeline ? {} : differences
   end
 
+  # Each field the candidate would change: { name => stored value }.
+  def self.changing(candidate, record)
+    COMPARED.fetch(candidate.kind, []).each_with_object({}) do |name, fields|
+      stored = comparable(name, record.values ? record.values[name] : record.public_send(name))
+      incoming = comparable(name, incoming_value(candidate, name))
+      fields[name] = stored unless incoming.blank? || stored == incoming
+    end
+  end
+
   # An unedited approval of a claim from the candidate's kind of source.
-  # Approvals before the "edited" marker are told by their evidence: an
-  # edited approval stored no confidence.
-  def self.pipeline_write?(event, candidate, evidence)
+  # Approvals record whether they were edited; older ones are told by their
+  # evidence, and only when it can still be read as theirs: it has a
+  # confidence (an edited approval stored none) and their run, and no later
+  # approval used the same source and quote (it would have replaced both).
+  def self.pipeline_write?(event, newer, candidate, evidence)
     context = event.context.to_h
-    return false if context["edited"] || !context["candidate_id"]
-
-    writer = Candidate.includes(:source).find_by(id: context["candidate_id"])
+    writer = context["candidate_id"] && Candidate.includes(:source).find_by(id: context["candidate_id"])
     return false unless writer && writer.source.source_kind == candidate.source.source_kind
+    return context["edited"] == false if context.key?("edited")
 
-    evidence.any? { |row| row.source_id == writer.source_id && row.quote == writer.quote && row.confidence }
+    row = evidence.find { |item| item.source_id == writer.source_id && item.quote == writer.quote }
+    return false unless row&.confidence && context["crawl_run_id"] && row.crawl_run_id == context["crawl_run_id"]
+
+    later = newer.filter_map { |e| e.context.to_h["candidate_id"] }
+    Candidate.where(id: later, source_id: writer.source_id, quote: writer.quote).none?
   end
 
   # "human-verified state is NJ; this source says DE"
@@ -91,5 +107,5 @@ module DataQuality::Differences
   rescue URI::InvalidURIError
     text.downcase.delete_prefix("www.")
   end
-  private_class_method :pipeline_write?, :incoming_value, :comparable
+  private_class_method :changing, :pipeline_write?, :incoming_value, :comparable
 end

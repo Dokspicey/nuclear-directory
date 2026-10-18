@@ -166,10 +166,9 @@ class DataQuality::DirectoryClient
     verification =
       if enrichment then nil
       elsif by
-        # edited: a person changed the values first, so they're the person's
-        # (Differences.written_by_person).
-        context = { "candidate_id" => candidate.id, "crawl_run_id" => crawl_run&.id }
-        context["edited"] = true if edited
+        # edited: whether a person changed the values first, which makes
+        # them the person's (Differences.written_by_person).
+        context = { "candidate_id" => candidate.id, "crawl_run_id" => crawl_run&.id, "edited" => edited }
         { status: "verified", by:, reason:, context: }.compact
       else
         { status: "verified", by: "agent:verifier/#{crawl_run&.model || 'unknown'}" }

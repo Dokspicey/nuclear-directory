@@ -41,6 +41,20 @@ class DataQuality::Stages::VerifyProvenanceTest < ActiveSupport::TestCase
     first
   end
 
+  # An approval as it was recorded before approvals said whether they were
+  # edited: its context has no "edited", and its evidence has the run and
+  # the confidence (none when it was edited).
+  def legacy_approve(payload, confidence:, quote: "legacy #{Candidate.count}")
+    first = claim(payload, quote:)
+    run = CrawlRun.create!(stage: "verify", source_kind: "dummy", status: "succeeded", started_at: 1.day.ago)
+    result = Directory::FactWriter.write(:relationship, payload.symbolize_keys.merge(id: @link.id),
+      evidence: [ { source_id: @source.id, quote:, found_by: "crawler", confidence:, crawl_run_id: run.id } ],
+      verification: { status: "verified", by: "human:tosin", context: { "candidate_id" => first.id, "crawl_run_id" => run.id } })
+    assert result.ok?, result.errors.to_sentence
+    first.update!(status: "merged")
+    first
+  end
+
   def verify(candidate)
     verifier = CountingVerifier.new
     run = DataQuality::Pipeline.run("dummy", plugin: DummyPlugin.new, only: "verify", verifier:).last
@@ -94,11 +108,53 @@ class DataQuality::Stages::VerifyProvenanceTest < ActiveSupport::TestCase
     assert_conflict claim({ "description" => SECOND, "started_on" => "2021-01-01" })
   end
 
-  test "an edited approval from before the marker is told by its evidence, which has no confidence" do
-    first = approve({ "description" => FIRST, "started_on" => "2021-01-01" })
-    Evidence.where(subject: @link, source: @source, quote: first.quote).update_all(confidence: nil)
+  test "an unedited approval of a claim the verifier didn't recommend counts as the pipeline's" do
+    first = claim({ "description" => FIRST, "started_on" => "2021-01-01" }, status: "needs_review")
+    assert DataQuality::Review.approve([ first.id ], by: "human:tosin").sole.ok?
+    event = Directory::Lookup.verification_history(type: "Relationship", id: @link.id).first
+    assert_equal [ first.id, false ], [ event.context["candidate_id"], event.context["edited"] ]
+
+    assert_checked claim({ "description" => SECOND, "started_on" => "2021-01-01" })
+  end
+
+  test "an older unedited approval is told by its evidence: a confidence, from its run" do
+    legacy_approve({ "description" => FIRST, "started_on" => "2021-01-01" }, confidence: 0.9)
+
+    assert_checked claim({ "description" => SECOND, "started_on" => "2021-01-01" })
+  end
+
+  test "an older edited approval is told by its evidence, which has no confidence" do
+    legacy_approve({ "description" => FIRST, "started_on" => "2021-01-01" }, confidence: nil)
 
     assert_conflict claim({ "description" => SECOND, "started_on" => "2021-01-01" })
+  end
+
+  # A later approval with the same source and quote replaces the evidence's
+  # confidence and run, so it no longer says how the older one was made.
+  test "an older approval whose evidence a later one reused stays a conflict" do
+    legacy = legacy_approve({ "description" => FIRST, "started_on" => "2021-01-01" }, confidence: nil, quote: "the award row")
+    later = claim({ "description" => FIRST, "started_on" => "2021-02-01" }, quote: legacy.quote,
+      ai_recommendation: "recommend_publish", ai_confidence: 0.9)
+    assert DataQuality::Review.approve([ later.id ], by: "human:tosin").sole.ok?
+    assert_equal 0.9, Evidence.find_by!(subject: @link, source: @source, quote: legacy.quote).confidence.to_f
+
+    assert_conflict claim({ "description" => SECOND, "started_on" => "2021-02-01" })
+  end
+
+  test "a value a person cleared stays theirs" do
+    approve({ "description" => FIRST, "started_on" => "2021-01-01" })
+    cleared = DataQuality::DirectoryClient.new.decide_fact("relationship", id: @link.id, status: "verified", by: "human:tosin",
+      reason: "The start date was wrong", attributes: { started_on: nil })
+    assert cleared.success?, cleared.errors.to_sentence
+
+    assert_conflict claim({ "description" => SECOND, "started_on" => "2021-01-01" })
+  end
+
+  test "filling a blank no one wrote doesn't make a claim a conflict" do
+    approve({ "description" => FIRST })
+    assert_nil @link.reload.ended_on
+
+    assert_checked claim({ "description" => SECOND, "ended_on" => "2023-01-01" })
   end
 
   test "a value last written from another kind of source stays a conflict" do
