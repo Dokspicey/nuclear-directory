@@ -111,4 +111,25 @@ class FacilityTest < ActiveSupport::TestCase
     assert_nil plant.verified_at
     assert_nil plant.verified_by
   end
+
+  test "an older decided record without a date still saves ordinary edits, and isn't stamped with today (#348)" do
+    plant = Facility.create!(name: "Undated Decision", verification_status: "verified", verified_by: "human:tosin")
+    plant.update_columns(verified_at: nil) # as a record decided before #117 could be
+
+    plant.update!(city: "Waynesboro")
+    assert_nil plant.reload.verified_at, "no invented decision date"
+
+    taken_off = Facility.create!(name: "Undated Removal", verification_status: "verified", verified_by: "human:tosin")
+    taken_off.unpublish!(by: "human:tosin", reason: "Test")
+    taken_off.update_columns(verified_at: nil)
+    result = Directory::FactWriter.write(:facility, { id: taken_off.id, city: "Somewhere" }, verification: { status: "unpublished", by: "human:tosin" })
+    assert result.ok?, result.errors.to_sentence
+  end
+
+  test "a new decision still needs and gets a date" do
+    plant = Facility.create!(name: "Pending First")
+    plant.decided_by = "human:tosin" # as verify! and FactWriter say who decides
+    plant.update!(verification_status: "verified", verified_by: "human:tosin")
+    assert_not_nil plant.reload.verified_at
+  end
 end
