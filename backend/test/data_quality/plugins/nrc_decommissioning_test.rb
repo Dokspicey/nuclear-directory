@@ -148,6 +148,36 @@ class DataQuality::Plugins::NrcDecommissioningTest < ActiveSupport::TestCase
     assert_equal dresden_page.candidates.count, run.stats["withdrawn"]
   end
 
+  test "a page the list stops linking: its own proposals are retired, and it's read again once listed again, unchanged" do
+    licensees = FakeLicensees.new([ answer("Duke", "owns", DUKE_QUOTE) ])
+    with = plugin(licensees)
+    run = ->(stage) { DataQuality::Pipeline.run("nrc_decommissioning", plugin: with, only: stage) }
+    %w[crawl extract match].each(&run)
+    dresden_page = Source.find_by!(url: "https://www.nrc.gov/facilities-safety/facility-finder/decommissioning/power-reactor/dresden-nuclear-power-station-unit-1")
+    link = dresden_page.candidates.find_by!(kind: "facility_relationship")
+    duke = dresden_page.candidates.find_by!(kind: "organization")
+    assert link.proposed_subject, "match proposed the Duke–Dresden 1 link for this page's claim"
+
+    moved = list_html.sub("/facilities-safety/facility-finder/decommissioning/power-reactor/dresden-nuclear-power-station-unit-1",
+      "/facilities-safety/facility-finder/decommissioning/power-reactor/cr3")
+    stub_request(:get, Plugin::LIST_URL).to_return(body: moved)
+    Source.update_all(fetched_at: 2.days.ago)
+    run.("crawl")
+
+    assert FacilityRelationship.find(link.subject_id).rejected?, "nothing else names that link, so it's retired"
+    assert Organization.find(duke.subject_id).pending?, "other pages still name Duke"
+    assert_nil dresden_page.reload.extracted_rows_sha256
+
+    # NRC links the page again, with the same text.
+    stub_request(:get, Plugin::LIST_URL).to_return(body: list_html)
+    Source.update_all(fetched_at: 2.days.ago)
+    calls = licensees.texts.size
+    %w[crawl extract].each(&run)
+
+    assert_operator licensees.texts.size, :>, calls, "the page is read again"
+    assert dresden_page.candidates.status_new.exists?(kind: "facility_relationship"), "its claims are back for review"
+  end
+
   test "a list without its table needs a human" do
     stub_request(:get, Plugin::LIST_URL).to_return(body: "<html><body>We moved things around</body></html>")
 

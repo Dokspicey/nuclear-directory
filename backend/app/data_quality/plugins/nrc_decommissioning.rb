@@ -61,7 +61,7 @@ class DataQuality::Plugins::NrcDecommissioning < DataQuality::Plugin
     @licensees = licensees
   end
 
-  def crawl(_run)
+  def crawl(run)
     list = source(LIST_URL, title: "NRC: power reactor sites undergoing decommissioning")
     stats = { "list" => DataQuality::Snapshot.take(list, fetcher: @fetcher).to_s }
     return stats.merge("stopped" => "list page blocked") if stats["list"] == "blocked"
@@ -75,7 +75,7 @@ class DataQuality::Plugins::NrcDecommissioning < DataQuality::Plugin
 
     stats.merge!("units" => rows.size, "site_pages" => Hash.new(0))
     urls = rows.filter_map(&:page_url).uniq
-    withdrawn = withdraw_unlisted_pages(urls)
+    withdrawn = withdraw_unlisted_pages(urls, run)
     stats["withdrawn"] = withdrawn if withdrawn.positive?
     urls.each do |url|
       page = source(url, title: "NRC: #{rows.find { |row| row.page_url == url }.name}")
@@ -171,15 +171,49 @@ class DataQuality::Plugins::NrcDecommissioning < DataQuality::Plugin
     # A site page the list no longer links to (its last unit moved to another
     # page, or left the list) no longer speaks for any unit: its claims
     # nobody has decided are withdrawn, and one already in a person's review
-    # says so. Returns how many were withdrawn.
+    # says so. A record match proposed for a withdrawn claim is retired when
+    # no live claim uses it any more (as the EIA plug-in does). The page's
+    # stored read is cleared, so if NRC links it again, even unchanged, it's
+    # read again. One transaction, locked as a review decision locks (the
+    # sources, then the claims). Returns how many were withdrawn.
     UNLISTED = "NRC's decommissioning list no longer links this page"
 
-    def withdraw_unlisted_pages(urls)
-      pages = Source.where(source_kind:).where.not(url: [ LIST_URL, *urls ]).select(:id)
-      waiting = Candidate.where(source_id: pages)
-      waiting.where(status: "needs_review").where("notes IS NULL OR notes NOT LIKE ?", "%#{UNLISTED}%")
-        .update_all([ "notes = COALESCE(notes || '. ', '') || ?, updated_at = ?", UNLISTED, Time.current ])
-      waiting.where(status: %w[new matched]).update_all(status: "rejected", notes: UNLISTED, updated_at: Time.current)
+    def withdraw_unlisted_pages(urls, run)
+      Candidate.transaction do
+        pages = Source.where(source_kind:).where.not(url: [ LIST_URL, *urls ]).order(:id).lock.to_a
+        next 0 if pages.empty?
+
+        waiting = Candidate.where(source_id: pages.map(&:id), status: %w[new matched needs_review]).order(:id).lock.to_a
+        next 0 if waiting.empty?
+
+        held, open = waiting.partition(&:status_needs_review?)
+        Candidate.where(id: held.map(&:id)).where("notes IS NULL OR notes NOT LIKE ?", "%#{UNLISTED}%")
+          .update_all([ "notes = COALESCE(notes || '. ', '') || ?, updated_at = ?", UNLISTED, Time.current ])
+        Candidate.where(id: open.map(&:id)).update_all(status: "rejected", notes: UNLISTED, updated_at: Time.current)
+        retire_proposals(open.select(&:subject_id), run)
+        Source.where(id: waiting.map(&:source_id).uniq).update_all(extracted_sha256: nil, extracted_rows_sha256: nil)
+        open.size
+      end
+    end
+
+    # A record a withdrawn claim proposed is retired (rejected, as verify
+    # does for a rejected proposal) under its lock, only when no live claim
+    # is attached to it. A record a person decided is left alone (retire is
+    # a protected write). Any failure undoes the withdrawal too.
+    def retire_proposals(candidates, run)
+      directory = DataQuality::DirectoryClient.new
+      candidates.select(&:proposed_subject).uniq { |c| [ c.subject_type, c.subject_id ] }.each do |candidate|
+        result = nil
+        directory.unless_closed(candidate) do
+          attached = Candidate.where(subject_type: candidate.subject_type, subject_id: candidate.subject_id)
+          next if attached.where(status: %w[new matched merged needs_review]).exists?
+
+          result = directory.retire(candidate, crawl_run: run)
+        end
+        next if result.nil? || result.success?
+
+        raise "Couldn't retire #{candidate.subject_type} #{candidate.subject_id}: #{result.errors.join('; ')}"
+      end
     end
 
     # A site page whose units changed on the list (a docket added under it)
