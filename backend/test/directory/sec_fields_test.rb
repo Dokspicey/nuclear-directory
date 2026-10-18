@@ -8,6 +8,9 @@ class Directory::SecFieldsTest < ActiveSupport::TestCase
   setup do
     @source = sources(:press_release)
     @company = Organization.create!(name: "Kairos Power", verification_status: "verified", verified_by: BY)
+    # Names are found through aliases, so its own name is one: a name lookup
+    # really finds it, and the CIK tests below are a real conflict.
+    @company.aliases.create!(alias: "Kairos Power")
   end
 
   def form_d(**attributes)
