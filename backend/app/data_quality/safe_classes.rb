@@ -153,6 +153,11 @@ module DataQuality::SafeClasses
         # G5, this claim's part (the run's is in context_for)
         throw :unsafe, DataQuality::Review::FIRST_BATCH if candidate.crawl_run_id && context[:firsts][candidate.source.source_kind] == candidate.crawl_run_id
         throw :unsafe, "its source's last fetch didn't return 200" unless candidate.source.http_status == 200
+        # The dropped-fact check is per source: a run skips it for a page
+        # that still has a claim to place, or that would drop too much.
+        unless context[:checked_sources].include?(candidate.source_id)
+          throw :unsafe, "the last match run didn't check its source for dropped facts"
+        end
 
         # S1: the award total doesn't drop too far.
         if changes.key?("description")
@@ -165,11 +170,11 @@ module DataQuality::SafeClasses
       end
 
       # What's the same for every claim of a class, read once: the first
-      # batches, and G5's run checks. A run problem: the latest crawl or
-      # match attempt (whatever its status) didn't succeed, the match skipped
-      # the dropped-fact check, or the source's API index answered with
-      # anything but 200 on its last fetch (a failed fetch leaves each
-      # recipient's page as it was).
+      # batches, G5's run checks and the sources the last match checked for
+      # dropped facts. A run problem: the latest crawl or match attempt
+      # (whatever its status) didn't succeed, or the source's API index
+      # answered with anything but 200 on its last fetch (a failed fetch
+      # leaves each recipient's page as it was).
       def context_for(klass)
         config = CONFIG.fetch("classes").fetch(klass)
         kind = config.fetch("source_kind")
@@ -180,9 +185,9 @@ module DataQuality::SafeClasses
           if crawl.nil? || crawl.status != "succeeded" then "the source's last crawl didn't finish"
           elsif config["index_source_kind"] && index&.http_status != 200 then "the source's last fetch didn't return 200"
           elsif match.nil? || match.status != "succeeded" then "the last match run didn't finish"
-          elsif match.stats["dropped_check_skipped"].to_i.positive? then "the last match run didn't check for dropped facts"
           end
-        { firsts: DataQuality::Review.first_batches, run_problem: problem }
+        { firsts: DataQuality::Review.first_batches, run_problem: problem,
+          checked_sources: Array(match&.stats&.dig("dropped_checked_source_ids")).to_set }
       end
 
       # The recommended claims a class covers: its source and kind, with no

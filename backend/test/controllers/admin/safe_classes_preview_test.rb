@@ -20,7 +20,8 @@ class Admin::SafeClassesPreviewTest < ActionDispatch::IntegrationTest
     @link = Relationship.create!(from_organization: doe, to_organization: company, relationship_type: "funds", description: "Pending.")
     first = claim(FIRST, run: crawl_run!("crawl", 2.days.ago))
     assert DataQuality::Review.approve([ first.id ], by: "human:tosin").sole.ok?
-    crawl_run!("match", 1.hour.ago)
+    CrawlRun.create!(stage: "match", source_kind: "usaspending_doe_awards", status: "succeeded", started_at: 1.hour.ago,
+      stats: { "dropped_checked_source_ids" => [ @source.id ] })
     @claim = claim(SECOND, run: crawl_run!("crawl", 1.hour.ago))
     sign_in_as users(:admin)
   end

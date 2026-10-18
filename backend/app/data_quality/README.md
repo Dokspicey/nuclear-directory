@@ -212,7 +212,8 @@ if every gate holds:
   pipeline from the same kind of source (`Differences.pipeline_written?`)
 - **G4** nothing else is open on its record: no claim waiting for review, no unresolved correction report
 - **G5** not from its source's first batch; the latest crawl and match attempts (whatever their status)
-  succeeded, and the match checked for dropped facts; the last fetch returned 200, both the claim's page
+  succeeded, and the match checked the claim's own source for dropped facts (`dropped_checked_source_ids`
+  in the run's stats; a run skips sources with a claim still to place); the last fetch returned 200, both the claim's page
   and, for S1, the USAspending API index
 - **G6** its run proposes no more safe changes than the cap (20, and 25% of the source's public facts)
 

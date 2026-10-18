@@ -23,7 +23,7 @@ class DataQuality::SafeClassesTest < ActiveSupport::TestCase
     first = claim({ "description" => FIRST, "started_on" => "2021-01-01" }, crawl_run: @first_run)
     assert DataQuality::Review.approve([ first.id ], by: "human:tosin").sole.ok?
     @run = crawl_run!("crawl")
-    crawl_run!("match")
+    crawl_run!("match", stats: { "dropped_check_skipped" => 3, "dropped_checked_source_ids" => [ @source.id ] })
   end
 
   def crawl_run!(stage, started_at: 1.hour.ago, stats: {}) =
@@ -152,8 +152,10 @@ class DataQuality::SafeClassesTest < ActiveSupport::TestCase
     assert_equal "its source's last fetch didn't return 200", why(candidate)
 
     @source.update_columns(http_status: 200)
-    crawl_run!("match", started_at: 1.minute.ago, stats: { "dropped_check_skipped" => 1 })
-    assert_equal "the last match run didn't check for dropped facts", why(candidate)
+    other = Source.create!(url: "https://api.usaspending.gov/test/recipient/9", source_kind: "usaspending_doe_awards", crawl_status: "ok")
+    crawl_run!("match", started_at: 1.minute.ago, stats: { "dropped_check_skipped" => 1, "dropped_checked_source_ids" => [ other.id ] })
+    assert_equal "the last match run didn't check its source for dropped facts", why(candidate),
+      "the skip that counts is the claim's own source's; others skipped (setup's run) don't block it"
   end
 
   test "G5: the latest crawl or match attempt counts, whatever its status, and so does the API index's last fetch" do
