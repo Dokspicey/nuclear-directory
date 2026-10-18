@@ -40,13 +40,27 @@ class HomeTest < ActionDispatch::IntegrationTest
     assert_select ".nd-suggs a[href=?]", "/companies?category=power-buyers", text: "Power deals"
   end
 
-  test "category boxes show the most connected verified names" do
+  test "a card for each bucket with companies, then Plants and sites last, naming at most three (#362)" do
     get root_path
 
-    # Developers, Plants and sites, Power buyers: empty buckets are hidden.
-    assert_select "a.nd-cat", 3
-    assert_select "a.nd-cat[href=?] span", "/companies?category=reactor-developers", text: "Kairos Power, NuScale Power, Oklo"
-    assert_select "a.nd-cat[href=?] span", "/companies?category=fusion", count: 0
+    # Developers, Power buyers, Plants and sites: empty buckets have no card.
+    assert_equal %w[cat-reactor-developers cat-power-buyers cat-plants], css_select("section.nd-catcard").map { |card| card["aria-labelledby"] }
+    assert_select "section.nd-catcard", 3
+    assert_select "section[aria-labelledby=cat-reactor-developers]" do
+      assert_select "a.nd-catcard__head[href=?]", "/companies?category=reactor-developers"
+      assert_select "a.nd-catcard__row", 3
+      assert_select "a.nd-catcard__row[href=?][title=?]", "/companies/kairos-power", "Kairos Power", text: /Kairos Power/
+      assert_select "a.nd-catcard__more[href=?][aria-label=?]", "/companies?category=reactor-developers", "See all 4 Developers", text: /See all 4 ›/
+      assert_select ".nd-catcard__count .sr-only", "4 companies"
+    end
+    assert_select "section[aria-labelledby=cat-power-buyers]" do
+      assert_select "a.nd-catcard__row", 1
+      assert_select "li.nd-catcard__filler[aria-hidden=true]", 2
+      assert_select "a.nd-catcard__more", text: /Open the list ›/
+    end
+    assert_select "section[aria-labelledby=cat-plants] .nd-catcard__count .sr-only", "0 plants and sites"
+    assert_select "details.nd-howpick summary", "How we pick these names"
+    assert_select "details.nd-howpick p", "We show the three companies with the most sourced links."
   end
 
   test "the search field is wired to instant results" do
