@@ -88,21 +88,35 @@ module Directory
 
     # Whether anyone has an unresolved correction report (open or reviewed,
     # not closed) on the public page of a fact or, for a link, of either
-    # end: a company's or a plant's page, query and fragment aside.
+    # end: a company's or a plant's page, query and fragment aside. Its
+    # former addresses count too (a rename or a merge redirects them there),
+    # unless another record now lives at one, since that page is the other
+    # record's.
     def open_corrections?(type:, id:)
       raise ArgumentError, "not a fact type: #{type.inspect}" unless FACT_TYPES.include?(type.to_s)
 
       record = type.to_s.constantize.find_by(id:) or return false
+      company = ->(organization) { addresses("companies", organization) }
+      plant = ->(facility) { addresses("plants", facility.parent || facility) }
       pages = case record
-      when Organization then [ "/companies/#{record.slug}" ]
-      when Facility then [ "/plants/#{(record.parent || record).slug}" ]
-      when Relationship then [ "/companies/#{record.from_organization.slug}", "/companies/#{record.to_organization.slug}" ]
-      when FacilityRelationship then [ "/companies/#{record.organization.slug}", "/plants/#{(record.facility.parent || record.facility).slug}" ]
-      else [ "/companies/#{record.organization.slug}" ]
+      when Organization then company.(record)
+      when Facility then plant.(record)
+      when Relationship then company.(record.from_organization) + company.(record.to_organization)
+      when FacilityRelationship then company.(record.organization) + plant.(record.facility)
+      else company.(record.organization)
       end
       CorrectionReport.where(status: %w[open reviewed])
         .where("split_part(split_part(page_path, '?', 1), '#', 1) IN (:pages)", pages:).exists?
     end
+
+    # A company's or a plant's public paths: today's, then its former ones
+    # that no record holds now.
+    def addresses(prefix, record)
+      former = record.former_slugs.pluck(:slug)
+      former -= record.class.where(slug: former).pluck(:slug)
+      [ record.slug, *former ].map { |slug| "/#{prefix}/#{slug}" }
+    end
+    private :addresses
 
     # How many public facts (any type) have evidence from these sources.
     def published_count_backed_by(source_ids:)

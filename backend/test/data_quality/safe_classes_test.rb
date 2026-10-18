@@ -12,6 +12,9 @@ class DataQuality::SafeClassesTest < ActiveSupport::TestCase
   setup do
     @source = Source.create!(url: "https://api.usaspending.gov/test/recipient/1", source_kind: "usaspending_doe_awards", crawl_status: "ok",
       http_status: 200, content_text: TEXT, content_sha256: Digest::SHA256.hexdigest(TEXT))
+    # The API index the crawl fetches; each recipient's page is stored from it.
+    @index = Source.create!(url: "https://api.usaspending.gov/test/index", source_kind: "usaspending_api", crawl_status: "ok",
+      http_status: 200, fetched_at: 1.hour.ago)
     @doe = Organization.create!(name: FUNDER, verification_status: "verified", verified_by: "human:tosin")
     @company = Organization.create!(name: "Imaginary Fission Co", verification_status: "verified", verified_by: "human:tosin")
     @link = Relationship.create!(from_organization: @doe, to_organization: @company, relationship_type: "funds", description: "Pending.")
@@ -151,6 +154,30 @@ class DataQuality::SafeClassesTest < ActiveSupport::TestCase
     @source.update_columns(http_status: 200)
     crawl_run!("match", started_at: 1.minute.ago, stats: { "dropped_check_skipped" => 1 })
     assert_equal "the last match run didn't check for dropped facts", why(candidate)
+  end
+
+  test "G5: the latest crawl or match attempt counts, whatever its status, and so does the API index's last fetch" do
+    candidate = claim({ "description" => SECOND })
+    assert_nil why(candidate)
+
+    @index.update_columns(http_status: 503, fetched_at: Time.current)
+    assert_equal "the source's last fetch didn't return 200", why(candidate), "a failed API fetch leaves the recipient's page as it was"
+
+    @index.update_columns(http_status: 200)
+    failed = CrawlRun.create!(stage: "crawl", source_kind: "usaspending_doe_awards", status: "failed", started_at: 1.minute.ago)
+    assert_equal "the source's last crawl didn't finish", why(candidate)
+
+    failed.update_columns(status: "succeeded")
+    CrawlRun.create!(stage: "match", source_kind: "usaspending_doe_awards", status: "running", started_at: Time.current)
+    assert_equal "the last match run didn't finish", why(candidate)
+  end
+
+  test "G4: a correction report filed at a company's old address still counts" do
+    candidate = claim({ "description" => SECOND })
+    CorrectionReport.create!(subject: @company.name, page_path: "/companies/#{@company.slug}", message: "The DOE total is wrong.")
+    @company.update!(slug: "imaginary-fission")
+
+    assert_equal "a correction report on its page isn't resolved", why(candidate)
   end
 
   test "G6: a run proposing more safe changes than the cap gets none of them" do

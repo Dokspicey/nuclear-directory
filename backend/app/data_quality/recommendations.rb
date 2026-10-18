@@ -77,7 +77,9 @@ module DataQuality::Recommendations
     # those left for a person, each with why.
     # The checks it needs are read for the whole list at once (a few
     # queries, however many recommendations), as Approve all's are.
-    def plan(directory: DataQuality::DirectoryClient.new)
+    # only_enabled_safe: leave out safe classes that are off (Checks only
+    # counts what Accept takes).
+    def plan(only_enabled_safe: false, directory: DataQuality::DirectoryClient.new)
       claims = Candidate.where(status: OPEN).where.not(dq_recommendation: nil).includes(:source).order(:id).to_a
       context = context_for(claims, directory:)
       items = claims.map do |candidate|
@@ -87,7 +89,7 @@ module DataQuality::Recommendations
       end
       items = one_approval_per_record(items)
       accept, left = items.partition { |item| item.why.nil? }
-      safe = DataQuality::SafeClasses.items(exclude: claims.map(&:id), directory:)
+      safe = DataQuality::SafeClasses.items(exclude: claims.map(&:id), only_enabled: only_enabled_safe, directory:)
       Plan.new(accept:, left:, safe: one_safe_approval_per_record(safe, accept))
     end
 

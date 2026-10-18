@@ -211,8 +211,9 @@ if every gate holds:
 - **G3** it changes only the class's fields (S1: description, started on), each last written by the
   pipeline from the same kind of source (`Differences.pipeline_written?`)
 - **G4** nothing else is open on its record: no claim waiting for review, no unresolved correction report
-- **G5** not from its source's first batch; the source's last fetch returned 200; the last match run
-  checked for dropped facts
+- **G5** not from its source's first batch; the latest crawl and match attempts (whatever their status)
+  succeeded, and the match checked for dropped facts; the last fetch returned 200, both the claim's page
+  and, for S1, the USAspending API index
 - **G6** its run proposes no more safe changes than the cap (20, and 25% of the source's public facts)
 
 S1 also leaves out an award total that drops by more than 20%. Accept asks every gate but the cap again

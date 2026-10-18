@@ -35,16 +35,19 @@ module DataQuality::SafeClasses
   class << self
     # Every claim a class covers that the verifier recommends, safe or not,
     # oldest first. exclude: claims Data Quality has its own call on.
-    def items(exclude: [], directory: DataQuality::DirectoryClient.new)
-      firsts = DataQuality::Review.first_batches
+    # only_enabled: skip classes that are off (a count of what Accept takes
+    # needs nothing more). Run-level checks are read once per class; the
+    # claims a class covers are at most one per DOE link a crawl changed.
+    def items(exclude: [], only_enabled: false, directory: DataQuality::DirectoryClient.new)
       CONFIG.fetch("classes").flat_map do |klass, config|
+        next [] if only_enabled && config["enabled"] != true
+
+        context = context_for(klass)
         claims = covered(klass).where.not(id: exclude).includes(:source).order(:id).to_a
         items = claims.map do |candidate|
-          why = why_not(candidate, klass, firsts:, directory:)
-          record = directory.attached_record(candidate) if candidate.subject_id
-          changes = (DataQuality::Differences.changes(candidate, record, directory:) if record) || {}
+          why, changes = evaluate(candidate, klass, context:, directory:)
           Item.new(candidate_id: candidate.id, klass:, label: config.fetch("label"), enabled: config["enabled"] == true,
-            snapshot: snapshot(candidate), claim: DataQuality::Claim.describe(candidate), changes:,
+            snapshot: snapshot(candidate), claim: DataQuality::Claim.describe(candidate), changes: changes || {},
             subject_type: candidate.subject_type, subject_id: candidate.subject_id, why:)
         end
         capped(items, config, claims, directory:)
@@ -61,7 +64,6 @@ module DataQuality::SafeClasses
     # asked again there (the cap was the page's, which the click matched).
     def accept(items, by:, directory: DataQuality::DirectoryClient.new)
       DataQuality::Review.human!(by)
-      firsts = DataQuality::Review.first_batches
       items.sort_by(&:candidate_id).map do |item|
         result = nil
         Candidate.transaction do
@@ -73,7 +75,7 @@ module DataQuality::SafeClasses
           result = skipped(item, "this claim no longer exists") and next unless candidate
           result = skipped(item, "it changed after the page loaded") and next unless snapshot(candidate) == item.snapshot
 
-          check = ->(locked) { why_not(locked, item.klass, firsts:, directory:) }
+          check = ->(locked) { why_not(locked, item.klass, directory:) }
           result = DataQuality::Review.approve([ candidate.id ], by:, reason: reason(item), only_recommended: true, safe_check: check,
             directory:).first
           raise ActiveRecord::Rollback unless result.ok?
@@ -84,65 +86,105 @@ module DataQuality::SafeClasses
       end
     end
 
-    # Why a claim isn't safe in its class, or nil. Every gate but the cap.
-    def why_not(candidate, klass, firsts:, directory:)
-      config = CONFIG.fetch("classes").fetch(klass)
-      # G1
+    # Why a claim isn't safe in its class, or nil: every gate but the cap,
+    # each read fresh (Accept asks this under the record's lock).
+    def why_not(candidate, klass, directory:)
       return "the verifier doesn't recommend it now" unless covered(klass).exists?(candidate.id)
-      return "the verifier's confidence is below #{config.fetch('min_confidence')}" if candidate.ai_confidence.to_f < config.fetch("min_confidence")
 
-      # G2, with S1's own: a published DOE funds link, both ends published, a person verified it.
-      return "it isn't attached to a link yet" unless candidate.subject_type == "Relationship" && candidate.subject_id
-
-      type, id = candidate.subject_type, candidate.subject_id
-      record = directory.fact(type:, id:)
-      return "its link isn't verified and public" unless record&.verification_status == "verified" && directory.published?(type:, id:)
-
-      values = record.values
-      unless values["relationship_type"] == config.fetch("relationship_type") && values["from_organization_name"] == config.fetch("funder")
-        return "it isn't a #{config.fetch('funder')} #{config.fetch('relationship_type')} link"
-      end
-      unless [ values["from_organization_id"], values["to_organization_id"] ].all? { |end_id| directory.published?(type: "Organization", id: end_id) }
-        return "a company on its link isn't public"
-      end
-      unless directory.verification_history(type:, id:).any? { |event| event.to_status == "verified" && event.by.to_s.start_with?("human:") }
-        return "no person has verified its link"
-      end
-
-      # G3
-      changes = DataQuality::Differences.changes(candidate, record, directory:) or return "it changes a field that can't be compared"
-      return "it changes nothing" if changes.empty?
-
-      others = changes.keys - config.fetch("fields")
-      if others.any?
-        allowed = config.fetch("fields").map { |name| label(name) }.to_sentence(two_words_connector: " or ", last_word_connector: ", or ")
-        return "it changes #{others.map { |name| label(name) }.to_sentence}, not only #{allowed}"
-      end
-      return "it changes a value a person wrote" unless DataQuality::Differences.pipeline_written?(candidate, record, directory:)
-
-      # G4
-      waiting = Candidate.where(subject_type: type, subject_id: id).where.not(id: candidate.id)
-      return "another claim on its link waits for review" if waiting.where(status: "needs_review").exists?
-      return "a correction report on its page isn't resolved" if directory.open_corrections?(type:, id:)
-
-      # G5
-      return DataQuality::Review::FIRST_BATCH if candidate.crawl_run_id && firsts[candidate.source.source_kind] == candidate.crawl_run_id
-      return "its source's last fetch didn't return 200" unless candidate.source.http_status == 200
-
-      match = CrawlRun.where(stage: "match", source_kind: candidate.source.source_kind, status: "succeeded").order(started_at: :desc, id: :desc).first
-      return "the last match run didn't check for dropped facts" if match.nil? || match.stats["dropped_check_skipped"].to_i.positive?
-
-      # S1: the award total doesn't drop too far.
-      if changes.key?("description")
-        before, after = changes.fetch("description").map { |text| total(text) }
-        return "its award total can't be read" unless before && after
-        return "its award total drops by more than #{(config.fetch('max_total_drop') * 100).round}%" if after < before * (1 - config.fetch("max_total_drop"))
-      end
-
-      nil
+      evaluate(candidate, klass, context: context_for(klass), directory:).first
     end
 
     private
+      # [why it isn't safe or nil, what it changes or nil]. G1's "recommended
+      # now" is the caller's: items reads only covered claims.
+      def evaluate(candidate, klass, context:, directory:)
+        config = CONFIG.fetch("classes").fetch(klass)
+        why = catch(:unsafe) do
+          # G5's run checks first: they're the same for every claim.
+          throw :unsafe, context[:run_problem] if context[:run_problem]
+          # G1
+          if candidate.ai_confidence.to_f < config.fetch("min_confidence")
+            throw :unsafe, "the verifier's confidence is below #{config.fetch('min_confidence')}"
+          end
+
+          changes = gates(candidate, config, context, directory)
+          return [ nil, changes ]
+        end
+        [ why, nil ]
+      end
+
+      # Every gate after G1 and the run checks; the changes when all hold,
+      # else throws :unsafe with why.
+      def gates(candidate, config, context, directory)
+        # G2, with S1's own: a published DOE funds link, both ends published, a person verified it.
+        throw :unsafe, "it isn't attached to a link yet" unless candidate.subject_type == "Relationship" && candidate.subject_id
+
+        type, id = candidate.subject_type, candidate.subject_id
+        record = directory.fact(type:, id:)
+        throw :unsafe, "its link isn't verified and public" unless record&.verification_status == "verified" && directory.published?(type:, id:)
+
+        values = record.values
+        unless values["relationship_type"] == config.fetch("relationship_type") && values["from_organization_name"] == config.fetch("funder")
+          throw :unsafe, "it isn't a #{config.fetch('funder')} #{config.fetch('relationship_type')} link"
+        end
+        unless [ values["from_organization_id"], values["to_organization_id"] ].all? { |end_id| directory.published?(type: "Organization", id: end_id) }
+          throw :unsafe, "a company on its link isn't public"
+        end
+        unless directory.verification_history(type:, id:).any? { |event| event.to_status == "verified" && event.by.to_s.start_with?("human:") }
+          throw :unsafe, "no person has verified its link"
+        end
+
+        # G3
+        changes = DataQuality::Differences.changes(candidate, record, directory:) or throw :unsafe, "it changes a field that can't be compared"
+        throw :unsafe, "it changes nothing" if changes.empty?
+
+        others = changes.keys - config.fetch("fields")
+        if others.any?
+          allowed = config.fetch("fields").map { |name| label(name) }.to_sentence(two_words_connector: " or ", last_word_connector: ", or ")
+          throw :unsafe, "it changes #{others.map { |name| label(name) }.to_sentence}, not only #{allowed}"
+        end
+        throw :unsafe, "it changes a value a person wrote" unless DataQuality::Differences.pipeline_written?(candidate, record, directory:)
+
+        # G4
+        waiting = Candidate.where(subject_type: type, subject_id: id).where.not(id: candidate.id)
+        throw :unsafe, "another claim on its link waits for review" if waiting.where(status: "needs_review").exists?
+        throw :unsafe, "a correction report on its page isn't resolved" if directory.open_corrections?(type:, id:)
+
+        # G5, this claim's part (the run's is in context_for)
+        throw :unsafe, DataQuality::Review::FIRST_BATCH if candidate.crawl_run_id && context[:firsts][candidate.source.source_kind] == candidate.crawl_run_id
+        throw :unsafe, "its source's last fetch didn't return 200" unless candidate.source.http_status == 200
+
+        # S1: the award total doesn't drop too far.
+        if changes.key?("description")
+          before, after = changes.fetch("description").map { |text| total(text) }
+          throw :unsafe, "its award total can't be read" unless before && after
+          throw :unsafe, "its award total drops by more than #{(config.fetch('max_total_drop') * 100).round}%" if after < before * (1 - config.fetch("max_total_drop"))
+        end
+
+        changes
+      end
+
+      # What's the same for every claim of a class, read once: the first
+      # batches, and G5's run checks. A run problem: the latest crawl or
+      # match attempt (whatever its status) didn't succeed, the match skipped
+      # the dropped-fact check, or the source's API index answered with
+      # anything but 200 on its last fetch (a failed fetch leaves each
+      # recipient's page as it was).
+      def context_for(klass)
+        config = CONFIG.fetch("classes").fetch(klass)
+        kind = config.fetch("source_kind")
+        latest = ->(stage) { CrawlRun.where(stage:, source_kind: kind).order(started_at: :desc, id: :desc).first }
+        crawl, match = latest.("crawl"), latest.("match")
+        index = ::Source.where(source_kind: config["index_source_kind"]).order(fetched_at: :desc, id: :desc).first if config["index_source_kind"]
+        problem =
+          if crawl.nil? || crawl.status != "succeeded" then "the source's last crawl didn't finish"
+          elsif config["index_source_kind"] && index&.http_status != 200 then "the source's last fetch didn't return 200"
+          elsif match.nil? || match.status != "succeeded" then "the last match run didn't finish"
+          elsif match.stats["dropped_check_skipped"].to_i.positive? then "the last match run didn't check for dropped facts"
+          end
+        { firsts: DataQuality::Review.first_batches, run_problem: problem }
+      end
+
       # The recommended claims a class covers: its source and kind, with no
       # call from Data Quality (its list decides those).
       def covered(klass)

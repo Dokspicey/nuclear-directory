@@ -20,6 +20,9 @@ classes:
     min_confidence: 0.9
     # Not safe when the award total falls by more than this share.
     max_total_drop: 0.2
+    # Its API index: a failed fetch there leaves each recipient's page as
+    # it was, so the run is checked here too.
+    index_source_kind: usaspending_api
 
 # G6: a run that proposes more safe changes than this, or more than this
 # share of its source's published facts, gets none of them taken.
