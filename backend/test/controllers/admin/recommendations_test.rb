@@ -252,4 +252,27 @@ class Admin::RecommendationsTest < ActionDispatch::IntegrationTest
     get admin_recommendations_path
     assert_select "#rec-#{c.id}", /It changed after Data Quality looked at it/
   end
+
+  test "Checks doesn't show a call that no longer stands: a claim reopened since shows as waiting again" do
+    a = claim("Alpha Fission Co")
+    match_and_verify
+    paste("#{a.id} approve: named on the page")
+    get admin_checks_path
+    assert_select "#claim-#{a.id}", /Data Quality recommends approving/
+
+    DataQuality::Review.reject([ a.id ], by: users(:admin).actor)
+    DataQuality::Review.reopen([ a.id ], by: users(:admin).actor, reason: "Look again")
+    match_and_verify
+
+    get admin_checks_path
+    assert_select "#claim-#{a.id}", { text: /Data Quality recommends/, count: 0 }
+    assert_select "#claim-#{a.id} .nd-tag", "Waiting for Data Quality"
+  end
+
+  test "a claim id too long to exist is a line error, not a crash" do
+    paste("12345678901234567890 approve: too long")
+
+    assert_response :unprocessable_content
+    assert_select ".nd-alert li", /Line 1: there's no claim 12345678901234567890/
+  end
 end

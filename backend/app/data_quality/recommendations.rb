@@ -24,6 +24,8 @@ module DataQuality::Recommendations
   # What every accepted decision's history says, before Data Quality's reason.
   ACCEPTED = "Accepted Data Quality's recommendation".freeze
   OPEN = %w[new matched needs_review].freeze
+  # The largest id a claim can have (a bigint); a longer number is no claim.
+  MAX_ID = (2**63) - 1
   LINE = /\A(\d+)\s+(approve|reject)\s*:\s*(.+?)\z/i
 
   # errors: [LineError, …], each line that wasn't added: where it was, its
@@ -50,7 +52,7 @@ module DataQuality::Recommendations
       calls, errors = parse(text.to_s)
       recorded = 0
       calls.each do |line, id, call, reason, text|
-        candidate = Candidate.find_by(id:)
+        candidate = Candidate.find_by(id:) if id <= MAX_ID
         next errors << LineError.new(line:, text:, problem: "there's no claim #{id}") unless candidate
         next errors << LineError.new(line:, text:, problem: "claim #{id} is already #{candidate.status}") unless OPEN.include?(candidate.status)
 
@@ -78,6 +80,10 @@ module DataQuality::Recommendations
     end
 
     # What the person saw: each claim, its call and reason, and the claim as Data Quality saw it.
+    # Whether this claim's recommendation still stands: it has one, and the
+    # claim is as Data Quality saw it (not changed or reopened since).
+    def current?(candidate) = candidate.dq_recommendation.present? && candidate.dq_payload_sha256 == digest(candidate)
+
     def fingerprint(items) = Digest::SHA256.hexdigest(items.map { |item| [ item.candidate_id, item.call, item.reason, item.snapshot ] }.to_json)
 
     # Accepts these recommendations (a plan's items) as `by`'s decision. Each

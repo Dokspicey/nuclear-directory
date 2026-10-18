@@ -42,7 +42,8 @@ module DataQuality::Review
     :ai_recommendation, :ai_reason, :ai_confidence, :ai_model, :ai_checked_at, :verify_run_id,
     :subject_type, :subject_id, :record, :differences, :found_by, :crawl_run_id, :category, :held,
     :dq_recommendation, :dq_reason) do
-    # dq_*: Data Quality's call and reason (#306), nil when it made none.
+    # dq_*: Data Quality's call and reason (#306), nil when it made none or
+    # the claim changed (or was reopened) since.
     def initialize(dq_recommendation: nil, dq_reason: nil, **) = super
   end
   Source = Data.define(:id, :url, :title, :source_kind)
@@ -671,7 +672,7 @@ module DataQuality::Review
           ai_model: candidate.ai_model, ai_checked_at: candidate.ai_checked_at, verify_run_id: candidate.verify_run_id,
           subject_type: candidate.subject_type, subject_id: candidate.subject_id, record:, differences:,
           found_by: candidate.crawl_run&.model, crawl_run_id: candidate.crawl_run_id, category: category_of(candidate),
-          held: held_reason(candidate, directory:, record:), dq_recommendation: candidate.dq_recommendation, dq_reason: candidate.dq_reason)
+          held: held_reason(candidate, directory:, record:), **(DataQuality::Recommendations.current?(candidate) ? { dq_recommendation: candidate.dq_recommendation, dq_reason: candidate.dq_reason } : {}))
       end
 
       # The same rules as category_scope, for one candidate.
