@@ -254,9 +254,17 @@ class DataQuality::Stages::Match < DataQuality::Stage
         end
         next unless settled
 
-        candidate.update!(status: "new", notes: nil, ai_recommendation: nil, ai_reason: nil, ai_confidence: nil)
+        # Its old note is kept after what this run says, so its history shows why it moved.
+        (@rematched ||= {})[candidate.id] = candidate.notes
+        candidate.update!(status: "new", ai_recommendation: nil, ai_reason: nil, ai_confidence: nil)
         @stats["rematched"] = @stats.fetch("rematched", 0) + 1
       end
+    end
+
+    # This run's note, and for a claim matched again, the note it had.
+    def noted(candidate, note)
+      was = @rematched&.dig(candidate.id) or return note
+      "#{note}. Matched again: its company or plant is in the directory now. Was: #{was}"
     end
 
     # A link already citing another page of the same kind of source (another
@@ -444,7 +452,7 @@ class DataQuality::Stages::Match < DataQuality::Stage
     # Links don't know until FactWriter finds (or doesn't find) the link.
     def attach(candidate, record, note)
       @stats["matched"] += 1
-      candidate.update!(status: "matched", subject_type: record.type, subject_id: record.id, notes: note,
+      candidate.update!(status: "matched", subject_type: record.type, subject_id: record.id, notes: noted(candidate, note),
         proposed_subject: false)
     end
 
@@ -470,7 +478,7 @@ class DataQuality::Stages::Match < DataQuality::Stage
         existing = !result.created if existing.nil?
         note ||= existing ? "Matched an existing record" : "No existing record; proposed a new pending one"
         # Remembered so a rejection can retire what match created, and only that.
-        candidate.update!(status: "matched", subject_type: result.ref.type, subject_id: result.ref.id, notes: note,
+        candidate.update!(status: "matched", subject_type: result.ref.type, subject_id: result.ref.id, notes: noted(candidate, note),
           proposed_subject: result.created)
       end
 
@@ -542,7 +550,7 @@ class DataQuality::Stages::Match < DataQuality::Stage
 
         @stats["confirmed"] = @stats.fetch("confirmed", 0) + 1
         @stats["matched"] -= 1 if candidate.status_matched?
-        candidate.update!(status: "confirmed", subject_type: record.type, subject_id: record.id, notes: note)
+        candidate.update!(status: "confirmed", subject_type: record.type, subject_id: record.id, notes: noted(candidate, note))
       end
     end
 
@@ -557,7 +565,7 @@ class DataQuality::Stages::Match < DataQuality::Stage
     def review(candidate, reason, write_error: false)
       @stats["write_errors"] += 1 if write_error
       @stats["needs_review"] += 1
-      candidate.update!(status: "needs_review", notes: reason)
+      candidate.update!(status: "needs_review", notes: noted(candidate, reason))
     end
 
     def label(payload) = payload["name"] || payload["nrc_docket"] || payload.to_s

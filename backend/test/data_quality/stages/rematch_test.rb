@@ -40,6 +40,8 @@ class DataQuality::Stages::RematchTest < ActiveSupport::TestCase
     claim.reload
     assert claim.status_matched?, claim.notes
     assert_equal 1, run.stats["rematched"]
+    assert_match(/Matched again: its company or plant is in the directory now\. Was: to_organization "GENERAL ATOMICS" isn't in the directory yet\z/,
+      claim.notes, "its history shows why it moved")
     link = Relationship.find(claim.subject_id)
     assert link.pending?, "a new link waits for verify and a person"
   end
