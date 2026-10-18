@@ -115,6 +115,24 @@ class Directory::DealTermsTest < ActiveSupport::TestCase
     assert_equal [ nil, nil ], DealTerm.where(term_type: "offtake").pluck(:external_id)
   end
 
+  test "a merge names the kept company as lead investor on any round, once each, in order" do
+    investor = Organization.create!(name: "Lowercarbon", verification_status: "verified", verified_by: BY)
+    duplicate = Organization.create!(name: "Lowercarbon Capital", verification_status: "verified", verified_by: BY)
+    other = Organization.create!(name: "Founders Fund", verification_status: "verified", verified_by: BY)
+    # A round under a link neither company is on: X-energy raising from DOE's link stands in for any.
+    both = DealTerm.create!(link: @funds, term_type: "funding_round", round: "Series D", lead_investor_ids: [ duplicate.id, other.id, investor.id ])
+    alone = DealTerm.create!(link: @funds, term_type: "funding_round", round: "Series C", lead_investor_ids: [ other.id, duplicate.id ])
+    closed = DealTerm.create!(link: @funds, term_type: "funding_round", round: "Series B", lead_investor_ids: [ duplicate.id ])
+    closed.reject!(by: BY, reason: "Wrong round")
+
+    assert Directory::FactWriter.merge_organization(from_id: duplicate.id, into_id: investor.id, by: BY).ok?
+
+    assert_equal [ investor.id, other.id ], both.reload.lead_investor_ids, "named once, where it first was"
+    assert_equal [ other.id, investor.id ], alone.reload.lead_investor_ids
+    assert_equal [ duplicate.id ], closed.reload.lead_investor_ids, "a rejected term stays as decided"
+    assert_match "2 lead investors", duplicate.verification_events.order(:id).last.reason
+  end
+
   test "a merge moves a retired duplicate link's terms to the kept link, keeping what it already has" do
     duplicate = Organization.create!(name: "X-energy LLC", verification_status: "verified", verified_by: BY)
     other_funds = Relationship.create!(from_organization: @doe, to_organization: duplicate, relationship_type: "funds",

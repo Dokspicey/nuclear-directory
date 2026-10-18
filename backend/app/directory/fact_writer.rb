@@ -180,6 +180,11 @@ module Directory
           duplicate ? row.destroy! : row.update!(subject: into) && moved["evidence"] += 1
         end
         moved["candidates"] = Candidate.where(subject_type: "Organization", subject_id: from.id).update_all(subject_id: into.id, proposed_subject: false) # they didn't propose into
+        # A round that names from as a lead investor names into instead, once
+        # each and in its order. A closed term stays as it was decided.
+        moved["lead investors"] = DealTerm.where("? = ANY (lead_investor_ids)", from.id).where.not(verification_status: Verifiable::CLOSED_STATUSES)
+          .update_all([ "lead_investor_ids = ARRAY(SELECT id FROM unnest(array_replace(lead_investor_ids, ?::bigint, ?::bigint)) " \
+            "WITH ORDINALITY AS t(id, n) GROUP BY id ORDER BY min(n))", from.id, into.id ])
 
         note = "Merged into #{into.name} (##{into.id})"
         retired.each { |row| row.reject!(by:, reason: "#{note}; #{into.name} already has this, or it would point at itself") unless row.closed? }
