@@ -173,6 +173,10 @@ module DirectoryHelper
     [ [ profile.name, place(profile.city, profile.state) ].compact.join(", "), who ].compact.join(": ")
   end
 
+  # Values up to this many characters stay on one line in the key facts,
+  # shrinking to fit; longer ones (lists) wrap (Tosin's no-wrap rule).
+  FIT_CHARS = 32
+
   UNIT_STATUS_ORDER = %w[operating not_operating under_construction planned shut_down decommissioning].freeze
 
   # A plant's units by status, operating first, leaving out statuses no

@@ -6,12 +6,27 @@
                  site shown for its units): the date is labelled as the units' (optional)
     correction_url: where "Report a correction" goes (optional) %>
 <% shown = rows.select { |_, value, _| value.present? } %>
+<%# A value and its source numbers stay on one line together (Tosin: text
+    never wraps): a short value shrinks to fit, down to 13px; a long one
+    (a list of companies) wraps, with the numbers after its last word. %>
 <aside class="nd-overview" aria-label="Key facts">
   <% if shown.any? %>
     <dl>
       <% shown.each do |label, value, citations, note| %>
         <dt><%= label %></dt>
-        <dd><%= value %><% Array(citations).each do |number, source| %><%= render "shared/source_chip", number:, source:, compact: true %><% end %><% if note %><span class="block mt-1 type-small text-ink-muted"><%= note %></span><% end %></dd>
+        <% chars = strip_tags(value.to_s).length %>
+        <%# Text fits; a block of its own (the Type chips) lays itself out. %>
+        <% chars = DirectoryHelper::FIT_CHARS + 1 if value.to_s.include?("<ul") %>
+        <dd><span class="nd-overview__line<%= " nd-overview__line--fit" if chars <= DirectoryHelper::FIT_CHARS %>" style="--chars: <%= [ chars, 1 ].max %>; --cites: <%= Array(citations).size %>"><% cites = capture do %><% Array(citations).each do |number, source| %><%= render "shared/source_chip", number:, source:, compact: true %><% end %><% end %>
+          <% if chars > DirectoryHelper::FIT_CHARS && citations.present? %>
+            <%# A list wraps, but its last item and the numbers stay together. %>
+            <%# Split only at ", " between items; HTML the page built stays HTML, plain text stays escaped. %>
+            <% head, comma, last = value.to_s.rpartition(", ") %>
+            <% head, last = [ head, last ].map(&:html_safe) if value.html_safe? %>
+            <span class="nd-overview__val"><%= head %><%= comma %></span><span class="nd-keep"><%= comma.empty? ? value : last %><span class="nd-overview__cites"><%= cites %></span></span>
+          <% else %>
+            <span class="nd-overview__val"><%= value %></span><% if citations.present? %><span class="nd-overview__cites"><%= cites %></span><% end %>
+          <% end %></span><% if note %><span class="block mt-1 type-small text-ink-muted"><%= note %></span><% end %></dd>
       <% end %>
     </dl>
   <% end %>
