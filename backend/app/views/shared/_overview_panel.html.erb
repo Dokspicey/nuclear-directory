@@ -13,11 +13,12 @@
   <% if shown.any? %>
     <dl>
       <% shown.each do |label, value, citations, note| %>
-        <dt><%= label %></dt>
-        <% chars = strip_tags(value.to_s).length %>
-        <%# Text fits; a block of its own (the Type chips) lays itself out. %>
-        <% chars = DirectoryHelper::FIT_CHARS + 1 if value.to_s.include?("<ul") %>
-        <dd><span class="nd-overview__line<%= " nd-overview__line--fit" if chars <= DirectoryHelper::FIT_CHARS %>" style="--chars: <%= [ chars, 1 ].max %>; --cites: <%= Array(citations).size %>"><% cites = capture do %><% Array(citations).each do |number, source| %><%= render "shared/source_chip", number:, source:, compact: true %><% end %><% end %>
+        <%# Text fits; a block of its own (the Type chips) lays itself out, and
+            goes under its label at the panel's full width, on every screen. %>
+        <% stacked = value.to_s.include?("<ul") %>
+        <% chars = stacked ? DirectoryHelper::FIT_CHARS + 1 : strip_tags(value.to_s).length %>
+        <%= tag.dt(label, class: ("nd-overview__stack" if stacked)) %>
+        <dd<%= ' class="nd-overview__stack"'.html_safe if stacked %>><span class="nd-overview__line<%= " nd-overview__line--fit" if chars <= DirectoryHelper::FIT_CHARS %>" style="--chars: <%= [ chars, 1 ].max %>; --cites: <%= Array(citations).size %>"><% cites = capture do %><% Array(citations).each do |number, source| %><%= render "shared/source_chip", number:, source:, compact: true %><% end %><% end %>
           <% if chars > DirectoryHelper::FIT_CHARS && citations.present? %>
             <%# A list wraps, but its last item and the numbers stay together. %>
             <%# Split only at ", " between items; HTML the page built stays HTML, plain text stays escaped. %>
