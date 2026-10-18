@@ -67,12 +67,20 @@ Fonts come from techequity.us.
 #### Text in a box stays on one line
 Text inside a box (a card title, chip, pill, button, tab, badge, table header, map label or node name) never wraps and never hyphenates. If it doesn't fit, the type gets smaller. Long-form paragraphs (descriptions, notes, prose pages) are exempt and wrap normally.
 1. **One line:** `white-space: nowrap`. Never use `hyphens: auto` anywhere in the interface, and never `overflow-wrap: anywhere` on a label.
-2. **Fit to the box:** the box is a size container (`container-type: inline-size`). The text's size comes from the box width and the label's length, clamped between the floor and its normal size. The server sets the label's character count as `--chars`:
+2. **Fit to the box:** only text in a slot whose width comes from the layout, such as a card header, a grid cell or a row, sizes to fit. That slot is the size container (`container-type: inline-size`), and the formula goes on the label inside it. The text's size comes from the slot's width and the label's length, clamped between the floor and its normal size. The server sets the label's character count as `--chars`:
    `font-size: clamp(13px, calc(100cqi / (var(--chars) * 0.56)), 15px)`. The 0.56 is Roboto Serif's average glyph width at semibold; use 0.6 for mono.
+   Never put `container-type` on a content-sized control (a button, chip, pill or source chip): it takes the content out of the control's width, so the control collapses. Those controls keep their normal size, stay `nowrap`, and wrap as whole items in their row (`flex-wrap: wrap` on the row). A label that's too long for a whole row falls to rule 4.
+   SVG text, such as map labels and node names, can't use container units. It's fitted by measuring (`getComputedTextLength()` against its slot) and stepping the size down to the floor.
 3. **Floors:** 13px for names, labels and body text in a box; 11px for counts and mono data.
 4. **Below the floor:** use the record's or category's short name, if it has one (`short_name`, or the category's `short`).
 5. **Last resort:** cut with an ellipsis (`overflow: hidden; text-overflow: ellipsis`), and keep the full text in `title` and the accessible name. Every ellipsis is a layout bug to fix with a short name, not a design choice.
-6. **Checked:** a test at 1440, 1280 and 390 fails when a one-line element's `scrollWidth` is greater than its `clientWidth`, or when its computed font size is below the floor. `/design` shows each component with its longest real label.
+6. **Checked:** a test at 1440, 1280 and 390 fails when any of these happens:
+   - an HTML one-line element's `scrollWidth` is greater than its `clientWidth`;
+   - the element takes more than one line (its client rects have more than one top);
+   - its computed font size is below the floor;
+   - an SVG label (it has no layout box) overflows. The test compares the label's `getBBox()` with its slot, and with the node circles, other labels and edges near it.
+
+   `/design` shows each component with its longest real label.
 
 ### Spacing and layout
 - 4px base: `space-1` 4 · `space-2` 8 · `space-3` 12 · `space-4` 16 · `space-6` 24 · `space-8` 32 · `space-12` 48 · `space-16` 64.
@@ -130,7 +138,7 @@ Tags have their own list pages but aren't navigation (`Tag`): `/companies?tag=fu
 - **Nodes:** an organization is a solid circle (`inverse` when selected, `ink` otherwise). A facility is a hollow circle with a `control` stroke, so organization and facility differ in shape as well as fill.
 - **Edges:** 1px `control` lines. *Supplies* and *vendor for* are solid. *Invests in* is dashed (4 4). *Offtakes from* is dotted (1 3). *Owns* and *operates* are solid with a small arrowhead. Every edge type carries a `data-sm` label on hover; never tell types apart by color alone.
 - **Selection:** clicking a node fills it `inverse`, raises its edges to `ink` and opens its summary in the detail panel without leaving the map.
-- **Labels:** org names in `small`, `ink`; never truncate inside the canvas. Hide labels below a zoom threshold instead.
+- **Labels:** org names in `small`, `ink`, on one line, following "Text in a box stays on one line": fit by measuring, down to the floor (12px on phones), then the record's `short_name`, and an ellipsis only as the last resort, with the full name in `<title>`, the aria-label and the detail sheet. Don't hide labels at small sizes; the map uses short names instead (#363).
 
 ## Iconography
 
