@@ -156,6 +156,15 @@ class Dataset::ExportTest < ActiveSupport::TestCase
     assert_not read("evidence").any? { |row| row["fact_key"] == site.slug }, "nor is its evidence listed"
   end
 
+  test "a sourced link to a verified site without its own source is kept; the site's details aren't" do
+    @site.evidence.destroy_all
+    export
+
+    assert_includes read("relationships").map { |row| row["id"] }, "facility-#{@owns.id}"
+    assert_includes read("evidence").map { |row| row["fact_key"] }, "facility-#{@owns.id}"
+    assert_equal [ nil, nil ], read("facilities").find { |row| row["slug"] == @site.slug }.fields("facility_type", "state")
+  end
+
   test "a site's capacity is its operating units' total, as its page shows it" do
     site = Facility.create!(name: "Plant Vogtle", facility_type: "power_reactor", verification_status: "verified", verified_by: BY)
     site.evidence.create!(source: @source, quote: "Plant Vogtle.", found_by: "human", confidence: 1)

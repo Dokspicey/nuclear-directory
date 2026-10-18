@@ -162,7 +162,9 @@ module Dataset
         facilities = (sites + units).sort_by(&:slug)
         shown_sites = sites.select { |site| @profiles.fetch(site.id).site_facts? }
         company_links = Relationship.published.includes(:from_organization, :to_organization).order(:id).select { |link| sourced?(link) }
-        plant_links = FacilityRelationship.published.where(facility_id: [ *units, *shown_sites ].map(&:id))
+        # A link to a verified site shows even when the site's own details
+        # don't (PlantProfile#links): the link has its own source.
+        plant_links = FacilityRelationship.published.where(facility_id: [ *units, *sites.select(&:verified?) ].map(&:id))
           .includes(:organization, :facility).order(:id).select { |link| sourced?(link) }
         roles = OrganizationRole.published.includes(:role, :organization).where(organization_id: companies.map(&:id)).select { |r| sourced?(r) }
         technologies = OrganizationTechnology.published.includes(:technology, :organization).where(organization_id: companies.map(&:id))
