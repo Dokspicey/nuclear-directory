@@ -50,6 +50,17 @@ class NoWrapTest < ApplicationSystemTestCase
     assert_equal [ true, true ], fits
   end
 
+  test "a long single value with a comma fits one line, sized by its real length, with its full text in title" do
+    @allied.update!(hq_city: "Baton Rouge Metropolitan Area", legal_name: "Allied Power Services Holdings Corporation of Louisiana, LLC")
+    resize_viewport(360, 800)
+    visit "/companies/#{@allied.slug}"
+
+    assert_selector ".nd-overview__line--fit .nd-overview__val[title='Baton Rouge Metropolitan Area, LA']"
+    legal = find(".nd-overview__line--fit .nd-overview__val[title^='Allied Power Services Holdings Corporation']")
+    assert_equal @allied.legal_name.length.to_s, legal.find(:xpath, "..")[:style][/--chars: (\d+)/, 1], "sized by its real length, not 32"
+    assert_empty page.evaluate_script(AUDIT)
+  end
+
   test "a fitted value carries its full text in title, and a focused link in it shows its ring" do
     resize_viewport(360, 800)
     visit "/companies/#{@allied.slug}"

@@ -106,9 +106,8 @@ class DirectoryHelperTest < ActionView::TestCase
     assert_equal '<a href="/b">Southern Nuclear Operating Co., Inc.</a>', last
     assert head.html_safe? && last.html_safe?
 
-    head, last = split_last_item("Fission, <b>SMR</b>")
-    assert_equal "Fission, ", head, "plain text is escaped, never trusted as HTML"
-    assert_equal "&lt;b&gt;SMR&lt;/b&gt;", last
+    assert_nil split_last_item("Fission, <b>SMR</b>"), "plain text is never split (nor trusted as HTML)"
+    assert_nil split_last_item("Baton Rouge Metropolitan Area, LA"), "a place with a comma isn't a list"
 
     assert_nil split_last_item(link_to("Southern Nuclear Operating Co., Inc.", "/b")), "one name with a comma isn't a list"
     assert_nil split_last_item("Bernhard Capital Partners Management")
