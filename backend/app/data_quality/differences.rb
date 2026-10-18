@@ -42,6 +42,7 @@ module DataQuality::Differences
     history = directory.verification_history(type: record.type, id: record.id)
     evidence = directory.evidence(type: record.type, id: record.id)
     pipeline = differences.keys.all? do |name|
+      # The history is newest first, so this is the field's latest write.
       event = history.find { |e| e.changed_values.to_h.key?(name) }
       event && pipeline_write?(event, candidate, evidence)
     end

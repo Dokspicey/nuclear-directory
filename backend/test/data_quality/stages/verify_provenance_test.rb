@@ -34,9 +34,9 @@ class DataQuality::Stages::VerifyProvenanceTest < ActiveSupport::TestCase
   end
 
   # The link as an earlier claim wrote it, approved by a person.
-  def approve(payload, source: @source)
+  def approve(payload, source: @source, **)
     first = claim(payload, source:, ai_recommendation: "recommend_publish", ai_confidence: 0.9)
-    assert DataQuality::Review.approve([ first.id ], by: "human:tosin").sole.ok?
+    assert DataQuality::Review.approve([ first.id ], by: "human:tosin", **).sole.ok?
     assert_equal "human:tosin", @link.reload.verified_by
     first
   end
@@ -68,6 +68,14 @@ class DataQuality::Stages::VerifyProvenanceTest < ActiveSupport::TestCase
     assert_checked claim({ "description" => SECOND, "started_on" => "2021-01-01" })
   end
 
+  test "an approval through Data Quality's recommendations (#355) counts as the pipeline's too" do
+    approve({ "description" => FIRST, "started_on" => "2021-01-01" }, only_recommended: true, data_quality_reviewed: true,
+      reason: "Accepted Data Quality's recommendation: the award page names it")
+
+    assert_checked claim({ "description" => SECOND, "started_on" => "2021-01-01" })
+  end
+
+  # An older pipeline approval, then a newer person's write to the same field.
   test "the same link after a repair or an admin edit stays a conflict" do
     approve({ "description" => FIRST, "started_on" => "2021-01-01" })
     restored = DataQuality::DirectoryClient.new.decide_fact("relationship", id: @link.id, status: "verified", by: "human:tosin",
