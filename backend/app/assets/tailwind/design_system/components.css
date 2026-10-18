@@ -109,7 +109,8 @@
   /* A list's last item and its numbers: bounded by the row, so a long last
      name shrinks to an ellipsis (full name in title) and the numbers stay. */
   .nd-overview__keep { display: inline-flex; align-items: baseline; max-width: 100%; vertical-align: bottom; }
-  .nd-overview__last { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .nd-overview__last { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+    font-size: clamp(13px, calc((100cqi - var(--cites) * 32px) / (var(--chars) * 0.62)), 14px); }
   .nd-overview__keep .nd-overview__cites { flex: none; }
   .nd-overview__last:has(:focus-visible) { outline: var(--nd-focus-width) solid var(--nd-focus); outline-offset: 2px; }
   /* Phones: each label above its value, so values get the full width. */

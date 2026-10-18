@@ -92,6 +92,22 @@ class NoWrapTest < ApplicationSystemTestCase
     end
   end
 
+  test "a list of owners goes under its label at 1440, its last owner whole beside its numbers" do
+    resize_viewport(1440, 900)
+    visit "/plants/#{@plant.slug}"
+
+    row = page.evaluate_script(<<~JS)
+      (() => {
+        const keep = document.querySelector(".nd-overview__keep")
+        const dd = keep.closest("dd"), dt = dd.previousElementSibling, last = keep.querySelector(".nd-overview__last")
+        return [getComputedStyle(dt).gridColumnStart, getComputedStyle(dd).gridColumnStart, last.textContent,
+          last.scrollWidth <= last.clientWidth, parseFloat(getComputedStyle(last).fontSize) >= 13]
+      })()
+    JS
+    assert_equal [ "1", "1", "Southern Nuclear Operating Co., Inc.", true, true ], row, "stacked at the panel's width, the last owner uncut"
+    assert_empty page.evaluate_script(AUDIT)
+  end
+
   test "a long last owner and its numbers stay inside the key facts column at 1440" do
     # Last in the list, by name.
     Organization.find_by!(name: "Southern Nuclear Operating Co., Inc.").update!(name: "Southern Nuclear Operating Company of Alabama, Georgia and Mississippi, Inc.")
