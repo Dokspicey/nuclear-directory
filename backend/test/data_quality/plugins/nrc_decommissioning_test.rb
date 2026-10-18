@@ -12,6 +12,7 @@ class DataQuality::Plugins::NrcDecommissioningTest < ActiveSupport::TestCase
   # checks its answers against the real schema.
   class FakeLicensees
     attr_reader :texts
+    attr_writer :answers
 
     def initialize(answers = [])
       @answers = answers
@@ -308,6 +309,47 @@ class DataQuality::Plugins::NrcDecommissioningTest < ActiveSupport::TestCase
     list_source.update!(crawl_status: "ok", extracted_sha256: nil)
     error = assert_raises(Plugin::SitePagesUnread) { plugin.extract(list_source, nil) }
     assert_match Plugin::LINK_MISSING, error.message
+  end
+
+  test "a page that names a new licensee: the old published link goes to a person, and stays published" do
+    licensees = FakeLicensees.new([ answer("Duke", "owns", DUKE_QUOTE) ])
+    with = plugin(licensees)
+    run_stages(with, "crawl", "extract", "match")
+    duke = publish_link(CR3_URL, "05000302")
+
+    # NRC rewrites the page: ADP is now the licensee named.
+    stub_request(:get, CR3_URL).to_return(body: cr3_html.sub("Calendar year 2037", "Calendar year 2038"))
+    licensees.answers = [ answer(ADP, "operates", ADP_ROLE_QUOTE) ]
+    Source.update_all(fetched_at: 2.days.ago)
+    run_stages(with, "crawl", "extract", "match")
+
+    page = Source.find_by!(url: CR3_URL)
+    assert page.candidates.status_matched.exists?(kind: "organization", payload: { "name" => ADP }), "the new licensee is proposed"
+    flagged = page.candidates.where(review_origin: "dropped", subject_type: "FacilityRelationship")
+    assert_equal [ duke.id ], flagged.map(&:subject_id), "the old link goes to a person"
+    assert duke.reload.verified?, "never unpublished automatically"
+  end
+
+  test "a page someone cited by hand becomes this plug-in's, so its licensees are read" do
+    Source.create!(url: CR3_URL, source_kind: "web_page", title: "Crystal River 3 (cited)")
+    with = plugin(FakeLicensees.new([ answer("Duke", "owns", DUKE_QUOTE) ]))
+    run_stages(with, "crawl", "extract")
+
+    page = Source.find_by!(url: CR3_URL)
+    assert_equal "nrc_decommissioning", page.source_kind
+    assert page.candidates.exists?(kind: "facility_relationship"), "its licensee is read"
+  end
+
+  test "a page another plug-in reads holds the list, and isn't fetched here" do
+    Source.create!(url: CR3_URL, source_kind: "nrc_reactor_list", title: "Another plug-in's")
+    cr3 = stub_request(:get, CR3_URL).to_return(body: cr3_html)
+    with = plugin
+    run_stages(with, "crawl")
+
+    assert_not_requested cr3
+    assert_equal 1, CrawlRun.where(stage: "crawl").order(:id).last.stats.dig("site_pages", "another_kind")
+    assert_raises(Plugin::SitePagesUnread) { run_stages(with, "extract") }
+    assert_equal 0, Candidate.count
   end
 
   test "a list without its table needs a human" do

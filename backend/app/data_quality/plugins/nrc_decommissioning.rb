@@ -92,6 +92,9 @@ class DataQuality::Plugins::NrcDecommissioning < DataQuality::Plugin
     stats["withdrawn"] = withdrawn if withdrawn.positive?
     urls.each do |url|
       page = source(url, title: "NRC: #{rows.find { |row| row.page_url == url }.name}")
+      # Another plug-in's source: never fetched or read here (the list waits).
+      next stats["site_pages"]["another_kind"] += 1 unless page.source_kind == source_kind
+
       result = DataQuality::Snapshot.take(page, fetcher: @fetcher).to_s
       stats["site_pages"][result] += 1
       # A block recorded earlier today (still blocked, or escalated to
@@ -124,6 +127,12 @@ class DataQuality::Plugins::NrcDecommissioning < DataQuality::Plugin
     text = page_text(source.content_text).gsub(PAGE_STAMP, "")
     Digest::SHA256.hexdigest([ text, *units ].join("\n")) if text.present?
   end
+
+  # A site page holds two or three facts, so a new licensee is most of its
+  # read: any fact it stops stating is flagged for a person, never
+  # unpublished. A broken page doesn't get this far: the list is checked
+  # whole first, and a read that names no licensees writes nothing.
+  def max_dropped_share(source) = source.url == LIST_URL ? super : 1.0
 
   # A unit gone from the list has usually finished decommissioning (its
   # license ended); one that restarted is on NRC's operating list instead.
@@ -181,11 +190,16 @@ class DataQuality::Plugins::NrcDecommissioning < DataQuality::Plugin
   end
 
   private
+    # A page someone cited by hand (a plain web_page source) becomes this
+    # plug-in's, so its licensees are read; one another plug-in reads stays
+    # its own, and holds the list (readable? is false).
     def source(url, title:)
-      Source.find_or_create_by!(url:) do |new_source|
+      page = Source.find_or_create_by!(url:) do |new_source|
         new_source.source_kind = source_kind
         new_source.title = title
       end
+      page.update!(source_kind:) if page.source_kind == "web_page"
+      page
     end
 
     # A site page the list no longer links to (its last unit moved to another
@@ -296,8 +310,9 @@ class DataQuality::Plugins::NrcDecommissioning < DataQuality::Plugin
       page.update!(extracted_sha256: nil)
     end
 
-    # Stored, from a fetch that worked, and not blocked since.
-    def readable?(page) = page.present? && page.crawl_ok? && page.content_text.present? && page.blocked_streak.zero?
+    # This plug-in's to read, stored from a fetch that worked, and not blocked since.
+    def readable?(page) = page.present? && page.source_kind == source_kind && page.crawl_ok? && page.content_text.present? &&
+      page.blocked_streak.zero?
 
     def list_candidates(source)
       rows = List.rows(source.content_text)

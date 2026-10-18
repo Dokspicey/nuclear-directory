@@ -40,6 +40,13 @@ class DataQuality::Plugin
   # keep the fact's last payload and just ask. Returns [payload, note] or nil.
   def dropped(_kind) = nil
 
+  # The largest share of a source's supported facts one complete read may
+  # drop and still be flagged (#240). More than that looks like a broken
+  # page rather than real changes, and flags nothing. Default: a quarter. A
+  # plug-in whose sources each hold a few facts, checked elsewhere as
+  # complete, can allow more; a dropped fact is only ever a review item.
+  def max_dropped_share(_source) = 0.25
+
   # Verify (#15) asks these two questions of the plug-in, because only it
   # knows how its quotes were taken from the source.
 

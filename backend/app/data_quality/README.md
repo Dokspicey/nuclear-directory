@@ -156,7 +156,8 @@ A nightly crawl doesn't put facts back in the review queue when they haven't cha
   - It only runs after a complete read: the snapshot was extracted, and every row was
     placed. A blocked fetch flags nothing.
   - It only covers facts approved or confirmed from that source.
-  - A read that would drop more than a quarter of them flags nothing.
+  - A read that would drop more than a quarter of them flags nothing (`plugin.max_dropped_share`; NRC
+    decommissioning's site pages, a few facts each, allow any share).
   - `plugin.dropped(kind)` suggests the change. For NRC, a unit gone from the operating
     list is suggested as shut down.
 
@@ -256,6 +257,10 @@ then NRC's page for each site it links to (about 20), each at most once a day. A
   "withdrawn"`, which a read of the page doesn't replace). Each published link it supported gets one review
   item, as the dropped check does. If the list states them again, the withdrawn claims go back to where
   match left them, with what they proposed, and the page is read again.
+- **A page that names a new licensee:** the old published link gets a review item (any share of a site
+  page's facts may be flagged), and stays published until a person decides.
+- **Pages someone cited by hand** become this plug-in's, so their licensees are read; a page another
+  plug-in reads isn't fetched here and holds the list.
 - A unit gone from the list is suggested as shut down. The list's rows, and each page's text without its
   date stamp, are what's hashed (#240).
 
