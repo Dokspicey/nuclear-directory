@@ -80,6 +80,8 @@ module DataQuality::Review
 
   # The hold Data Quality's review lifts (#306): a source's first batch.
   FIRST_BATCH = "it's from this source's first batch".freeze
+  # A decision that collided with a merge of the same records (#325).
+  BUSY = "someone was merging this just then; try again".freeze
 
   class << self
     # "human:<who>": a nonblank name, so the audit trail says who decided.
@@ -250,6 +252,10 @@ module DataQuality::Review
     #
     # data_quality_reviewed: Data Quality recommended these (#306), which
     # lifts the first-batch hold and only that one.
+    #
+    # A merge locks the same rows (#325): if the two collide, the database
+    # stops one, and here nothing is approved; each claim comes back with
+    # BUSY, to try again.
     def approve(candidate_ids, by:, reason: nil, only_recommended: false, data_quality_reviewed: false, directory: DataQuality::DirectoryClient.new)
       human!(by)
       firsts = first_batches if only_recommended # once per bulk approval
@@ -258,6 +264,8 @@ module DataQuality::Review
           approve_one(candidate, by:, reason:, directory:, only_recommended:, firsts:, data_quality_reviewed:)
         end
       end
+    rescue ActiveRecord::Deadlocked, ActiveRecord::LockWaitTimeout
+      candidate_ids.map { |id| Result.new(candidate_id: id, ref: nil, errors: [ BUSY ]) }
     end
 
     # Changes some of a candidate's values, then approves it. Link ends and
