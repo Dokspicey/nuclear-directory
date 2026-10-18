@@ -24,8 +24,16 @@
   }
   const visible = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== "hidden" }
   const problems = []
+  const label = (el) => `${el.className.split(" ")[0]} "${el.textContent.trim().replace(/\s+/g, " ").slice(0, 50)}"`
   document.querySelectorAll(ONE_LINE).forEach((el) => {
-    if (visible(el) && lines(el) > 1) problems.push(`wraps: ${el.className.split(" ")[0]} "${el.textContent.trim().replace(/\s+/g, " ").slice(0, 50)}"`)
+    if (!visible(el)) return
+    if (lines(el) > 1) problems.push(`wraps: ${label(el)}`)
+    // Cut short: allowed only where marked data-truncate, and then the full
+    // text must be in title (an ellipsis is the last resort, #365).
+    if (el.scrollWidth > el.clientWidth + 1) {
+      if (!el.hasAttribute("data-truncate")) problems.push(`cut short: ${label(el)}`)
+      else if (el.getAttribute("title") !== el.textContent.trim()) problems.push(`no full text in title: ${label(el)}`)
+    }
   })
   document.querySelectorAll(".nd-src").forEach((chip) => {
     if (!visible(chip)) return
