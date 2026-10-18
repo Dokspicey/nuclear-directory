@@ -172,7 +172,11 @@ For each `new` or `matched` candidate:
 1. **Code checks first**, with no model call. These go to `needs_review`, with the reason in `notes`:
    - its record was rejected or unpublished by a human after match attached it
    - it disagrees with a human-verified value on its record ("human-verified state is NJ; this source
-     says DE"; names aren't compared)
+     says DE"; names aren't compared). Not when every value it changes was last written by an
+     unedited approval from the same kind of source (`Differences.written_by_person`): the source is
+     updating its own value, so the verifier checks it. A seed, an admin edit, a repair, a merge, an
+     edited approval or another source makes a value a person's, and one such value keeps the whole
+     claim a conflict
    - its quote isn't in the source as stored. Each plug-in defines that: `quote_in_source?`, by default
      the page's visible text, and for NRC a whole table row
    - its plug-in holds it for a person (`hold_for_review`), e.g. a unit NRC lists as decommissioning whose
@@ -275,7 +279,16 @@ Two tests keep the module and the directory in step:
 - It also checks that the fakes in `support/fake_directory.rb` have the same
   method signatures as the real interfaces.
 
-## Giving others a source
+## DOE Isotope Program: production sites (#276)
+
+`plugins/doe_isotope_sites.rb` reads one page, isotopes.gov's "DOE IRP Production Sites", once a day.
+It takes names only from the page's own sentences: each lab named as "<Name> National Laboratory (ABBR)"
+(or Y-12's "National Security Complex") in a sentence about producing or processing isotopes, and each
+school in the sentence listing DOE's University Isotope Network. Each gives a company (its abbreviation as
+an alias), the `isotopes` category and, where its own name says so, `national_lab` or `university`, quoting
+that sentence. Verify holds a university's isotopes claim for a person (`hold_for_review`, after match
+attached it), since network membership alone doesn't say it produces isotopes. No model is asked. Companies DOE names in its news come in a second part.
+
 
 Sources belong to this module. Code outside it (e.g. the seed loader) gets one
 with `DataQuality::Sources.find_or_create(url:, source_kind:, published_on:)`,
