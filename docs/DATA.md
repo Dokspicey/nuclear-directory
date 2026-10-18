@@ -84,6 +84,7 @@ The verb is fixed (VOICE.md). Each link needs a quote that states that relations
 
   Matching treats all three the same. Only `former` changes what a page says, so only `former` needs its own source.
 - **Plant display name: the operator's name for the plant** ("Plant Vogtle", "Susquehanna Steam Electric Station"). NRC and EIA spellings ("Vogtle", "TalenEnergy Susquehanna") become aliases.
+- **Short name** (`short_name`, optional, up to 30 characters): a display label for tight spots (the connections map, home lists, chips, crumbs), preferably the company's own common usage: "Oglethorpe", "MEAG", "DOE", "Vogtle". **It's never an identity key and never matched on.** Matching uses the name and aliases; a short name a source uses goes in the aliases too. It needs no quote, since it labels a record rather than stating a fact, and a person sets it (seeds or the admin). *(PM, 18 Oct.)*
 - **Unit names follow NRC's list** ("Vogtle 3", "Hope Creek 1"). A single-unit plant may share its unit's name ("Callaway").
 - **Casing:** as the owner writes it. No all-caps unless it's an acronym (TVA, NRC). Keep accents and en dashes as published ("Global Nuclear Fuel–Americas").
 - **Abbreviations** are aliases, not display names: "NCP", "INL", "GNF-A".
@@ -251,4 +252,5 @@ The admin's Live screen and the nightly `data_quality:audit` are planned (Admin 
 | Scope is the whole nuclear industry, not only power; isotopes are in | Tosin | #266 |
 | Bucket names and edge cases ("Waste and decommissioning"; universities in Government and research; fusion and uranium as tags; stable URLs) | Tosin, with Founder and GTM | #266 |
 | "Reactor developers" becomes "Developers": reactor designers plus nuclear project developers (`project_developer`), so everything building new nuclear sits together; slug unchanged. A parent never inherits its subsidiaries' buckets | Tosin | #322 |
+| A short name is a display label only: never an identity key, never matched on | PM | #363 |
 | Bernhard Capital Partners is an investor (`venture_capital`): it owns Allied Power, a nuclear services company. Reverses #63's "no Bernhard role" (16 Oct 2026) | Tosin | #63, #322 |

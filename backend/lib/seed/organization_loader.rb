@@ -161,7 +161,7 @@ module Seed
         description = doc["description"] || {}
         legal = legal_name_item(doc)
         attributes = {
-          name: doc["name"], slug: slug, legal_name: (doc["legal_name"] if legal), website: doc["website"],
+          name: doc["name"], short_name: doc["short_name"], slug: slug, legal_name: (doc["legal_name"] if legal), website: doc["website"],
           aliases: doc["aliases"],
           country_code: doc["country_code"], status: doc["status"], description: description["text"],
           hq_city: hq.filter_map { |entry| entry["city"].presence }.last, hq_state: hq.filter_map { |entry| entry["state"].presence }.last
@@ -294,6 +294,10 @@ module Seed
         end
         if entry["other_names"].present?
           write("facilities.yml", :facility, { id: facility.id, aliases: entry["other_names"] }, [])
+        end
+        # A display label, not a sourced fact (DATA.md, Names): no evidence.
+        if entry["short_name"].present?
+          write("facilities.yml", :facility, { id: facility.id, short_name: entry["short_name"] }, [])
         end
         # An identifier, like its names: EIA's crawl finds the site by it
         # instead of proposing a second one (#229).
