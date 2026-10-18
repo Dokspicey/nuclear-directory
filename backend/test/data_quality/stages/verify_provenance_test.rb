@@ -213,4 +213,25 @@ class DataQuality::Stages::VerifyProvenanceTest < ActiveSupport::TestCase
     assert candidate.status_needs_review?
     assert_match "human-verified status is under_construction", candidate.notes
   end
+
+  # A technology is stored by key but recorded in the history as technology_id.
+  test "a plant claim restoring a technology a person cleared stays a conflict" do
+    Technology.create!(key: "pwr", name: "Pressurized water reactor")
+    plant = Facility.create!(name: "Imaginary Plant", eia_plant_id: 99_002, facility_type: "power_reactor", status: "planned", state: "TX")
+    site = ->(payload, **options) {
+      Candidate.create!(source: @source, kind: "facility", payload: { "name" => "Imaginary Plant", "eia_plant_id" => 99_002 }.merge(payload),
+        quote: "plant #{Candidate.count}", status: "matched", subject_type: "Facility", subject_id: plant.id, **options)
+    }
+    first = site.({ "status" => "under_construction", "technology" => "pwr" }, ai_recommendation: "recommend_publish", ai_confidence: 0.9)
+    assert DataQuality::Review.approve([ first.id ], by: "human:tosin").sole.ok?
+    cleared = DataQuality::DirectoryClient.new.decide_fact("facility", id: plant.id, status: "verified", by: "human:tosin",
+      reason: "Its reactor type isn't settled", attributes: { technology: nil })
+    assert cleared.success?, cleared.errors.to_sentence
+    assert_nil plant.reload.technology
+
+    candidate, verifier, = verify(site.({ "status" => "operating", "technology" => "pwr" }))
+    refute_includes verifier.asked, candidate.id
+    assert candidate.status_needs_review?
+    assert_match "human-verified status is under_construction", candidate.notes
+  end
 end

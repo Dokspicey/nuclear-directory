@@ -15,6 +15,11 @@ module DataQuality::Differences
     "facility_relationship" => %w[ownership_pct description started_on ended_on]
   }.freeze
 
+  # Values stored by key whose history is recorded under their column
+  # (FactWriter writes the row it looks up: a facility's technology is
+  # recorded as technology_id).
+  AUDITED_AS = { "technology" => "technology_id", "role" => "role_id" }.freeze
+
   # record: a DirectoryClient::Record (or nil). Only a record a human
   # verified counts; anything else has no human value to protect.
   def self.with_human_verified(candidate, record)
@@ -51,7 +56,8 @@ module DataQuality::Differences
     # domain from a website), so the differences count too.
     fields = differences.transform_values(&:first).merge(fields)
     pipeline = fields.all? do |name, stored|
-      index = history.index { |event| event.changed_values.to_h.key?(name) }
+      column = AUDITED_AS.fetch(name, name)
+      index = history.index { |event| event.changed_values.to_h.key?(column) }
       index ? pipeline_write?(history[index], history.first(index), candidate, evidence) : stored.blank?
     end
     pipeline ? {} : differences
