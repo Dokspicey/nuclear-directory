@@ -23,6 +23,21 @@ class Directory::ShortNamesTest < ActiveSupport::TestCase
     assert_equal "Vogtle", Facility.find(plant.id).short_name
   end
 
+  test "a seed sets a short name, and a later seed without one leaves it" do
+    dir = Dir.mktmpdir("orgs")
+    write_seed = ->(extra) { File.write(File.join(dir, "meag-power.yml"), { "name" => "MEAG Power", "status" => "active", **extra }.to_yaml) }
+    write_seed.({ "short_name" => "MEAG" })
+    Seed::OrganizationLoader.new(dir, facilities: nil).load!
+    company = Organization.find_by!(slug: "meag-power")
+    assert_equal "MEAG", company.short_name
+
+    write_seed.({})
+    Seed::OrganizationLoader.new(dir, facilities: nil).load!
+    assert_equal "MEAG", company.reload.short_name, "a seed without one doesn't clear it"
+  ensure
+    FileUtils.rm_rf(dir)
+  end
+
   test "a short name never finds a record" do
     Organization.create!(name: "U.S. Department of Energy", short_name: "DOE", verification_status: "verified", verified_by: BY)
 

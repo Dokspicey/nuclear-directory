@@ -161,12 +161,15 @@ module Seed
         description = doc["description"] || {}
         legal = legal_name_item(doc)
         attributes = {
-          name: doc["name"], short_name: doc["short_name"], slug: slug, legal_name: (doc["legal_name"] if legal), website: doc["website"],
+          name: doc["name"], slug: slug, legal_name: (doc["legal_name"] if legal), website: doc["website"],
           aliases: doc["aliases"],
           country_code: doc["country_code"], status: doc["status"], description: description["text"],
           hq_city: hq.filter_map { |entry| entry["city"].presence }.last, hq_state: hq.filter_map { |entry| entry["state"].presence }.last
         }
         attributes[:domain] = nil if shared.include?(Organization.domain_from(doc["website"]))
+        # A display label, set only when the file gives one: a seed without
+        # it never clears a short name set in the admin.
+        attributes[:short_name] = doc["short_name"] if doc["short_name"].present?
 
         items = [ *hq, *description_items(doc), legal ].compact.uniq
         # An unquoted legal name still finds a record an earlier seed loaded
