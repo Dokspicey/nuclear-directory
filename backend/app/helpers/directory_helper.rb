@@ -46,7 +46,11 @@ module DirectoryHelper
     "enrichment" => "Enrichment",
     "fabrication" => "Fuel fabrication",
     "reactor_vendor" => "Reactor developer",
+    "project_developer" => "Project developer",
     "reactor_services" => "Repair and services",
+    "components" => "Component maker",
+    "isotopes" => "Isotope producer",
+    "waste_decommissioning" => "Waste and decommissioning",
     "utility" => "Utility",
     "operator" => "Plant operator",
     "data_center_offtaker" => "Power buyer",
@@ -55,7 +59,8 @@ module DirectoryHelper
     "venture_capital" => "Investor",
     "government_agency" => "Government agency",
     "national_lab" => "National lab",
-    "waste_decommissioning" => "Waste and decommissioning",
+    "university" => "University",
+    "research_organization" => "Research organization",
     "molten_salt" => "Molten salt coolant",
     "water" => "Water coolant",
     "helium" => "Helium coolant",
@@ -92,6 +97,38 @@ module DirectoryHelper
   def facility_relationship_verb(type) = FACILITY_RELATIONSHIP_VERBS.fetch(type.to_s)
   def facility_type_label(type) = FACILITY_TYPE_LABELS[type.to_s]
   def facility_status_label(status) = FACILITY_STATUS_LABELS[status.to_s]
+
+  # The line icon for a kind of site (icons/nd, Design's mapping, #281): by
+  # facility type; a power plant by its reactors' types (BWR, PWR, else an
+  # advanced design, as is a planned or under-construction one with no
+  # PWR or BWR, like Kemmerer); a site being decommissioned as a waste
+  # site; anything unknown as a plain plant.
+  def site_icon_name(facility_type, reactor_types: [], status: nil)
+    return "site-waste" if status.to_s == "decommissioning"
+
+    case facility_type.to_s
+    when "power_reactor"
+      types = reactor_types.compact_blank.map(&:upcase)
+      if types.any? { |type| type.include?("BWR") } then "site-bwr"
+      elsif types.any? { |type| type.match?(/PWR|AP1000/) } then "site-pwr"
+      elsif types.any? || status.to_s.in?(%w[planned under_construction]) then "site-advanced"
+      else "site-plant"
+      end
+    when "research_reactor" then "site-research"
+    when "fusion_facility" then "site-fusion"
+    when "uranium_mine", "mill" then "site-mine"
+    when "enrichment" then "site-enrichment"
+    when "fuel_facility" then "site-fuel"
+    else "site-plant"
+    end
+  end
+
+  # A bucket's icon and the class that gives it the bucket's colours.
+  def bucket_icon(category, size: 16)
+    icon(category.plants ? "site-plant" : "bucket-#{category.key}", set: :nd, size:)
+  end
+
+  def bucket_class(category) = ("nd-bucket--#{category.key}" unless category.plants)
 
   # Roles whose parent is shown instead (enrichment under fuel) are left to the caller.
   def role_label(role)
@@ -134,10 +171,36 @@ module DirectoryHelper
     [ [ profile.name, place(profile.city, profile.state) ].compact.join(", "), who ].compact.join(": ")
   end
 
+  UNIT_STATUS_ORDER = %w[operating not_operating under_construction planned shut_down decommissioning].freeze
+
+  # A plant's units by status, operating first, leaving out statuses no
+  # unit has (PM, 16 Oct): "4 operating units", "2 operating units,
+  # 1 being decommissioned", "1 unit, not operating", "3 units: 2 shut
+  # down, 1 being decommissioned". A unit with no stated status counts as
+  # "not stated"; with only those, just the number. noun: "reactor" on
+  # link cards. shown_status: the plant's own status, when the same line
+  # already says it; if every unit shares it, only the number is given
+  # ("Operating · 4 units", not "Operating · 4 operating units").
+  def units_summary(statuses, noun: "unit", shown_status: nil)
+    return if statuses.empty?
+    return pluralize(statuses.size, noun) if shown_status.present? && statuses.all?(shown_status.to_s)
+
+    groups = statuses.map(&:presence).tally.sort_by { |status, _| UNIT_STATUS_ORDER.index(status) || UNIT_STATUS_ORDER.size }
+    parts = groups.map do |status, count|
+      status == "operating" ? pluralize(count, "operating #{noun}") : "#{count} #{status ? facility_status_label(status).downcase : "not stated"}"
+    end
+    return parts.join(", ") if groups.first.first == "operating"
+
+    total = pluralize(statuses.size, noun)
+    return total if groups.one? && groups.first.first.nil?
+
+    groups.one? ? "#{total}, #{parts.first.delete_prefix("#{statuses.size} ")}" : "#{total}: #{parts.join(", ")}"
+  end
+
   # Two sentences, with a full stop between them unless the first has one.
   # A plant's link preview and meta description (#246), from published facts
   # only, each left out when it isn't known:
-  #   "Plant Vogtle: Operating power plant in Waynesboro, Georgia. 4 units, 4,536 MWe.
+  #   "Plant Vogtle: Operating power plant in Waynesboro, Georgia. 4 operating units, 4,536 MW.
   #    Owned by Georgia Power and 3 others; operated by Southern Nuclear."
   # Kept under PREVIEW_LIMIT characters: a long owner list becomes "<first>
   # and <n> others", then the units and capacity go, then owners.
@@ -152,9 +215,8 @@ module DirectoryHelper
     where = full_place(profile.city, profile.state)
     what = kind ? [ kind, (where && "in #{where}") ].compact.join(" ") : (where && "In #{where}")
     what = what ? "#{what}, not operating" : "Not operating" if idle
-    units = profile.units.size
-    capacity = "#{number_with_precision(profile.capacity_mw, precision: 2, strip_insignificant_zeros: true, delimiter: ",")} MWe" if profile.capacity_mw
-    size = [ (pluralize(units, "unit") if units.positive?), capacity ].compact.join(", ").presence
+    capacity = "#{number_with_precision(profile.capacity_mw, precision: 2, strip_insignificant_zeros: true, delimiter: ",")} MW" if profile.capacity_mw
+    size = [ units_summary(profile.units.map(&:status), shown_status: profile.status), capacity ].compact.join(", ").presence
     owners = profile.current_companies_for("owns").map(&:name)
     operators = profile.current_companies_for("operates").map(&:name)
     # Lists as the site writes them, without a serial comma ("A, B and C").

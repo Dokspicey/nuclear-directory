@@ -95,7 +95,7 @@ class PlantPageTest < ActionDispatch::IntegrationTest
     assert_select "tr#unit-unit-4" do
       assert_select "th[scope=row]", "Unit 4"
       assert_select "td[data-label='Reactor type']", "AP1000"
-      assert_select "td[data-label='Capacity']", "1,114 MWe"
+      assert_select "td[data-label='Capacity']", "1,114 MW"
       assert_select "td[data-label='NRC docket']", "05200026"
       assert_select "td[data-label='Sources'] a.nd-src[href='#source-2']"
     end
@@ -125,9 +125,46 @@ class PlantPageTest < ActionDispatch::IntegrationTest
     assert_select ".nd-overview dt", "Reactor developer"
     assert_select ".nd-overview dd", text: /\AFission/
     assert_select ".nd-overview dd", text: /\AAP1000/
-    assert_select ".nd-overview dd", text: /\A2,228 MWe/
+    assert_select ".nd-overview dd", text: /\A2,228 MW\b/
     assert_select ".nd-overview dt", text: "Power buyer", count: 0
     assert_select ".nd-overview__foot", /checked 2026-10-09/
+  end
+
+  test "capacity reads MW, explained once in the key facts" do
+    get plant_path(slug: "plant-vogtle")
+
+    assert_select ".nd-overview dd", text: /2,228 MW.*Net summer capacity, from EIA/m
+    assert_select "main", text: /Net summer capacity, from EIA/, count: 1
+    assert_select "td[data-label='Capacity']", text: /Net summer/, count: 0
+    assert_no_match "MWe", response.body
+  end
+
+  test "capacity counts operating units only, and says so when some units are left out" do
+    cite!(plant("Unit 1", parent: @vogtle, capacity_mw: 900, status: "decommissioning"), source: @nrc)
+    get plant_path(slug: "plant-vogtle")
+
+    assert_select ".nd-overview dd", text: /\A2,228 MW\b.*Net summer capacity of operating units, from EIA/m
+    assert_select "td[data-label='Capacity']", "900 MW", "the units table still lists every unit"
+    assert_select "td[data-label='Status']", "Being decommissioned"
+  end
+
+  test "a standalone reactor shows its own capacity only while it's operating" do
+    columbia = cite!(plant("Columbia", facility_type: "power_reactor", status: "operating", capacity_mw: 1169), source: @nrc)
+    get plant_path(slug: columbia.slug)
+    assert_select ".nd-overview dd", text: /\A1,169 MW\b.*Net summer capacity, from EIA/m
+
+    columbia.update!(status: "not_operating")
+    get plant_path(slug: columbia.slug)
+    assert_select ".nd-overview dt", text: "Capacity", count: 0
+  end
+
+  test "a plant with no capacity has no capacity note" do
+    cite!(plant("Clinch River", facility_type: "power_reactor", status: "planned"), source: @nrc)
+    get plant_path(slug: "clinch-river")
+
+    assert_response :success
+    assert_select ".nd-overview dt", text: "Capacity", count: 0
+    assert_no_match "Net summer capacity", response.body
   end
 
   test "sources are numbered once, in reading order" do
@@ -213,7 +250,7 @@ class PlantPageTest < ActionDispatch::IntegrationTest
       assert_select ".nd-factrow__detail", /\AStarts /
     end
     # The one-line summary doesn't state a scheduled link as current (#246).
-    line = "Plant Vogtle: Operating power plant in Waynesboro, Georgia. 2 units, 2,228 MWe. Owned by Georgia Power."
+    line = "Plant Vogtle: Operating power plant in Waynesboro, Georgia. 2 units, 2,228 MW. Owned by Georgia Power."
     assert_select "meta[property='og:description'][content=?]", line
     assert_select "meta[name='description'][content=?]", line
   end
@@ -242,7 +279,7 @@ class PlantPageTest < ActionDispatch::IntegrationTest
     get plant_path(slug: "plant-vogtle")
 
     assert_select "meta[property='og:title'][content='Plant Vogtle']"
-    line = "Plant Vogtle: Operating power plant in Waynesboro, Georgia. 2 units, 2,228 MWe. Owned by Georgia Power; operated by Southern Nuclear."
+    line = "Plant Vogtle: Operating power plant in Waynesboro, Georgia. 2 units, 2,228 MW. Owned by Georgia Power; operated by Southern Nuclear."
     assert_select "meta[property='og:description'][content=?]", line
     assert_select "meta[name='description'][content=?]", line # the same line for search results (#246)
     assert_select "link[rel=canonical][href=?]", "http://www.example.com/plants/plant-vogtle"
