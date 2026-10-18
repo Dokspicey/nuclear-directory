@@ -48,6 +48,7 @@ class HomeTest < ActionDispatch::IntegrationTest
     assert_select "section.nd-catcard", 3
     assert_select "section[data-key=reactor-developers]" do
       assert_select "a.nd-catcard__head[href=?][aria-label=?]", "/companies?category=reactor-developers", "Developers, 4 companies"
+      assert_select "section[data-label=?]", "Developers, 4 companies"
       assert_select "h2.nd-catcard__head--toggle", /Developers/, "the phone header, which shows no count"
       assert_select "a.nd-catcard__row", 3
       assert_select "a.nd-catcard__row[href=?][title=?]", "/companies/kairos-power", "Kairos Power", text: /Kairos Power/
@@ -57,7 +58,7 @@ class HomeTest < ActionDispatch::IntegrationTest
     assert_select "section[data-key=power-buyers]" do
       assert_select "a.nd-catcard__row", 1
       assert_select "li.nd-catcard__filler[aria-hidden=true]", 2
-      assert_select "a.nd-catcard__more", text: /Open the list ›/
+      assert_select "a.nd-catcard__more[aria-label=?]", "Open the list of 1 company in Power buyers", text: /Open the list ›/
     end
     assert_select "section[aria-label='Plants and sites'] a.nd-catcard__head[aria-label=?]", "Plants and sites, 0 plants and sites"
     assert_select "details.nd-howpick", 0 # no explanation link (Tosin)

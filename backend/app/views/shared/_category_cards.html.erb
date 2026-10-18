@@ -16,13 +16,17 @@
     <% category = card.category %>
     <% noun = category.plants ? pluralize(card.count, "plant or site", plural: "plants and sites") : pluralize(card.count, "company", plural: "companies") %>
     <% label = category.short_name %>
+    <%# Accessible names start with the visible words (WCAG 2.5.3, label in name),
+        then add the full name where a short label is shown, and the count. %>
+    <% named = category.short ? "#{label} (#{category.name})" : label %>
+    <% head_name = "#{named}, #{noun}" %>
     <% title = capture do %>
       <%= bucket_icon(category, size: 24) %>
       <span class="nd-catcard__name" style="--chars: <%= label.length %>"><%= label %></span>
     <% end %>
     <section class="nd-catcard nd-catcard--rows nd-catcard--compact nd-catcard--stack <%= bucket_class(category) %>" aria-label="<%= category.name %>"
-             data-catstack-target="card" data-key="<%= category.key %>">
-      <%= link_to directory_url_for(category:), class: "nd-catcard__head nd-catcard__head--link", title: category.name, aria: { label: "#{category.name}, #{noun}" } do %>
+             data-catstack-target="card" data-key="<%= category.key %>" data-label="<%= head_name %>">
+      <%= link_to directory_url_for(category:), class: "nd-catcard__head nd-catcard__head--link", title: category.name, aria: { label: head_name } do %>
         <%= title %><span class="nd-catcard__count" aria-hidden="true"><%= card.count %></span>
       <% end %>
       <h2 class="nd-catcard__head nd-catcard__head--toggle" data-catstack-target="head" title="<%= category.name %>"><%= title %><span class="sr-only"><%= " (#{category.name})" if category.short %></span></h2>
@@ -38,7 +42,7 @@
             <% end %>
             <% (HomeCategories::SHOWN - card.records.size).times do %><li class="nd-catcard__filler" aria-hidden="true"></li><% end %>
           </ul>
-          <%= link_to directory_url_for(category:), class: "nd-catcard__more", aria: { label: "See all #{card.count} in #{category.name}" } do %>
+          <%= link_to directory_url_for(category:), class: "nd-catcard__more", aria: { label: card.more? ? "See all #{card.count} in #{category.name}" : "Open the list of #{noun} in #{category.name}" } do %>
             <%= card.more? ? "See all ›" : "Open the list ›" %>
           <% end %>
         </div>
