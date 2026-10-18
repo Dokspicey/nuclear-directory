@@ -27,7 +27,18 @@ powermag.com: { name: "POWER", kind: news }
 bicmagazine.com: { name: "BIC Magazine", kind: news }
 businessreport.com: { name: "Greater Baton Rouge Business Report", kind: news }
 
-# Companies whose pages live on another domain
+# Shared hosts, by the start of the path (host and path, no scheme): each
+# account or folder belongs to a different publisher. Checked before domains.
+content.govdelivery.com/accounts/USDOEINL/: { name: "Idaho National Laboratory", kind: agency }
+content.govdelivery.com/accounts/USDOEOS/: { name: "U.S. Department of Energy, Office of Science", kind: agency }
+s205.q4cdn.com/611413639/: { name: "Dominion Energy", kind: company }
+
+# Companies whose pages live on another domain, or that aren't in the directory
+x-energy.com: { name: "X-energy", kind: company }
+gevernova.com: { name: "GE Vernova", kind: company }
+hitachi-hgne.co.jp: { name: "Hitachi-GE Nuclear Energy", kind: company }
+newsroom.kiewit.com: { name: "Kiewit", kind: company }
+tdk-ventures.com: { name: "TDK Ventures", kind: company }
 aboutamazon.com: { name: "Amazon", kind: company }
 blog.google: { name: "Google", kind: company }
 fb.com: { name: "Meta", kind: company }

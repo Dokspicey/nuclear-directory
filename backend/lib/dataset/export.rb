@@ -57,7 +57,7 @@ module Dataset
         "status" => "operating, not_operating, under_construction, planned, shut_down or decommissioning; blank when not stated",
         "technology" => "fission or fusion, when stated",
         "reactor_type" => "Reactor design type as the source states it, e.g. PWR, BWR",
-        "capacity_mw" => "Net summer capacity in MW, from EIA-860M, for a unit. A site's capacity is the sum of its units",
+        "capacity_mw" => "Net summer capacity in MW, from EIA-860M, for a unit. A site's capacity is the sum of its operating units",
         "nrc_docket" => "NRC docket number, for a licensed reactor",
         "eia_plant_id" => "EIA plant ID, on a site",
         "city" => "City, when a source names it",
@@ -227,7 +227,7 @@ module Dataset
         @source_kinds = sources.map(&:source_kind).to_set
         first_cited = Evidence.where(source_id: sources.map(&:id)).group(:source_id).minimum(:created_at)
         sources.map do |source|
-          publisher, kind = publisher_for(host_of(source))
+          publisher, kind = publisher_for(host_of(source), source.url)
           { **row(source, %w[id url title]), "publisher" => publisher, "document_type" => document_type(source, kind),
             "published_on" => source.published_on, "accessed_on" => (source.fetched_at || first_cited[source.id])&.to_date }
         end
@@ -235,11 +235,16 @@ module Dataset
 
       def host_of(source) = (source.domain.presence || URI.parse(source.url).host.to_s).downcase.delete_prefix("www.")
 
-      # [name, kind]: from the reviewed list, then a published company's own
-      # domain, each trying the host and then its parents. Unknown: the
-      # domain itself, listed in the report.
-      def publisher_for(host)
+      # [name, kind]: a shared host's path rule from the reviewed list first
+      # ("content.govdelivery.com/accounts/USDOEINL/"), then the list and a
+      # published company's own domain, each trying the host and then its
+      # parents. Unknown: the domain itself, listed in the report.
+      def publisher_for(host, url)
         @unknown_publishers ||= Set.new
+        page = URI.parse(url).then { |uri| "#{uri.host.to_s.downcase.delete_prefix('www.')}#{uri.path}" } rescue ""
+        by_path = publishers.select { |key, _| key.include?("/") }.max_by { |key, _| page.start_with?(key) ? key.size : -1 }
+        return by_path.last.values_at("name", "kind") if by_path && page.start_with?(by_path.first)
+
         candidates = host.split(".").each_index.map { |i| host.split(".").drop(i).join(".") }.select { |name| name.include?(".") }
         candidates.each do |name|
           listed = publishers[name] and return [ listed["name"], listed["kind"] ]

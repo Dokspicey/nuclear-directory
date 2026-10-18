@@ -72,16 +72,16 @@ module Dataset
         ## How it's checked
 
         - Every published fact has a public source and a quote that states it. A fact we can't source isn't published.
-        - A person approves every fact before it's published, and a person's decision is never overwritten by a crawler.
-        - Sources are official records first (NRC, EIA, DOE, SEC), then the company itself, then named reporting. Aggregators and directories are used only as leads, never cited. Power deals, investments and awards need an official record or the parties' own statement.
+        - A person approves every fact before it's published, and a person's decision is not overwritten by a crawler.
+        - Sources are official records first (NRC, EIA, DOE, SEC), then the company itself, then named reporting. Aggregators and directories are used as leads, not cited as sources. Power deals, investments and awards need an official record or the parties' own statement.
         - Crawled sources are read again on a schedule; a fact whose source changes or drops it goes back to a person.
         - The full rules are in the project's [data standard](https://github.com/tosinoladokun/nuclear-directory/blob/main/docs/DATA.md).
 
         ## Limits
 
         - US only, and not every company or facility in the industry yet.
-        - A blank value means no source states it. Nothing is guessed or geocoded.
-        - Capacity is net summer capacity in MW, from EIA, for reactor units. A site's capacity is the sum of its units.
+        - A blank value means no source states it. Nothing is guessed.
+        - Capacity is net summer capacity in MW, from EIA, for reactor units. A site's capacity is the sum of its operating units.
         - Buckets are computed from each company's sourced categories and links, so a company can be in several. Count companies, not the sum of buckets.
         - Quotes aren't in this dataset, because they're other publishers' text. Each fact's page on #{Export::SITE.delete_prefix("https://")} shows its quote, and the `sources` table links to every document.
         - The data is as of the release date. The website changes daily.
@@ -92,7 +92,7 @@ module Dataset
 
         ## Licence
 
-        #{Export::LICENSE[:name]} ([#{Export::LICENSE[:id]}](#{Export::LICENSE[:url]})). You may share and adapt the data, including commercially, as long as you credit Nuclear Directory and link the licence. #{Export::LICENSE_SCOPE}
+        #{Export::LICENSE[:name]} ([#{Export::LICENSE[:id]}](#{Export::LICENSE[:url]})). You may share and adapt the data, including commercially, as long as you credit it (see How to cite), link the licence and say whether you made changes. #{Export::LICENSE_SCOPE}
 
         ## Corrections
 
@@ -171,7 +171,7 @@ module Dataset
     def license
       <<~TXT
         #{Export::TITLE}
-        Copyright #{@released_on.year} #{Export::AUTHOR[:given]} #{Export::AUTHOR[:family]} and #{Export::PUBLISHER}
+        Copyright #{@released_on.year} #{Export::AUTHOR[:given]} #{Export::AUTHOR[:family]}
 
         Licensed under the #{Export::LICENSE[:name]} licence (#{Export::LICENSE[:id]}).
         Summary: #{Export::LICENSE[:url]}
