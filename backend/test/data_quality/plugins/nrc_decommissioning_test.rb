@@ -148,6 +148,43 @@ class DataQuality::Plugins::NrcDecommissioningTest < ActiveSupport::TestCase
     assert_equal dresden_page.candidates.count, run.stats["withdrawn"]
   end
 
+  test "a page that loses one of its units withdraws only that unit's links" do
+    licensees = FakeLicensees.new([ answer("Duke", "owns", DUKE_QUOTE) ])
+    with = plugin(licensees)
+    run = ->(stage) { DataQuality::Pipeline.run("nrc_decommissioning", plugin: with, only: stage) }
+    %w[crawl extract match].each(&run)
+    songs = Source.find_by!(url: "https://www.nrc.gov/facilities-safety/facility-finder/decommissioning/power-reactor/san-onofre-units-2-3")
+    links = -> { songs.candidates.where(kind: "facility_relationship").index_by { |c| c.payload.dig("facility", "nrc_docket") } }
+    assert_equal %w[05000361 05000362], links.call.keys.sort
+
+    # San Onofre 2 moves to the Unit 1 page; Unit 3 stays on this one, whose text doesn't change.
+    moved = list_html.sub("san-onofre-units-2-3\">", "san-onofre-unit-1\">")
+    stub_request(:get, Plugin::LIST_URL).to_return(body: moved)
+    Source.update_all(fetched_at: 2.days.ago)
+    run.("crawl")
+
+    assert links.call["05000361"].status_rejected?
+    assert_equal Plugin::DEPARTED, links.call["05000361"].notes
+    assert_not links.call["05000362"].status_rejected?, "Unit 3's link still holds"
+    assert FacilityRelationship.find(links.call["05000361"].subject_id).rejected?, "the link only that claim proposed is retired"
+  end
+
+  test "a company two pages shared is retired once the second page is withdrawn too" do
+    page_a = stored("https://www.nrc.gov/facilities-safety/facility-finder/decommissioning/power-reactor/a", "<main>A</main>")
+    page_b = stored("https://www.nrc.gov/facilities-safety/facility-finder/decommissioning/power-reactor/b", "<main>B</main>")
+    company = Organization.create!(name: "Shared Decommissioner")
+    page_a.candidates.create!(kind: "organization", payload: { "name" => company.name }, quote: "A", status: "matched",
+      subject_type: "Organization", subject_id: company.id, proposed_subject: true)
+    page_b.candidates.create!(kind: "organization", payload: { "name" => company.name }, quote: "B", status: "matched",
+      subject_type: "Organization", subject_id: company.id, proposed_subject: false)
+    crawl_run = CrawlRun.create!(stage: "crawl", source_kind: "nrc_decommissioning")
+
+    plugin.send(:withdraw_claims, Source.where(id: page_a.id), crawl_run, note: Plugin::UNLISTED)
+    assert company.reload.pending?, "page B still names it"
+    plugin.send(:withdraw_claims, Source.where(id: page_b.id), crawl_run, note: Plugin::UNLISTED)
+    assert company.reload.rejected?, "no live claim is left, and the pipeline proposed it"
+  end
+
   test "a page the list stops linking: its own proposals are retired, and it's read again once listed again, unchanged" do
     licensees = FakeLicensees.new([ answer("Duke", "owns", DUKE_QUOTE) ])
     with = plugin(licensees)

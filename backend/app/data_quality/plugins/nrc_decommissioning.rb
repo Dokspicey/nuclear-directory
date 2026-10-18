@@ -86,6 +86,8 @@ class DataQuality::Plugins::NrcDecommissioning < DataQuality::Plugin
       return stats.merge("stopped" => "site page blocked") if result == "blocked" || page.blocked_streak.positive?
 
       reread_if_units_changed(page)
+      departed = withdraw_departed_units(page, run)
+      stats["withdrawn"] = stats.fetch("withdrawn", 0) + departed if departed.positive?
     end
     stats
   end
@@ -169,43 +171,60 @@ class DataQuality::Plugins::NrcDecommissioning < DataQuality::Plugin
     end
 
     # A site page the list no longer links to (its last unit moved to another
-    # page, or left the list) no longer speaks for any unit: its claims
-    # nobody has decided are withdrawn, and one already in a person's review
-    # says so. A record match proposed for a withdrawn claim is retired when
-    # no live claim uses it any more (as the EIA plug-in does). The page's
-    # stored read is cleared, so if NRC links it again, even unchanged, it's
-    # read again. One transaction, locked as a review decision locks (the
-    # sources, then the claims). Returns how many were withdrawn.
+    # page, or left the list) no longer speaks for any unit. Returns how many
+    # claims were withdrawn.
     UNLISTED = "NRC's decommissioning list no longer links this page"
+    # A unit the list moved off a page that still covers others.
+    DEPARTED = "NRC's decommissioning list no longer puts this unit on this page"
 
     def withdraw_unlisted_pages(urls, run)
+      withdraw_claims(Source.where(source_kind:).where.not(url: [ LIST_URL, *urls ]), run, note: UNLISTED)
+    end
+
+    # A page's link claims for units the list no longer maps to it.
+    def withdraw_departed_units(page, run)
+      dockets = units_for(page).map(&:nrc_docket).to_set
+      withdraw_claims(Source.where(id: page.id), run, note: DEPARTED,
+        only: ->(claim) { claim.kind == "facility_relationship" && !dockets.include?(claim.payload.dig("facility", "nrc_docket")) })
+    end
+
+    # Withdraws these pages' claims nobody has decided (only: the ones that
+    # no longer hold), and notes one already in a person's review. A record
+    # match proposed for them is retired once no live claim uses it (as the
+    # EIA plug-in does). Each page's stored read is cleared, so it's read
+    # again even if unchanged. One transaction, locked as a review decision
+    # locks (the sources, then the claims). Returns how many were withdrawn.
+    def withdraw_claims(pages, run, note:, only: nil)
       Candidate.transaction do
-        pages = Source.where(source_kind:).where.not(url: [ LIST_URL, *urls ]).order(:id).lock.to_a
+        pages = pages.order(:id).lock.to_a
         next 0 if pages.empty?
 
         waiting = Candidate.where(source_id: pages.map(&:id), status: %w[new matched needs_review]).order(:id).lock.to_a
+        waiting = waiting.select(&only) if only
         next 0 if waiting.empty?
 
         held, open = waiting.partition(&:status_needs_review?)
-        Candidate.where(id: held.map(&:id)).where("notes IS NULL OR notes NOT LIKE ?", "%#{UNLISTED}%")
-          .update_all([ "notes = COALESCE(notes || '. ', '') || ?, updated_at = ?", UNLISTED, Time.current ])
-        Candidate.where(id: open.map(&:id)).update_all(status: "rejected", notes: UNLISTED, updated_at: Time.current)
+        Candidate.where(id: held.map(&:id)).where("notes IS NULL OR notes NOT LIKE ?", "%#{note}%")
+          .update_all([ "notes = COALESCE(notes || '. ', '') || ?, updated_at = ?", note, Time.current ])
+        Candidate.where(id: open.map(&:id)).update_all(status: "rejected", notes: note, updated_at: Time.current)
         retire_proposals(open.select(&:subject_id), run)
         Source.where(id: waiting.map(&:source_id).uniq).update_all(extracted_sha256: nil, extracted_rows_sha256: nil)
         open.size
       end
     end
 
-    # A record a withdrawn claim proposed is retired (rejected, as verify
-    # does for a rejected proposal) under its lock, only when no live claim
-    # is attached to it. A record a person decided is left alone (retire is
-    # a protected write). Any failure undoes the withdrawal too.
+    # A record withdrawn claims were attached to is retired (rejected, as
+    # verify does for a rejected proposal) under its lock, when a claim from
+    # the pipeline proposed it (this one or an earlier one, from any page) and
+    # no live claim is attached any more. A record a person decided is left
+    # alone (retire is a protected write). Any failure undoes the withdrawal.
     def retire_proposals(candidates, run)
       directory = DataQuality::DirectoryClient.new
-      candidates.select(&:proposed_subject).uniq { |c| [ c.subject_type, c.subject_id ] }.each do |candidate|
+      candidates.uniq { |c| [ c.subject_type, c.subject_id ] }.each do |candidate|
         result = nil
         directory.unless_closed(candidate) do
           attached = Candidate.where(subject_type: candidate.subject_type, subject_id: candidate.subject_id)
+          next unless attached.where(proposed_subject: true).exists?
           next if attached.where(status: %w[new matched merged needs_review]).exists?
 
           result = directory.retire(candidate, crawl_run: run)
