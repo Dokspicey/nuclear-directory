@@ -29,6 +29,36 @@ class Directory::SecFieldsTest < ActiveSupport::TestCase
     assert_raises(ActiveRecord::StatementInvalid) { Organization.new(name: "D").tap { |o| o.save!(validate: false) }.update_columns(sec_cik: "123") }
   end
 
+  test "a bare CIK prefix is refused, never taken as clearing the CIK" do
+    @company.update!(sec_cik: "1820953")
+    assert_not @company.update(sec_cik: "CIK"), "\"CIK\" alone isn't a CIK"
+    assert_equal "0001820953", @company.reload.sec_cik
+  end
+
+  test "a seed sets the CIK, and a later seed without one leaves it" do
+    @company.destroy! # the seed creates it, as on a fresh database
+    dir = Dir.mktmpdir("orgs")
+    write_seed = ->(extra) { File.write(File.join(dir, "kairos-power.yml"), { "name" => "Kairos Power", "status" => "active", **extra }.to_yaml) }
+    write_seed.({ "sec_cik" => "1820953" })
+    Seed::OrganizationLoader.new(dir, facilities: nil).load!
+    company = Organization.find_by!(slug: "kairos-power")
+    assert_equal "0001820953", company.sec_cik
+
+    write_seed.({})
+    Seed::OrganizationLoader.new(dir, facilities: nil).load!
+    assert_equal "0001820953", company.reload.sec_cik, "a seed without a CIK doesn't clear it"
+  ensure
+    FileUtils.rm_rf(dir)
+  end
+
+  test "match finds a company by its CIK before its name, as FactWriter does" do
+    by_cik = Organization.create!(name: "Kairos Power Holdings", sec_cik: "1820953", verification_status: "verified", verified_by: BY)
+    match = DataQuality::Stages::Match.new(plugin: nil)
+    found = match.send(:resolve_organization, { "name" => "Kairos Power", "sec_cik" => "0001820953" })
+
+    assert_equal [ by_cik.id, "SEC CIK" ], [ found.record.id, found.by ], "the name would have found the other Kairos Power"
+  end
+
   test "FactWriter finds a company by its CIK before its name" do
     @company.update!(sec_cik: "0001820953")
     result = Directory::FactWriter.write(:organization, { name: "KAIROS POWER LLC", sec_cik: "1820953" },

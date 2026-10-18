@@ -50,8 +50,8 @@ class DataQuality::DirectoryClient
   end
 
   # Exact lookups. Pass one keyword; returns a Record or nil.
-  def organization(name: nil, domain: nil)
-    record("Organization", lookup.organization(name:, domain:))
+  def organization(name: nil, domain: nil, sec_cik: nil)
+    record("Organization", lookup.organization(name:, domain:, sec_cik:))
   end
 
   def facility(id: nil, name: nil, site_name: nil, nrc_docket: nil, eia_plant_id: nil)
