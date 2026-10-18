@@ -71,12 +71,17 @@ Text inside a box (a card title, chip, pill, button, tab, badge, table header, m
    `font-size: clamp(13px, calc(100cqi / (var(--chars) * 0.56)), 15px)`. The 0.56 is Roboto Serif's average glyph width at semibold; use 0.6 for mono.
    Never put `container-type` on a content-sized control (a button, chip, pill or source chip): it takes the content out of the control's width, so the control collapses. Those controls keep their normal size, stay `nowrap`, and wrap as whole items in their row (`flex-wrap: wrap` on the row). A label that's too long for a whole row falls to rule 4.
    SVG text, such as map labels and node names, can't use container units. It's fitted by measuring (`getComputedTextLength()` against its slot) and stepping the size down to the floor.
-3. **Floors:** 13px for names, labels and body text in a box; 11px for counts and mono data.
+3. **Floors:**
+   - 13px for names, labels and body text in a box;
+   - 11px for counts and mono data;
+   - 12px for map labels and node names on phones (see "Relationship map visual language").
+
+   Fitting and the font-size check use these same floors.
 4. **Below the floor:** use the record's or category's short name, if it has one (`short_name`, or the category's `short`).
-5. **Last resort:** cut with an ellipsis (`overflow: hidden; text-overflow: ellipsis`), and keep the full text in `title` and the accessible name. Every ellipsis is a layout bug to fix with a short name, not a design choice.
+5. **Last resort:** cut with an ellipsis (`overflow: hidden; text-overflow: ellipsis`), and keep the full text in `title` and the accessible name. For a label we write, like a category or a button, an ellipsis is a bug to fix with a short label. For a record's long name in a row, such as a company in a homepage card, the ellipsis is accepted (Tosin, 17 Oct).
 6. **Checked:** a test at 1440, 1280 and 390 fails when any of these happens:
    - an HTML one-line element's `scrollWidth` is greater than its `clientWidth`;
-   - the element takes more than one line (its client rects have more than one top);
+   - the text takes more than one line. Measure the text, not the element: a block or flex element (like `.nd-cat b`) reports one box even when its text wraps. Use a Range over its contents (`range.selectNodeContents(el); range.getClientRects()`) and count distinct line tops (within 4px). The fallback is the element's height compared with one computed line-height;
    - its computed font size is below the floor;
    - an SVG label (it has no layout box) overflows. The test compares the label's `getBBox()` with its slot, and with the node circles, other labels and edges near it.
 
