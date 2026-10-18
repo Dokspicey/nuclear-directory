@@ -275,7 +275,15 @@ Two tests keep the module and the directory in step:
 - It also checks that the fakes in `support/fake_directory.rb` have the same
   method signatures as the real interfaces.
 
-## Giving others a source
+## NRC uranium recovery (#275)
+
+`plugins/nrc_uranium_recovery.rb` reads NRC's "Locations of Uranium Recovery Facilities" once a day, and
+only its table of NRC-licensed facilities. Each row gives the site (in situ recovery as `uranium_mine`, a
+conventional mill as `mill`; city and state from Location), its licensee, an `operates` link and the
+licensee's `mining` category, all quoting the row. A row whose type or state can't be read is held for a
+person at verify. The page's table of Agreement-State sites isn't read: NRC says it was last updated in
+2018 and makes no claim about it. Those sites come from each state's own list (#384).
+
 
 Sources belong to this module. Code outside it (e.g. the seed loader) gets one
 with `DataQuality::Sources.find_or_create(url:, source_kind:, published_on:)`,
