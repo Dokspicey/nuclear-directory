@@ -99,6 +99,21 @@ class DirectoryHelperTest < ActionView::TestCase
     assert_equal "site-plant", site_icon_name(nil)
   end
 
+  test "a list splits before its last item, never at a comma inside a name or link" do
+    links = safe_join([ link_to("Georgia Power", "/a"), ", ", link_to("Southern Nuclear Operating Co., Inc.", "/b") ])
+    head, last = split_last_item(links)
+    assert_equal '<a href="/a">Georgia Power</a>, ', head
+    assert_equal '<a href="/b">Southern Nuclear Operating Co., Inc.</a>', last
+    assert head.html_safe? && last.html_safe?
+
+    head, last = split_last_item("Fission, <b>SMR</b>")
+    assert_equal "Fission, ", head, "plain text is escaped, never trusted as HTML"
+    assert_equal "&lt;b&gt;SMR&lt;/b&gt;", last
+
+    assert_nil split_last_item(link_to("Southern Nuclear Operating Co., Inc.", "/b")), "one name with a comma isn't a list"
+    assert_nil split_last_item("Bernhard Capital Partners Management")
+  end
+
   test "relationship verbs read left to right in visitors' words" do
     assert_equal "offtakes from", relationship_verb("offtake_with")
     assert_equal "invests in", relationship_verb(:invests_in)

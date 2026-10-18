@@ -1,0 +1,64 @@
+require "application_system_test_case"
+require_relative "../support/directory_builders"
+
+# The home page's category cards (#362), against the spec's acceptance tests.
+class HomeCardsTest < ApplicationSystemTestCase
+  include DirectoryBuilders
+
+  AUDIT = File.readlines(File.expand_path("../support/no_wrap_audit.js", __dir__)).reject { |line| line.start_with?("//") }.join
+
+  # Every bucket full, with long names, as on production.
+  setup do
+    %w[reactor_vendor fuel components waste_decommissioning utility data_center_offtaker reactor_services venture_capital government_agency]
+      .each_with_index do |key, index|
+        bucket_role = role(key)
+        4.times { |n| cite!(company("#{key.humanize} Company Number #{n} Holdings International #{index}", roles: [ bucket_role ])) }
+      end
+    4.times { |n| cite!(plant("Long Named Generating Station Number #{n}", facility_type: "power_reactor", status: "operating")) }
+  end
+
+  def cards = page.evaluate_script("[...document.querySelectorAll('section.nd-catcard')].map((c) => [c.dataset.key, c.querySelectorAll('a.nd-catcard__row').length])")
+
+  [ [ 1440, 900 ], [ 1280, 800 ] ].each do |width, height|
+    test "the whole page fits #{width}x#{height} with no scroll, one line everywhere" do
+      resize_viewport(width, height)
+      visit root_path
+
+      assert_operator page.evaluate_script("document.documentElement.scrollHeight"), :<=, height, "the page scrolls at #{width}x#{height}"
+      assert_equal 10, cards.size
+      assert_equal "plants", cards.last.first, "Plants and sites is the last card"
+      assert(cards.all? { |_, rows| rows <= 3 })
+      assert_empty page.evaluate_script(AUDIT)
+      assert page.evaluate_script("[...document.querySelectorAll('.nd-catcard__chev')].every((c) => c.offsetParent)"), "every row shows its › at rest"
+    end
+  end
+
+  test "on a phone: no sideways scroll, 44px links, sticky headers, cards that collapse and stay collapsed" do
+    resize_viewport(390, 844)
+    visit root_path
+
+    assert_empty page.evaluate_script(AUDIT)
+    short = page.evaluate_script("[...document.querySelectorAll('.nd-catstack a, .nd-catstack button')].filter((el) => el.offsetParent && el.getBoundingClientRect().height < 44).map((el) => el.textContent.trim())")
+    assert_empty short, "links under 44px tall"
+    assert_equal "plants", cards.last.first
+    assert_equal 0, page.evaluate_script("document.querySelectorAll('.nd-catstack .nd-catcard__count').length - document.querySelectorAll('.nd-catcard__head--link .nd-catcard__count').length"), "no counts in phone headers"
+
+    # Scroll into the second card: its header sits at the top.
+    top = page.evaluate_script("(() => { const card = document.querySelectorAll('section.nd-catcard')[1]; window.scrollTo(0, card.getBoundingClientRect().top + scrollY + 60); return Math.round(card.querySelector('.nd-catcard__head--toggle').getBoundingClientRect().top) })()")
+    assert_equal 0, top, "the header sticks at the top while its rows scroll under it"
+
+    toggle = find("section[data-key=fuel] .nd-catcard__toggle")
+    assert_equal "true", toggle["aria-expanded"]
+    toggle.click
+    assert_equal "false", toggle["aria-expanded"]
+    assert_no_selector "section[data-key=fuel] a.nd-catcard__row", visible: true
+
+    visit root_path
+    assert_equal "false", find("section[data-key=fuel] .nd-catcard__toggle")["aria-expanded"], "the choice is remembered"
+    click_on "Collapse all"
+    assert_equal [ "false" ], all(".nd-catcard__toggle").map { |t| t["aria-expanded"] }.uniq, "every card closes"
+    click_on "Expand all"
+    assert_equal [ "true" ], all(".nd-catcard__toggle").map { |t| t["aria-expanded"] }.uniq, "every card opens"
+    assert_button "Collapse all"
+  end
+end

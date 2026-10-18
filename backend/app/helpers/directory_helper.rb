@@ -177,6 +177,25 @@ module DirectoryHelper
   # shrinking to fit; longer ones (lists) wrap (Tosin's no-wrap rule).
   FIT_CHARS = 32
 
+  # A list value ("A, B, C", names possibly links) split before its last
+  # item, so that item can stay on a line with its source numbers. Only a
+  # ", " between items counts, never one inside a name or a link ("Southern
+  # Nuclear Operating Co., Inc."). Returns [head, last] as HTML, or nil when
+  # the value isn't a list.
+  def split_last_item(value)
+    html = value.html_safe? ? value.to_s : ERB::Util.html_escape(value.to_s)
+    nodes = Nokogiri::HTML::DocumentFragment.parse(html).children.to_a
+    index = nodes.rindex { |node| node.text? && node.text.include?(", ") }
+    return unless index
+
+    before, _, after = nodes[index].text.rpartition(", ")
+    escape = ->(text) { ERB::Util.html_escape(text).to_str }
+    render = ->(list) { list.map { |node| node.text? ? escape.(node.text) : node.to_html }.join }
+    head = render.(nodes[0...index]) + escape.(before) + ", "
+    last = escape.(after) + render.(nodes[(index + 1)..])
+    [ head.html_safe, last.html_safe ] # rubocop:disable Rails/OutputSafety
+  end
+
   UNIT_STATUS_ORDER = %w[operating not_operating under_construction planned shut_down decommissioning].freeze
 
   # A plant's units by status, operating first, leaving out statuses no

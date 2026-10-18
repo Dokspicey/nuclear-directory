@@ -17,14 +17,13 @@
             goes under its label at the panel's full width, on every screen. %>
         <% stacked = value.to_s.include?("<ul") %>
         <% chars = stacked ? DirectoryHelper::FIT_CHARS + 1 : strip_tags(value.to_s).length %>
+        <%# A long list keeps its last item with its numbers; anything else fits one line. %>
+        <% parts = split_last_item(value) if !stacked && chars > DirectoryHelper::FIT_CHARS && citations.present? %>
+        <% chars = DirectoryHelper::FIT_CHARS if !stacked && !parts && chars > DirectoryHelper::FIT_CHARS %>
         <%= tag.dt(label, class: ("nd-overview__stack" if stacked)) %>
         <dd<%= ' class="nd-overview__stack"'.html_safe if stacked %>><span class="nd-overview__line<%= " nd-overview__line--fit" if chars <= DirectoryHelper::FIT_CHARS %>" style="--chars: <%= [ chars, 1 ].max %>; --cites: <%= Array(citations).size %>"><% cites = capture do %><% Array(citations).each do |number, source| %><%= render "shared/source_chip", number:, source:, compact: true %><% end %><% end %>
-          <% if chars > DirectoryHelper::FIT_CHARS && citations.present? %>
-            <%# A list wraps, but its last item and the numbers stay together. %>
-            <%# Split only at ", " between items; HTML the page built stays HTML, plain text stays escaped. %>
-            <% head, comma, last = value.to_s.rpartition(", ") %>
-            <% head, last = [ head, last ].map(&:html_safe) if value.html_safe? %>
-            <span class="nd-overview__val"><%= head %><%= comma %></span><span class="nd-keep"><%= comma.empty? ? value : last %><span class="nd-overview__cites"><%= cites %></span></span>
+          <% if parts %>
+            <span class="nd-overview__val"><%= parts.first %></span><span class="nd-keep"><%= parts.last %><span class="nd-overview__cites"><%= cites %></span></span>
           <% else %>
             <span class="nd-overview__val"><%= value %></span><% if citations.present? %><span class="nd-overview__cites"><%= cites %></span><% end %>
           <% end %></span><% if note %><span class="block mt-1 type-small text-ink-muted"><%= note %></span><% end %></dd>

@@ -32,7 +32,7 @@
             <% card.records.each do |record| %>
               <li>
                 <%= link_to (category.plants ? plant_url_for(record) : company_url_for(record)), class: "nd-catcard__row", title: record.name do %>
-                  <span class="nd-catcard__rowname" style="--chars: <%= record.name.length %>"><%= record.name %></span><span class="nd-catcard__chev" aria-hidden="true">›</span>
+                  <span class="nd-catcard__rowname" data-truncate title="<%= record.name %>" style="--chars: <%= record.name.length %>"><%= record.name %></span><span class="nd-catcard__chev" aria-hidden="true">›</span>
                 <% end %>
               </li>
             <% end %>

@@ -22,8 +22,8 @@
           reactor_types: [ (facility.reactor_type if sourced), *facility.try(:units_reactor_types) ],
           status: (facility.status if sourced)), set: :nd, size: 20) %></span>
     <span class="nd-listrow__main">
-      <span class="nd-listrow__name" title="<%= facility.name %>" style="--chars: <%= facility.name.length %>"><%= facility.name %></span>
-      <% if meta %><span class="nd-listrow__desc" title="<%= meta %>" style="--chars: <%= meta.length %>"><%= kind %><% if capacity_text %><span class="nd-listrow__cap"><%= " · " if kind %><%= capacity_text %></span><% end %></span><% end %>
+      <span class="nd-listrow__name" data-truncate title="<%= facility.name %>" style="--chars: <%= facility.name.length %>"><%= facility.name %></span>
+      <% if meta %><span class="nd-listrow__desc" data-truncate title="<%= meta %>" style="--chars: <%= meta.length %>"><%= kind %><% if capacity_text %><span class="nd-listrow__cap"><%= " · " if kind %><%= capacity_text %></span><% end %></span><% end %>
     </span>
     <% if where || connections %>
       <span class="nd-listrow__side">
