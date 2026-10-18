@@ -30,6 +30,36 @@ class NoWrapTest < ApplicationSystemTestCase
   PAGES = ->(test) { [ "/", "/companies", "/companies?category=services", "/companies?category=plants",
     "/companies/#{test.instance_variable_get(:@allied).slug}", "/plants/#{test.instance_variable_get(:@plant).slug}" ] }
 
+  test "a long value with two-digit source numbers shrinks and never pushes past its column" do
+    resize_viewport(360, 800)
+    visit "/companies/#{@allied.slug}"
+    # The Headquarters row, made as long as a fitted value gets, with sources 10 and 11.
+    fits = page.evaluate_script(<<~JS)
+      (() => {
+        const line = [...document.querySelectorAll(".nd-overview__line--fit")].find((l) => l.querySelector(".nd-src"))
+        const val = line.querySelector(".nd-overview__val")
+        val.textContent = "Baton Rouge Metropolitan Area, LA"
+        line.style.setProperty("--chars", 33)
+        const cites = line.querySelector(".nd-overview__cites")
+        cites.querySelectorAll(".nd-src sup").forEach((sup, i) => sup.textContent = String(10 + i))
+        cites.append(cites.querySelector(".nd-src").cloneNode(true))
+        const dd = line.closest("dd")
+        return [dd.scrollWidth <= dd.clientWidth, line.getBoundingClientRect().right <= dd.getBoundingClientRect().right + 1]
+      })()
+    JS
+    assert_equal [ true, true ], fits
+  end
+
+  test "a fitted value carries its full text in title, and a focused link in it shows its ring" do
+    resize_viewport(360, 800)
+    visit "/companies/#{@allied.slug}"
+    assert_selector ".nd-overview__line--fit .nd-overview__val[title='Baton Rouge, LA']"
+    page.execute_script("document.querySelector('.nd-overview__line--fit .nd-overview__val a').focus()")
+    page.send_keys(:tab, [ :shift, :tab ]) # keyboard focus, so :focus-visible applies
+    ring = page.evaluate_script("(() => { const v = document.activeElement.closest('.nd-overview__val'); return v ? getComputedStyle(v).outlineStyle : 'none' })()")
+    assert_equal "solid", ring
+  end
+
   test "the Type chips sit under their label across the panel, one line each, at 390 and 1440" do
     [ [ 390, 844 ], [ 1440, 900 ] ].each do |width, height|
       resize_viewport(width, height)

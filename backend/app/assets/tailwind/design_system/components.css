@@ -97,9 +97,15 @@
   /* A short value fits the row's width less its numbers (about 26px each),
      down to 13px; an ellipsis only as the last resort. */
   .nd-overview dd { container-type: inline-size; }
-  .nd-overview__line--fit { white-space: nowrap; }
-  .nd-overview__line--fit .nd-overview__val { display: inline-block; vertical-align: bottom; max-width: calc(100cqi - var(--cites) * 26px); overflow: hidden; text-overflow: ellipsis;
-    font-size: clamp(13px, calc((100cqi - var(--cites) * 26px) / (var(--chars) * 0.62)), 14px); }
+  /* The numbers keep their own width and the value shrinks beside them
+     (flex), sized from the row's width less about 32px per number, down to
+     13px, then an ellipsis with the full text in title. A focused link inside
+     gets its ring on the wrapper, since the clipping would hide its own. */
+  .nd-overview__line--fit { display: flex; align-items: baseline; min-width: 0; white-space: nowrap; }
+  .nd-overview__line--fit .nd-overview__val { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+    font-size: clamp(13px, calc((100cqi - var(--cites) * 32px) / (var(--chars) * 0.62)), 14px); }
+  .nd-overview__line--fit .nd-overview__cites { flex: none; }
+  .nd-overview__line--fit .nd-overview__val:has(:focus-visible) { outline: var(--nd-focus-width) solid var(--nd-focus); outline-offset: 2px; }
   /* Phones: each label above its value, so values get the full width. */
   @media (max-width: 479px) {
     .nd-overview dl { grid-template-columns: minmax(0, 1fr); row-gap: 2px; }
