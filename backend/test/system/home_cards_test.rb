@@ -76,6 +76,20 @@ class HomeCardsTest < ApplicationSystemTestCase
     end
   end
 
+  test "back on the page after a narrow visit, widening restores the full placeholder" do
+    resize_viewport(360, 800)
+    visit root_path
+    assert_equal "Search companies and plants", find(".nd-home input[type=search]")[:placeholder]
+
+    # As a Turbo snapshot restore does: the same markup, short placeholder and all, connected afresh.
+    page.execute_script(<<~JS)
+      const box = document.querySelector(".nd-home .nd-searchbox")
+      box.replaceWith(box.cloneNode(true))
+    JS
+    resize_viewport(390, 844)
+    assert_equal "Search a company, plant or site", find(".nd-home input[type=search]")[:placeholder]
+  end
+
   test "on a phone the whole card header is the button, edge to edge" do
     resize_viewport(390, 844)
     visit root_path
