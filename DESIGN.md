@@ -79,10 +79,12 @@ Text inside a box (a card title, chip, pill, button, tab, badge, table header, m
    Fitting and the font-size check use these same floors.
 4. **Below the floor:** use the record's or category's short name, if it has one (`short_name`, or the category's `short`).
 5. **Last resort:** cut with an ellipsis (`overflow: hidden; text-overflow: ellipsis`), and keep the full text in `title` and the accessible name. For a label we write, like a category or a button, an ellipsis is a bug to fix with a short label. For a record's long name in a row, such as a company in a homepage card, the ellipsis is accepted (Tosin, 17 Oct).
+   - **A box never clips glyphs vertically** (Tosin, 18 Oct: "X-energy" lost its descenders). It only cuts horizontally, with the ellipsis. Give the one-line element a line-height of at least 1.25 times its font size, or vertical padding that holds the font's ascenders and descenders (g, y, p, j, Q). `overflow: hidden` on a box shorter than that clips them.
 6. **Checked:** a test at 1440, 1280 and 390 fails when any of these happens:
    - an HTML one-line element's `scrollWidth` is greater than its `clientWidth`. The exception is a record name that rule 5 allows to end in an ellipsis: it's marked `data-truncate`, its CSS clips on purpose, so it's checked differently. It must stay one line, keep its box inside its parent (the box's right edge doesn't pass the parent's), and carry the full name in `title` and its accessible name. A `scrollWidth` overflow on anything not marked `data-truncate` fails;
    - the text takes more than one line. Measure the text, not the element: a block or flex element (like `.nd-cat b`) reports one box even when its text wraps. Use a Range over its contents (`range.selectNodeContents(el); range.getClientRects()`) and count distinct line tops (within 4px). The fallback is the element's height compared with one computed line-height;
    - its computed font size is below the floor;
+   - its glyphs are clipped vertically: the text's Range rect (`range.getBoundingClientRect()`) reaches above or below the element's clipping box, whose `overflow` isn't `visible`;
    - an SVG label (it has no layout box) overflows. The test compares the label's `getBBox()` with its slot, and with the node circles, other labels and edges near it.
 
    `/design` shows each component with its longest real label.
