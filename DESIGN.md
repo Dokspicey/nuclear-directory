@@ -142,9 +142,9 @@ These hold in the key facts panel and in every component that pairs a label with
 
 **A company's own sources show once; a row has its own markers only when that fact has its own source.**
 
-- Under the key facts, one line links the record's own evidence. It names a fact only when something enforces that one of the listed sources states the value shown: the loader, or a check when the page is drawn (#407). A production snapshot isn't enough.
-  - **Company:** "Legal name: from these sources together 1 2 3" when the page shows a legal name; the loader keeps one only when a quote contains it word for word. "Headquarters" joins it ("Headquarters and legal name: …") only when #407's check finds a record quote that states the city and state shown; the loader doesn't enforce that. Website and other names aren't guaranteed a quote, so they aren't named. With nothing to name: "About this company: sources 1 2 3".
-  - **Plant:** "About this plant: sources 1 2", from the site's own evidence. Docket and location are named once a check confirms a site quote states them (#407); type and status once #398 lands.
+- Under the key facts, one line links the record's own evidence. It names a fact only when a check, run as the page is drawn, finds a record quote that states the value shown (#407). The loader's checks and production snapshots aren't enough, because a later edit can change a value without a new quote.
+  - **Company:** "About this company: sources 1 2 3". Once #407 lands, the line names Legal name and Headquarters when its check passes for them ("Headquarters and legal name: from these sources together 1 2 3"). Website and other names aren't named.
+  - **Plant:** "About this plant: sources 1 2", from the site's own evidence. Once #407 lands, it names Docket and Location when its check passes for them; Type and Status once #398 lands.
 - "Together" says the sources back the named facts as a set, not each source each fact. Record evidence doesn't record which field it backs yet (#398).
 - The numbers are the Sources list's, in reading order, so the description's markers and the line share them. Nothing is dropped: the line is the same set of record sources each of those rows showed.
 - Role, technology, link and unit evidence keep their markers on their own rows, and aren't repeated in the line.
