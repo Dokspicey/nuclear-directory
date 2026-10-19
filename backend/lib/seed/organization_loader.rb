@@ -167,6 +167,9 @@ module Seed
           hq_city: hq.filter_map { |entry| entry["city"].presence }.last, hq_state: hq.filter_map { |entry| entry["state"].presence }.last
         }
         attributes[:domain] = nil if shared.include?(Organization.domain_from(doc["website"]))
+        # An identifier, set only when the file gives it: a seed without one
+        # never clears a CIK set in the admin (#129).
+        attributes[:sec_cik] = doc["sec_cik"].to_s if doc["sec_cik"].present?
         # A display label, set only when the file gives one: a seed without
         # it never clears a short name set in the admin.
         attributes[:short_name] = doc["short_name"] if doc["short_name"].present?
