@@ -253,5 +253,6 @@ The admin's Live screen and the nightly `data_quality:audit` are planned (Admin 
 | Bucket names and edge cases ("Waste and decommissioning"; universities in Government and research; fusion and uranium as tags; stable URLs) | Tosin, with Founder and GTM | #266 |
 | "Reactor developers" becomes "Developers": reactor designers plus nuclear project developers (`project_developer`), so everything building new nuclear sits together; slug unchanged. A parent never inherits its subsidiaries' buckets | Tosin | #322 |
 | A short name is a display label only: never an identity key, never matched on | PM | #363 |
+| Meta–TerraPower (Jan 2026) is Meta funding TerraPower (`funds`), not a power deal: Meta pays for early development of up to eight Natrium units, and its rights to their energy are in the description. A deal whose main term is money for development is `funds`; a signed purchase of power is `offtake_with` (17 Oct 2026) | Tosin | #393 |
 | "Utilities and operators" becomes "Power plant owners and operators" (17 Oct 2026): named for what puts a company there; same rule, slug `utilities` unchanged. The homepage's short label is "Plant operators" | Tosin | #367 |
 | Bernhard Capital Partners is an investor (`venture_capital`): it owns Allied Power, a nuclear services company. Reverses #63's "no Bernhard role" (16 Oct 2026) | Tosin | #63, #322 |
