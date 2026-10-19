@@ -180,11 +180,14 @@ module DirectoryHelper
   # A list value ("A, B, C", names possibly links) split before its last
   # item, so that item can stay on a line with its source numbers. Only a
   # ", " between items counts, never one inside a name or a link ("Southern
-  # Nuclear Operating Co., Inc."). Returns [head, last] as HTML, or nil when
-  # the value isn't a list.
+  # Nuclear Operating Co., Inc."). Only a list of two or more linked names
+  # counts: a single value with a comma ("Baton Rouge Metropolitan Area, LA")
+  # isn't one. Returns [head, last] as HTML, or nil when it isn't a list.
   def split_last_item(value)
-    html = value.html_safe? ? value.to_s : ERB::Util.html_escape(value.to_s)
-    nodes = Nokogiri::HTML::DocumentFragment.parse(html).children.to_a
+    return unless value.html_safe?
+
+    nodes = Nokogiri::HTML::DocumentFragment.parse(value.to_s).children.to_a
+    return if nodes.count(&:element?) < 2
     index = nodes.rindex { |node| node.text? && node.text.include?(", ") }
     return unless index
 
