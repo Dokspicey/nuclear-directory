@@ -9,9 +9,8 @@
   <div class="nd-home__search">
     <%= render "shared/search_box", size: :large %>
     <nav class="nd-suggs" aria-label="Suggested searches">
-      <% HomeSuggestions::ALL.each do |suggestion| %>
-        <% url = suggestion.category ? directory_url_for(category: Category.find(suggestion.category)) : directory_url_for(q: suggestion.query, from: "suggestion") %>
-        <%= link_to url, class: "nd-sugg type-ui" do %><%= icon("magnifying-glass", size: 12) %><%= suggestion.label %><% end %>
+      <% @suggestions.each do |suggestion| %>
+        <%= link_to directory_url_for(q: suggestion.query, from: "suggestion"), class: "nd-sugg type-ui" do %><%= icon("magnifying-glass", size: 12) %><%= suggestion.label %><% end %>
       <% end %>
     </nav>
   </div>

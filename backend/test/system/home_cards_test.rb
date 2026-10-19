@@ -32,7 +32,7 @@ class HomeCardsTest < ApplicationSystemTestCase
             parseFloat(getComputedStyle(pills[0]).fontSize), document.documentElement.scrollWidth <= innerWidth]
         })()
       JS
-      assert_equal [ 4, 1, 28, 13.0, true ], row, "at #{width}: four pills, one row, 28px, 13px, no sideways page scroll"
+      assert_equal [ HomeSuggestions::SHOWN, 1, 28, 13.0, true ], row, "at #{width}: five pills, one row, 28px, 13px, no sideways page scroll"
       assert_empty page.evaluate_script(AUDIT), "at #{width}"
     end
   end

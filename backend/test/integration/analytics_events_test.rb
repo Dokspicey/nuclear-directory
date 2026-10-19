@@ -102,12 +102,14 @@ class AnalyticsEventsTest < ActionDispatch::IntegrationTest
 
   test "a search from a home page suggestion says so; one typed in a field says typed" do
     get root_path, headers: { "User-Agent" => BROWSER }
-    haleu = css_select(".nd-suggs a.nd-sugg").find { |link| link.text.strip == "HALEU" }["href"]
-    get haleu, headers: { "User-Agent" => BROWSER }
-    get companies_path(q: "HALEU"), headers: { "User-Agent" => BROWSER }
+    href = css_select(".nd-suggs a.nd-sugg").first["href"]
+    words = Rack::Utils.parse_query(URI(href).query)["q"]
+    query = words.downcase
+    get href, headers: { "User-Agent" => BROWSER }
+    get companies_path(q: words), headers: { "User-Agent" => BROWSER }
 
     searches = posthog.events.select { |event| event[:event] == "search" }
-    assert_equal [ [ "haleu", "suggestion" ], [ "haleu", "typed" ] ], searches.map { |event| event[:properties].values_at("query", "source") }
+    assert_equal [ [ query, "suggestion" ], [ query, "typed" ] ], searches.map { |event| event[:properties].values_at("query", "source") }
   end
 
   test "a correction that doesn't save sends nothing" do
