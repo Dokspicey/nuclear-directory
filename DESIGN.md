@@ -185,7 +185,7 @@ Every page also has the site header (`nd-sitebar`: wordmark and search box; not 
 
 Square brackets mark a component shown only when its data exists, or one that's approved and coming.
 
-- **Home (`/`):** wordmark; search box (large); suggestions; category boxes (a zero count hides its box); footer.
+- **Home (`/`):** wordmark; search box (large); suggestions (one row on phones, scrolling inside itself); category cards (a zero count hides its card); footer. **A company appears in only one card** (Tosin, 18 Oct): cards fill in display order, and each skips names an earlier card already shows. A header count stays the category's real total.
 - **Company list, category and tag pages (`/companies`, `?category=`, `?tag=`):** header; category pills (current on a category page); list head; filters (a sheet on phones); list rows, or the empty state; [with a search, two groups]; footer.
 - **Company profile:** header; crumbs; profile header; key facts (Type, record facts, roles, technology, headquarters, founded, parents, subsidiaries, source line); [connections map: after key facts on phones; on desktop it runs full width under the profile header, above key facts and the lists]; the category's own sections; Deals and links; Plants and sites; [missing facts]; Sources with the cite line; Report a correction; footer.
 - **Plant profile:** header; crumbs; profile header; [owner and operator sentence]; key facts ("About this plant" line); [connections map: after key facts on phones; on desktop it runs full width under the profile header, above key facts and the lists]; Companies; units table; [missing facts]; Sources; footer.
