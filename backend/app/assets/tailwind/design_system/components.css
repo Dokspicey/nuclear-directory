@@ -272,13 +272,15 @@
      No lines between rows: spacing separates them, and a row tints on hover.
      Colour only on the icon and the footer link. */
   .nd-catgrid { width: 100%; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+  /* /design shows three cards at the width they have on the home page at 1440. */
+  .nd-catgrid--example { max-width: 600px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .nd-catcard { min-width: 0; display: flex; flex-direction: column; box-sizing: border-box; padding: 10px 12px 4px; background: var(--nd-paper-raised); border: var(--nd-hairline) solid var(--nd-rule); border-radius: var(--nd-radius-md); }
   .nd-catcard__head { display: flex; align-items: flex-start; gap: var(--nd-space-2); min-height: 40px; margin: 0; color: var(--nd-ink); text-decoration: none; font: inherit; container-type: inline-size; }
   .nd-catcard__head--toggle, .nd-catstack__all { display: none; }
   .nd-catcard__head .nd-ic { width: 20px; height: 20px; color: var(--nd-cat, var(--nd-ink)); }
   .nd-catcard__head--link:hover .nd-catcard__name { text-decoration: underline; text-underline-offset: 2px; }
   /* One line (Tosin): the title fits the header less its icon and count. */
-  .nd-catcard__name { flex: 1; min-width: 0; font: 600 clamp(13px, calc((100cqi - 50px) / (var(--chars) * 0.54)), 15px)/20px var(--font-text);
+  .nd-catcard__name { flex: 1; min-width: 0; font: 600 clamp(13px, calc((100cqi - 50px) / (var(--chars) * 0.6)), 15px)/20px var(--font-text);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; }
   .nd-catcard__count { font: 400 12px/20px var(--font-mono); color: var(--nd-ink-muted); }
   .nd-catcard__body { flex: 1; display: flex; flex-direction: column; }
@@ -325,12 +327,14 @@
     /* Without JavaScript the heading itself lays out its icon, name and count. */
     .nd-catcard--stack .nd-catcard__head--toggle, .nd-catcard__toggle { align-items: center; gap: var(--nd-space-3); padding: 0 14px; }
     .nd-catcard--stack .nd-catcard__head--toggle:not(:has(.nd-catcard__toggle)) { display: flex; }
+    /* With the button in it, the heading has no padding: the button fills it edge to edge, so all of it is tappable. */
+    .nd-catcard--stack .nd-catcard__head--toggle:has(.nd-catcard__toggle) { padding: 0; }
     .nd-catcard__toggle { display: flex; width: 100%; min-height: 52px; border: 0; background: none; color: var(--nd-ink); font: inherit; cursor: pointer; }
     .nd-catcard__caret { width: 8px; height: 8px; border: solid var(--nd-ink-muted); border-width: 0 2px 2px 0; transform: rotate(45deg); margin: 0 4px 4px 0; transition: transform 180ms ease-out; }
     .nd-catcard--stack.is-collapsed .nd-catcard__caret { transform: rotate(-45deg); margin: 0 6px 0 0; }
     .nd-catcard--stack.is-collapsed .nd-catcard__head--toggle { border-bottom-color: transparent; border-radius: var(--nd-radius-md); }
     .nd-catcard--stack .nd-catcard__head .nd-ic { width: 24px; height: 24px; }
-    .nd-catcard--stack .nd-catcard__name { font: 600 clamp(13px, calc((100cqi - 80px) / (var(--chars) * 0.54)), 17px)/22px var(--font-text); }
+    .nd-catcard--stack .nd-catcard__name { font: 600 clamp(13px, calc((100cqi - 80px) / (var(--chars) * 0.6)), 17px)/22px var(--font-text); }
     .nd-catcard__toggle { container-type: inline-size; }
     /* Collapsing: the body's row shrinks to nothing over 180ms. */
     .nd-catcard--stack .nd-catcard__body { display: grid; grid-template-rows: 1fr; transition: grid-template-rows 180ms ease-out, visibility 180ms; }
@@ -341,7 +345,13 @@
     .nd-catcard--stack .nd-catcard__rowname { font-size: clamp(13px, calc((100cqi - 52px) / (var(--chars) * 0.5)), 16px); }
     .nd-catcard--stack .nd-catcard__filler { display: none; }
     .nd-catcard--stack .nd-catcard__more { height: auto; min-height: 48px; margin: 0; padding: 0 14px; border-radius: 0; font-size: 15px; }
-    .nd-home .nd-suggs { display: none; }
+    /* The suggested searches stay (nothing live is removed): one 28px row at
+       13px that scrolls inside itself, faded at the edge, never a second line. */
+    .nd-home__search { gap: var(--nd-space-4); }
+    .nd-home .nd-suggs { flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; scrollbar-width: none; padding-right: var(--nd-space-8);
+      mask-image: linear-gradient(to right, #000 85%, transparent); -webkit-mask-image: linear-gradient(to right, #000 85%, transparent); }
+    .nd-home .nd-suggs::-webkit-scrollbar { display: none; }
+    .nd-home .nd-sugg { flex: none; white-space: nowrap; }
     .nd-home__wordmark .nd-wordmark__svg { height: 34px; }
     /* Search near the top, so the keyboard doesn't cover the results. */
     .nd-home { padding: max(var(--nd-space-6), env(safe-area-inset-top)) var(--nd-space-4) var(--nd-space-4); gap: var(--nd-space-4); }
@@ -872,3 +882,7 @@
     .nd-recs__label { display: inline; }
   }
 }
+
+/* The phone suggestions at the 13px floor. Outside the layers on purpose: the
+   pills' type-ui utility sets their size, and utilities outrank components. */
+@media (max-width: 639px) { .nd-home .nd-sugg { font-size: 13px; } }

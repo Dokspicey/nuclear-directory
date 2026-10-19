@@ -19,6 +19,45 @@ class HomeCardsTest < ApplicationSystemTestCase
 
   def cards = page.evaluate_script("[...document.querySelectorAll('section.nd-catcard')].map((c) => [c.dataset.key, c.querySelectorAll('a.nd-catcard__row').length])")
 
+  test "phones keep the suggested searches: one 28px row under the search box, scrolling inside itself, never the page" do
+    [ [ 360, 780 ], [ 390, 844 ] ].each do |width, height|
+      resize_viewport(width, height)
+      visit root_path
+
+      row = page.evaluate_script(<<~JS)
+        (() => {
+          const row = document.querySelector(".nd-home .nd-suggs"), pills = [...row.querySelectorAll(".nd-sugg")]
+          const tops = new Set(pills.map((pill) => Math.round(pill.getBoundingClientRect().top)))
+          return [pills.length, tops.size, Math.max(...pills.map((pill) => Math.round(pill.getBoundingClientRect().height))),
+            parseFloat(getComputedStyle(pills[0]).fontSize), document.documentElement.scrollWidth <= innerWidth]
+        })()
+      JS
+      assert_equal [ 4, 1, 28, 13.0, true ], row, "at #{width}: four pills, one row, 28px, 13px, no sideways page scroll"
+      assert_empty page.evaluate_script(AUDIT), "at #{width}"
+    end
+  end
+
+  test "on a phone the whole card header is the button, edge to edge" do
+    resize_viewport(390, 844)
+    visit root_path
+    edges = page.evaluate_script(<<~JS)
+      (() => {
+        const head = document.querySelector(".nd-catcard__head--toggle"), button = head.querySelector(".nd-catcard__toggle")
+        const h = head.getBoundingClientRect(), b = button.getBoundingClientRect()
+        return [Math.round(b.left - h.left), Math.round(h.right - b.right)]
+      })()
+    JS
+    assert_equal [ 0, 0 ], edges, "no untappable strip at either edge"
+  end
+
+  test "the /design example cards are as wide as on the home page, and nothing in them is cut" do
+    visit "/design"
+    widths = page.evaluate_script("[...document.querySelectorAll('.nd-catgrid--example .nd-catcard')].map((card) => Math.round(card.getBoundingClientRect().width))")
+    assert widths.all? { |width| width >= 190 }, widths.inspect
+    problems = page.evaluate_script(AUDIT).grep(/nd-catcard/)
+    assert_empty problems, problems.join("\n")
+  end
+
   [ [ 1440, 900 ], [ 1280, 800 ] ].each do |width, height|
     test "the whole page fits #{width}x#{height} with no scroll, one line everywhere" do
       resize_viewport(width, height)

@@ -1,7 +1,7 @@
 // Tosin's rule (DESIGN.md, #365): text inside a box never wraps, and a source
 // number never starts a line on its own. Returns what breaks it, as strings.
 (() => {
-  const ONE_LINE = ".nd-bucketchip, .nd-btn, .nd-pill, .nd-tag, .nd-sugg, .nd-cat__name, .nd-cat__examples, .nd-listrow__name, .nd-listrow__desc, .nd-catcard__name, .nd-catcard__rowname, .nd-catcard__more, .nd-sitechip, .nd-overview__line--fit"
+  const ONE_LINE = ".nd-bucketchip, .nd-btn, .nd-pill, .nd-tag, .nd-sugg, .nd-cat__name, .nd-cat__examples, .nd-listrow__name, .nd-listrow__desc, .nd-catcard__name, .nd-catcard__rowname, .nd-catcard__more, .nd-sitechip, .nd-overview__line--fit, .nd-home .nd-suggs"
   // Lines of text: text rects grouped by vertical overlap, so a smaller
   // count or a chip beside the text doesn't count as a line of its own.
   const lines = (el) => {
@@ -30,7 +30,13 @@
     if (lines(el) > 1) problems.push(`wraps: ${label(el)}`)
     // Cut short: allowed only where marked data-truncate, and then the full
     // text must be in title (an ellipsis is the last resort, #365).
-    if (el.scrollWidth > el.clientWidth + 1) {
+    // A row that scrolls inside itself (the phone suggestions) isn't cut short.
+    if (["auto", "scroll"].includes(getComputedStyle(el).overflowX)) return
+    // Cut short: the box overflows, or its own text runs past it (an
+    // ellipsis can leave scrollWidth equal to clientWidth).
+    const own = [...el.childNodes].filter((node) => node.nodeType === Node.TEXT_NODE && node.textContent.trim())
+    const textRight = own.reduce((right, node) => { const range = document.createRange(); range.selectNodeContents(node); return Math.max(right, range.getBoundingClientRect().right) }, -Infinity)
+    if (el.scrollWidth > el.clientWidth + 1 || textRight > el.getBoundingClientRect().right + 1) {
       if (!el.hasAttribute("data-truncate")) problems.push(`cut short: ${label(el)}`)
       else if (el.getAttribute("title") !== el.textContent.trim()) problems.push(`no full text in title: ${label(el)}`)
     }

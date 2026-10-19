@@ -10,7 +10,7 @@
     at first, the choice remembered); "See all" is the category link there.
     Without JavaScript every card is open. Short cards get empty filler rows
     on wide screens, so cards in a row match; phones drop them. %>
-<div class="nd-catgrid nd-catstack" data-controller="catstack">
+<div class="nd-catgrid nd-catstack <%= local_assigns[:grid_class] %>" data-controller="catstack">
   <button type="button" class="nd-catstack__all" data-catstack-target="all" data-action="catstack#toggleAll" hidden>Collapse all</button>
   <% cards.each do |card| %>
     <% category = card.category %>
@@ -22,7 +22,7 @@
     <% head_name = "#{named}, #{noun}" %>
     <% title = capture do %>
       <%= bucket_icon(category, size: 24) %>
-      <span class="nd-catcard__name" style="--chars: <%= label.length %>"><%= label %></span>
+      <span class="nd-catcard__name" style="--chars: <%= label.length %>" title="<%= label %>" data-truncate><%= label %></span>
     <% end %>
     <section class="nd-catcard nd-catcard--rows nd-catcard--compact nd-catcard--stack <%= bucket_class(category) %>" aria-label="<%= category.name %>"
              data-catstack-target="card" data-key="<%= category.key %>" data-label="<%= head_name %>">
