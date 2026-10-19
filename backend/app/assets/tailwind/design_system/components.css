@@ -348,7 +348,10 @@
     /* The suggested searches stay (nothing live is removed): one 28px row at
        13px that scrolls inside itself, faded at the edge, never a second line. */
     .nd-home__search { gap: var(--nd-space-4); }
+    /* The 8px above and below (taken back by the margin) leave room for each
+       pill's 44px tap area, which the scrolling row would otherwise clip. */
     .nd-home .nd-suggs { flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; scrollbar-width: none; padding-right: var(--nd-space-8);
+      padding-block: 8px; margin-block: -8px;
       mask-image: linear-gradient(to right, #000 85%, transparent); -webkit-mask-image: linear-gradient(to right, #000 85%, transparent); }
     .nd-home .nd-suggs::-webkit-scrollbar { display: none; }
     .nd-home .nd-sugg { flex: none; white-space: nowrap; }

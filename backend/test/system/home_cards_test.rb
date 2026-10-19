@@ -45,11 +45,14 @@ class HomeCardsTest < ApplicationSystemTestCase
 
     sizes = page.evaluate_script(<<~JS)
       (() => {
-        const pill = document.querySelector(".nd-home .nd-sugg"), tap = getComputedStyle(pill, "::after")
-        return [matchMedia("(any-pointer: coarse)").matches, Math.round(pill.getBoundingClientRect().height), tap.height]
+        const pill = document.querySelector(".nd-home .nd-sugg"), tap = getComputedStyle(pill, "::after"), box = pill.getBoundingClientRect()
+        const x = box.left + box.width / 2
+        // A tap 6px above or below the pill still reaches it: the row doesn't clip its tap area.
+        const reaches = (y) => document.elementFromPoint(x, y)?.closest(".nd-sugg") === pill
+        return [matchMedia("(any-pointer: coarse)").matches, Math.round(box.height), tap.height, reaches(box.top - 6), reaches(box.bottom + 6)]
       })()
     JS
-    assert_equal [ true, 28, "44px" ], sizes
+    assert_equal [ true, 28, "44px", true, true ], sizes
   ensure
     page.driver.browser.execute_cdp("Emulation.setEmulatedMedia", features: [])
     page.driver.browser.execute_cdp("Emulation.setTouchEmulationEnabled", enabled: false)
