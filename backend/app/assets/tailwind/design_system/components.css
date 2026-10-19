@@ -399,8 +399,10 @@
   /* 44px tap targets on touch screens, without changing how small parts look. */
   @media (any-pointer: coarse) {
     .nd-pill, .nd-sugg, .nd-select, .nd-instant__row, .nd-instant__all { min-height: 44px; }
-    .nd-src, .nd-wordmark { position: relative; }
-    .nd-src::after, .nd-wordmark::after { content: ""; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); transform: translate(-50%, -50%); }
+    /* The home suggestions stay 28px as drawn; their tap area grows instead. */
+    .nd-home .nd-sugg { min-height: 0; }
+    .nd-src, .nd-wordmark, .nd-home .nd-sugg { position: relative; }
+    .nd-src::after, .nd-wordmark::after, .nd-home .nd-sugg::after { content: ""; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); transform: translate(-50%, -50%); }
   }
 }
 

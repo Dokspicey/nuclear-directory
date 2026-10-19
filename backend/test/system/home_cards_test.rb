@@ -37,6 +37,42 @@ class HomeCardsTest < ApplicationSystemTestCase
     end
   end
 
+  test "on a touch screen the suggestions stay 28px tall, with a 44px tap area" do
+    resize_viewport(390, 844)
+    page.driver.browser.execute_cdp("Emulation.setTouchEmulationEnabled", enabled: true, maxTouchPoints: 5)
+    page.driver.browser.execute_cdp("Emulation.setEmulatedMedia", features: [ { name: "any-pointer", value: "coarse" } ])
+    visit root_path
+
+    sizes = page.evaluate_script(<<~JS)
+      (() => {
+        const pill = document.querySelector(".nd-home .nd-sugg"), tap = getComputedStyle(pill, "::after")
+        return [matchMedia("(any-pointer: coarse)").matches, Math.round(pill.getBoundingClientRect().height), tap.height]
+      })()
+    JS
+    assert_equal [ true, 28, "44px" ], sizes
+  ensure
+    page.driver.browser.execute_cdp("Emulation.setEmulatedMedia", features: [])
+    page.driver.browser.execute_cdp("Emulation.setTouchEmulationEnabled", enabled: false)
+  end
+
+  test "at 360 the search placeholder is a shorter one that fits; at 390 the full one" do
+    { 360 => "Search companies and plants", 390 => "Search a company, plant or site" }.each do |width, placeholder|
+      resize_viewport(width, 800)
+      visit root_path
+      input = find(".nd-home input[type=search]")
+      assert_equal placeholder, input[:placeholder], "at #{width}"
+      fits = page.evaluate_script(<<~JS)
+        (() => {
+          const input = document.querySelector(".nd-home input[type=search]"), style = getComputedStyle(input)
+          const canvas = document.createElement("canvas").getContext("2d")
+          canvas.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`
+          return [parseFloat(style.fontSize), canvas.measureText(input.placeholder).width <= input.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)]
+        })()
+      JS
+      assert_equal [ 16.0, true ], fits, "16px and uncut at #{width}"
+    end
+  end
+
   test "on a phone the whole card header is the button, edge to edge" do
     resize_viewport(390, 844)
     visit root_path

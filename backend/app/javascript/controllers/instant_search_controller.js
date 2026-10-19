@@ -6,10 +6,22 @@ import { Controller } from "@hotwired/stimulus"
 // live region announces how many results there are.
 export default class extends Controller {
   static targets = ["input", "results", "frame", "status"]
-  static values = { url: String, minimum: { type: Number, default: 2 }, delay: { type: Number, default: 150 } }
+  static values = { url: String, minimum: { type: Number, default: 2 }, delay: { type: Number, default: 150 }, shortPlaceholder: String }
+
+  // Below 380px the full placeholder doesn't fit at 16px (iOS zooms below
+  // 16px), so a shorter one takes its place (one-line law, #365).
+  connect() {
+    if (!this.shortPlaceholderValue) return
+    this.longPlaceholder = this.inputTarget.placeholder
+    this.narrow = window.matchMedia("(max-width: 379px)")
+    this.fitPlaceholder = () => { this.inputTarget.placeholder = this.narrow.matches ? this.shortPlaceholderValue : this.longPlaceholder }
+    this.narrow.addEventListener("change", this.fitPlaceholder)
+    this.fitPlaceholder()
+  }
 
   disconnect() {
     clearTimeout(this.timer)
+    this.narrow?.removeEventListener("change", this.fitPlaceholder)
   }
 
   search(event) {
