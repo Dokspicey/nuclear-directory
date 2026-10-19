@@ -21,6 +21,10 @@ class Organization < ApplicationRecord
 
   validates :name, presence: true
   validates :domain, uniqueness: true, allow_nil: true
+  # A display label for tight spots ("Oglethorpe", "MEAG"), never an identity
+  # key or matched on (DATA.md, Names).
+  normalizes :short_name, with: ->(name) { name.squish.presence }
+  validates :short_name, length: { maximum: 30 }, allow_nil: true
   # Blank when no source states it yet.
   validates :country_code, length: { is: 2 }, allow_nil: true
   validates :founded_year, numericality: { only_integer: true, in: 1800..2100 }, allow_nil: true
