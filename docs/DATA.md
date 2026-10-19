@@ -206,6 +206,8 @@ The admin's Live screen and the nightly `data_quality:audit` are planned (Admin 
 - **Publishing:** a fact is public only through its model's `.published` scope: a unit when verified under an open site; a pending site when it has such a unit; a link only when both ends are public; a deal term only with its link.
 - **Deal terms (once #264 merges):** one term per link, kind and award ID; an award needs an amount, a start date and an award ID; dates in order; no negative amounts; no automated term on a rejected or unpublished link.
 
+- **Read-only access:** Metabase's read-only role reads only the tables on `Metabase::ReadonlyRole::READABLE_TABLES`, never sign-in data, visitors' correction reports or the deploy's records. There are no default privileges. A migration that creates a public-data table adds it to the list and grants it (`Metabase::ReadonlyRole.grant!`); a test fails while any table is on neither list (PM and Data Quality, 18 Oct).
+
 ### Audited (planned: the Live screen and `data_quality:audit`, #277)
 
 | Check | Severity | Rule |
