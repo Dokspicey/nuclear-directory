@@ -35,8 +35,8 @@ class HomeTest < ActionDispatch::IntegrationTest
   test "four suggested searches that lead to results" do
     get root_path
 
-    assert_select ".nd-suggs a.nd-sugg", 4
-    assert_select ".nd-suggs a[href=?]", "/companies?q=HALEU", text: "HALEU"
+    assert_select ".nd-suggs a.nd-sugg", HomeSuggestions::ALL.size
+    assert_select ".nd-suggs a[href=?]", "/companies?from=suggestion&q=HALEU", text: "HALEU"
     assert_select ".nd-suggs a[href=?]", "/companies?category=power-buyers", text: "Power deals"
   end
 

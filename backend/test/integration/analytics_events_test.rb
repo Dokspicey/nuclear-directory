@@ -100,6 +100,16 @@ class AnalyticsEventsTest < ActionDispatch::IntegrationTest
     GeoCountry.reader = previous
   end
 
+  test "a search from a home page suggestion says so; one typed in a field says typed" do
+    get root_path, headers: { "User-Agent" => BROWSER }
+    haleu = css_select(".nd-suggs a.nd-sugg").find { |link| link.text.strip == "HALEU" }["href"]
+    get haleu, headers: { "User-Agent" => BROWSER }
+    get companies_path(q: "HALEU"), headers: { "User-Agent" => BROWSER }
+
+    searches = posthog.events.select { |event| event[:event] == "search" }
+    assert_equal [ [ "haleu", "suggestion" ], [ "haleu", "typed" ] ], searches.map { |event| event[:properties].values_at("query", "source") }
+  end
+
   test "a correction that doesn't save sends nothing" do
     post corrections_path, params: { subject: "Plant Vogtle", page_path: "/plants/plant-vogtle", message: "" },
       headers: { "User-Agent" => BROWSER }
