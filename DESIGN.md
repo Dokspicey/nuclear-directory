@@ -187,8 +187,8 @@ Square brackets mark a component shown only when its data exists, or one that's 
 
 - **Home (`/`):** wordmark; search box (large); suggestions; category boxes (a zero count hides its box); footer.
 - **Company list, category and tag pages (`/companies`, `?category=`, `?tag=`):** header; category pills (current on a category page); list head; filters (a sheet on phones); list rows, or the empty state; [with a search, two groups]; footer.
-- **Company profile:** header; crumbs; profile header; key facts (Type, record facts, roles, technology, headquarters, founded, parents, subsidiaries, "About this company" line); [connections map]; the category's own sections; Deals and links; Plants and sites; [missing facts]; Sources with the cite line; Report a correction; footer.
-- **Plant profile:** header; crumbs; profile header; [owner and operator sentence]; key facts ("About this plant" line); [connections map]; Companies; units table; [missing facts]; Sources; footer.
+- **Company profile:** header; crumbs; profile header; key facts (Type, record facts, roles, technology, headquarters, founded, parents, subsidiaries, source line); [connections map: after key facts on phones; on desktop it runs full width under the profile header, above key facts and the lists]; the category's own sections; Deals and links; Plants and sites; [missing facts]; Sources with the cite line; Report a correction; footer.
+- **Plant profile:** header; crumbs; profile header; [owner and operator sentence]; key facts ("About this plant" line); [connections map: after key facts on phones; on desktop it runs full width under the profile header, above key facts and the lists]; Companies; units table; [missing facts]; Sources; footer.
 - **Unit:** its row on the plant page, highlighted.
 - **Search:** instant results (group label, rows with a 32px mark); no results, or All results.
 - **Report a correction:** [alert]; what you're correcting; the form; Send; back link.
