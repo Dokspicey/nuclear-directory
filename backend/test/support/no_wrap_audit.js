@@ -28,6 +28,23 @@
   document.querySelectorAll(ONE_LINE).forEach((el) => {
     if (!visible(el)) return
     if (lines(el) > 1) problems.push(`wraps: ${label(el)}`)
+    // Never clipped top or bottom (DESIGN.md one-line law, rules 5 and 6): a
+    // glyph's box (its Range rect) stays inside every clipping box around it
+    // here, so descenders in "X-energy" show. scrollHeight can't see this:
+    // it measures line boxes, not glyphs.
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (!node.textContent.trim()) continue
+      const range = document.createRange()
+      range.selectNodeContents(node)
+      const glyphs = range.getBoundingClientRect()
+      if (glyphs.width === 0 && glyphs.height === 0) continue // not drawn (a hidden short label)
+      for (let box = node.parentElement; box && el.contains(box); box = box.parentElement) {
+        if (getComputedStyle(box).overflowY === "visible") continue
+        const edge = box.getBoundingClientRect()
+        if (glyphs.top < edge.top - 0.5 || glyphs.bottom > edge.bottom + 0.5) { problems.push(`clips top or bottom: ${label(box)}`); break }
+      }
+    }
     // Cut short: allowed only where marked data-truncate, and then the full
     // text must be in title (an ellipsis is the last resort, #365).
     // A row that scrolls inside itself (the phone suggestions) isn't cut short.

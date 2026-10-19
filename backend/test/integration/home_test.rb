@@ -64,6 +64,16 @@ class HomeTest < ActionDispatch::IntegrationTest
     assert_select "details.nd-howpick", 0 # no explanation link (Tosin)
   end
 
+  test "no company name repeats across the home cards" do
+    vendor, fuel = %w[reactor_vendor fuel].map { |key| Role.find_by(key:) || role(key) }
+    (1..4).map { |n| "Both Buckets Company #{n}" }.each { |name| cite!(company(name, roles: [ vendor, fuel ])) }
+    get root_path
+
+    names = css_select("section.nd-catcard:not([data-key=plants]) .nd-catcard__rowname").map { |row| row.text.strip }
+    assert_not_empty names
+    assert_equal names.uniq, names, "a company shows on one card only (Tosin, 18 Oct)"
+  end
+
   test "the search field is wired to instant results" do
     get root_path
 

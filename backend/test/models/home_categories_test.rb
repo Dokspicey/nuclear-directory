@@ -26,6 +26,30 @@ class HomeCategoriesTest < ActiveSupport::TestCase
     assert card("reactor-developers").more?
   end
 
+  test "a company shows on one card only: a later card skips it and the next one fills the spot, counts unchanged" do
+    fuel = role("fuel")
+    kairos = cite!(company("Kairos Power", roles: [ @vendor, fuel ]))
+    cite!(link(kairos, "owns", @plant))
+    cite!(company("Oklo", roles: [ @vendor ]))
+    %w[Centrus Orano Urenco Cameco].each { |name| cite!(company(name, roles: [ fuel ])) }
+
+    assert_includes names("reactor-developers"), "Kairos Power"
+    assert_not_includes names("fuel"), "Kairos Power", "shown under Developers, an earlier card"
+    assert_equal [ "Cameco", "Centrus", "Orano" ], names("fuel"), "the next ones by links, then name, fill the spots"
+    assert_equal 5, card("fuel").count, "the count is still the category's real total"
+    assert card("fuel").more?
+  end
+
+  test "no company name repeats across the cards, and a card with none left keeps its count" do
+    fuel = role("fuel")
+    %w[Alpha Beta].each { |name| cite!(company(name, roles: [ @vendor, fuel ])) }
+    shown = HomeCategories.cards.reject { |c| c.category.plants }.flat_map { |c| c.records.map(&:id) }
+
+    assert_equal shown.uniq, shown
+    assert_empty card("fuel").records, "both fuel companies already show under Developers"
+    assert_equal 2, card("fuel").count
+  end
+
   test "unsourced or unpublished links don't count" do
     quiet = cite!(company("Quiet Co", roles: [ @vendor ]))
     link(quiet, "owns", @plant) # no source

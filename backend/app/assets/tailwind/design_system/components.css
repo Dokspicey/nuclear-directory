@@ -293,7 +293,9 @@
   .nd-catcard__row { gap: var(--nd-space-1); color: var(--nd-ink); text-decoration: none; font: 400 14px/1 var(--font-text); cursor: pointer; container-type: inline-size; }
   .nd-catcard__row:hover .nd-catcard__rowname, .nd-catcard__row:focus-visible .nd-catcard__rowname { text-decoration: underline; text-underline-offset: 2px; }
   .nd-catcard__row:hover, .nd-catcard__row:active, .nd-catcard__more:hover, .nd-catcard__more:active { background: var(--nd-paper-sunken); }
-  .nd-catcard__rowname { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  /* line-height 1.4: the row's font is set at line-height 1, and the
+     ellipsis needs overflow hidden, which would clip descenders ("X-energy"). */
+  .nd-catcard__rowname { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.4;
     font-size: clamp(13px, calc((100cqi - 24px) / (var(--chars) * 0.5)), 14px); }
   .nd-catcard__chev { flex: none; color: var(--nd-ink-muted); }
   .nd-catcard__more { font: 500 14px/1 var(--font-text); color: var(--nd-cat, var(--nd-ink)); text-decoration: none; }

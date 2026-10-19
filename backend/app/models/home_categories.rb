@@ -8,6 +8,10 @@
 # fund, so a funder with many awards to one company doesn't lead. Plants
 # and sites rank by their sourced links. Only records with a public page,
 # so no name leads to "Page not found". Never paid placement.
+#
+# A company shows on one card only (Tosin, 18 Oct): cards fill in display
+# order, and each skips the companies an earlier card shows, so the next
+# most-linked one takes the spot. The count stays the category's real total.
 class HomeCategories
   SHOWN = 3
 
@@ -21,19 +25,23 @@ class HomeCategories
   def cards
     counts = DirectoryListing.category_counts
     buckets = Category.buckets.select { |category| counts[category.key].to_i.positive? }
+    shown = []
     (buckets + [ Category.find("plants") ]).map do |category|
-      Card.new(category:, count: counts[category.key].to_i, records: top(category))
+      records = top(category, skip: shown)
+      shown.concat(records.map(&:id)) unless category.plants
+      Card.new(category:, count: counts[category.key].to_i, records:)
     end
   end
 
-  def top(category)
-    category.plants ? top_plants : top_companies(category)
+  # skip: ids of companies an earlier card already shows.
+  def top(category, skip: [])
+    category.plants ? top_plants : top_companies(category, skip)
   end
 
   private
-    def top_companies(category)
+    def top_companies(category, skip)
       score = category.key == "investors" ? funded_companies_sql : company_links_sql
-      Organization.published.where(id: Bucket.organization_ids(category))
+      Organization.published.where(id: Bucket.organization_ids(category)).where.not(id: skip)
         .select("organizations.*", "(#{score}) AS home_score")
         .order(Arel.sql("home_score DESC"), :name).limit(SHOWN).to_a
     end
