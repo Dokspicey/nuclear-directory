@@ -28,6 +28,10 @@ class Facility < ApplicationRecord
   normalizes :country_code, with: ->(code) { code.strip.upcase }
 
   validates :name, presence: true
+  # A display label for tight spots ("Vogtle"), never an identity key or
+  # matched on (DATA.md, Names).
+  normalizes :short_name, with: ->(name) { name.squish.presence }
+  validates :short_name, length: { maximum: 30 }, allow_nil: true
   validates :nrc_docket, uniqueness: true, allow_nil: true
   # One site per EIA plant (#121); only sites carry it.
   validates :eia_plant_id, uniqueness: { conditions: -> { where(parent_id: nil) } }, allow_nil: true
