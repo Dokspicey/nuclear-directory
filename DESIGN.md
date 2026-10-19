@@ -64,6 +64,29 @@ Fonts come from techequity.us.
 - **Roboto Mono** (`mono`), from the same Roboto family, for everything you compare or copy: `data` and `data-sm`. Docket numbers, capacities, dates, counts and source domains.
 - Never set running text or a number in Anton, and never set a heading in mono. One exception: the 404 page's large "404" (`type-numeral`), a decorative display element hidden from screen readers, with the page's real heading in Roboto Serif below it.
 
+#### Text in a box stays on one line
+Text inside a box (a card title, chip, pill, button, tab, badge, table header, map label or node name) never wraps and never hyphenates. If it doesn't fit, the type gets smaller. Long-form paragraphs (descriptions, notes, prose pages) are exempt and wrap normally.
+1. **One line:** `white-space: nowrap`. Never use `hyphens: auto` anywhere in the interface, and never `overflow-wrap: anywhere` on a label.
+2. **Fit to the box:** only text in a slot whose width comes from the layout, such as a card header, a grid cell or a row, sizes to fit. That slot is the size container (`container-type: inline-size`), and the formula goes on the label inside it. The text's size comes from the slot's width and the label's length, clamped between the floor and its normal size. The server sets the label's character count as `--chars`:
+   `font-size: clamp(13px, calc(100cqi / (var(--chars) * 0.56)), 15px)`. The 0.56 is Roboto Serif's average glyph width at semibold; use 0.6 for mono.
+   Never put `container-type` on a content-sized control (a button, chip, pill or source chip): it takes the content out of the control's width, so the control collapses. Those controls keep their normal size, stay `nowrap`, and wrap as whole items in their row (`flex-wrap: wrap` on the row). A label that's too long for a whole row falls to rule 4.
+   SVG text, such as map labels and node names, can't use container units. It's fitted by measuring (`getComputedTextLength()` against its slot) and stepping the size down to the floor.
+3. **Floors:**
+   - 13px for names, labels and body text in a box;
+   - 11px for counts and mono data;
+   - 12px for map labels and node names on phones (see "Relationship map visual language").
+
+   Fitting and the font-size check use these same floors.
+4. **Below the floor:** use the record's or category's short name, if it has one (`short_name`, or the category's `short`).
+5. **Last resort:** cut with an ellipsis (`overflow: hidden; text-overflow: ellipsis`), and keep the full text in `title` and the accessible name. For a label we write, like a category or a button, an ellipsis is a bug to fix with a short label. For a record's long name in a row, such as a company in a homepage card, the ellipsis is accepted (Tosin, 17 Oct).
+6. **Checked:** a test at 1440, 1280 and 390 fails when any of these happens:
+   - an HTML one-line element's `scrollWidth` is greater than its `clientWidth`. The exception is a record name that rule 5 allows to end in an ellipsis: it's marked `data-truncate`, its CSS clips on purpose, so it's checked differently. It must stay one line, keep its box inside its parent (the box's right edge doesn't pass the parent's), and carry the full name in `title` and its accessible name. A `scrollWidth` overflow on anything not marked `data-truncate` fails;
+   - the text takes more than one line. Measure the text, not the element: a block or flex element (like `.nd-cat b`) reports one box even when its text wraps. Use a Range over its contents (`range.selectNodeContents(el); range.getClientRects()`) and count distinct line tops (within 4px). The fallback is the element's height compared with one computed line-height;
+   - its computed font size is below the floor;
+   - an SVG label (it has no layout box) overflows. The test compares the label's `getBBox()` with its slot, and with the node circles, other labels and edges near it.
+
+   `/design` shows each component with its longest real label.
+
 ### Spacing and layout
 - 4px base: `space-1` 4 · `space-2` 8 · `space-3` 12 · `space-4` 16 · `space-6` 24 · `space-8` 32 · `space-12` 48 · `space-16` 64.
 - Pages max out at `content-max`; running text at `prose-max`.
@@ -312,7 +335,7 @@ Tags have their own list pages but aren't navigation (`Tag`): `/companies?tag=fu
 - **Nodes:** an organization is a solid circle (`inverse` when selected, `ink` otherwise). A facility is a hollow circle with a `control` stroke, so organization and facility differ in shape as well as fill.
 - **Edges:** 1px `control` lines. *Supplies* and *vendor for* are solid. *Invests in* is dashed (4 4). *Offtakes from* is dotted (1 3). *Owns* and *operates* are solid with a small arrowhead. Every edge type carries a `data-sm` label on hover; never tell types apart by color alone.
 - **Selection:** clicking a node fills it `inverse`, raises its edges to `ink` and opens its summary in the detail panel without leaving the map.
-- **Labels:** org names in `small`, `ink`; never truncate inside the canvas. Hide labels below a zoom threshold instead.
+- **Labels:** org names in `small`, `ink`, on one line, following "Text in a box stays on one line": fit by measuring, down to the floor (12px on phones), then the record's `short_name`, and an ellipsis only as the last resort, with the full name in `<title>`, the aria-label and the detail sheet. Don't hide labels at small sizes; the map uses short names instead (#363).
 
 ## Iconography
 
