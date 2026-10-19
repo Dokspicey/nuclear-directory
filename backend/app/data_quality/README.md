@@ -98,7 +98,7 @@ Create `plugins/<source_kind>.rb` defining `DataQuality::Plugins::<SourceKind> <
 with `crawl(run)` and `extract(source, run)` (see `plugin.rb`). Match and verify are shared.
 
 Fetch with `DataQuality::Snapshot.take(source, fetcher: DataQuality::Fetcher.new)`, never your own HTTP:
-- **`Fetcher`** identifies as `NuclearDirectoryBot`, obeys robots.txt, waits between requests to a host,
+- **`Fetcher`** identifies as `NuclearDirectoryBot` with a contact address (`CONTACT_EMAIL`), obeys robots.txt, waits between requests to a host,
   sends ETag / If-Modified-Since, and never retries. It fetches public https only: the standard port,
   redirects that stay on the same host (with or without `www.`), and hosts that resolve only to public
   addresses (no private, loopback, link-local or metadata IPs); it connects to the address it checked.
@@ -156,7 +156,8 @@ A nightly crawl doesn't put facts back in the review queue when they haven't cha
   - It only runs after a complete read: the snapshot was extracted, and every row was
     placed. A blocked fetch flags nothing.
   - It only covers facts approved or confirmed from that source.
-  - A read that would drop more than a quarter of them flags nothing.
+  - A read that would drop more than a quarter of them flags nothing (`plugin.max_dropped_share`; NRC
+    decommissioning's site pages, a few facts each, allow any share).
   - `plugin.dropped(kind)` suggests the change. For NRC, a unit gone from the operating
     list is suggested as shut down.
 
@@ -171,9 +172,15 @@ For each `new` or `matched` candidate:
 1. **Code checks first**, with no model call. These go to `needs_review`, with the reason in `notes`:
    - its record was rejected or unpublished by a human after match attached it
    - it disagrees with a human-verified value on its record ("human-verified state is NJ; this source
-     says DE"; names aren't compared)
+     says DE"; names aren't compared). Not when every value it changes was last written by an
+     unedited approval from the same kind of source (`Differences.written_by_person`): the source is
+     updating its own value, so the verifier checks it. A seed, an admin edit, a repair, a merge, an
+     edited approval or another source makes a value a person's, and one such value keeps the whole
+     claim a conflict
    - its quote isn't in the source as stored. Each plug-in defines that: `quote_in_source?`, by default
      the page's visible text, and for NRC a whole table row
+   - its plug-in holds it for a person (`hold_for_review`), e.g. a unit NRC lists as decommissioning whose
+     owner plans a restart
 2. **The verifier agent** (`Verifiers::Agent`, `OPENROUTER_VERIFY_MODEL`, prompt `verify-v3`) reads the
    claim (`Claim.describe`) against an excerpt (`verification_context`; for NRC the header and the row),
    15 claims per call. All model calls happen before anything is written. A plug-in can also say what its
@@ -223,7 +230,44 @@ from Toledo OH). The state comes from EIA's plant state (Tosin, 2026-10-10). A u
 with NRC's state is corrected, as a recorded decision with its reason, by
 `BY=human:<handle> bin/rails "data_quality:correct_unit_state[<docket>,<STATE>]"`.
 
-## Talking to the directory
+## NRC decommissioning (#274)
+
+`plugins/nrc_decommissioning.rb` reads NRC's list of power reactor sites undergoing decommissioning,
+then NRC's page for each site it links to (about 20), each at most once a day. A block stops the crawl.
+
+- **From the list:** one unit per row, with its docket, `power_reactor`, status `decommissioning` (as the
+  list states), and city and state from its Location. The quote is the row. NRC's "Crystal River – Unit 3"
+  becomes "Crystal River 3", as NRC's operating list names units, with NRC's spelling as an alias. No
+  model is asked. A unit of a known site ("Dresden 1") goes under it, as for the operating list. A plant
+  listed with several units (Indian Point, San Onofre) gets a site, proposed first so its units go under
+  it and it counts as one plant.
+- **From each site page:** NRC names the licensee in prose, so the extractor model (prompt
+  `nrc-decommissioning-licensees-v1`) lists the companies that hold the license now, each with the
+  sentence that says so. A quote that isn't on the page, or doesn't name the company, sends the claim to
+  review. Each licensee gives a company, an `operates` or `owns` link to the page's units, and, only where
+  the page says it took over the license to decommission the site, the `waste_decommissioning` category.
+- **Restart plans:** Crane and Duane Arnold are on the list while their owners plan a restart. They're
+  proposed as decommissioning and held for a person, with the owner's announcement in the note
+  (`RESTART_PLANS`). A restart plan is a note, never a status. Approving one also shows its site as
+  Decommissioning. They come in as units under their sites ("Crane 1", "Duane Arnold 1"); a site never
+  takes a unit's docket.
+- **TMI-2** is held too (`PLACE_BY_HAND`): Crane is TMI-1 renamed, so TMI-2 is its own record, never
+  under Crane.
+- **Blocked site pages:** a list fetched while a site page it links has no readable copy isn't extracted
+  (`SitePagesUnread`), so no unit comes in without its licensees. Nothing is written, and a later run
+  extracts it once every page has been read.
+- **Pages and units leaving the list:** nothing is rejected or retired automatically. A page the list stops
+  linking, or a unit moved off a page, sends its open claims to review with a note (`review_origin:
+  "withdrawn"`, which a read of the page doesn't replace). Each published link it supported gets one review
+  item, as the dropped check does. If the list states them again, the withdrawn claims go back to where
+  match left them, with what they proposed, and the page is read again.
+- **A page that names a new licensee:** the old published link gets a review item (any share of a site
+  page's facts may be flagged), and stays published until a person decides.
+- **Pages someone cited by hand** become this plug-in's, so their licensees are read; a page another
+  plug-in reads isn't fetched here and holds the list.
+- A unit gone from the list is suggested as shut down. The list's rows, and each page's text without its
+  date stamp, are what's hashed (#240).
+
 
 The contract is in [`app/directory/README.md`](../directory/README.md).
 `directory_client.rb` uses `Directory::Lookup.organization` / `.facility` and
@@ -235,7 +279,16 @@ Two tests keep the module and the directory in step:
 - It also checks that the fakes in `support/fake_directory.rb` have the same
   method signatures as the real interfaces.
 
-## Giving others a source
+## DOE Isotope Program: production sites (#276)
+
+`plugins/doe_isotope_sites.rb` reads one page, isotopes.gov's "DOE IRP Production Sites", once a day.
+It takes names only from the page's own sentences: each lab named as "<Name> National Laboratory (ABBR)"
+(or Y-12's "National Security Complex") in a sentence about producing or processing isotopes, and each
+school in the sentence listing DOE's University Isotope Network. Each gives a company (its abbreviation as
+an alias), the `isotopes` category and, where its own name says so, `national_lab` or `university`, quoting
+that sentence. Verify holds a university's isotopes claim for a person (`hold_for_review`, after match
+attached it), since network membership alone doesn't say it produces isotopes. No model is asked. Companies DOE names in its news come in a second part.
+
 
 Sources belong to this module. Code outside it (e.g. the seed loader) gets one
 with `DataQuality::Sources.find_or_create(url:, source_kind:, published_on:)`,

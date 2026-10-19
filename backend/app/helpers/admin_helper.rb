@@ -18,7 +18,8 @@ module AdminHelper
   # Sources by kind, in the names the admin uses (canvas A).
   SOURCE_KIND_LABELS = {
     "nrc_reactor_list" => "NRC", "nrc_power_status" => "NRC", "eia_generators" => "EIA", "eia_860m_index" => "EIA",
-    "usaspending_doe_awards" => "USAspending", "usaspending_api" => "USAspending", "web_page" => "Research"
+    "usaspending_doe_awards" => "USAspending", "usaspending_api" => "USAspending", "nrc_decommissioning" => "NRC",
+    "web_page" => "Research"
   }.freeze
 
   def source_kind_label(kind) = SOURCE_KIND_LABELS.fetch(kind.to_s) { kind.to_s.humanize }
@@ -313,8 +314,9 @@ module AdminHelper
     "reactor_type" => "reactor type", "capacity_mw" => "capacity", "latitude" => "location", "longitude" => "location" }.freeze
 
   # A plant merge also names the site fields it fills where the kept plant
-  # has none ("eia_plant_id, status"): "fills in its EIA plant ID and status".
-  def merge_moved_words(moved)
+  # has none ("eia_plant_id, status"), by the kept plant's name (Design,
+  # #325): "fills in Plant Vogtle's EIA plant ID and status".
+  def merge_moved_words(moved, into_name: nil)
     return if moved.blank? || moved == "nothing"
 
     counted, fields = moved.to_s.split(", ").partition { |part| part.match?(/\A\d+ /) }
@@ -327,7 +329,7 @@ module AdminHelper
       "#{count} #{count.to_i == 1 ? one : many}"
     end
     labels = fields.map { |name| SITE_FIELD_WORDS.fetch(name.strip) { field_label(name.strip).downcase_first } }.uniq
-    parts << "fills in its #{labels.to_sentence(last_word_connector: " and ")}" if labels.any?
+    parts << "fills in #{into_name ? "#{into_name}'s" : 'its'} #{labels.to_sentence(last_word_connector: " and ")}" if labels.any?
     parts.join(", ").presence
   end
 end

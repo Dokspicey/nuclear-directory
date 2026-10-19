@@ -34,6 +34,7 @@ module FakeDirectory
     def fact_attributes(type:, id:) = nil
     def published?(type:, id:) = false
     def sourced?(type:, id:) = true
+    def evidence(type:, id:) = []
     def similar_facilities(name) = []
     def facility_units(name:, state: nil) = []
 
@@ -52,6 +53,9 @@ module FakeDirectory
       @writes = []
       @next_id = 1000
     end
+
+    # Nothing here is ever merged.
+    def repoint_merged_claims = 0
 
     def write(kind, attributes, evidence: [], verification: nil, fill_blank: false, protect_human_verified: false,
       remove_aliases: [])
