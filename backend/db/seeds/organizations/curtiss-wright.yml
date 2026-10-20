@@ -31,7 +31,7 @@ relationships:
   published: '2026-10-14'
   confidence: 1.0
 facilities: []
-notes: 'Primer chunk 4 (PM, 19 Oct): no Curtiss-Wright record existed. The AP1000 reactor coolant pumps are stated only as "being used for" the AP1000; no page read states Westinghouse as the buyer, so no Westinghouse link yet. SEC CIK not set: needs a 10-K cover copy. The Natrium training simulator (installed at Kemmerer, announced 14 Oct 2026) is stated in the same release but not in this link's quote, so it is not in the link text. Leadership is on the site and not recorded (no individuals).'
+notes: 'Primer chunk 4 (PM, 19 Oct): no Curtiss-Wright record existed. The AP1000 reactor coolant pumps are stated only as "being used for" the AP1000; no page read states Westinghouse as the buyer, so no Westinghouse link yet. SEC CIK not set: needs a 10-K cover copy. The Natrium training simulator (installed at Kemmerer, announced 14 Oct 2026) is stated in the same release but not in the quote the link cites, so it is left out of the link text. Leadership is on the site and not recorded (no individuals).'
 description:
   text: Maker of engineered products for aerospace and defense and for commercial nuclear power, including reactor coolant pumps and control rod drive mechanisms.
   source_url: https://www.curtisswright.com/news/press-releases/news-release-details/2026/Curtiss-Wright-Installs-Stage-1-Simulator-at-TerraPower-Natrium-Site-in-Kemmerer-WY
