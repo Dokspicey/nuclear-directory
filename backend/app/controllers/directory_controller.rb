@@ -1,8 +1,15 @@
 # The directory and search results: one page, one list (#40). Pressing Enter
 # in any search field lands here with q set; a category pill sets category.
 class DirectoryController < ApplicationController
+  # Categories that became tags (#281). Their old addresses move for good.
+  CATEGORY_TAGS = { "fusion" => "fusion" }.freeze
+
   def index
-    @listing = DirectoryListing.new(**params.permit(:category, :q, :technology, :state, :sort).to_h.symbolize_keys)
+    if (tag = CATEGORY_TAGS[params[:category]])
+      return redirect_to companies_url(params.permit(:q, :technology, :state, :sort).merge(tag:)), status: :moved_permanently
+    end
+
+    @listing = DirectoryListing.new(**params.permit(:category, :tag, :q, :technology, :state, :sort).to_h.symbolize_keys)
     # The filter sheet's "Show N results" (#90) asks for the count only; it isn't a search.
     return render(json: { count: @listing.company_scope.count + @listing.plant_scope.count }) if request.format.json?
 
@@ -10,6 +17,8 @@ class DirectoryController < ApplicationController
     @plants = @listing.plants.to_a
     @counts = DirectoryListing.category_counts
 
-    track_search(@listing.query, results: @companies.size + @plants.size) if @listing.searching?
+    # A suggested search on the home page says so (from=suggestion).
+    source = params[:from] == "suggestion" ? "suggestion" : "typed"
+    track_search(@listing.query, results: @companies.size + @plants.size, source:) if @listing.searching?
   end
 end

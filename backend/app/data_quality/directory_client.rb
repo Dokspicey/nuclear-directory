@@ -29,6 +29,13 @@ class DataQuality::DirectoryClient
     def conflict? = conflicts.any?
   end
 
+  # A plant's status change (#316): plan is Directory::StatusChange's Plan
+  # (changes, unchanged, operating_before, operating_after), or error says
+  # why it can't be made.
+  StatusResult = Data.define(:plan, :error) do
+    def ok? = error.nil?
+  end
+
   # Kinds whose payload names other records instead of carrying attributes;
   # the match stage resolves those names to ids and writes the fact.
   LINK_KINDS = %w[organization_role organization_technology relationship facility_relationship].freeze
@@ -43,8 +50,8 @@ class DataQuality::DirectoryClient
   end
 
   # Exact lookups. Pass one keyword; returns a Record or nil.
-  def organization(name: nil, domain: nil)
-    record("Organization", lookup.organization(name:, domain:))
+  def organization(name: nil, domain: nil, sec_cik: nil)
+    record("Organization", lookup.organization(name:, domain:, sec_cik:))
   end
 
   def facility(id: nil, name: nil, site_name: nil, nrc_docket: nil, eia_plant_id: nil)
@@ -141,10 +148,10 @@ class DataQuality::DirectoryClient
   # the record's verification alone, since it doesn't vouch for the record
   # itself; even when a human approves it, it doesn't overwrite a
   # human-verified value (that comes back as a conflict).
-  def write_fact(candidate, confidence:, crawl_run:, by: nil, reason: nil)
+  def write_fact(candidate, confidence:, crawl_run:, by: nil, reason: nil, edited: false)
     # The record written is the one match attached, never an id, a link end or
     # a slug in the payload (payloads aren't validated; Review locks these too).
-    attributes = candidate.payload.except(*LINK_ENDS, *PAYLOAD_LOCKED, ENRICHMENT_KEY).symbolize_keys
+    attributes = candidate.payload.except(*WRITE_SKIPPED).symbolize_keys
     attributes[:id] = candidate.subject_id if candidate.subject_id
     if candidate.kind == "organization"
       # The name it was found under becomes an alias only once a verdict accepts
@@ -159,7 +166,10 @@ class DataQuality::DirectoryClient
     verification =
       if enrichment then nil
       elsif by
-        { status: "verified", by:, reason:, context: { "candidate_id" => candidate.id, "crawl_run_id" => crawl_run&.id } }.compact
+        # edited: whether a person changed the values first, which makes
+        # them the person's (Differences.written_by_person).
+        context = { "candidate_id" => candidate.id, "crawl_run_id" => crawl_run&.id, "edited" => edited }
+        { status: "verified", by:, reason:, context: }.compact
       else
         { status: "verified", by: "agent:verifier/#{crawl_run&.model || 'unknown'}" }
       end
@@ -208,7 +218,7 @@ class DataQuality::DirectoryClient
     return unless fact_id
     return if candidate.source.status_reason.present?
 
-    attributes = candidate.payload.except(*LINK_ENDS, *PAYLOAD_LOCKED, ENRICHMENT_KEY).symbolize_keys.merge(id: fact_id)
+    attributes = candidate.payload.except(*WRITE_SKIPPED).symbolize_keys.merge(id: fact_id)
     # A link's ends as the payload names them, found afresh, so a claim
     # attached to the wrong link (#226) doesn't pass as the same claim.
     attributes.merge!(link_end_ids(candidate.payload)) if LINK_KINDS.include?(candidate.kind)
@@ -232,6 +242,8 @@ class DataQuality::DirectoryClient
   # Payload key of an enrichment candidate: how to find the existing record
   # it adds values to. Enrichment never creates records.
   ENRICHMENT_KEY = "identify"
+  # Payload keys a write never stores as values.
+  WRITE_SKIPPED = [ *LINK_ENDS, *PAYLOAD_LOCKED, ENRICHMENT_KEY ].freeze
 
   def enrichment?(candidate) = candidate.payload.to_h.key?(ENRICHMENT_KEY)
 
@@ -311,15 +323,28 @@ class DataQuality::DirectoryClient
   # Every verification decision on a fact, newest first (Directory::VerificationEventRef).
   def verification_history(type:, id:) = lookup.verification_history(type:, id:)
 
+  # A fact's evidence (Directory::EvidenceRef).
+  def evidence(type:, id:) = lookup.evidence(type:, id:)
+
+  # Whether a correction report on the fact's public page (a link's, either
+  # end's) is still unresolved.
+  def open_corrections?(type:, id:) = lookup.open_corrections?(type:, id:)
+
   MERGES = { "Organization" => :merge_organization, "Facility" => :merge_facility }.freeze
 
   # A person's merge of one company or plant site into another (#142), as the
   # merge rake tasks do it: everything moves to into, from is unpublished
   # with a reason saying what moved, and its address redirects. With
-  # dry_run it's done and rolled back, to say what it would move. Returns
-  # [WriteResult, what moved ("3 aliases, 2 evidence") or nil].
+  # dry_run it only reads (FactWriter.merge_preview), taking no locks, to
+  # say what it would move (#325). Returns [WriteResult, what moved
+  # ("3 aliases, 2 claims") or nil].
   def merge(type, from_id:, into_id:, by:, reason: nil, dry_run: false)
     method = MERGES.fetch(type)
+    if dry_run
+      result, moved = fact_writer.merge_preview(type:, from_id:, into_id:)
+      return [ write_result(result), (claims_word(moved) if result.errors.empty?) ]
+    end
+
     result = moved = nil
     ActiveRecord::Base.transaction(requires_new: true) do
       # The claims on both records are locked first, in the order an approval
@@ -332,14 +357,17 @@ class DataQuality::DirectoryClient
       claims.order(:id).lock.to_a
       result = write_result(fact_writer.public_send(method, from_id:, into_id:, by:, reason:))
       # In the admin's words: candidates are claims.
-      moved = verification_history(type:, id: from_id).first&.reason.to_s[/Moved: (.*)\z/, 1]&.gsub(/\bcandidate(s?)\b/, "claim\\1") if result.errors.empty?
-      raise ActiveRecord::Rollback if dry_run
+      moved = claims_word(verification_history(type:, id: from_id).first&.reason.to_s[/Moved: (.*)\z/, 1]) if result.errors.empty?
     end
-    @plant_names = nil unless dry_run
+    @plant_names = nil
     [ result, moved ]
   rescue ActiveRecord::Deadlocked, ActiveRecord::LockWaitTimeout
     [ WriteResult.new(ref: nil, errors: [ "someone was deciding on one of its claims just then; try again" ]), nil ]
   end
+
+  # Moves open claims left on a merged-away record to the one kept (#325).
+  # Returns how many moved.
+  def repoint_merged_claims = fact_writer.repoint_merged_claims
 
   # A human's decision on a directory fact: status "verified" (approve or
   # republish, optionally with edited attributes), "rejected" or
@@ -350,6 +378,19 @@ class DataQuality::DirectoryClient
       verification: { status:, by:, reason:, context: }.compact)
     write_result(result)
   end
+
+  # What setting these plant records (a site and its units) to status would
+  # change, without writing. Returns a StatusResult.
+  def status_change_plan(ids:, status:) = status_result { status_change.plan(ids:, status:) }
+
+  # Sets their status as `by`'s decision (Directory::StatusChange.apply).
+  # Returns a StatusResult.
+  def set_status(ids:, status:, by:, reason:, source_id: nil, quote: nil)
+    status_result { status_change.apply(ids:, status:, by:, reason:, source_id:, quote:) }
+  end
+
+  # NRC's power status file's newest line for this plant: [source_id, quote], or nil.
+  def nrc_status_quote(name) = status_change.nrc_quote(name)
 
   # A human removes one piece of evidence from a fact (see
   # Directory::FactWriter#remove_evidence). Returns a WriteResult.
@@ -393,7 +434,9 @@ class DataQuality::DirectoryClient
               (facility(eia_plant_id: named["eia_plant_id"]) if named["eia_plant_id"].present?) ||
               (facility(name: named["name"]) if named["name"].present?)
           else
-            (organization(name: named["name"]) if named["name"].present?) ||
+            # The SEC's CIK first, as Match and FactWriter find a company (#129).
+            (organization(sec_cik: named["sec_cik"]) if named["sec_cik"].present?) ||
+              (organization(name: named["name"]) if named["name"].present?) ||
               (organization(domain: named["domain"]) if named["domain"].present?)
           end
         ids[:"#{key}_id"] = found&.id
@@ -403,6 +446,16 @@ class DataQuality::DirectoryClient
     # Resolved lazily so the module has no load-time dependency on the directory.
     def lookup = @lookup ||= "Directory::Lookup".constantize
     def fact_writer = @fact_writer ||= "Directory::FactWriter".constantize
+    def status_change = "Directory::StatusChange".constantize
+
+    def status_result
+      StatusResult.new(plan: yield, error: nil)
+    rescue status_change::Invalid => error
+      StatusResult.new(plan: nil, error: error.message)
+    end
+
+    # In the admin's words: candidates are claims.
+    def claims_word(moved) = moved&.gsub(/\bcandidate(s?)\b/, "claim\\1")
 
     # Read once and reused for every brand check, until a facility or company is written.
     def plant_names = @plant_names ||= lookup.plant_names(owners: owner_hints)

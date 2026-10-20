@@ -41,7 +41,7 @@ class CompanyPageTest < ActionDispatch::IntegrationTest
     assert_select ".nd-profile__desc", /Develops salt-cooled reactors./
     assert_select ".nd-tag", "Reactor developer"
     assert_select ".nd-tag", "Small modular reactor"
-    assert_select ".nd-crumbs a[href=?]", "/companies?category=reactor-developers", text: "Reactor developers"
+    assert_select ".nd-crumbs a[href=?]", "/companies?category=reactor-developers", text: "Developers"
   end
 
   test "deals read left to right, link the other company, and carry sources" do
@@ -136,7 +136,15 @@ class CompanyPageTest < ActionDispatch::IntegrationTest
     get company_path(slug: "kairos-power")
 
     assert_select ".nd-overview dt", text: "Website"
-    assert_select ".nd-overview dd a[href='https://kairospower.com']", "kairospower.com"
+    # #200: the Website link carries the referral UTM so companies see the
+    # visit in their own analytics. The href starts with the website, with
+    # utm_source / utm_medium / utm_campaign on the query string.
+    assert_select ".nd-overview dd a[href^='https://kairospower.com?']", "kairospower.com" do |links|
+      params = URI.decode_www_form(URI.parse(links.first["href"]).query).to_h
+      assert_equal "nuclear-directory", params["utm_source"]
+      assert_equal "referral", params["utm_medium"]
+      assert_equal "company-page", params["utm_campaign"]
+    end
     assert_select ".nd-overview dd", text: /\AKairos\s*1\z/
     assert_select ".nd-overview dd", text: /\AAlameda, CA\s*1\z/
     assert_select ".nd-overview dt", text: "Founded", count: 0
@@ -207,6 +215,21 @@ class CompanyPageTest < ActionDispatch::IntegrationTest
     get company_path(slug: "backer-fund")
 
     assert_select ".nd-crumbs a[href=?]", "/companies?category=investors", text: "Investors"
+  end
+
+  test "every bucket the company is in is listed in its key facts, each linked (#281)" do
+    westinghouse = cite!(company("Westinghouse", roles: [ Role.find_by(key: "reactor_vendor") || role("reactor_vendor"), role("reactor_services") ]))
+    cite!(link(westinghouse, "invests_in", @kairos))
+    get company_path(slug: westinghouse.slug)
+
+    assert_select ".nd-overview dt", "Type"
+    assert_equal [ "Developers", "Services and engineering", "Investors" ], css_select(".nd-overview ul.nd-bucketchips li .nd-bucketchip__full").map { |label| label.text.strip }
+    assert_select ".nd-overview a.nd-bucketchip.nd-bucket--reactor-developers[href=?] svg", "/companies?category=reactor-developers"
+    assert_select ".nd-overview a.nd-bucketchip.nd-bucket--services[href=?][aria-label=?]", "/companies?category=services", "Services and engineering" do
+      assert_select ".nd-bucketchip__short[aria-hidden=true]", "Services", "the short label where the full one can't fit"
+    end
+    assert_select ".nd-overview a.nd-bucketchip.nd-bucket--investors[href=?]", "/companies?category=investors"
+    assert_select ".nd-crumbs a[href=?]", "/companies?category=reactor-developers", text: "Developers"
   end
 
   test "a hidden invests-in deal doesn't make a company an investor" do
