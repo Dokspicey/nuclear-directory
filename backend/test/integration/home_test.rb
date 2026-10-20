@@ -40,13 +40,38 @@ class HomeTest < ActionDispatch::IntegrationTest
     assert_select ".nd-suggs a[href=?]", "/companies?category=power-buyers", text: "Power deals"
   end
 
-  test "category boxes show the most connected verified names" do
+  test "a card for each bucket with companies, then Plants and sites last, naming at most three (#362)" do
     get root_path
 
-    # Developers, Plants and sites, Power buyers: empty buckets are hidden.
-    assert_select "a.nd-cat", 3
-    assert_select "a.nd-cat[href=?] span", "/companies?category=reactor-developers", text: "Kairos Power, NuScale Power, Oklo"
-    assert_select "a.nd-cat[href=?] span", "/companies?category=fusion", count: 0
+    # Developers, Power buyers, Plants and sites: empty buckets have no card.
+    assert_equal %w[reactor-developers power-buyers plants], css_select("section.nd-catcard").map { |card| card["data-key"] }
+    assert_select "section.nd-catcard", 3
+    assert_select "section[data-key=reactor-developers]" do
+      assert_select "a.nd-catcard__head[href=?][aria-label=?]", "/companies?category=reactor-developers", "Developers, 4 companies"
+      assert_select "section[data-label=?]", "Developers, 4 companies"
+      assert_select "h2.nd-catcard__head--toggle", /Developers/, "the phone header, which shows no count"
+      assert_select "a.nd-catcard__row", 3
+      assert_select "a.nd-catcard__row[href=?][title=?]", "/companies/kairos-power", "Kairos Power", text: /Kairos Power/
+      assert_select "a.nd-catcard__more[href=?][aria-label=?]", "/companies?category=reactor-developers", "See all 4 in Developers", text: /\A\s*See all ›\s*\z/
+      assert_select "a.nd-catcard__head .nd-catcard__count[aria-hidden=true]", "4"
+    end
+    assert_select "section[data-key=power-buyers]" do
+      assert_select "a.nd-catcard__row", 1
+      assert_select "li.nd-catcard__filler[aria-hidden=true]", 2
+      assert_select "a.nd-catcard__more[aria-label=?]", "Open the list of 1 company in Power buyers", text: /Open the list ›/
+    end
+    assert_select "section[aria-label='Plants and sites'] a.nd-catcard__head[aria-label=?]", "Plants and sites, 0 plants and sites"
+    assert_select "details.nd-howpick", 0 # no explanation link (Tosin)
+  end
+
+  test "no company name repeats across the home cards" do
+    vendor, fuel = %w[reactor_vendor fuel].map { |key| Role.find_by(key:) || role(key) }
+    (1..4).map { |n| "Both Buckets Company #{n}" }.each { |name| cite!(company(name, roles: [ vendor, fuel ])) }
+    get root_path
+
+    names = css_select("section.nd-catcard:not([data-key=plants]) .nd-catcard__rowname").map { |row| row.text.strip }
+    assert_not_empty names
+    assert_equal names.uniq, names, "a company shows on one card only (Tosin, 18 Oct)"
   end
 
   test "the search field is wired to instant results" do
