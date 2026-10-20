@@ -71,7 +71,8 @@ class DataQuality::Stages::RematchTest < ActiveSupport::TestCase
     assert claim.reload.status_needs_review?, "a similar name is still a question"
 
     dropped = award("GENERAL ATOMICS")
-    dropped.update_columns(status: "needs_review", review_origin: "dropped", notes: "to_organization: no exact match")
+    # A missing-match note the re-match would pick up, but a dropped item: never re-tried.
+    dropped.update_columns(status: "needs_review", review_origin: "dropped", notes: "to_organization: no exact match for \"GENERAL ATOMICS\"")
     match!
     assert dropped.reload.status_needs_review?
   end
