@@ -132,9 +132,12 @@ services:
     autoDeployTrigger: commit
     healthCheckPath: /up
     # Free instances have no pre-deploy step, so every start empties and
-    # reloads the preview database (bin/preview-start.sh, which refuses any
-    # database but nuclear_directory_preview).
-    dockerCommand: ./bin/preview-start.sh
+    # reloads the preview database (bin/preview-start, a one-line wrapper
+    # that execs bin/preview-start.sh since #224). Switching the command to
+    # the .sh name directly is a follow-up (#337: Render's blueprint sync
+    # applies this to the preview's current build immediately, so it has to
+    # wait until a build that includes the renamed script is live).
+    dockerCommand: ./bin/preview-start
     envVars:
       # postgres://preview_app:<password>@<internal host>/nuclear_directory_preview
       - key: DATABASE_URL

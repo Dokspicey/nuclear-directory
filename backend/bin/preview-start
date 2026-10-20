@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Old name, kept until render.yaml's dockerCommand points at
+# preview-start.sh (#224). Render's blueprint sync applies dockerCommand
+# changes to the preview's current build immediately (#337), so the switch
+# can't be done in the same PR as the rename: the preview branch's build
+# wouldn't have preview-start.sh yet and the preview would fail to start.
+# This wrapper lets the current command keep working until the follow-up
+# PR flips dockerCommand and deletes this file.
+exec "$(dirname "$0")/preview-start.sh" "$@"
