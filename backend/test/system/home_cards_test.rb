@@ -50,6 +50,39 @@ class HomeCardsTest < ApplicationSystemTestCase
     assert_equal [ 0, 0 ], edges, "no untappable strip at either edge"
   end
 
+  test "a category title is never cut short: it fits, and it isn't excused from being cut" do
+    visit root_path
+    titles = page.evaluate_script(<<~JS)
+      [...document.querySelectorAll(".nd-catcard__name")].map((name) => [name.textContent.trim(), name.hasAttribute("data-truncate"), name.scrollWidth <= name.clientWidth + 1])
+    JS
+    assert_not_empty titles
+    titles.each do |text, excused, fits|
+      assert_not excused, "#{text} is marked as allowed to be cut short"
+      assert fits, "#{text} is cut short"
+    end
+  end
+
+  test "on a phone the focus ring on a card row is drawn inside the row, so the card can't cut it" do
+    resize_viewport(390, 844)
+    visit root_path
+
+    page.execute_script(<<~JS)
+      const row = [...document.querySelectorAll(".nd-catstack a.nd-catcard__row")].find((r) => r.getBoundingClientRect().height > 0)
+      row.focus()
+    JS
+    page.send_keys(:tab, [ :shift, :tab ]) # keyboard focus, so :focus-visible applies
+    style, offset, inset = page.evaluate_script(<<~JS)
+      (() => {
+        const row = document.activeElement, box = row.getBoundingClientRect()
+        const inner = row.closest(".nd-catcard__inner").getBoundingClientRect()
+        return [getComputedStyle(row).outlineStyle, parseFloat(getComputedStyle(row).outlineOffset), Math.round(box.left - inner.left)]
+      })()
+    JS
+    assert_equal "solid", style, "the row shows a focus ring"
+    assert_operator offset, :<=, 0, "the ring is drawn inside the row"
+    assert_equal 0, inset, "the row runs edge to edge, so only an inside ring survives"
+  end
+
   test "the /design example cards are as wide as on the home page, and nothing in them is cut" do
     visit "/design"
     widths = page.evaluate_script("[...document.querySelectorAll('.nd-catgrid--example .nd-catcard')].map((card) => Math.round(card.getBoundingClientRect().width))")
