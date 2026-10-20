@@ -260,7 +260,9 @@
 
 /* Home page and instant search (#41). */
 @layer components {
-  /* B-fit (#362): the whole page, footer included, fits 1440x900 and 1280x800. */
+  /* Home layout. B-fit (#362: no scroll at 1440x900) is retired for Tosin's
+     compact grid (19 Oct): 3 columns, 960px at most, so the page scrolls on
+     a laptop screen (about 1157px tall at 1440x900). Phones scroll anyway. */
   body:has(> .nd-home) { min-height: 100dvh; display: flex; flex-direction: column; }
   body:has(> .nd-home) > .nd-footer { margin-top: auto; padding-top: var(--nd-space-4); padding-bottom: var(--nd-space-4); }
   .nd-home { flex: 1 0 auto; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 28px 48px 14px; }
