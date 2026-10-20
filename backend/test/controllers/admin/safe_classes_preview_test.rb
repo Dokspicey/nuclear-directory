@@ -1,8 +1,9 @@
 require "test_helper"
 
-# The recommendations page with the verifier's safe classes (#306, option
-# A): a second group, each item tagged with its class and what it changes,
-# taken by the same Accept, under one fingerprint.
+# The recommendations page with the app's safe recommendations (#306,
+# option A): a second group, each item tagged with its label and what it
+# changes, taken by the same Accept, under one fingerprint. #424 renamed
+# the badge from "Safe: <code>" to "Safe: <label>" (plain words).
 class Admin::SafeClassesPreviewTest < ActionDispatch::IntegrationTest
   SafeClasses = DataQuality::SafeClasses
   FUNDER = "U.S. Department of Energy"
@@ -46,17 +47,34 @@ class Admin::SafeClassesPreviewTest < ActionDispatch::IntegrationTest
     with_s1(enabled: false) do
       get admin_recommendations_path
 
-      assert_select "#safe-#{@claim.id} .nd-tag", "Would be safe: S1"
+      assert_select "#safe-#{@claim.id} .nd-tag", "Would be safe: USAspending update on a settled DOE link"
       assert_select "#safe-heading span", "1", "the heading counts the rows it lists"
       assert_select "#safe-#{@claim.id}", /Description.*1 award.*→.*2 awards/m
       assert_select "form[action=?]", admin_recommendations_accept_path, count: 0
     end
   end
 
+  # #424: the recommendations page uses plain words. #373's spec bans
+  # "Claim", "Verifier", "safe class" and the "S1" code in what the admin
+  # reads here. The yaml file keeps "safe_verifier_classes.yml"; this is
+  # about what the page shows.
+  test "the recommendations page uses plain words: no Claim, Verifier, S1 or safe class text (#424)" do
+    with_s1(enabled: true) do
+      get admin_recommendations_path
+    end
+
+    html = response.body
+    [ "Claim #{@claim.id}", "Verifier, safe", "Safe: S1", "Would be safe: S1", "safe class" ].each do |banned|
+      assert_not_includes html, banned, "the admin page should not say #{banned.inspect} (#424)"
+    end
+    # The id still shows, prefixed with #.
+    assert_includes html, "##{@claim.id}"
+  end
+
   test "with S1 on, Accept takes it in the same click, recorded as the verifier's recommendation" do
     with_s1(enabled: true) do
       get admin_recommendations_path
-      assert_select "#safe-#{@claim.id} .nd-tag", "Safe: S1"
+      assert_select "#safe-#{@claim.id} .nd-tag", "Safe: USAspending update on a settled DOE link"
       assert_select "#accept-heading .type-count", "1"
       shown = DataQuality::Recommendations.plan.fingerprint
 
