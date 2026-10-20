@@ -272,6 +272,7 @@ class Admin::CandidatesControllerTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_content
     assert_select ".nd-alert", /can't edit role here/i
     assert c.reload.status_matched?, "a changed role is refused, not dropped"
+    assert_select ".nd-field", /Role\s+Reactor vendor\s+Can.t be edited here/, "the page shows the claim's role, not the refused one"
 
     patch admin_candidate_path(c), params: { values: { role: "reactor_vendor" } }
     assert c.reload.status_merged?, [ response.status, flash[:alert], css_select(".nd-alert").text.squish ].inspect
