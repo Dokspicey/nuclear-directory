@@ -297,6 +297,25 @@ class DataQuality::SafeClassesTest < ActiveSupport::TestCase
     assert safe.reload.status_matched?, "the safe item was left: the run's allowance was taken"
   end
 
+  test "G6 again at Accept: an approval from the run after the page loaded can use up the allowance" do
+    other = Organization.create!(name: "Other Fission Co", verification_status: "verified", verified_by: "human:tosin")
+    second_link = Relationship.create!(from_organization: @doe, to_organization: other, relationship_type: "funds", description: "Pending.")
+    elsewhere = Candidate.create!(source: @source, kind: "relationship", status: "matched", quote: "other award", crawl_run: @run,
+      payload: { "relationship_type" => "funds", "description" => FIRST }, subject_type: "Relationship", subject_id: second_link.id,
+      ai_recommendation: "needs_review", ai_confidence: 0.5, ai_source_sha256: @source.content_sha256)
+    safe = claim({ "description" => SECOND })
+
+    with_config(max_items: 1) do
+      items = DataQuality::Recommendations.plan.safe_accept
+      assert_equal [ safe.id ], items.map(&:candidate_id), "one change from the run: within the limit"
+      assert DataQuality::Review.approve([ elsewhere.id ], by: "human:tosin").sole.ok?, "a person approves another of the run's claims"
+
+      result = SafeClasses.accept(items, by: "human:tosin").sole
+      assert_equal [ "it's no longer safe: its run already has 1 approved changes, the limit is 1" ], result.errors
+    end
+    assert safe.reload.status_matched?
+  end
+
   test "G5: an API answer that couldn't be read, or a verify run still going, isn't safe" do
     candidate = claim({ "description" => SECOND })
     @index.update_columns(http_status: 200, status_reason: "the answer wasn't valid JSON", fetched_at: Time.current)
