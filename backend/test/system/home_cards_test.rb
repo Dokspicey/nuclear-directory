@@ -161,11 +161,14 @@ class HomeCardsTest < ApplicationSystemTestCase
   end
 
   [ [ 1440, 900 ], [ 1280, 800 ] ].each do |width, height|
-    test "the whole page fits #{width}x#{height} with no scroll, one line everywhere" do
+    test "at #{width}x#{height} the cards are a compact 3-column grid, never wider than 960px, one line everywhere" do
       resize_viewport(width, height)
       visit root_path
 
-      assert_operator page.evaluate_script("document.documentElement.scrollHeight"), :<=, height, "the page scrolls at #{width}x#{height}"
+      grid = page.evaluate_script("(() => { const g = document.querySelector('.nd-home .nd-catgrid'), box = g.getBoundingClientRect(), page = document.documentElement; return [Math.round(box.width), getComputedStyle(g).gridTemplateColumns.split(' ').length, Math.round(box.left + box.width / 2), page.clientWidth / 2] })()")
+      assert_operator grid[0], :<=, 960, "the grid is compact, not screen-wide"
+      assert_equal 3, grid[1], "3 columns"
+      assert_in_delta grid[3], grid[2], 1, "centred"
       assert_equal 10, cards.size
       assert_equal "plants", cards.last.first, "Plants and sites is the last card"
       assert(cards.all? { |_, rows| rows <= 3 })
