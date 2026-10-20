@@ -648,7 +648,12 @@ module Directory
 
         if kind == :organization
           aliases_before = record.aliases.pluck(:alias).sort
-          write_aliases(record, [ record.name, *attributes[:aliases] ])
+          # Keep the old name as an alias when a human edit renames the
+          # company (#287), so a source still using it still finds this
+          # record. Merging already does this; plain renames didn't.
+          renamed_from = record.name_before_last_save if !created && record.saved_change_to_name? && record.name_before_last_save.present?
+          extra_alias = renamed_from unless renamed_from && organization_alias_taken_elsewhere?(record, renamed_from)
+          write_aliases(record, [ record.name, *attributes[:aliases], *Array(extra_alias) ])
           dropped = Array(remove_aliases).map { |name| OrganizationAlias.normalize(name) } - [ OrganizationAlias.normalize(record.name) ]
           record.aliases.where(normalized_alias: dropped).delete_all if dropped.any?
           aliases_after = record.aliases.reload.pluck(:alias).sort
@@ -659,7 +664,14 @@ module Directory
           aliases_before = record.aliases.pluck(:alias).sort
           # A name that was one of the plant's aliases is now its name.
           record.aliases.where(normalized_alias: FacilityAlias.normalize(record.name)).delete_all
-          write_facility_aliases(record, attributes[:aliases])
+          # The name changed on an edit (admin or FactWriter caller, #287):
+          # keep the old one as an alias so a source still using it finds
+          # this plant. If the old name is taken by another facility already
+          # (as a name or alias), leave the collision in place rather than
+          # fail the save.
+          renamed_from = record.name_before_last_save if !created && record.saved_change_to_name? && record.name_before_last_save.present?
+          extra_alias = renamed_from unless renamed_from && alias_taken_elsewhere?(record, renamed_from)
+          write_facility_aliases(record, Array(attributes[:aliases]) + Array(extra_alias))
           aliases_after = record.aliases.reload.pluck(:alias).sort
           @aliases_changed = aliases_after != aliases_before
           edited["aliases"] = [ aliases_before, aliases_after ] if edited && aliases_after != aliases_before
@@ -975,6 +987,17 @@ module Directory
 
       # The organization's own name is stored as an alias too, so
       # Lookup.organization(name:) only ever has to check aliases.
+      # Whether another organization already holds this normalized alias
+      # (as its own alias; organization names aren't checked here since the
+      # pipeline resolves same-named companies through aliases already). Used
+      # by the rename-keeps-alias path (#287) to skip adding a colliding one.
+      def organization_alias_taken_elsewhere?(organization, name)
+        normalized = OrganizationAlias.normalize(name)
+        return false if normalized.blank?
+
+        OrganizationAlias.where.not(organization_id: organization.id).exists?(normalized_alias: normalized)
+      end
+
       def write_aliases(organization, names)
         names.compact_blank.uniq.each do |name|
           normalized = OrganizationAlias.normalize(name)
@@ -1010,6 +1033,17 @@ module Directory
         return if owner.nil? || owner.facility_id == facility.id
 
         raise Invalid, "name #{name.inspect} is an alias of #{owner.facility.name}"
+      end
+
+      # Whether another facility already holds this normalized alias, as
+      # its own name or in facility_aliases. Used by the rename-keeps-alias
+      # path (#287) to skip adding an alias that would collide.
+      def alias_taken_elsewhere?(facility, name)
+        normalized = FacilityAlias.normalize(name)
+        return false if normalized.blank?
+        return true if FacilityAlias.where.not(facility_id: facility.id).exists?(normalized_alias: normalized)
+
+        Facility.where.not(id: facility.id).pluck(:name).any? { |other| FacilityAlias.normalize(other) == normalized }
       end
 
       def write_facility_aliases(facility, names)
