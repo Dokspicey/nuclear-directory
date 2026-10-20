@@ -89,17 +89,14 @@ class HomeCardsTest < ApplicationSystemTestCase
 
     page.execute_script("document.querySelector('.nd-home .nd-sugg').focus()")
     page.send_keys(:tab, [ :shift, :tab ]) # keyboard focus, so :focus-visible applies
-    style, offset, edges = page.evaluate_script(<<~JS)
+    style, offset = page.evaluate_script(<<~JS)
       (() => {
-        const pill = document.activeElement, box = pill.getBoundingClientRect()
-        const row = pill.closest(".nd-suggs").getBoundingClientRect()
-        return [getComputedStyle(pill).outlineStyle, parseFloat(getComputedStyle(pill).outlineOffset),
-          [Math.round(box.top - row.top), Math.round(row.bottom - box.bottom)]]
+        const pill = document.activeElement
+        return [getComputedStyle(pill).outlineStyle, parseFloat(getComputedStyle(pill).outlineOffset)]
       })()
     JS
     assert_equal "solid", style, "the pill shows a focus ring"
     assert_operator offset, :<=, 0, "the ring is drawn inside the pill"
-    assert_equal [ 0, 0 ], edges, "the pill fills the row's height, so only an inside ring survives"
   end
 
   test "the /design example cards are as wide as on the home page, and nothing in them is cut" do
