@@ -116,6 +116,9 @@ class HomeCardsTest < ApplicationSystemTestCase
       assert_operator grid[0], :<=, 960, "the grid is compact, not screen-wide"
       assert_equal 3, grid[1], "3 columns"
       assert_in_delta grid[3], grid[2], 1, "centred"
+      gaps = page.evaluate_script("(() => { const c = [...document.querySelectorAll('.nd-home .nd-catcard')]; return [Math.round(c[3].getBoundingClientRect().top - c[0].getBoundingClientRect().bottom), Math.round(c[1].getBoundingClientRect().left - c[0].getBoundingClientRect().right)] })()")
+      assert_equal 24, gaps[0], "24px between rows of cards"
+      assert_operator gaps[1], :<=, 14, "the column gap is unchanged"
       assert_equal 10, cards.size
       assert_equal "plants", cards.last.first, "Plants and sites is the last card"
       assert(cards.all? { |_, rows| rows <= 3 })
