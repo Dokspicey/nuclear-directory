@@ -54,7 +54,7 @@
           <% @plan.accept.each do |item| %>
             <tr id="rec-<%= item.candidate_id %>">
               <td class="type-body nd-l"><%= link_to item.claim.to_s.upcase_first, claim_path.(item), class: "nd-link" %> <span class="type-data-sm text-ink-muted">Claim <%= item.candidate_id %></span></td>
-              <td class="type-body-strong nd-l"><%= call_word.fetch(item.call) %></td>
+              <td class="type-body-strong nd-l whitespace-nowrap"><%= call_word.fetch(item.call) %></td>
               <td class="type-body nd-l"><%= item.reason %></td>
             </tr>
           <% end %>
