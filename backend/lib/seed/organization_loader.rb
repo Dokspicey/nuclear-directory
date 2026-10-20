@@ -21,8 +21,8 @@ module Seed
     class Error < StandardError; end
 
     VERIFICATION = { status: "verified", by: "human:tosin" }.freeze
-
-    attr_reader :results
+    # A row's state across its writes: the first listed wins.
+    STATES = %i[created changed unchanged].freeze
 
     FACILITY_FIELDS = %w[facility_type status city state].freeze
 
@@ -30,8 +30,19 @@ module Seed
     def initialize(dir, facilities: File.join(File.dirname(dir), "facilities.yml"))
       @files = Dir[File.join(dir, "*.yml")].sort
       @facilities_file = facilities
-      @results = Hash.new { |h, kind| h[kind] = { created: 0, updated: 0 } }
+      # What happened to each row written: { [kind, id] => :created | :changed | :unchanged }.
+      @rows = {}
       @errors = []
+    end
+
+    # Per kind, the rows the seed created, changed (an existing fact it
+    # changed) and left unchanged (only restated), so a re-seed's report
+    # shows what moved (#301). Each row counts once, however many writes it
+    # took: created over changed over unchanged.
+    def results
+      @rows.each_with_object(Hash.new { |h, kind| h[kind] = { created: 0, changed: 0, unchanged: 0 } }) do |((kind, _id), state), counts|
+        counts[kind][state] += 1
+      end
     end
 
     # Dry run: every name, alias or domain in the files that the database
@@ -78,8 +89,10 @@ module Seed
       facilities = File.exist?(@facilities_file.to_s) ? Array(read(@facilities_file)["facilities"]) : []
 
       ActiveRecord::Base.transaction do
-        sources = write_sources(docs.values.flat_map { |doc| evidence_items(doc) } +
-          facilities.flat_map { |facility| facility.values_at(*FACILITY_FIELDS).select { |f| f.is_a?(Hash) } })
+        items = docs.values.flat_map { |doc| evidence_items(doc) } +
+          facilities.flat_map { |facility| facility.values_at(*FACILITY_FIELDS).select { |f| f.is_a?(Hash) } }
+        @confidence = confidence_by_quote(items)
+        sources = write_sources(items)
         # Facts can't cite a source that wasn't saved, so stop here.
         raise Error, "Seed failed, nothing was written:\n  #{@errors.join("\n  ")}" if @errors.any?
         shared = shared_domains(docs)
@@ -154,6 +167,12 @@ module Seed
           hq_city: hq.filter_map { |entry| entry["city"].presence }.last, hq_state: hq.filter_map { |entry| entry["state"].presence }.last
         }
         attributes[:domain] = nil if shared.include?(Organization.domain_from(doc["website"]))
+        # An identifier, set only when the file gives it: a seed without one
+        # never clears a CIK set in the admin (#129).
+        attributes[:sec_cik] = doc["sec_cik"].to_s if doc["sec_cik"].present?
+        # A display label, set only when the file gives one: a seed without
+        # it never clears a short name set in the admin.
+        attributes[:short_name] = doc["short_name"] if doc["short_name"].present?
 
         items = [ *hq, *description_items(doc), legal ].compact.uniq
         # An unquoted legal name still finds a record an earlier seed loaded
@@ -206,6 +225,30 @@ module Seed
       # merged into this one, attributed to the seed's human, so its aliases
       # and facts move here instead of colliding. Nothing to do on a fresh
       # database, or once merged.
+      # One row's state, keeping the strongest seen this load (STATES).
+      def count(kind, id, state)
+        key = [ kind, id ]
+        @rows[key] = [ state, @rows[key] ].compact.min_by { |seen| STATES.index(seen) }
+      end
+
+      # A merge changes both companies, and moves (or rejects, as a
+      # duplicate) the former one's open links: each counts as changed, even
+      # when a later write only restates it. A rejected or unpublished link
+      # stays as it was decided, so it isn't counted.
+      def count_merge(former_id, target_id)
+        former = Organization.find(former_id)
+        open = ->(scope) { scope.where.not(verification_status: Verifiable::CLOSED_STATUSES).ids }
+        moved = { organization_role: open.(former.organization_roles), organization_technology: open.(former.organization_technologies),
+          facility_relationship: open.(former.facility_relationships),
+          relationship: open.(Relationship.where(from_organization_id: former_id).or(Relationship.where(to_organization_id: former_id))) }
+        yield.tap do |result|
+          next unless result.ok?
+
+          [ former_id, target_id ].each { |id| count(:organization, id, :changed) }
+          moved.each { |kind, ids| ids.each { |id| count(kind, id, :changed) } }
+        end
+      end
+
       def merge_former_organizations(slug, doc)
         Array(doc["merges"]).each do |name|
           former = Directory::Lookup.organization(name:) or next
@@ -214,8 +257,10 @@ module Seed
           next if former.verification_status == "unpublished" # merged on an earlier load
           next @errors << "#{slug}: can't merge #{name.inspect}: #{doc["name"].inspect} isn't loaded yet" unless target
 
-          result = Directory::FactWriter.merge_organization(from_id: former.id, into_id: target.id, by: VERIFICATION[:by],
-            reason: "One company per brand (decision #23): #{name} is part of #{doc["name"]}")
+          result = count_merge(former.id, target.id) do
+            Directory::FactWriter.merge_organization(from_id: former.id, into_id: target.id, by: VERIFICATION[:by],
+              reason: "One company per brand (decision #23): #{name} is part of #{doc["name"]}")
+          end
           @errors << "#{slug}: merging #{name.inspect}: #{result.errors.join("; ")}" unless result.ok?
         end
       end
@@ -256,6 +301,10 @@ module Seed
         if entry["other_names"].present?
           write("facilities.yml", :facility, { id: facility.id, aliases: entry["other_names"] }, [])
         end
+        # A display label, not a sourced fact (DATA.md, Names): no evidence.
+        if entry["short_name"].present?
+          write("facilities.yml", :facility, { id: facility.id, short_name: entry["short_name"] }, [])
+        end
         # An identifier, like its names: EIA's crawl finds the site by it
         # instead of proposing a second one (#229).
         if entry["eia_plant_id"].present?
@@ -277,7 +326,28 @@ module Seed
         return unless item["source_url"]
 
         { source_id: sources.fetch(item["source_url"]), quote: item["quote"], found_by: "human",
-          confidence: item["confidence"] }
+          confidence: @confidence.fetch([ item["source_url"], item["quote"] ], item["confidence"]) }
+      end
+
+      # One confidence per quote: the same quote from the same page, cited in
+      # two places (a company's file and facilities.yml) with different
+      # confidences, takes the higher everywhere. Otherwise each load would
+      # write one, then the other, and a re-seed would report it changed.
+      # Each confidence is checked first (a number from 0 to 1): a bad one
+      # fails the load, never hidden behind a good one.
+      def confidence_by_quote(items)
+        cited = items.select { |item| item["source_url"] && !item["confidence"].nil? }
+        bad = cited.reject { |item| valid_confidence?(item["confidence"]) }
+        bad.each { |item| @errors << "#{item['source_url']}: confidence #{item['confidence'].inspect} isn't a number from 0 to 1 (quote #{item['quote'].to_s.truncate(60).inspect})" }
+        (cited - bad).group_by { |item| [ item["source_url"], item["quote"] ] }
+          .transform_values { |same| same.map { |item| BigDecimal(item["confidence"].to_s) }.max }
+      end
+
+      def valid_confidence?(value)
+        number = value.is_a?(Numeric) ? value : BigDecimal(value.to_s)
+        number.between?(0, 1)
+      rescue ArgumentError, TypeError
+        false
       end
 
       # A link an earlier seed published that this one marks pending goes back
@@ -308,7 +378,7 @@ module Seed
         verification = hold ? { status: "pending", by: VERIFICATION[:by], reason: hold } : (VERIFICATION unless pending)
         result = Directory::FactWriter.write(kind, attributes, evidence: Array.wrap(evidence), verification:, remove_aliases:)
         if result.ok?
-          @results[kind][result.created ? :created : :updated] += 1
+          count(kind, result.id, result.created ? :created : (result.changed ? :changed : :unchanged))
         else
           @errors << "#{slug}: #{kind} #{attributes[:name] || attributes[:role] || attributes[:relationship_type]}: " \
             "#{result.errors.join("; ")}"
