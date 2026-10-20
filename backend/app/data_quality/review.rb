@@ -40,7 +40,12 @@ module DataQuality::Review
   # (held_reason), or nil.
   Item = Data.define(:candidate_id, :kind, :status, :claim, :payload, :quote, :source, :notes,
     :ai_recommendation, :ai_reason, :ai_confidence, :ai_model, :ai_checked_at, :verify_run_id,
-    :subject_type, :subject_id, :record, :differences, :found_by, :crawl_run_id, :category, :held)
+    :subject_type, :subject_id, :record, :differences, :found_by, :crawl_run_id, :category, :held,
+    :dq_recommendation, :dq_reason) do
+    # dq_*: Data Quality's call and reason (#306), nil when it made none or
+    # the claim changed (or was reopened) since.
+    def initialize(dq_recommendation: nil, dq_reason: nil, **) = super
+  end
   Source = Data.define(:id, :url, :title, :source_kind)
   EvidenceItem = Data.define(:source, :quote, :found_by, :confidence)
   PendingFact = Data.define(:type, :id, :kind, :attributes, :evidence, :created_at, :last_event)
@@ -72,8 +77,21 @@ module DataQuality::Review
   # A company's role or technology is what that fact is (a plant's
   # technology is an ordinary value).
   IDENTIFYING = { "organization_role" => %w[role], "organization_technology" => %w[technology] }.freeze
+  # What a claim of this kind can't change when it's edited before approval:
+  # its link's ends and type, and what identifies it (a role's role).
+  def self.read_only_keys(kind) = NOT_EDITABLE + IDENTIFYING.fetch(kind.to_s, [])
+
+  # The hold Data Quality's review lifts (#306): a source's first batch.
+  FIRST_BATCH = "it's from this source's first batch".freeze
+  # A decision that collided with a merge of the same records (#325).
+  BUSY = "someone was merging this just then; try again".freeze
 
   class << self
+    # "human:<who>": a nonblank name, so the audit trail says who decided.
+    def human!(by)
+      raise ArgumentError, "only a human decides (by: \"human:…\")" unless by.to_s.match?(/\Ahuman:\S+\z/)
+    end
+
     # Candidates waiting for a decision, oldest first. queue: :recommended
     # (the agent recommends publishing) or :needs_review. Narrow by the
     # verify run, and by reason (the start of the note, e.g. "human-verified").
@@ -143,7 +161,7 @@ module DataQuality::Review
         decided = record&.verified_by.to_s.start_with?("human:")
       end
       return "it would change a record a person decided" if decided || candidate.notes.to_s.match?(/\Ahuman-verified /i)
-      return "it's from this source's first batch" if candidate.crawl_run_id && firsts[candidate.source.source_kind] == candidate.crawl_run_id
+      return FIRST_BATCH if candidate.crawl_run_id && firsts[candidate.source.source_kind] == candidate.crawl_run_id
 
       nil
     end
@@ -158,6 +176,13 @@ module DataQuality::Review
     def waiting_for(type:, id:, directory: DataQuality::DirectoryClient.new)
       waiting_scope.where(subject_type: type.to_s, subject_id: id).includes(:source, :crawl_run).order(:id)
         .map { |candidate| item(candidate, directory) }
+    end
+
+    # How many claims wait on each of these facts, and the first, counted as
+    # waiting_for counts them: { id => [count, first_candidate_id] }.
+    def waiting_counts(type:, ids:)
+      waiting_scope.where(subject_type: type.to_s, subject_id: ids).group(:subject_id)
+        .pluck(:subject_id, Arel.sql("COUNT(*)"), Arel.sql("MIN(candidates.id)")).to_h { |id, count, first| [ id, [ count, first ] ] }
     end
 
     # The last decision a person made on a claim about one fact, for the
@@ -227,14 +252,28 @@ module DataQuality::Review
     # queue only; anything else needs a look on its own (#86).
     # One outer transaction: an unexpected error rolls the whole batch back
     # (a refused item is a Result with errors, not an error).
-    def approve(candidate_ids, by:, reason: nil, only_recommended: false, directory: DataQuality::DirectoryClient.new)
+    #
+    # data_quality_reviewed: Data Quality recommended these (#306), which
+    # lifts the first-batch hold and only that one.
+    #
+    # A merge locks the same rows (#325): if the two collide, the database
+    # stops one, and here nothing is approved; each claim comes back with
+    # BUSY, to try again.
+    #
+    # safe_check (a safe class, DataQuality::SafeClasses): asked under the
+    # record's lock in place of the usual holds; its answer is why the claim
+    # isn't safe, or nil.
+    def approve(candidate_ids, by:, reason: nil, only_recommended: false, data_quality_reviewed: false, safe_check: nil,
+      directory: DataQuality::DirectoryClient.new)
       human!(by)
       firsts = first_batches if only_recommended # once per bulk approval
       Candidate.transaction do
         Candidate.where(id: candidate_ids).includes(:crawl_run, :verify_run).order(:id).map do |candidate|
-          approve_one(candidate, by:, reason:, directory:, only_recommended:, firsts:)
+          approve_one(candidate, by:, reason:, directory:, only_recommended:, firsts:, data_quality_reviewed:, safe_check:)
         end
       end
+    rescue ActiveRecord::Deadlocked, ActiveRecord::LockWaitTimeout
+      candidate_ids.map { |id| Result.new(candidate_id: id, ref: nil, errors: [ BUSY ]) }
     end
 
     # Changes some of a candidate's values, then approves it. Link ends and
@@ -243,8 +282,11 @@ module DataQuality::Review
       human!(by)
       candidate = Candidate.find_by(id: candidate_id) or return gone(candidate_id)
       attributes = attributes.to_h.stringify_keys
-      if (locked = attributes.keys & locked_keys(candidate.kind)).any?
-        return Result.new(candidate_id:, ref: nil, errors: [ "can't edit #{locked.to_sentence} here" ])
+      # A field that can't be edited here may come back unchanged (the form
+      # shows it); only a changed one is refused.
+      locked, attributes = attributes.partition { |name, _| locked_keys(candidate.kind).include?(name) }.map(&:to_h)
+      if (changed = locked.select { |name, value| candidate.payload[name] != value }.keys).any?
+        return Result.new(candidate_id:, ref: nil, errors: [ "can't edit #{changed.to_sentence} here" ])
       end
 
       result = nil
@@ -410,6 +452,25 @@ module DataQuality::Review
 
     def history(type:, id:, directory: DataQuality::DirectoryClient.new) = directory.verification_history(type:, id:)
 
+    # Changing a plant's status (#316), the admin's side of
+    # `directory:set_status`: what it would change, read only, and then the
+    # change as `by`'s decision. The evidence is a source and its quote: a
+    # link, saved as a source, or NRC's status file by its source_id. Each returns a
+    # DirectoryClient::StatusResult.
+    def status_change_plan(ids:, status:, directory: DataQuality::DirectoryClient.new) = directory.status_change_plan(ids:, status:)
+
+    def set_status(ids:, status:, by:, reason:, source_url: nil, source_id: nil, quote: nil, directory: DataQuality::DirectoryClient.new)
+      if source_url.present?
+        source = DataQuality::Sources.find_or_create(url: source_url.strip)
+        return DataQuality::DirectoryClient::StatusResult.new(plan: nil, error: "Enter a link to a public source, starting with https://") unless source.ok?
+
+        source_id = source.ref.id
+      end
+      directory.set_status(ids:, status:, by:, reason:, source_id:, quote: quote.presence)
+    end
+
+    def nrc_status_quote(name, directory: DataQuality::DirectoryClient.new) = directory.nrc_status_quote(name)
+
     # Merges a company or plant site into another, as a person's decision
     # (#142): a reason is required; dry_run says what would move and changes
     # nothing. Returns a MergeResult, never raises.
@@ -440,11 +501,6 @@ module DataQuality::Review
         candidate.ai_confidence if candidate.ai_recommendation == "recommend_publish"
       end
 
-      # "human:<who>": a nonblank name, so the audit trail says who decided.
-      def human!(by)
-        raise ArgumentError, "only a human decides (by: \"human:…\")" unless by.to_s.match?(/\Ahuman:\S+\z/)
-      end
-
       def gone(candidate_id)
         Result.new(candidate_id:, ref: nil, errors: [ "this claim no longer exists; refresh the queue" ])
       end
@@ -462,7 +518,8 @@ module DataQuality::Review
       # fact still waiting for approval.
       # only_recommended (bulk approval): checked under the lock, so a claim a
       # verify run moved to review a moment ago isn't published in bulk.
-      def approve_one(candidate, by:, reason:, directory:, edited: false, only_recommended: false, firsts: nil)
+      def approve_one(candidate, by:, reason:, directory:, edited: false, only_recommended: false, firsts: nil, data_quality_reviewed: false,
+        safe_check: nil)
         Candidate.transaction do
           lock_for_decision(candidate)
           next Result.new(candidate_id: candidate.id, ref: nil, errors: [ already(candidate) ]) unless open?(candidate)
@@ -473,8 +530,14 @@ module DataQuality::Review
           # decided since the page loaded. Its row stays locked through the
           # write, so a person's approval can't land in between.
           directory.lock_fact(type: candidate.subject_type, id: candidate.subject_id) if only_recommended && candidate.subject_id
-          if only_recommended && (held = held_reason(candidate, directory:, firsts: firsts || first_batches))
-            next Result.new(candidate_id: candidate.id, ref: nil, errors: [ "it waits for Data Quality: #{held}" ])
+          held =
+            if safe_check then safe_check.call(candidate)
+            elsif only_recommended then held_reason(candidate, directory:, firsts: firsts || first_batches)
+            end
+          held = nil if data_quality_reviewed && held == FIRST_BATCH
+          if held
+            why = safe_check ? "it's no longer safe: #{held}" : "it waits for Data Quality: #{held}"
+            next Result.new(candidate_id: candidate.id, ref: nil, errors: [ why ])
           end
           # A link is written onto the record match attached, which needs both
           # ends found. One whose company or plant is still a question has no
@@ -492,7 +555,7 @@ module DataQuality::Review
           # The evidence belongs to the run that judged it (verify), else the one that found it.
           run = candidate.verify_run || candidate.crawl_run
           confidence = edited ? nil : supporting_confidence(candidate)
-          result = directory.write_fact(candidate, confidence:, crawl_run: run, by:, reason:)
+          result = directory.write_fact(candidate, confidence:, crawl_run: run, by:, reason:, edited:)
           next Result.new(candidate_id: candidate.id, ref: nil, errors: result.errors) unless result.success?
 
           candidate.update!(status: "merged", subject_type: result.ref.type, subject_id: result.ref.id,
@@ -621,7 +684,7 @@ module DataQuality::Review
       end
 
       # Keys an edit may not change for this kind of fact.
-      def locked_keys(kind) = NOT_EDITABLE + IDENTIFYING.fetch(kind.to_s, [])
+      def locked_keys(kind) = DataQuality::Review.read_only_keys(kind)
 
       def item(candidate, directory)
         record = directory.attached_record(candidate)
@@ -633,7 +696,7 @@ module DataQuality::Review
           ai_model: candidate.ai_model, ai_checked_at: candidate.ai_checked_at, verify_run_id: candidate.verify_run_id,
           subject_type: candidate.subject_type, subject_id: candidate.subject_id, record:, differences:,
           found_by: candidate.crawl_run&.model, crawl_run_id: candidate.crawl_run_id, category: category_of(candidate),
-          held: held_reason(candidate, directory:, record:))
+          held: held_reason(candidate, directory:, record:), **(DataQuality::Recommendations.current?(candidate) ? { dq_recommendation: candidate.dq_recommendation, dq_reason: candidate.dq_reason } : {}))
       end
 
       # The same rules as category_scope, for one candidate.

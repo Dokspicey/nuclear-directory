@@ -46,6 +46,13 @@ Rails.application.routes.draw do
     get "sources/:key" => "sources#show", as: :source, constraints: { key: /[a-z0-9_-]+/ }
     get "status", to: redirect("/admin/sources")
     get "checks" => "checks#show", as: :checks
+    # Data Quality's recommendations (#306): paste its list, see exactly
+    # what Accept will do, then accept them as one decision.
+    scope "checks/recommendations", as: :recommendations do
+      get "/" => "recommendations#show"
+      post "/" => "recommendations#create"
+      post "accept" => "recommendations#accept", as: :accept
+    end
     # Live (#201 part 2): every record with Data Quality's tag filters, and
     # a company's or plant's Record page.
     get "live" => "live#show", as: :live
@@ -56,6 +63,11 @@ Rails.application.routes.draw do
       # Merge into… (#142): pick the record it's the same as, see what moves, confirm.
       get "merge" => "records#merge", as: :merge
       post "merge" => "records#perform_merge"
+    end
+    # Change status on a plant or a unit (#316): the form previews with a GET.
+    scope "facilities/:id/status", as: :facility_status, constraints: { id: /\d+/ } do
+      get "/" => "status_changes#edit"
+      patch "/" => "status_changes#update"
     end
     resources :candidates, only: %i[index edit update] do
       collection do
@@ -82,6 +94,9 @@ Rails.application.routes.draw do
       get "/" => "facts#show"
       post "unpublish" => "facts#unpublish", as: :unpublish
       post "republish" => "facts#republish", as: :republish
+      # Edit a unit or a link (#201, related items on a Record): the Record's edit flow.
+      get "edit" => "records#edit", as: :edit, defaults: { page: "fact" }
+      patch "/" => "records#update", defaults: { page: "fact" }
     end
   end
 
