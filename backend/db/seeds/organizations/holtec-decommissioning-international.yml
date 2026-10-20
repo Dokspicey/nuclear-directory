@@ -7,7 +7,7 @@ aliases:
 - Holtec Decommissioning International, LLC
 website: https://hdi-decom.com
 hq: null
-country_code: US
+country_code: null
 status: active
 roles:
 - key: waste_decommissioning
@@ -18,12 +18,12 @@ technologies: []
 relationships:
 - type: subsidiary_of
   to: Holtec International
-  description: "Wholly owned subsidiary that decommissions shut-down plants. NRC names it the licensed decommissioning operator at Pilgrim."
+  description: "Wholly owned subsidiary of Holtec International."
   source_url: https://holtecinternational.com/company/divisions/hdi/
   quote: Holtec Decommissioning International, a wholly-owned subsidiary of Holtec International
   confidence: 1.0
 facilities: []
-notes: 'Decision for the HDI claims in Checks (1273, 1279, 1287, 1291 and the links that wait on them): HDI is its own company with its own site, and Holtec states it is a wholly owned subsidiary, so it is a company linked by subsidiary_of, not an alias of Holtec International. HQ left blank: no page read states it. The operator links for Indian Point 2 and 3 and Oyster Creek stay with the pipeline: their NRC quotes are transfer applications, not the completed transfer.'
+notes: 'Decision for the HDI claims in Checks (1273, 1279, 1287, 1291 and the links that wait on them): HDI is its own company with its own site, and Holtec states it is a wholly owned subsidiary, so it is a company linked by subsidiary_of, not an alias of Holtec International. HQ and country left blank: no page read states where it is based. The operator links for Indian Point 2 and 3 and Oyster Creek stay with the pipeline: their NRC quotes are transfer applications, not the completed transfer.'
 description:
   text: Decommissioning company, a wholly owned subsidiary of Holtec International, for shut-down nuclear power plants.
   source_url: https://holtecinternational.com/company/divisions/hdi/
