@@ -6,9 +6,12 @@ class DirectoryHelperTest < ActionView::TestCase
     def current_companies_for(type) = { "owns" => owners, "operates" => operators }.fetch(type).to_a.map { |name| Struct.new(:name).new(name) }
   end
 
+  Unit = Struct.new(:status)
+  def units(*statuses) = statuses.map { |status| Unit.new(status) }
+
   def profile(**overrides)
     Profile.new(name: "Plant Vogtle", status: "operating", facility_type: "power_reactor", city: "Waynesboro", state: "GA",
-      units: Array.new(4), capacity_mw: BigDecimal("4536"), owners: [ "Georgia Power" ], operators: [ "Southern Nuclear" ], **overrides)
+      units: units(*Array.new(4, "operating")), capacity_mw: BigDecimal("4536"), owners: [ "Georgia Power" ], operators: [ "Southern Nuclear" ], **overrides)
   end
 
   test "a plant's preview says what it is, where, how big, and who owns and runs it (#246)" do
@@ -17,7 +20,7 @@ class DirectoryHelperTest < ActionView::TestCase
   end
 
   test "a plant that's not operating says so after the place (#296)" do
-    palisades = profile(name: "Palisades", status: "not_operating", city: "Covert", state: "MI", units: Array.new(1), capacity_mw: nil,
+    palisades = profile(name: "Palisades", status: "not_operating", city: "Covert", state: "MI", units: units("not_operating"), capacity_mw: nil,
       owners: [ "Holtec" ], operators: [ "Holtec" ])
 
     assert_equal "Palisades: Power plant in Covert, Michigan, not operating. 1 unit. Owned by Holtec; operated by Holtec.", plant_preview(palisades)
@@ -48,7 +51,24 @@ class DirectoryHelperTest < ActionView::TestCase
     assert_equal "Blank Site", plant_preview(profile(name: "Blank Site", status: nil, facility_type: nil, city: nil, state: nil,
       units: [], capacity_mw: nil, owners: [], operators: []))
     assert_equal "Gone Plant: In Somewhere, Texas. 1 unit.", plant_preview(profile(name: "Gone Plant", status: nil, facility_type: nil,
-      city: "Somewhere", state: "TX", units: [ 1 ], capacity_mw: nil, owners: [], operators: []))
+      city: "Somewhere", state: "TX", units: units(nil), capacity_mw: nil, owners: [], operators: []))
+  end
+
+  test "units are counted by status, operating first; the plant's own status isn't repeated (PM, 16 Oct)" do
+    assert_equal "4 operating units", units_summary(%w[operating operating operating operating])
+    assert_equal "4 units", units_summary(%w[operating operating operating operating], shown_status: "operating")
+    assert_equal "2 operating units, 1 being decommissioned", units_summary(%w[decommissioning operating operating], shown_status: "operating")
+    assert_equal "1 unit, not operating", units_summary(%w[not_operating])
+    assert_equal "1 unit", units_summary(%w[not_operating], shown_status: "not_operating")
+    assert_equal "3 units: 2 shut down, 1 being decommissioned", units_summary(%w[shut_down decommissioning shut_down])
+    assert_equal "1 operating reactor, 1 not stated", units_summary([ "operating", nil ], noun: "reactor")
+    assert_equal "2 units", units_summary([ nil, "" ])
+    assert_nil units_summary([])
+
+    dresden = profile(name: "Dresden", city: "Morris", state: "IL", units: units("operating", "operating", "decommissioning"),
+      capacity_mw: BigDecimal("1845"), owners: [], operators: [ "Constellation" ])
+    assert_equal "Dresden: Operating power plant in Morris, Illinois. 2 operating units, 1 being decommissioned, 1,845 MW. " \
+      "Operated by Constellation.", plant_preview(dresden)
   end
 
   test "a plant's preview drops the size, then owners, before it would run long" do
@@ -60,6 +80,39 @@ class DirectoryHelperTest < ActionView::TestCase
     assert_match "Operated by An Exceptionally Long Operating Company Name, LLC", line, "the operator outlasts the owners"
     assert_no_match "MW", line
   end
+  test "a site's icon follows its type, a power plant's its reactors (Design, #281)" do
+    assert_equal "site-pwr", site_icon_name("power_reactor", reactor_types: [ "PWR", nil ])
+    assert_equal "site-pwr", site_icon_name("power_reactor", reactor_types: [ "AP1000" ])
+    assert_equal "site-bwr", site_icon_name("power_reactor", reactor_types: [ "BWR" ])
+    assert_equal "site-plant", site_icon_name("power_reactor", reactor_types: [ "BWR", "PWR" ]), "mixed types: the generic plant"
+    assert_equal "site-advanced", site_icon_name("power_reactor", reactor_types: [ "Natrium" ])
+    assert_equal "site-plant", site_icon_name("power_reactor")
+    assert_equal "site-advanced", site_icon_name("power_reactor", status: "planned"), "Long Mott, before a type is stated"
+    assert_equal "site-advanced", site_icon_name("power_reactor", reactor_types: [ nil ], status: "under_construction"), "Kemmerer, Hermes 2"
+    assert_equal "site-pwr", site_icon_name("power_reactor", reactor_types: [ "AP1000" ], status: "under_construction")
+    assert_equal "site-waste", site_icon_name("power_reactor", reactor_types: [ "PWR" ], status: "decommissioning")
+    assert_equal "site-research", site_icon_name("research_reactor")
+    assert_equal "site-fusion", site_icon_name("fusion_facility")
+    assert_equal "site-mine", site_icon_name("mill")
+    assert_equal "site-enrichment", site_icon_name("enrichment")
+    assert_equal "site-fuel", site_icon_name("fuel_facility")
+    assert_equal "site-plant", site_icon_name(nil)
+  end
+
+  test "a list splits before its last item, never at a comma inside a name or link" do
+    links = safe_join([ link_to("Georgia Power", "/a"), ", ", link_to("Southern Nuclear Operating Co., Inc.", "/b") ])
+    head, last = split_last_item(links)
+    assert_equal '<a href="/a" title="Georgia Power" data-truncate="">Georgia Power</a>, ', head, "a name before the last carries its full name, in case it's cut"
+    assert_equal '<a href="/b">Southern Nuclear Operating Co., Inc.</a>', last
+    assert head.html_safe? && last.html_safe?
+
+    assert_nil split_last_item("Fission, <b>SMR</b>"), "plain text is never split (nor trusted as HTML)"
+    assert_nil split_last_item("Baton Rouge Metropolitan Area, LA"), "a place with a comma isn't a list"
+
+    assert_nil split_last_item(link_to("Southern Nuclear Operating Co., Inc.", "/b")), "one name with a comma isn't a list"
+    assert_nil split_last_item("Bernhard Capital Partners Management")
+  end
+
   test "relationship verbs read left to right in visitors' words" do
     assert_equal "offtakes from", relationship_verb("offtake_with")
     assert_equal "invests in", relationship_verb(:invests_in)

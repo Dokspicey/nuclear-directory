@@ -13,10 +13,13 @@ module Directory
     # name matches the organization's name or any alias, compared after
     # OrganizationAlias.normalize, so "TerraPower, LLC" finds "TerraPower".
     # domain accepts a bare domain or a URL.
-    def organization(id: nil, slug: nil, name: nil, domain: nil)
+    def organization(id: nil, slug: nil, name: nil, domain: nil, sec_cik: nil)
       scope =
-        case one_of!(id:, slug:, name:, domain:)
+        case one_of!(id:, slug:, name:, domain:, sec_cik:)
         in [ :id, value ] then Organization.where(id: value)
+        in [ :sec_cik, value ]
+          cik = Organization.cik_from(value) or return
+          Organization.where(sec_cik: cik)
         in [ :slug, value ] then Organization.where(slug: value)
         in [ :name, value ]
           normalized = OrganizationAlias.normalize(value).presence or return
@@ -35,7 +38,9 @@ module Directory
     # unpublished one, newest first, since a time. A merge says what the
     # record went into. Reads only.
     def exits(since:, limit: 50)
-      events = VerificationEvent.where(to_status: %w[rejected unpublished], created_at: since..).order(created_at: :desc, id: :desc).limit(limit).to_a
+      # The fact types the admin lists (a deal term's decisions show with its link, #256).
+      events = VerificationEvent.where(subject_type: FACT_TYPES, to_status: %w[rejected unpublished], created_at: since..)
+        .order(created_at: :desc, id: :desc).limit(limit).to_a
       records = events.group_by(&:subject_type).to_h do |type, group|
         # With what each label names (a role's company, a link's ends), loaded in one go.
         [ type, type.constantize.where(id: group.map(&:subject_id)).includes(*PENDING_INCLUDES.fetch(type.underscore)).index_by(&:id) ]
@@ -49,6 +54,16 @@ module Directory
 
     # How many of each fact type the public pages show: { "Organization" => 112, … }.
     def published_counts = FACT_TYPES.index_with { |type| type.constantize.published.count }
+
+    # The awards, offtakes or rounds under one link (#256), oldest first.
+    # published: true (the default) gives only what public pages may show.
+    def deal_terms(link_type:, link_id:, published: true)
+      raise ArgumentError, "not a link type: #{link_type.inspect}" unless DealTerm::LINK_TYPES.include?(link_type.to_s)
+
+      scope = published ? DealTerm.published : DealTerm.where.not(verification_status: Verifiable::CLOSED_STATUSES)
+      scope.where(link_type: link_type.to_s, link_id:).includes(evidence: :source)
+        .order(Arel.sql("COALESCE(starts_on, signed_on) ASC NULLS LAST"), :id).map { |term| DealTermRef.from(term) }
+    end
 
     # Every change of a fact's verification, newest first, as plain values:
     # who, when, from -> to, why. type is the fact's class name ("Organization").
@@ -78,6 +93,52 @@ module Directory
           checked_at: rows.map { |row| row.last_confirmed_at || row.created_at }.max }
       end.sort_by { |row| -row[:checked_at].to_f }
     end
+
+    # A fact's evidence, as Directory::EvidenceRef values.
+    def evidence(type:, id:)
+      raise ArgumentError, "not a fact type: #{type.inspect}" unless FACT_TYPES.include?(type.to_s)
+
+      Evidence.where(subject_type: type.to_s, subject_id: id).order(:id).map { |row| EvidenceRef.from(row) }
+    end
+
+    # Whether anyone has an unresolved correction report (open or reviewed,
+    # not closed) on the public page of a fact or, for a link, of either
+    # end: a company's or a plant's page, query, fragment and format aside. Its
+    # former addresses count too (a rename or a merge redirects them there),
+    # unless another record now lives at one, since that page is the other
+    # record's.
+    def open_corrections?(type:, id:)
+      raise ArgumentError, "not a fact type: #{type.inspect}" unless FACT_TYPES.include?(type.to_s)
+
+      record = type.to_s.constantize.find_by(id:) or return false
+      company = ->(organization) { addresses("companies", organization) }
+      # A unit's own addresses redirect to its site's page, so a report filed
+      # there (before it was grouped, say) is about it too.
+      plant = ->(facility) { addresses("plants", facility) + (facility.parent ? addresses("plants", facility.parent) : []) }
+      pages = case record
+      when Organization then company.(record)
+      when Facility then plant.(record)
+      when Relationship then company.(record.from_organization) + company.(record.to_organization)
+      when FacilityRelationship then company.(record.organization) + plant.(record.facility)
+      else company.(record.organization)
+      end
+      CorrectionReport.where(status: %w[open reviewed])
+        # The page's own path: no query or fragment, no trailing slash and no
+        # format (/companies/x/ and /companies/x.html are /companies/x).
+        .where("regexp_replace(regexp_replace(split_part(split_part(page_path, '?', 1), '#', 1), '/+$', ''), '\\.[a-z]+$', '') IN (:pages)", pages:)
+        .exists?
+    end
+
+    # A company's or a plant's public paths: today's, then its former ones
+    # that no published record holds now. A merged company keeps its slug
+    # on its unpublished row, and its address redirects to the survivor, so
+    # only a published one wins the address (as the public pages decide).
+    def addresses(prefix, record)
+      former = record.former_slugs.pluck(:slug)
+      former -= record.class.published.where(slug: former).pluck(:slug)
+      [ record.slug, *former ].map { |slug| "/#{prefix}/#{slug}" }
+    end
+    private :addresses
 
     # How many public facts (any type) have evidence from these sources.
     def published_count_backed_by(source_ids:)
@@ -171,7 +232,7 @@ module Directory
       "sodium" => "a sodium coolant supplier", "lead" => "a lead coolant supplier",
       "heavy_water" => "a heavy water supplier", "regulatory_consultant" => "a regulatory consultant",
       "venture_capital" => "a venture capital investor", "government_agency" => "a government agency",
-      "national_lab" => "a national lab"
+      "national_lab" => "a national lab", "waste_decommissioning" => "a waste and decommissioning company"
     }.freeze
     private_constant :LINK_VERBS, :ROLE_WORDS
 
