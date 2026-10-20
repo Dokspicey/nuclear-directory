@@ -432,8 +432,17 @@ class DataQuality::Stages::Match < DataQuality::Stage
       chosen ||= units.first if same_number.empty? && units.one? && unit_number(units.first.name).nil?
       label = "#{name} unit #{unit} (#{state})"
 
-      if chosen&.rejected?
-        settle_closed(candidate, chosen, "#{label} would be NRC unit #{chosen.name}, which was rejected")
+      if chosen&.closed?
+        # Rejected or unpublished: a person's decision that won't come back on
+        # its own, so this is as settled as a closed record match (#118).
+        settle_closed(candidate, chosen, "#{label} would be NRC unit #{chosen.name}, which was #{chosen.verification_status}")
+      elsif chosen && chosen.verification_status != "verified"
+        # The unit's own NRC record is still pending: enriching it would push
+        # EIA's values to a record that isn't public yet (#118). Wait and
+        # retry on the next match run, like a unit that doesn't exist yet.
+        # (chosen is a DirectoryClient::Record wrapper without .verified?.)
+        @stats["waiting"] += 1
+        candidate.update!(notes: "NRC unit for #{label} isn't verified yet; retried on the next match run")
       elsif chosen
         # Attach only: the values (and their evidence) are written when verify publishes.
         attach(candidate, chosen, "#{label} is NRC unit #{chosen.name}")
