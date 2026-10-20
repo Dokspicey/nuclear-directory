@@ -36,9 +36,11 @@ module DataQuality::SafeClasses
     # Every claim a class covers that the verifier recommends, safe or not,
     # oldest first. exclude: claims Data Quality has its own call on.
     # only_enabled: skip classes that are off (a count of what Accept takes
-    # needs nothing more). Run-level checks are read once per class; the
-    # claims a class covers are at most one per DOE link a crawl changed.
-    def items(exclude: [], only_enabled: false, directory: DataQuality::DirectoryClient.new)
+    # needs nothing more). pending: the claims Data Quality's list will
+    # approve in the same click: they take the run's allowance too, so the
+    # cap is judged with them in. Run-level checks are read once per class;
+    # the claims a class covers are at most one per DOE link a crawl changed.
+    def items(exclude: [], only_enabled: false, pending: [], directory: DataQuality::DirectoryClient.new)
       CONFIG.fetch("classes").flat_map do |klass, config|
         next [] if only_enabled && config["enabled"] != true
 
@@ -50,7 +52,7 @@ module DataQuality::SafeClasses
             snapshot: snapshot(candidate), claim: DataQuality::Claim.describe(candidate), changes: changes || {},
             subject_type: candidate.subject_type, subject_id: candidate.subject_id, why:)
         end
-        capped(items, config, claims, directory:)
+        capped(items, config, claims, pending:, directory:)
       end
     end
 
@@ -221,8 +223,9 @@ module DataQuality::SafeClasses
       # G6: a run that proposes more safe changes than the cap, or more than
       # its share of the source's published facts, gets none of them taken.
       # What the run already had approved counts too, so accepting some and
-      # then the rest can't pass the cap in two clicks.
-      def capped(items, config, claims, directory:)
+      # then the rest can't pass the cap in two clicks. So do the approvals
+      # Accept will make in the same click: they take the run's allowance too.
+      def capped(items, config, claims, pending:, directory:)
         cap = CONFIG.fetch("cap")
         runs = claims.to_h { |candidate| [ candidate.id, candidate.crawl_run_id ] }
         facts = directory.published_count_backed_by(source_ids: ::Source.where(source_kind: config.fetch("source_kind")).ids)
@@ -230,15 +233,27 @@ module DataQuality::SafeClasses
         approved = Candidate.joins(:source).where(sources: { source_kind: config.fetch("source_kind") }, kind: config.fetch("kind"),
           status: "merged", crawl_run_id: runs.values.uniq).group(:crawl_run_id).count
         proposed = items.select(&:safe?).group_by { |item| runs[item.candidate_id] }.transform_values(&:size)
+        approving = pending_counts(config, pending, runs)
         items.map do |item|
           run = runs[item.candidate_id]
-          total = proposed.fetch(run, 0) + approved.fetch(run, 0)
+          total = proposed.fetch(run, 0) + approved.fetch(run, 0) + approving.fetch(run, 0)
           next item unless item.safe? && total > limit
 
-          earlier = " (#{approved[run]} already approved)" if approved[run].to_i.positive?
-          item.with(why: "its run proposes #{total} safe changes#{earlier}, over the limit of #{limit} " \
+          notes = []
+          notes << "#{approved[run]} already approved" if approved[run].to_i.positive?
+          notes << "#{approving[run]} approved in this click" if approving[run].to_i.positive?
+          item.with(why: "its run proposes #{total} changes#{notes.empty? ? "" : " (#{notes.join(", ")})"}, over the limit of #{limit} " \
             "(#{cap.fetch('max_items')}, or #{(cap.fetch('max_share') * 100).round}% of the source's #{facts} public facts)")
         end
+      end
+
+      # The Data Quality approvals Accept will make in the same click, per
+      # run. Only the class's own kind and source count, like the merged ones.
+      def pending_counts(config, ids, runs)
+        return {} if ids.empty?
+
+        Candidate.joins(:source).where(id: ids, sources: { source_kind: config.fetch("source_kind") },
+          kind: config.fetch("kind"), crawl_run_id: runs.values.uniq).group(:crawl_run_id).count
       end
 
       def label(name) = DataQuality::Claim::LABELS.fetch(name) { name.humanize(capitalize: false) }
