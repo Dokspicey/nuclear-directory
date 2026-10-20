@@ -12,7 +12,8 @@
 
 <div class="nd-shell__head">
   <% from_live = params[:from] == "live" %>
-  <%= render "admin/crumbs", parent_label: from_live ? "Live" : "Checks", parent_path: back_path(from_live ? admin_live_path : admin_checks_path), current: @fact.name.to_s.upcase_first %>
+  <% trail = [ [ "Live", related_context[:live] ], [ related_context[:name], related_context[:path] ] ] if related_context %>
+  <%= render "admin/crumbs", parent_label: from_live ? "Live" : "Checks", parent_path: back_path(from_live ? admin_live_path : admin_checks_path), trail:, current: @fact.name.to_s.upcase_first %>
   <%= render "admin/itemnav", list: @list if @list %>
   <%= render "admin/facts/decide" %>
 </div>
@@ -47,6 +48,9 @@
 
 
     <% status = @fact.verification_status %>
+    <% if @fact.type == "Facility" && %w[verified pending].include?(status) %>
+      <%= link_to "Change status", admin_facility_status_path(id: @fact.id, page: "fact", **context, claim: params[:claim].presence, claims: params[:claims].presence), class: "nd-btn nd-btn--outline type-ui" %>
+    <% end %>
     <% if status == "verified" %>
       <details class="nd-takeoff">
         <summary class="nd-btn nd-btn--danger type-ui">Take off</summary>

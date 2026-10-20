@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_16_180000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_18_230000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -38,14 +38,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_16_180000) do
     t.string "reviewed_by"
     t.datetime "reviewed_at"
     t.jsonb "reopenings", default: [], null: false
+    t.string "dq_recommendation"
+    t.text "dq_reason"
+    t.string "dq_by"
+    t.datetime "dq_at"
+    t.string "dq_payload_sha256"
     t.index ["ai_recommendation", "verify_run_id"], name: "index_candidates_on_ai_recommendation_and_verify_run_id"
     t.index ["crawl_run_id"], name: "index_candidates_on_crawl_run_id"
+    t.index ["dq_recommendation"], name: "index_candidates_on_dq_recommendation", where: "(dq_recommendation IS NOT NULL)"
     t.index ["source_id"], name: "index_candidates_on_source_id"
     t.index ["status", "kind"], name: "index_candidates_on_status_and_kind"
     t.index ["subject_type", "subject_id"], name: "index_candidates_on_subject"
     t.check_constraint "ai_recommendation::text = ANY (ARRAY['recommend_publish'::character varying::text, 'needs_review'::character varying::text])", name: "candidates_ai_recommendation_check"
+    t.check_constraint "dq_recommendation::text = ANY (ARRAY['approve'::character varying, 'reject'::character varying]::text[])", name: "candidates_dq_recommendation_check"
     t.check_constraint "kind::text = ANY (ARRAY['organization'::character varying::text, 'organization_alias'::character varying::text, 'organization_role'::character varying::text, 'organization_technology'::character varying::text, 'facility'::character varying::text, 'relationship'::character varying::text, 'facility_relationship'::character varying::text])", name: "candidates_kind_check"
-    t.check_constraint "status::text = ANY (ARRAY['new'::character varying, 'matched'::character varying, 'merged'::character varying, 'rejected'::character varying, 'needs_review'::character varying, 'confirmed'::character varying]::text[])", name: "candidates_status_check"
+    t.check_constraint "status::text = ANY (ARRAY['new'::character varying::text, 'matched'::character varying::text, 'merged'::character varying::text, 'rejected'::character varying::text, 'needs_review'::character varying::text, 'confirmed'::character varying::text])", name: "candidates_status_check"
   end
 
   create_table "correction_reports", force: :cascade do |t|
@@ -79,6 +86,69 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_16_180000) do
     t.index ["stage", "started_at"], name: "index_crawl_runs_on_stage_and_started_at"
     t.check_constraint "stage::text = ANY (ARRAY['crawl'::character varying::text, 'extract'::character varying::text, 'match'::character varying::text, 'verify'::character varying::text])", name: "crawl_runs_stage_check"
     t.check_constraint "status::text = ANY (ARRAY['running'::character varying::text, 'succeeded'::character varying::text, 'failed'::character varying::text])", name: "crawl_runs_status_check"
+  end
+
+  create_table "data_deploys", force: :cascade do |t|
+    t.string "commit"
+    t.string "status", null: false
+    t.string "seed_digest"
+    t.jsonb "files", default: {}, null: false
+    t.string "backup_tag"
+    t.jsonb "report", default: {}, null: false
+    t.text "error"
+    t.datetime "started_at", null: false
+    t.datetime "finished_at"
+    t.index ["status", "id"], name: "index_data_deploys_on_status_and_id"
+  end
+
+  create_table "data_migrations", force: :cascade do |t|
+    t.string "version", null: false
+    t.string "name", null: false
+    t.string "by", null: false
+    t.text "reason"
+    t.string "commit"
+    t.text "output"
+    t.datetime "ran_at", null: false
+    t.index ["version"], name: "index_data_migrations_on_version", unique: true
+  end
+
+  create_table "deal_terms", force: :cascade do |t|
+    t.string "link_type", null: false
+    t.bigint "link_id", null: false
+    t.string "term_type", null: false
+    t.string "external_id"
+    t.decimal "amount_usd", precision: 16, scale: 2
+    t.decimal "capacity_mw", precision: 10, scale: 1
+    t.date "signed_on"
+    t.date "starts_on"
+    t.date "ends_on"
+    t.string "status"
+    t.string "program"
+    t.string "round"
+    t.bigint "lead_investor_ids", default: [], null: false, array: true
+    t.decimal "confidence", precision: 3, scale: 2
+    t.string "verification_status", default: "pending", null: false
+    t.datetime "verified_at"
+    t.string "verified_by"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.decimal "amount_offered_usd", precision: 16, scale: 2
+    t.index ["link_type", "link_id", "term_type", "external_id"], name: "index_deal_terms_uniqueness", unique: true, where: "(external_id IS NOT NULL)"
+    t.index ["link_type", "link_id"], name: "index_deal_terms_on_link_type_and_link_id"
+    t.index ["verification_status"], name: "index_deal_terms_on_verification_status"
+    t.check_constraint "amount_offered_usd IS NULL OR amount_offered_usd >= 0::numeric", name: "deal_terms_amount_offered_check"
+    t.check_constraint "amount_usd IS NULL OR amount_usd >= 0::numeric", name: "deal_terms_amount_check"
+    t.check_constraint "capacity_mw IS NULL OR capacity_mw >= 0::numeric", name: "deal_terms_capacity_check"
+    t.check_constraint "link_type::text <> 'Organization'::text OR term_type::text = 'funding_round'::text", name: "deal_terms_company_round_check"
+    t.check_constraint "confidence IS NULL OR confidence >= 0::numeric AND confidence <= 1::numeric", name: "deal_terms_confidence_check"
+    t.check_constraint "ends_on IS NULL OR starts_on IS NULL OR ends_on >= starts_on", name: "deal_terms_dates_check"
+    t.check_constraint "link_type::text = ANY (ARRAY['Relationship'::character varying::text, 'FacilityRelationship'::character varying::text, 'Organization'::character varying::text])", name: "deal_terms_link_type_check"
+    t.check_constraint "status IS NULL OR (status::text = ANY (ARRAY['announced'::character varying::text, 'signed'::character varying::text, 'active'::character varying::text, 'completed'::character varying::text, 'terminated'::character varying::text]))", name: "deal_terms_status_check"
+    t.check_constraint "term_type::text <> 'award'::text OR amount_usd IS NOT NULL AND starts_on IS NOT NULL AND external_id IS NOT NULL", name: "deal_terms_award_check"
+    t.check_constraint "term_type::text <> 'funding_round'::text OR amount_usd IS NOT NULL OR round IS NOT NULL", name: "deal_terms_round_check"
+    t.check_constraint "term_type::text <> 'offtake'::text OR capacity_mw IS NOT NULL OR amount_usd IS NOT NULL", name: "deal_terms_offtake_check"
+    t.check_constraint "term_type::text = ANY (ARRAY['award'::character varying::text, 'offtake'::character varying::text, 'funding_round'::character varying::text])", name: "deal_terms_term_type_check"
+    t.check_constraint "verification_status::text = ANY (ARRAY['pending'::character varying::text, 'verified'::character varying::text, 'rejected'::character varying::text, 'unpublished'::character varying::text])", name: "deal_terms_verification_status_check"
   end
 
   create_table "evidence", force: :cascade do |t|
@@ -121,6 +191,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_16_180000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.string "eia_plant_id"
+    t.string "short_name"
     t.index ["eia_plant_id"], name: "index_facilities_on_eia_plant_id_for_sites", unique: true, where: "((parent_id IS NULL) AND (eia_plant_id IS NOT NULL))"
     t.index ["nrc_docket"], name: "index_facilities_on_nrc_docket", unique: true, where: "(nrc_docket IS NOT NULL)"
     t.index ["parent_id"], name: "index_facilities_on_parent_id"
@@ -129,7 +200,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_16_180000) do
     t.index ["verification_status"], name: "index_facilities_on_verification_status"
     t.check_constraint "confidence IS NULL OR confidence >= 0::numeric AND confidence <= 1::numeric", name: "facilities_confidence_check"
     t.check_constraint "facility_type::text = ANY (ARRAY['power_reactor'::character varying::text, 'research_reactor'::character varying::text, 'fuel_facility'::character varying::text, 'enrichment'::character varying::text, 'fusion_facility'::character varying::text, 'other'::character varying::text, 'uranium_mine'::character varying::text, 'mill'::character varying::text])", name: "facilities_facility_type_check"
-    t.check_constraint "status::text = ANY (ARRAY['operating'::character varying::text, 'under_construction'::character varying::text, 'planned'::character varying::text, 'shut_down'::character varying::text, 'decommissioning'::character varying::text, 'not_operating'::character varying::text])", name: "facilities_status_check"
+    t.check_constraint "short_name IS NULL OR char_length(short_name::text) >= 1 AND char_length(short_name::text) <= 30", name: "facilities_short_name_check"
+    t.check_constraint "status::text = ANY (ARRAY['operating'::character varying, 'under_construction'::character varying, 'planned'::character varying, 'shut_down'::character varying, 'decommissioning'::character varying, 'not_operating'::character varying]::text[])", name: "facilities_status_check"
     t.check_constraint "verification_status::text = ANY (ARRAY['pending'::character varying::text, 'verified'::character varying::text, 'rejected'::character varying::text, 'unpublished'::character varying::text])", name: "facilities_verification_status_check"
   end
 
@@ -239,10 +311,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_16_180000) do
     t.string "verified_by"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "sec_cik"
+    t.string "short_name"
     t.index ["domain"], name: "index_organizations_on_domain", unique: true
+    t.index ["sec_cik"], name: "index_organizations_on_sec_cik", unique: true, where: "(sec_cik IS NOT NULL)"
     t.index ["slug"], name: "index_organizations_on_slug", unique: true
     t.index ["verification_status"], name: "index_organizations_on_verification_status"
     t.check_constraint "confidence IS NULL OR confidence >= 0::numeric AND confidence <= 1::numeric", name: "organizations_confidence_check"
+    t.check_constraint "sec_cik IS NULL OR sec_cik::text ~ '^[0-9]{10}$'::text", name: "organizations_sec_cik_check"
+    t.check_constraint "short_name IS NULL OR char_length(short_name::text) >= 1 AND char_length(short_name::text) <= 30", name: "organizations_short_name_check"
     t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'acquired'::character varying::text, 'defunct'::character varying::text])", name: "organizations_status_check"
     t.check_constraint "verification_status::text = ANY (ARRAY['pending'::character varying::text, 'verified'::character varying::text, 'rejected'::character varying::text, 'unpublished'::character varying::text])", name: "organizations_verification_status_check"
   end

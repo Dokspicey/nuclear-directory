@@ -6,9 +6,13 @@
 #    after match attached it: review, naming that decision.
 # 2. It disagrees with a value a human verified on its record: review,
 #    showing both values ("human-verified state is NJ; this source says DE").
+#    Unless every value it would change was last written from this kind of
+#    source, approved unedited (Differences.written_by_person): then the
+#    source is updating its own value, and the verifier checks it.
 # 3. Its quote isn't in the source's stored content (plug-in's
 #    quote_in_source?): review, without asking any model.
-# 4. The verifier decides. The default is the verifier agent, a second model
+# 4. Its plug-in holds it for a person (hold_for_review), with the reason.
+# 5. The verifier decides. The default is the verifier agent, a second model
 #    that re-reads the source (Verifiers::Agent). A verifier answers in batches
 #    (#verdicts) or one candidate at a time (#call).
 #    - publish → ai_recommendation "recommend_publish"; the candidate stays
@@ -18,7 +22,7 @@
 # The recommendation (ai_*, verify_run) is stored on the candidate, so the
 # admin can list it by run and by reason. A candidate already recommended
 # isn't sent to the model again; later runs only repeat the code checks
-# (1-3), in case a human decided on its record meanwhile.
+# (1-4), in case a human decided on its record meanwhile.
 class DataQuality::Stages::Verify < DataQuality::Stage
   def initialize(verifier: DataQuality::Verifiers::Agent.new, **)
     super(**)
@@ -28,7 +32,7 @@ class DataQuality::Stages::Verify < DataQuality::Stage
   private
     def perform(run)
       stats = { "candidates" => 0, "recommended" => 0, "needs_review" => 0, "rejected" => 0,
-        "quote_missing" => 0, "human_decision" => 0, "conflicts" => 0, "already_recommended" => 0, "decided_meanwhile" => 0 }
+        "quote_missing" => 0, "held" => 0, "human_decision" => 0, "conflicts" => 0, "already_recommended" => 0, "decided_meanwhile" => 0 }
       pending = candidates.where(status: %w[new matched]).includes(:source).order(:id).to_a
       # Enrichment still waiting for its NRC unit: nothing to verify yet.
       pending.reject! { |candidate| candidate.status_new? && directory.enrichment?(candidate) }
@@ -93,12 +97,16 @@ class DataQuality::Stages::Verify < DataQuality::Stage
       return closed if closed
 
       differences = DataQuality::Differences.with_human_verified(candidate, record)
+      differences = DataQuality::Differences.written_by_person(differences, candidate, record, directory:)
       return [ "conflicts", DataQuality::Differences.describe(differences) ] if differences.any?
 
       unless quote_found?(candidate)
         return [ "quote_missing", "The cited quote isn't in the source as stored, so it can't be checked: " \
           "#{candidate.quote.to_s.truncate(120).inspect}" ]
       end
+
+      reason = plugin.hold_for_review(candidate)
+      return [ "held", reason ] if reason
 
       nil
     end
