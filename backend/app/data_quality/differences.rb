@@ -8,7 +8,10 @@ module DataQuality::Differences
   # Compared per kind. Names aren't: spelling and legal-form variants are
   # expected, and aliases cover them.
   COMPARED = {
-    "organization" => %w[domain],
+    # sec_cik: a company matched by name whose stored CIK differs from the
+    # source's goes to review, not through as a conflict only approval would
+    # see (#402). Equivalent CIKs ("320193" and "0000320193") compare equal.
+    "organization" => %w[domain sec_cik],
     "facility" => %w[nrc_docket eia_plant_id facility_type status state country_code],
     # A link's type and ends say which link it is; these are its details.
     "relationship" => %w[description started_on ended_on],
@@ -134,12 +137,14 @@ module DataQuality::Differences
 
   # Values compare as the directory stores them: text stripped, country
   # codes upcased, domains as hosts ("https://WWW.TerraPower.com/news" is
-  # "terrapower.com"), percentages as numbers (40 is 40.0).
+  # "terrapower.com"), percentages as numbers (40 is 40.0), CIKs normalized
+  # to 10 zero-padded digits ("320193" is "0000320193", #402).
   def self.comparable(name, value)
     if name == "ownership_pct" && (number = BigDecimal(value.to_s, exception: false))
       return number.to_s("F").delete_suffix(".0")
     end
     return value.to_s.strip.upcase if name == "country_code"
+    return Organization.cik_from(value).to_s if name == "sec_cik"
     return value.to_s.strip unless name == "domain" && value.present?
 
     text = value.to_s.strip
