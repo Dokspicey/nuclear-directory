@@ -28,6 +28,8 @@ module DataQuality::SafeClasses
     def safe? = why.nil?
     def taken? = safe? && enabled
   end
+  # The advisory lock namespace for a run's G6 count (with the run id).
+  RUN_LOCK = 306_006
   # "$2.62 billion", "$921.7 million", "$750,000" in an award summary.
   TOTAL = /totaling \$([\d,]+(?:\.\d+)?)(?: (million|billion))?/
   SCALE = { nil => 1, "million" => 1_000_000, "billion" => 1_000_000_000 }.freeze
@@ -76,6 +78,12 @@ module DataQuality::SafeClasses
           candidate = Candidate.lock.find_by(id: item.candidate_id)
           result = skipped(item, "this claim no longer exists") and next unless candidate
           result = skipped(item, "it changed after the page loaded") and next unless snapshot(candidate) == item.snapshot
+          # G6 again, under its run's lock: another approval from the run may
+          # have used the allowance since the page loaded.
+          if (over = over_cap(candidate, item.klass, directory:))
+            result = skipped(item, "it's no longer safe: #{over}")
+            next
+          end
 
           check = ->(locked) { why_not(locked, item.klass, directory:) }
           result = DataQuality::Review.approve([ candidate.id ], by:, reason: reason(item), only_recommended: true, safe_check: check,
@@ -87,6 +95,11 @@ module DataQuality::SafeClasses
         skipped(item, "someone was deciding on it just then; try again")
       end
     end
+
+    # Takes a run's G6 lock (held to the end of the transaction). Safe
+    # acceptance takes it before counting; any approval path that should
+    # count against a run's allowance can take it too.
+    def lock_run(run_id) = Candidate.connection.execute("SELECT pg_advisory_xact_lock(#{RUN_LOCK}, (#{Integer(run_id)} % 2147483647)::int)")
 
     # Why a claim isn't safe in its class, or nil: every gate but the cap,
     # each read fresh (Accept asks this under the record's lock).
@@ -228,8 +241,7 @@ module DataQuality::SafeClasses
       def capped(items, config, claims, pending:, directory:)
         cap = CONFIG.fetch("cap")
         runs = claims.to_h { |candidate| [ candidate.id, candidate.crawl_run_id ] }
-        facts = directory.published_count_backed_by(source_ids: ::Source.where(source_kind: config.fetch("source_kind")).ids)
-        limit = [ cap.fetch("max_items"), (facts * cap.fetch("max_share")).floor ].min
+        limit, facts = limit_for(config, directory:)
         approved = Candidate.joins(:source).where(sources: { source_kind: config.fetch("source_kind") }, kind: config.fetch("kind"),
           status: "merged", crawl_run_id: runs.values.uniq).group(:crawl_run_id).count
         proposed = items.select(&:safe?).group_by { |item| runs[item.candidate_id] }.transform_values(&:size)
@@ -254,6 +266,27 @@ module DataQuality::SafeClasses
 
         Candidate.joins(:source).where(id: ids, sources: { source_kind: config.fetch("source_kind") },
           kind: config.fetch("kind"), crawl_run_id: runs.values.uniq).group(:crawl_run_id).count
+      end
+
+      # The run's limit and its source's public facts: [limit, facts].
+      def limit_for(config, directory:)
+        cap = CONFIG.fetch("cap")
+        facts = directory.published_count_backed_by(source_ids: ::Source.where(source_kind: config.fetch("source_kind")).ids)
+        [ [ cap.fetch("max_items"), (facts * cap.fetch("max_share")).floor ].min, facts ]
+      end
+
+      # At Accept, under the run's lock: why taking one more change from this
+      # claim's run would pass its limit (what the run already has approved,
+      # this click's earlier items included), or nil.
+      def over_cap(candidate, klass, directory:)
+        return unless candidate.crawl_run_id
+
+        config = CONFIG.fetch("classes").fetch(klass)
+        lock_run(candidate.crawl_run_id)
+        limit, = limit_for(config, directory:)
+        approved = Candidate.joins(:source).where(sources: { source_kind: config.fetch("source_kind") }, kind: config.fetch("kind"),
+          status: "merged", crawl_run_id: candidate.crawl_run_id).count
+        "its run already has #{approved} approved changes, the limit is #{limit}" if approved + 1 > limit
       end
 
       def label(name) = DataQuality::Claim::LABELS.fetch(name) { name.humanize(capitalize: false) }

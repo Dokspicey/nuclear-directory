@@ -24,4 +24,14 @@ class Directory::OpenCorrectionsTest < ActiveSupport::TestCase
     filed.update!(status: "closed", resolution: "fixed", decided_by: "human:tosin", decided_at: Time.current)
     refute Directory::Lookup.open_corrections?(type: "Facility", id: unit.id)
   end
+
+  test "a report filed at a page's address with a trailing slash counts, for a plant and a company" do
+    site = Facility.create!(name: "Imaginary Point")
+    company = Organization.create!(name: "Imaginary Fission")
+    report("/plants/#{site.slug}/")
+    report("/companies/#{company.slug}/?ref=x")
+
+    assert Directory::Lookup.open_corrections?(type: "Facility", id: site.id)
+    assert Directory::Lookup.open_corrections?(type: "Organization", id: company.id)
+  end
 end
