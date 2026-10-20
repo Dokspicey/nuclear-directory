@@ -22,7 +22,9 @@
     <% head_name = "#{named}, #{noun}" %>
     <% title = capture do %>
       <%= bucket_icon(category, size: 24) %>
-      <span class="nd-catcard__name" style="--chars: <%= label.length %>" title="<%= label %>" data-truncate><%= label %></span>
+      <%# A category label is one we write, so it fits: no ellipsis, no
+          data-truncate (DESIGN.md rule 5). The full name stays in the title. %>
+      <span class="nd-catcard__name" style="--chars: <%= label.length %>" title="<%= category.name %>"><%= label %></span>
     <% end %>
     <section class="nd-catcard nd-catcard--rows nd-catcard--compact nd-catcard--stack <%= bucket_class(category) %>" aria-label="<%= category.name %>"
              data-catstack-target="card" data-key="<%= category.key %>" data-label="<%= head_name %>">
