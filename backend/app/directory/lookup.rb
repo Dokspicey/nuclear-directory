@@ -123,8 +123,10 @@ module Directory
       else company.(record.organization)
       end
       CorrectionReport.where(status: %w[open reviewed])
-        # The page's own path: no query or fragment, and no format (/companies/x.html is /companies/x).
-        .where("regexp_replace(split_part(split_part(page_path, '?', 1), '#', 1), '\\.[a-z]+$', '') IN (:pages)", pages:).exists?
+        # The page's own path: no query or fragment, no trailing slash and no
+        # format (/companies/x/ and /companies/x.html are /companies/x).
+        .where("regexp_replace(regexp_replace(split_part(split_part(page_path, '?', 1), '#', 1), '/+$', ''), '\\.[a-z]+$', '') IN (:pages)", pages:)
+        .exists?
     end
 
     # A company's or a plant's public paths: today's, then its former ones
