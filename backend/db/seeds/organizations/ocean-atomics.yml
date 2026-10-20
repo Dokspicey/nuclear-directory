@@ -1,15 +1,9 @@
 # Seed research - 19 Oct 2026. Quotes copied from oceanatomics.com, read this session (home page and Terms of Use).
 name: Ocean Atomics
-legal_name: Ocean Atomics LLC
 aliases:
 - Ocean Atomics LLC
 website: https://oceanatomics.com
-hq:
-  city: Bethesda
-  state: MD
-  source_url: https://oceanatomics.com/terms-of-use
-  quote: Ocean Atomics LLC, 4500 East West Highway, Suite 150, Bethesda, MD 20814
-  confidence: 0.8
+hq: null
 country_code: US
 status: active
 roles:
@@ -24,7 +18,7 @@ technologies:
   confidence: 1.0
 relationships: []
 facilities: []
-notes: 'The HQ is the contact address in the company''s own Terms of Use (last updated 16 June 2026), so it is a stated address, not a statement that this is the headquarters; confidence 0.8 for that reason. Job listings on the home page also say Bethesda, MD. The home page names the leadership team; people are not recorded in the directory, so none is added. No facility, customer or funding source is stated on the site, so no links.'
+notes: 'HQ left blank (PM, 19 Oct): the only address is the contact line in its Terms of Use (4500 East West Highway, Suite 150, Bethesda, MD 20814), which is not a statement of headquarters. Job listings on the home page also say Bethesda, MD. The home page names the leadership team; people are not recorded in the directory, so none is added. No facility, customer or funding source is stated on the site, so no links.'
 description:
   text: American company designing and assembling a standardized nuclear power plant for maritime use, built on water-cooled reactors.
   source_url: https://oceanatomics.com
