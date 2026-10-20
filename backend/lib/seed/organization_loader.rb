@@ -167,6 +167,12 @@ module Seed
           hq_city: hq.filter_map { |entry| entry["city"].presence }.last, hq_state: hq.filter_map { |entry| entry["state"].presence }.last
         }
         attributes[:domain] = nil if shared.include?(Organization.domain_from(doc["website"]))
+        # An identifier, set only when the file gives it: a seed without one
+        # never clears a CIK set in the admin (#129).
+        attributes[:sec_cik] = doc["sec_cik"].to_s if doc["sec_cik"].present?
+        # A display label, set only when the file gives one: a seed without
+        # it never clears a short name set in the admin.
+        attributes[:short_name] = doc["short_name"] if doc["short_name"].present?
 
         items = [ *hq, *description_items(doc), legal ].compact.uniq
         # An unquoted legal name still finds a record an earlier seed loaded
@@ -295,6 +301,10 @@ module Seed
         if entry["other_names"].present?
           write("facilities.yml", :facility, { id: facility.id, aliases: entry["other_names"] }, [])
         end
+        # A display label, not a sourced fact (DATA.md, Names): no evidence.
+        if entry["short_name"].present?
+          write("facilities.yml", :facility, { id: facility.id, short_name: entry["short_name"] }, [])
+        end
         # An identifier, like its names: EIA's crawl finds the site by it
         # instead of proposing a second one (#229).
         if entry["eia_plant_id"].present?
@@ -323,9 +333,21 @@ module Seed
       # two places (a company's file and facilities.yml) with different
       # confidences, takes the higher everywhere. Otherwise each load would
       # write one, then the other, and a re-seed would report it changed.
+      # Each confidence is checked first (a number from 0 to 1): a bad one
+      # fails the load, never hidden behind a good one.
       def confidence_by_quote(items)
-        items.select { |item| item["source_url"] && item["confidence"] }.group_by { |item| [ item["source_url"], item["quote"] ] }
-          .transform_values { |cited| cited.map { |item| item["confidence"].to_d }.max }
+        cited = items.select { |item| item["source_url"] && !item["confidence"].nil? }
+        bad = cited.reject { |item| valid_confidence?(item["confidence"]) }
+        bad.each { |item| @errors << "#{item['source_url']}: confidence #{item['confidence'].inspect} isn't a number from 0 to 1 (quote #{item['quote'].to_s.truncate(60).inspect})" }
+        (cited - bad).group_by { |item| [ item["source_url"], item["quote"] ] }
+          .transform_values { |same| same.map { |item| BigDecimal(item["confidence"].to_s) }.max }
+      end
+
+      def valid_confidence?(value)
+        number = value.is_a?(Numeric) ? value : BigDecimal(value.to_s)
+        number.between?(0, 1)
+      rescue ArgumentError, TypeError
+        false
       end
 
       # A link an earlier seed published that this one marks pending goes back
