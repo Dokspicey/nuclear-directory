@@ -37,6 +37,59 @@ class HomeCardsTest < ApplicationSystemTestCase
     end
   end
 
+  test "on a touch screen the suggestions stay 28px tall, with a 44px tap area" do
+    resize_viewport(390, 844)
+    page.driver.browser.execute_cdp("Emulation.setTouchEmulationEnabled", enabled: true, maxTouchPoints: 5)
+    page.driver.browser.execute_cdp("Emulation.setEmulatedMedia", features: [ { name: "any-pointer", value: "coarse" } ])
+    visit root_path
+
+    sizes = page.evaluate_script(<<~JS)
+      (() => {
+        const pill = document.querySelector(".nd-home .nd-sugg"), tap = getComputedStyle(pill, "::after"), box = pill.getBoundingClientRect()
+        const x = box.left + box.width / 2
+        // A tap 6px above or below the pill still reaches it: the row doesn't clip its tap area.
+        const reaches = (y) => document.elementFromPoint(x, y)?.closest(".nd-sugg") === pill
+        return [matchMedia("(any-pointer: coarse)").matches, Math.round(box.height), tap.height, reaches(box.top - 6), reaches(box.bottom + 6)]
+      })()
+    JS
+    assert_equal [ true, 28, "44px", true, true ], sizes
+  ensure
+    page.driver.browser.execute_cdp("Emulation.setEmulatedMedia", features: [])
+    page.driver.browser.execute_cdp("Emulation.setTouchEmulationEnabled", enabled: false)
+  end
+
+  test "at 360 the search placeholder is a shorter one that fits; at 390 the full one" do
+    { 360 => "Search companies and plants", 390 => "Search a company, plant or site" }.each do |width, placeholder|
+      resize_viewport(width, 800)
+      visit root_path
+      input = find(".nd-home input[type=search]")
+      assert_equal placeholder, input[:placeholder], "at #{width}"
+      fits = page.evaluate_script(<<~JS)
+        (() => {
+          const input = document.querySelector(".nd-home input[type=search]"), style = getComputedStyle(input)
+          const canvas = document.createElement("canvas").getContext("2d")
+          canvas.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`
+          return [parseFloat(style.fontSize), canvas.measureText(input.placeholder).width <= input.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)]
+        })()
+      JS
+      assert_equal [ 16.0, true ], fits, "16px and uncut at #{width}"
+    end
+  end
+
+  test "back on the page after a narrow visit, widening restores the full placeholder" do
+    resize_viewport(360, 800)
+    visit root_path
+    assert_equal "Search companies and plants", find(".nd-home input[type=search]")[:placeholder]
+
+    # As a Turbo snapshot restore does: the same markup, short placeholder and all, connected afresh.
+    page.execute_script(<<~JS)
+      const box = document.querySelector(".nd-home .nd-searchbox")
+      box.replaceWith(box.cloneNode(true))
+    JS
+    resize_viewport(390, 844)
+    assert_equal "Search a company, plant or site", find(".nd-home input[type=search]")[:placeholder]
+  end
+
   test "on a phone the whole card header is the button, edge to edge" do
     resize_viewport(390, 844)
     visit root_path
