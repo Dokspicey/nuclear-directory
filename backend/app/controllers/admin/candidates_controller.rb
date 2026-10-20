@@ -70,7 +70,9 @@ class Admin::CandidatesController < Admin::BaseController
   def update
     item = DataQuality::Review.candidate(params[:id].to_i) or raise ActiveRecord::RecordNotFound
     # Only single values come from the form; lists (aliases) and nested ends are read-only.
-    scalars = editable_fields(item).reject { |name| item.payload[name].is_a?(Array) || item.payload[name].is_a?(Hash) } - read_only_fields(item)
+    # A read-only field the form doesn't show is still passed on, so Review
+    # drops it unchanged and refuses it changed (an older page, say).
+    scalars = editable_fields(item).reject { |name| item.payload[name].is_a?(Array) || item.payload[name].is_a?(Hash) }
     values = params.fetch(:values, {}).permit(*scalars).to_h.transform_values(&:presence)
     result = DataQuality::Review.edit_and_approve(item.candidate_id, attributes: values, by: actor,
       reason: params[:note].presence)
