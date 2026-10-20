@@ -368,6 +368,9 @@
       mask-image: linear-gradient(to right, #000 85%, transparent); -webkit-mask-image: linear-gradient(to right, #000 85%, transparent); }
     .nd-home .nd-suggs::-webkit-scrollbar { display: none; }
     .nd-home .nd-sugg { flex: none; white-space: nowrap; }
+    /* The row scrolls inside itself and clips whatever is drawn outside it,
+       so the focus ring goes inside the pill. */
+    .nd-home .nd-sugg:focus-visible { outline-offset: -2px; }
     .nd-home__wordmark .nd-wordmark__svg { height: 34px; }
     /* Search near the top, so the keyboard doesn't cover the results. */
     .nd-home { padding: max(var(--nd-space-6), env(safe-area-inset-top)) var(--nd-space-4) var(--nd-space-4); gap: var(--nd-space-4); }
