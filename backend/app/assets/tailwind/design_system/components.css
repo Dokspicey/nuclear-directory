@@ -268,7 +268,8 @@
   /* 48px tall (60px at 1440 and up); 34px on phones (#362). */
   .nd-home__wordmark .nd-wordmark__svg { height: 48px; max-width: 100%; }
   .nd-home__search { width: 100%; max-width: 720px; display: flex; flex-direction: column; gap: 14px; }
-  .nd-home__cats { width: 100%; display: flex; flex-direction: column; gap: 14px; }
+  /* Compact, as before the cards (Tosin, 19 Oct): never wider than 960px, centred. */
+  .nd-home__cats { width: 100%; max-width: 960px; display: flex; flex-direction: column; gap: 14px; }
   .nd-home .nd-searchbox--large .nd-search { height: 52px; }
   .nd-home .nd-sugg { height: 28px; box-sizing: border-box; padding-top: 0; padding-bottom: 0; }
   @media (min-width: 1440px) {
@@ -277,7 +278,7 @@
     .nd-home .nd-searchbox--large .nd-search { height: 56px; }
   }
 
-  /* Category cards (#362). Wide screens: 5 columns of compact cards, 2 rows,
+  /* Category cards (#362). Wide screens: 3 columns of compact cards in a grid 960px wide at most,
      equal heights (nd-catgrid, nd-catcard--rows --compact). Phones: an open
      stack with sticky headers that collapse (nd-catstack, nd-catcard--stack).
      No lines between rows: spacing separates them, and a row tints on hover.
@@ -314,9 +315,10 @@
     .nd-catgrid { gap: 14px; }
     .nd-catcard__row, .nd-catcard__filler, .nd-catcard__more { height: 32px; }
   }
-  /* 1024-1279: 3 columns, so titles and names keep a readable size. */
-  @media (min-width: 1024px) and (max-width: 1279px) {
-    .nd-catgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  /* The home grid is 960px wide at most, so it is 3 columns from 1024px up;
+     /design's example grid sets its own. */
+  @media (min-width: 1024px) {
+    .nd-home .nd-catgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   }
   /* Tablets: 2 columns of the same cards; scrolling is fine here. */
   @media (min-width: 640px) and (max-width: 1023px) {
