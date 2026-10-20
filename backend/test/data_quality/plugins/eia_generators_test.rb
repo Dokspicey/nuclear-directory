@@ -27,10 +27,14 @@ class DataQuality::Plugins::EiaGeneratorsTest < ActiveSupport::TestCase
 
   # Enrichment attaches only to a verified NRC unit (#118); real NRC units
   # reach this point through their own publication pipeline, so the helper
-  # creates them verified by default. Pass verified: false to simulate a
-  # unit still in review.
+  # creates them verified by default. Agent-verified by default, so EIA can
+  # still fill in or overwrite the fixture's placeholder values (NRC state
+  # for a border plant, say) without the protect_human_verified check
+  # treating them as a person's decision. Tests that need a human decision
+  # pass verified_by: "human:…" or call verify!/reject! themselves. Pass
+  # verified: false to simulate a unit still in review.
   def nrc_unit(name, docket, state, verified: true, **attributes)
-    status = verified ? { verification_status: "verified", verified_by: "human:test", verified_at: Time.current } : {}
+    status = verified ? { verification_status: "verified", verified_by: "agent:test", verified_at: Time.current } : {}
     Facility.create!(name: name, nrc_docket: docket, state: state, facility_type: "power_reactor", **status, **attributes)
   end
 
@@ -275,6 +279,20 @@ class DataQuality::Plugins::EiaGeneratorsTest < ActiveSupport::TestCase
     vogtle_1 = Candidate.where(source: source).find { |c| c.payload["identify"]&.values_at("name", "unit") == %w[Vogtle 1] }
     assert vogtle_1.status_needs_review?
     assert_match "which was rejected", vogtle_1.notes
+  end
+
+  # #118: an unpublished unit is a person's decision (e.g. a merged-away
+  # duplicate) that won't come back on its own, so the enrichment claim
+  # settles instead of waiting forever on every run.
+  test "an unpublished unit isn't enriched either; the generator goes to review" do
+    nrc_unit("Vogtle 1", "05000424", "GA").unpublish!(by: "human:tosin")
+    crawl!
+
+    match_and_verify!
+
+    vogtle_1 = Candidate.where(source: source).find { |c| c.payload["identify"]&.values_at("name", "unit") == %w[Vogtle 1] }
+    assert vogtle_1.status_needs_review?
+    assert_match "which was unpublished", vogtle_1.notes
   end
 
   test "a workbook that can't be read marks the source for a human" do
