@@ -210,6 +210,8 @@ The admin's Live screen and the nightly `data_quality:audit` are planned (Admin 
 - **Deal terms:** one term per link (or company), kind and award ID; an award needs an amount, a start date and an award ID; a term on a company itself is a funding round; dates in order; no negative amounts; no automated term on a rejected or unpublished link.
 - **SEC CIK:** 10 digits, zero-padded, unique among companies.
 
+- **Read-only access:** Metabase's read-only role reads only the tables on `Metabase::ReadonlyRole::READABLE_TABLES`, never sign-in data, visitors' correction reports or the deploy's records. There are no default privileges. A migration that creates a public-data table adds it to the list and grants it (`Metabase::ReadonlyRole.grant!`); a test fails while any table is on neither list (PM and Data Quality, 18 Oct).
+
 ### Audited (planned: the Live screen and `data_quality:audit`, #277)
 
 | Check | Severity | Rule |
