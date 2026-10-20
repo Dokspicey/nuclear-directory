@@ -31,7 +31,7 @@
       <% value = params.dig(:values, name) || @item.payload[name] %>
       <div class="nd-field">
         <%= label_tag "values_#{name}", field_label(name), class: "type-body-strong" %>
-        <% if value.is_a?(Array) || value.is_a?(Hash) %>
+        <% if value.is_a?(Array) || value.is_a?(Hash) || @read_only.include?(name) %>
           <span><%= field_value(value) %></span>
           <span class="type-small text-ink-muted">Can't be edited here.</span>
         <% else %>
