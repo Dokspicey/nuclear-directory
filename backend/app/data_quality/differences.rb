@@ -144,7 +144,7 @@ module DataQuality::Differences
       return number.to_s("F").delete_suffix(".0")
     end
     return value.to_s.strip.upcase if name == "country_code"
-    return Organization.cik_from(value).to_s if name == "sec_cik"
+    return DataQuality::DirectoryClient.normalize_cik(value).to_s if name == "sec_cik"
     return value.to_s.strip unless name == "domain" && value.present?
 
     text = value.to_s.strip

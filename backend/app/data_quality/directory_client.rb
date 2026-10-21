@@ -49,6 +49,11 @@ class DataQuality::DirectoryClient
     @fact_writer = fact_writer
   end
 
+  # Normalizes a CIK the way the directory stores them (10 zero-padded
+  # digits), so Differences can compare "320193" and "0000320193" (#402)
+  # without naming the Organization model directly (boundary_test).
+  def self.normalize_cik(value) = Organization.cik_from(value)
+
   # Exact lookups. Pass one keyword; returns a Record or nil.
   def organization(name: nil, domain: nil, sec_cik: nil)
     record("Organization", lookup.organization(name:, domain:, sec_cik:))
