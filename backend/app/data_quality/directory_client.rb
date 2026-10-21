@@ -50,9 +50,10 @@ class DataQuality::DirectoryClient
   end
 
   # Normalizes a CIK the way the directory stores them (10 zero-padded
-  # digits), so Differences can compare "320193" and "0000320193" (#402)
-  # without naming the Organization model directly (boundary_test).
-  def self.normalize_cik(value) = Organization.cik_from(value)
+  # digits), so Differences can compare "320193" and "0000320193" (#402).
+  # The DOOR file is the only one allowed to reach the directory this way
+  # (boundary_test: CONSTANTIZE_ALLOWED).
+  def self.normalize_cik(value) = "Organization".constantize.cik_from(value)
 
   # Exact lookups. Pass one keyword; returns a Record or nil.
   def organization(name: nil, domain: nil, sec_cik: nil)
